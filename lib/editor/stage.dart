@@ -11,6 +11,7 @@ import 'package:openlauncher/editor/layer_stack.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/resize_handles.dart';
 import 'package:openlauncher/editor/selection.dart';
+import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
@@ -194,16 +195,24 @@ class _StageState extends ConsumerState<Stage> {
       }
       drop = Drop(pane.id, before: before);
     } else {
-      // Held by its middle, and set down on whole cells.
-      final w = item.w.roundToDouble().clamp(1, pane.columns).toDouble();
-      final h = item.h.roundToDouble().clamp(1, Pane.maxRows).toDouble();
+      // Held by its middle, and set down on whole cells; or, where things
+      // can be anywhere and are not being kept to cells, just about where
+      // it is let go. Only there does it keep a size that is not whole.
+      final free = pane.mode == PaneMode.free;
+      final step = stepIn(pane, snap: ref.read(snapProvider));
+      final w = (free ? item.w : item.w.roundToDouble())
+          .clamp(free ? Pane.minFreeSpan : 1, pane.columns)
+          .toDouble();
+      final h = (free ? item.h : item.h.roundToDouble())
+          .clamp(free ? Pane.minFreeSpan : 1, Pane.maxRows)
+          .toDouble();
       final cell = metrics.cellAt(
         at - Offset(metrics.across(w) / 2, metrics.down(h) / 2),
       );
       drop = Drop(
         pane.id,
-        x: cell.dx.roundToDouble().clamp(0, pane.columns - w).toDouble(),
-        y: cell.dy.roundToDouble().clamp(0, 999).toDouble(),
+        x: snapTo(cell.dx, step).clamp(0, pane.columns - w).toDouble(),
+        y: snapTo(cell.dy, step).clamp(0, 999).toDouble(),
       );
     }
 
@@ -251,18 +260,21 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
+  /// The smallest a thing can be made, in cells, when sizes go by [step].
+  static double _least(double step) => step < 1 ? Pane.minFreeSpan : 1;
+
   /// The handles that can do something for a thing placed at [placed] in
   /// [pane]: an edge has one if it can go outwards, there being room in the
   /// pane, or inwards, the thing being more than a cell across; a corner
   /// has one if both its edges do.
-  static Set<ResizeHandle> _handles(Placement placed, Pane pane) {
+  static Set<ResizeHandle> _handles(Placement placed, Pane pane, double least) {
     bool across(int side) =>
         side == 0 ||
-        placed.w > 1 ||
+        placed.w > least ||
         (side < 0 ? placed.x > 0 : placed.x + placed.w < pane.columns);
     bool down(int side) =>
         side == 0 ||
-        placed.h > 1 ||
+        placed.h > least ||
         (side < 0 ? placed.y > 0 : placed.h < Pane.maxRows);
     return {
       for (final handle in ResizeHandle.values)
@@ -282,20 +294,30 @@ class _StageState extends ConsumerState<Stage> {
     if (picked == null || layout == null) return;
     final (:found, :placed, :metrics, rect: _) = picked;
     final pane = found.parent;
-    final columns = metrics.cellAt(moved).dx.round();
-    final rows = metrics.cellAt(moved).dy.round();
-    // An edge can go no further than leaves one cell, or than the pane.
+    final by = metrics.cellAt(moved);
+    final columns = by.dx.round(), rows = by.dy.round();
+    // The edge that is held goes to the nearest line: of the cells, or
+    // where things are not kept to cells, of small parts of one. It can go
+    // no further than leaves the least there can be, or than the pane.
+    final step = stepIn(pane, snap: ref.read(snapProvider));
+    final least = _least(step);
     final left = handle.dx < 0
-        ? (placed.x + columns).clamp(0, placed.x + placed.w - 1)
+        ? snapTo(placed.x + by.dx, step).clamp(0, placed.x + placed.w - least)
         : placed.x;
     final top = handle.dy < 0
-        ? (placed.y + rows).clamp(0, placed.y + placed.h - 1)
+        ? snapTo(placed.y + by.dy, step).clamp(0, placed.y + placed.h - least)
         : placed.y;
     final right = handle.dx > 0
-        ? (placed.x + placed.w + columns).clamp(left + 1, pane.columns)
+        ? snapTo(
+            placed.x + placed.w + by.dx,
+            step,
+          ).clamp(left + least, pane.columns)
         : placed.x + placed.w;
     final bottom = handle.dy > 0
-        ? (placed.y + placed.h + rows).clamp(top + 1, top + Pane.maxRows)
+        ? snapTo(
+            placed.y + placed.h + by.dy,
+            step,
+          ).clamp(top + least, top + Pane.maxRows)
         : placed.y + placed.h;
     // Where things flow there is no place to keep or change, only a size:
     // any handle pulled outwards makes it bigger by that much.
@@ -400,6 +422,12 @@ class _StageState extends ConsumerState<Stage> {
                             handles: _handles(
                               picked.placed,
                               picked.found.parent,
+                              _least(
+                                stepIn(
+                                  picked.found.parent,
+                                  snap: ref.watch(snapProvider),
+                                ),
+                              ),
                             ),
                             onDragged: _resize,
                             onDone: _resizeDone,
