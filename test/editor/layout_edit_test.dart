@@ -301,6 +301,18 @@ void main() {
       );
     });
 
+    test('an item is given a new place and size at once', () {
+      // Its left edge pulled one cell to the left... there is none: over b.
+      final reshaped = reshapeItem(layout, 'b', x: 0, y: 0, w: 2, h: 1);
+      final b = findItems(reshaped, {'b'}).single.item;
+      expect((b.x, b.y, b.w), (0, 0, 2));
+      expect(at(reshaped, 'a'), isNot((0, 0)));
+      // Where things flow, only the size is taken.
+      final flowed = reshapeItem(layout, 'd', x: 3, y: 3, w: 1, h: 2);
+      final d = findItems(flowed, {'d'}).single.item;
+      expect((d.x, d.y, d.w, d.h), (null, null, 1, 2));
+    });
+
     test('several are resized together, each in its own pane', () {
       final resized = resizeItems(layout, {'a', 'c'}, h: 2);
       expect(

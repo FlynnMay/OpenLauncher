@@ -5,9 +5,11 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/actions.dart';
+import 'package:openlauncher/editor/after_frame.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layer_stack.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/resize_handles.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
@@ -221,6 +223,124 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
+  /// The one thing picked out, if it is somewhere its cells can be found:
+  /// where it is on the screen, and what is needed to work out a new size
+  /// for it from how far a handle is dragged.
+  ({Found found, Placement placed, PaneMetrics metrics, Rect rect})? _picked() {
+    final layout = ref.read(configProvider).value?.layout;
+    final ids = ref.read(selectionProvider);
+    if (layout == null || ids.length != 1) return null;
+    final found = findItems(layout, ids).singleOrNull;
+    final grid = _box(_grids[found?.parent.id]), screen = _box(_screen);
+    if (found == null || grid == null || screen == null) return null;
+    final pane = found.parent;
+    final placed = placeItems(
+      pane.items,
+      pane.columns,
+      pane.mode,
+    )[pane.items.indexOf(found.item)];
+    final metrics = PaneMetrics(pane, grid.size.width);
+    return (
+      found: found,
+      placed: placed,
+      metrics: metrics,
+      rect: MatrixUtils.transformRect(
+        grid.getTransformTo(screen),
+        metrics.rectOf(placed),
+      ),
+    );
+  }
+
+  /// The handles that can do something for a thing placed at [placed] in
+  /// [pane]: an edge has one if it can go outwards, there being room in the
+  /// pane, or inwards, the thing being more than a cell across; a corner
+  /// has one if both its edges do.
+  static Set<ResizeHandle> _handles(Placement placed, Pane pane) {
+    bool across(int side) =>
+        side == 0 ||
+        placed.w > 1 ||
+        (side < 0 ? placed.x > 0 : placed.x + placed.w < pane.columns);
+    bool down(int side) =>
+        side == 0 ||
+        placed.h > 1 ||
+        (side < 0 ? placed.y > 0 : placed.h < Pane.maxRows);
+    return {
+      for (final handle in ResizeHandle.values)
+        if (across(handle.dx) && down(handle.dy)) handle,
+    };
+  }
+
+  /// What the layout would be with the handle let go where it is, shown
+  /// by the marker until it is.
+  Layout? _resized;
+
+  /// Works out, in whole cells, the size and place the picked-out thing
+  /// has with [handle] dragged [moved] from where it was taken hold of.
+  void _resize(ResizeHandle handle, Offset moved) {
+    final picked = _picked();
+    final layout = ref.read(configProvider).value?.layout;
+    if (picked == null || layout == null) return;
+    final (:found, :placed, :metrics, rect: _) = picked;
+    final pane = found.parent;
+    final columns = metrics.cellAt(moved).dx.round();
+    final rows = metrics.cellAt(moved).dy.round();
+    // An edge can go no further than leaves one cell, or than the pane.
+    final left = handle.dx < 0
+        ? (placed.x + columns).clamp(0, placed.x + placed.w - 1)
+        : placed.x;
+    final top = handle.dy < 0
+        ? (placed.y + rows).clamp(0, placed.y + placed.h - 1)
+        : placed.y;
+    final right = handle.dx > 0
+        ? (placed.x + placed.w + columns).clamp(left + 1, pane.columns)
+        : placed.x + placed.w;
+    final bottom = handle.dy > 0
+        ? (placed.y + placed.h + rows).clamp(top + 1, top + Pane.maxRows)
+        : placed.y + placed.h;
+    // Where things flow there is no place to keep or change, only a size:
+    // any handle pulled outwards makes it bigger by that much.
+    final flows = pane.mode == PaneMode.flow;
+    final next = reshapeItem(
+      layout,
+      found.item.id,
+      x: left * 1.0,
+      y: top * 1.0,
+      w: flows
+          ? (placed.w + handle.dx * columns).clamp(1, pane.columns) * 1.0
+          : (right - left) * 1.0,
+      h: flows
+          ? (placed.h + handle.dy * rows).clamp(1, Pane.maxRows) * 1.0
+          : (bottom - top) * 1.0,
+    );
+    final grid = _box(_grids[pane.id]), screen = _box(_screen);
+    final after = findItems(next, {found.item.id}).single;
+    if (grid == null || screen == null) return;
+    setState(() {
+      _resized = next;
+      // Asked of the layout, as a drop is, so that what is shown is what
+      // letting go gives.
+      _marker = MatrixUtils.transformRect(
+        grid.getTransformTo(screen),
+        metrics.rectOf(
+          placeItems(
+            after.parent.items,
+            after.parent.columns,
+            after.parent.mode,
+          )[after.parent.items.indexOf(after.item)],
+        ),
+      );
+    });
+  }
+
+  void _resizeDone({required bool kept}) {
+    final next = _resized;
+    setState(() {
+      _resized = null;
+      _marker = null;
+    });
+    if (kept && next != null) changeLayout(context, ref, (_) => next);
+  }
+
   void _mark(Rect? marker) {
     if (marker != _marker) setState(() => _marker = marker);
   }
@@ -260,6 +380,33 @@ class _StageState extends ConsumerState<Stage> {
               if (editing)
                 Positioned.fill(
                   child: LayerStack(navigator: TvScreen.navigator),
+                ),
+              if (editing)
+                Positioned.fill(
+                  child: AfterFrame(
+                    read: _picked,
+                    same: (a, b) =>
+                        a?.rect == b?.rect &&
+                        a?.found.item.id == b?.found.item.id &&
+                        a?.found.parent.mode == b?.found.parent.mode,
+                    builder: (context, picked) => Stack(
+                      children: [
+                        if (picked != null)
+                          ResizeHandles(
+                            // While one is held, around where it would be.
+                            rect: _resized == null
+                                ? picked.rect
+                                : _marker ?? picked.rect,
+                            handles: _handles(
+                              picked.placed,
+                              picked.found.parent,
+                            ),
+                            onDragged: _resize,
+                            onDone: _resizeDone,
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               if (_marker case final marker?)
                 Positioned.fromRect(

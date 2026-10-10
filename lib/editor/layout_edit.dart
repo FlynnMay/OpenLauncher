@@ -329,6 +329,36 @@ Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
       return next;
     });
 
+/// [layout] with the item [id] made [w] by [h] cells and, in a pane where
+/// things have places, put at [x], [y]. In a pane with cells, what is then
+/// in its way moves aside.
+Layout reshapeItem(
+  Layout layout,
+  String id, {
+  required double w,
+  required double h,
+  double? x,
+  double? y,
+}) => _rebuilt(layout, (pane, items) {
+  if (!items.any((item) => item.id == id)) return items;
+  final flows = pane.mode == PaneMode.flow;
+  final next = [
+    for (final item in items)
+      if (item.id == id)
+        item.sized(
+          w,
+          h,
+          x: flows ? null : x ?? item.x,
+          y: flows ? null : y ?? item.y,
+        )
+      else
+        item,
+  ];
+  return pane.mode == PaneMode.grid
+      ? settle(next, pane.columns, fixed: id)
+      : next;
+});
+
 /// [pane] placing its items the [mode] way, each staying where it was as
 /// far as that way allows.
 Pane withMode(Pane pane, PaneMode mode) {

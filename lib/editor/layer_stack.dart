@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/editor/after_frame.dart';
 import 'package:openlauncher/editor/layers.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
@@ -46,24 +47,6 @@ class LayerStack extends ConsumerStatefulWidget {
 }
 
 class _LayerStackState extends ConsumerState<LayerStack> {
-  List<_Move> _moves = const [];
-  bool _watching = false;
-
-  /// Looks again after every frame while there is something to show: where
-  /// things are changes with scrolling, popups, rails and the layout, none
-  /// of which say so. Looking does not itself cause a frame.
-  void _watch() {
-    if (_watching) return;
-    _watching = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _watching = false;
-      if (!mounted || ref.read(layersProvider).isEmpty) return;
-      final moves = _find();
-      if (!listEquals(moves, _moves)) setState(() => _moves = moves);
-      _watch();
-    });
-  }
-
   /// Every move the D-pad can make on the screen as it is now, found the
   /// way the launcher finds it: from what can take the focus on the screen
   /// in front, by the launcher's own rule.
@@ -118,16 +101,21 @@ class _LayerStackState extends ConsumerState<LayerStack> {
     final layers = ref.watch(layersProvider);
     final selected = ref.watch(selectionProvider);
     if (layers.isEmpty) return const SizedBox.shrink();
-    _watch();
-    return IgnorePointer(
-      child: CustomPaint(
-        painter: _MovesPainter([
-          for (final move in _moves)
-            // With things picked out, only where the focus goes from them.
-            if (layers.contains(move.layer) &&
-                (selected.isEmpty || selected.contains(move.item)))
-              move,
-        ]),
+    // Where things are changes with scrolling, popups, rails and the
+    // layout, none of which say so: looked at again after every frame.
+    return AfterFrame<List<_Move>>(
+      read: _find,
+      same: listEquals,
+      builder: (context, moves) => IgnorePointer(
+        child: CustomPaint(
+          painter: _MovesPainter([
+            for (final move in moves ?? const <_Move>[])
+              // With things picked out, only where the focus goes from them.
+              if (layers.contains(move.layer) &&
+                  (selected.isEmpty || selected.contains(move.item)))
+                move,
+          ]),
+        ),
       ),
     );
   }
