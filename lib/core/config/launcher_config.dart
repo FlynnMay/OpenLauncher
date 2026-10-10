@@ -43,6 +43,8 @@ class LauncherConfig {
   LauncherConfig({
     Layout? layout,
     this.iconOverrides = const {},
+    this.iconSources = const {},
+    this.names = const {},
     this.wallpaper,
     this.contextMenu = CardAction.values,
     this.toasts = const ToastOptions(),
@@ -54,6 +56,12 @@ class LauncherConfig {
   /// Card id -> absolute path of a user-chosen image. Cards that open a
   /// popup are keyed `panel:<panel id>`.
   final Map<String, String> iconOverrides;
+
+  /// Card id -> id of the card whose picture it shows instead of its own.
+  final Map<String, String> iconSources;
+
+  /// Card id -> the name the user gave it.
+  final Map<String, String> names;
 
   /// Absolute path of the image or video shown behind the home screen, or
   /// null for a plain background.
@@ -69,6 +77,8 @@ class LauncherConfig {
   LauncherConfig copyWith({
     Layout? layout,
     Map<String, String>? iconOverrides,
+    Map<String, String>? iconSources,
+    Map<String, String>? names,
     // Nullable, so "not given" needs its own marker.
     Object? wallpaper = _keep,
     List<CardAction>? contextMenu,
@@ -76,6 +86,8 @@ class LauncherConfig {
   }) => LauncherConfig(
     layout: layout ?? this.layout,
     iconOverrides: iconOverrides ?? this.iconOverrides,
+    iconSources: iconSources ?? this.iconSources,
+    names: names ?? this.names,
     wallpaper: identical(wallpaper, _keep)
         ? this.wallpaper
         : wallpaper as String?,
@@ -88,6 +100,8 @@ class LauncherConfig {
     iconOverrides: {
       ...?(json['iconOverrides'] as Map?)?.cast<String, String>(),
     },
+    iconSources: _strings(json['iconSources']),
+    names: _strings(json['names']),
     wallpaper: json['wallpaper'] as String?,
     contextMenu: switch (json['contextMenu']) {
       final List<Object?> names => [
@@ -100,6 +114,12 @@ class LauncherConfig {
       _ => const ToastOptions(),
     },
   );
+
+  static Map<String, String> _strings(Object? json) => {
+    if (json is Map)
+      for (final MapEntry(:key, :value) in json.entries)
+        if (key is String && value is String) key: value,
+  };
 
   static Layout _savedLayout(Map<String, dynamic> json) {
     try {
@@ -125,6 +145,8 @@ class LauncherConfig {
   Map<String, dynamic> toJson() => {
     'layout': layout.toJson(),
     'iconOverrides': iconOverrides,
+    'iconSources': iconSources,
+    'names': names,
     'wallpaper': ?wallpaper,
     'contextMenu': [for (final action in contextMenu) action.name],
     'toasts': toasts.toJson(),

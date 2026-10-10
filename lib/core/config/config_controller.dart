@@ -41,11 +41,35 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
       _update((c) => c.copyWith(wallpaper: path));
 
   /// Sets a custom image for a card; pass null to return to the automatic one.
+  /// Either way the card stops showing another card's picture.
   Future<void> setIconOverride(String id, String? path) => _update(
     (c) => c.copyWith(
       iconOverrides: path == null
           ? ({...c.iconOverrides}..remove(id))
           : {...c.iconOverrides, id: path},
+      iconSources: {...c.iconSources}..remove(id),
     ),
   );
+
+  /// Makes card [id] show the picture of card [from]; null gives it its own
+  /// back.
+  Future<void> setIconSource(String id, String? from) => _update(
+    (c) => c.copyWith(
+      iconSources: from == null
+          ? ({...c.iconSources}..remove(id))
+          : {...c.iconSources, id: from},
+    ),
+  );
+
+  /// Names a card; null or blank returns it to the name the device gives it.
+  Future<void> setName(String id, String? name) {
+    final trimmed = name?.trim() ?? '';
+    return _update(
+      (c) => c.copyWith(
+        names: trimmed.isEmpty
+            ? ({...c.names}..remove(id))
+            : {...c.names, id: trimmed},
+      ),
+    );
+  }
 }

@@ -38,6 +38,37 @@ void main() {
       expect(cards.single.iconPath, '/custom.png');
       expect(cards.single.wideIcon, isTrue);
     });
+
+    test('a card can show the picture of another', () {
+      final cards = arrangeCards(
+        [_card('Plex', icon: '/plex.png'), _card('Shim', icon: '/shim.png')],
+        LauncherConfig(
+          iconOverrides: {'app:Plex': '/custom.png'},
+          // Plex borrowing back is not followed, and a missing card is
+          // ignored.
+          iconSources: {'app:Shim': 'app:Plex', 'app:Plex': 'app:Shim'},
+        ),
+      );
+      final shim = cards.firstWhere((c) => c.id == 'app:Shim');
+      expect(shim.iconPath, '/custom.png');
+      expect(shim.wideIcon, isTrue);
+      expect(shim.label, 'Shim');
+      expect(cards.firstWhere((c) => c.id == 'app:Plex').iconPath, '/shim.png');
+
+      final alone = arrangeCards([
+        _card('Shim', icon: '/shim.png'),
+      ], LauncherConfig(iconSources: {'app:Shim': 'app:Gone'}));
+      expect(alone.single.iconPath, '/shim.png');
+    });
+
+    test('a custom name replaces the label and decides the order', () {
+      final cards = arrangeCards([
+        _card('Plex'),
+        _card('alpha'),
+      ], LauncherConfig(names: {'app:alpha': 'Zebra'}));
+      expect(cards.map((c) => c.label), ['Plex', 'Zebra']);
+      expect(cards.last.id, 'app:alpha');
+    });
   });
 
   group('providers', () {

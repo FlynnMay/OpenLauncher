@@ -47,7 +47,14 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
           'id': card.id,
           'kind': card.kind.name,
           'label': card.label,
-          'customIcon': config.iconOverrides.containsKey(card.id),
+          // Whether the user chose the name, rather than the device.
+          'renamed': config.names.containsKey(card.id),
+          // An uploaded picture, or another card's.
+          'customIcon':
+              config.iconOverrides.containsKey(card.id) ||
+              config.iconSources.containsKey(card.id),
+          // The card whose picture this one shows, if any.
+          'iconFrom': config.iconSources[card.id],
           'wide': card.wideIcon,
           // Line art, drawn straight on the wallpaper with no card behind.
           'bare': card.iconPath == null && card.svg != null,
@@ -108,6 +115,7 @@ class ConfigApi {
   ConfigApi(this._ref);
 
   static const maxIconBytes = 8 * 1024 * 1024;
+  static const maxNameLength = 60;
   static const _json = {'content-type': 'application/json; charset=utf-8'};
 
   final Ref _ref;
@@ -146,6 +154,10 @@ class ConfigApi {
       ('PUT', 'api/layout') => _setLayout(await _body(request)),
       ('PUT', 'api/options') => _setOptions(await _body(request)),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
+      ('PUT', 'api/card') => _withCard(
+        id,
+        (id) async => _setCard(id, await _body(request)),
+      ),
       ('GET', 'api/icon') => _withPicture(id, _icon),
       ('PUT', 'api/icon') => _withPicture(id, (id) => _uploadIcon(id, request)),
       ('DELETE', 'api/icon') => _withPicture(id, (id) async {
@@ -213,6 +225,32 @@ class ConfigApi {
         await _ref.read(customIconsProvider).clear(key);
       }
     }
+    return _ok();
+  }
+
+  /// Sets a card's `name` and the card it takes its picture from
+  /// (`iconFrom`); null undoes either, and whichever the body leaves out
+  /// stays as it is.
+  Future<Response> _setCard(String id, Map<String, Object?> body) async {
+    final config = _ref.read(configProvider.notifier);
+    final name = body['name'], from = body['iconFrom'];
+    if (name is! String?) {
+      throw const FormatException('"name" must be text or null');
+    }
+    if (name != null && name.trim().length > maxNameLength) {
+      throw const FormatException('That name is too long');
+    }
+    if (body.containsKey('iconFrom')) {
+      final cards = await _ref.read(allCardsProvider.future);
+      if (from != null &&
+          (from == id || !cards.any((card) => card.id == from))) {
+        throw const FormatException('"iconFrom" must name another card');
+      }
+      // An uploaded picture is replaced by the borrowed one.
+      await _ref.read(customIconsProvider).clear(id);
+      if (from is String) await config.setIconSource(id, from);
+    }
+    if (body.containsKey('name')) await config.setName(id, name);
     return _ok();
   }
 

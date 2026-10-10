@@ -61,7 +61,7 @@ class TvInputsNotifier extends _DeviceListNotifier<TvInput> {
 }
 
 /// Every card the device offers, removed ones included, with the user's
-/// pictures applied. Inputs come before apps, each alphabetically. Where
+/// pictures and names applied. Inputs come before apps, each alphabetically. Where
 /// they are shown is up to the layout.
 final allCardsProvider = FutureProvider<List<LauncherCard>>((ref) async {
   final apps = await ref.watch(installedAppsProvider.future);
@@ -90,15 +90,15 @@ final allCardsProvider = FutureProvider<List<LauncherCard>>((ref) async {
   return arrangeCards(available, config);
 });
 
-/// Swaps in the user's pictures and sorts the cards the device offers:
-/// inputs before apps, each alphabetically.
+/// Swaps in the user's pictures and names and sorts the cards the device
+/// offers: inputs before apps, each alphabetically.
 List<LauncherCard> arrangeCards(
   List<LauncherCard> available,
   LauncherConfig config,
 ) {
-  final cards = [
+  final pictured = {
     for (final card in available)
-      switch (config.iconOverrides[card.id]) {
+      card.id: switch (config.iconOverrides[card.id]) {
         null => card,
         // Custom art is assumed to be drawn for the full card.
         final path => LauncherCard(
@@ -110,6 +110,21 @@ List<LauncherCard> arrangeCards(
           wideIcon: true,
         ),
       },
+  };
+  final cards = [
+    for (var card in pictured.values)
+      () {
+        // The other card's picture as it would show by itself: a card that
+        // borrows in turn is not followed, so there are no chains or loops.
+        // A card whose source is gone keeps its own until it is back.
+        if (pictured[config.iconSources[card.id]] case final source?) {
+          card = card.withPictureOf(source);
+        }
+        if (config.names[card.id] case final name?) {
+          card = card.withLabel(name);
+        }
+        return card;
+      }(),
   ];
   cards.sort((a, b) {
     if (a.kind != b.kind) return a.kind.index.compareTo(b.kind.index);

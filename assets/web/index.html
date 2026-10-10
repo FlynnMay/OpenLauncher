@@ -351,6 +351,7 @@ async function api(method, path, body, headers) {
   }
 }
 
+const setCard = (card, changes) => api('PUT', '/api/card' + idQuery(card.id), ...json(changes));
 const json = (value) => [JSON.stringify(value), { 'content-type': 'application/json' }];
 const idQuery = (id) => '?id=' + encodeURIComponent(id);
 const newId = (prefix) => prefix + Math.random().toString(36).slice(2, 9);
@@ -1645,7 +1646,14 @@ function itemsBar(found) {
   if (one && one.item.kind === 'card') {
     const card = cardsById[one.item.ref];
     parts.push(button('Picture…', `Choose a picture for ${card.label}`, () => { uploadTarget = card.id; fileInput.click(); }),
-      card.customIcon ? button('Reset picture', `Use the automatic picture for ${card.label}`, () => api('DELETE', '/api/icon' + idQuery(card.id))) : null);
+      // Another card's picture, for an app that has a poor one of its own.
+      select([['', 'Picture from…'], ...state.cards.filter((other) => other.id !== card.id && other.icon).map((other) => [other.id, other.label])],
+        cardsById[card.iconFrom] ? card.iconFrom : '', (from) => setCard(card, { iconFrom: from || null }), `Show another app's picture on ${card.label}`),
+      card.customIcon ? button('Reset picture', `Use the automatic picture for ${card.label}`, () => api('DELETE', '/api/icon' + idQuery(card.id))) : null,
+      button('Name…', `Change the name shown for ${card.label}`, () => {
+        const name = prompt(card.renamed ? 'Name shown on the TV. Leave empty to use its own name again.' : 'Name shown on the TV', card.label);
+        if (name !== null && name.trim() !== card.label) setCard(card, { name: name.trim() || null });
+      }));
   }
   if (one && one.item.kind === 'panel') {
     parts.push(button('Edit what is inside', 'Show this folder or panel', () => { panelId = one.item.ref; sel.clear(); render(); }));

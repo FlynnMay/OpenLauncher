@@ -63,6 +63,28 @@ class LauncherCard {
         '5.7"/></svg>',
   );
 
+  /// This card under another name.
+  LauncherCard withLabel(String label) => LauncherCard(
+    id: id,
+    kind: kind,
+    target: target,
+    label: label,
+    iconPath: iconPath,
+    wideIcon: wideIcon,
+    svg: svg,
+  );
+
+  /// This card looking like [other].
+  LauncherCard withPictureOf(LauncherCard other) => LauncherCard(
+    id: id,
+    kind: kind,
+    target: target,
+    label: label,
+    iconPath: other.iconPath,
+    wideIcon: other.wideIcon,
+    svg: other.svg,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is LauncherCard &&

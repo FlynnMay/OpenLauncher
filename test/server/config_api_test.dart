@@ -126,7 +126,9 @@ void main() {
       'id': 'input:tv/HW1',
       'kind': 'input',
       'label': 'HDMI 1',
+      'renamed': false,
       'customIcon': false,
+      'iconFrom': null,
       'wide': false,
       'bare': true,
       'icon': isA<String>(),
@@ -393,6 +395,57 @@ void main() {
     expect(tmp.listSync(), isEmpty);
     card = (await cards()).firstWhere((c) => c['id'] == 'app:a');
     expect(card['customIcon'], isFalse);
+  });
+
+  test('a card can be renamed and given another card\'s picture', () async {
+    Future<Map<String, dynamic>> card(String id) async =>
+        (await cards()).firstWhere((c) => c['id'] == id);
+
+    var response = await call(
+      'PUT',
+      '/api/card?id=app:a',
+      body: {'name': '  Films ', 'iconFrom': 'input:tv/HW1'},
+    );
+    expect(response.statusCode, 200);
+    var a = await card('app:a');
+    expect(a['label'], 'Films');
+    expect(a['renamed'], isTrue);
+    expect(a['iconFrom'], 'input:tv/HW1');
+    expect(a['customIcon'], isTrue);
+    response = await call('GET', a['icon'] as String);
+    expect(response.headers['content-type'], 'image/svg+xml');
+
+    // Leaving a key out leaves that part alone.
+    await call('PUT', '/api/card?id=app:a', body: {'name': null});
+    a = await card('app:a');
+    expect(a['label'], 'A');
+    expect(a['iconFrom'], 'input:tv/HW1');
+
+    // An uploaded picture and a borrowed one replace each other.
+    await call('PUT', '/api/icon?id=app:a', body: _png);
+    expect(store.config.iconSources, isEmpty);
+    await call('PUT', '/api/card?id=app:b', body: {'iconFrom': 'app:a'});
+    response = await call('GET', (await card('app:b'))['icon'] as String);
+    expect(await response.read().expand((b) => b).toList(), _png);
+    await call('PUT', '/api/card?id=app:a', body: {'iconFrom': 'app:b'});
+    expect(store.config.iconOverrides, isEmpty);
+    expect(tmp.listSync(), isEmpty);
+
+    // "Reset picture" undoes a borrowed one too.
+    await call('DELETE', '/api/icon?id=app:a');
+    expect(store.config.iconSources, {'app:b': 'app:a'});
+
+    for (final bad in [
+      {'iconFrom': 'app:a'},
+      {'iconFrom': 'app:nope'},
+      {'name': 7},
+      {'name': 'x' * 61},
+    ]) {
+      response = await call('PUT', '/api/card?id=app:a', body: bad);
+      expect(response.statusCode, 400, reason: '$bad');
+    }
+    response = await call('PUT', '/api/card?id=app:nope', body: {'name': 'x'});
+    expect(response.statusCode, 404);
   });
 
   group('wallpaper', () {
