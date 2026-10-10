@@ -61,6 +61,22 @@ class EditedBar extends Notifier<String?> {
   void set(String? id) => state = id;
 }
 
+/// Whether the sidebar being arranged is let go of for a moment, so that
+/// it closes and opens again the way it will on the TV.
+final barReplayProvider = NotifierProvider<BarReplay, bool>(BarReplay.new);
+
+class BarReplay extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  Future<void> play() async {
+    if (state) return;
+    state = true;
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (ref.mounted) state = false;
+  }
+}
+
 /// The popups the selected folder cards open, by panel id.
 final selectedPanelsProvider = Provider<Map<String, Panel>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;

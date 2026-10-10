@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -428,7 +430,7 @@ void main() {
             find
                 .descendant(
                   of: find.byType(Sidebar),
-                  matching: find.byType(AnimatedContainer),
+                  matching: find.byType(Container),
                 )
                 .first,
           )
@@ -447,6 +449,56 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
       expect(railWidth(), 96);
+    });
+
+    testWidgets('a sidebar opens the way it is set to', (tester) async {
+      for (final opening in BarOpening.values) {
+        for (final reveal in BarReveal.values) {
+          await pumpApp(
+            tester,
+            LauncherConfig(
+              layout: Layout(
+                inbox: 'main',
+                panels: [
+                  home([const Pane(id: 'main')]),
+                  Panel.empty(
+                    Layout.leftId,
+                    opening: opening,
+                    reveal: reveal,
+                  ).withRoot(
+                    Panel.empty(Layout.leftId).root.withItems([card('pkg.c')]),
+                  ),
+                ],
+              ).normalised(),
+            ),
+          );
+          final box = find
+              .descendant(
+                of: find.byType(Sidebar),
+                matching: find.byType(Container),
+              )
+              .first;
+          // How solid what is in it is drawn; 1 with nothing fading it.
+          double solid() => tester
+              .widgetList<Opacity>(
+                find.descendant(of: box, matching: find.byType(Opacity)),
+              )
+              .fold(1, (least, one) => min(least, one.opacity));
+          final reason = '$opening, $reveal';
+          expect(tester.getSize(box).width, 96, reason: reason);
+          expect(solid(), reveal == BarReveal.always ? 1 : 0, reason: reason);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          await tester.pumpAndSettle();
+          expect(tester.getSize(box).width, 260, reason: reason);
+          expect(solid(), 1, reason: reason);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expect(tester.getSize(box).width, 96, reason: reason);
+          await tester.pumpWidget(const SizedBox());
+        }
+      }
     });
 
     testWidgets('a sidebar out of sight is reached at its edge', (
@@ -471,7 +523,7 @@ void main() {
             find
                 .descendant(
                   of: find.byType(Sidebar),
-                  matching: find.byType(AnimatedContainer),
+                  matching: find.byType(Container),
                 )
                 .first,
           )

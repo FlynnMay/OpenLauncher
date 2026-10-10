@@ -497,7 +497,8 @@ class _StageState extends ConsumerState<Stage> {
       // Open while it is being arranged, has something picked out in it,
       // or has something held over it.
       ids: {
-        if (editing) ...{
+        // Let go of altogether while it is shown opening.
+        if (editing && !ref.watch(barReplayProvider)) ...{
           ?ref.watch(barProvider),
           ?_over,
           for (final one in ref.watch(selectedProvider))

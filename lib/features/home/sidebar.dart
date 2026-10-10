@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
@@ -33,9 +35,78 @@ class Sidebar extends StatefulWidget {
   State<Sidebar> createState() => _SidebarState();
 }
 
-class _SidebarState extends State<Sidebar> {
-  final _box = GlobalKey();
-  bool _focused = false;
+class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
+  /// How long what is in it takes to appear, where that has a time of its
+  /// own.
+  static const _revealMs = 150;
+
+  final _box = GlobalKey(), _contents = GlobalKey();
+
+  /// 0 closed to 1 open, taking in both the sidebar's opening and what is
+  /// in it appearing.
+  late final _opened = AnimationController(vsync: this);
+  bool _focused = false, _held = false;
+
+  Panel get _panel => widget.view.panel;
+
+  /// How long the sidebar itself takes to open.
+  int get _barMs => switch (_panel.opening) {
+    BarOpening.expand => FocusTile.duration.inMilliseconds,
+    BarOpening.slide || BarOpening.fade => 200,
+    BarOpening.instant => 0,
+  };
+
+  int get _totalMs => switch (_panel.reveal) {
+    BarReveal.always => _barMs,
+    BarReveal.late => _barMs + _revealMs,
+    BarReveal.fade || BarReveal.slide => max(_barMs, _revealMs),
+  };
+
+  /// How far open the sidebar is, 0 to 1.
+  double get _barOpen {
+    final at = _opened.value * _totalMs;
+    if (_barMs == 0) return at > 0 || _opened.value == 1 ? 1 : 0;
+    return Curves.easeOut.transform((at / _barMs).clamp(0, 1));
+  }
+
+  /// How far what is in it has appeared, 0 to 1.
+  double get _revealed => switch (_panel.reveal) {
+    BarReveal.always => 1,
+    BarReveal.late => ((_opened.value * _totalMs - _barMs) / _revealMs).clamp(
+      0,
+      1,
+    ),
+    BarReveal.fade ||
+    BarReveal.slide => Curves.easeOut.transform(_opened.value),
+  };
+
+  /// Sets it opening or closing, to match the focus and the hold.
+  void _sync() {
+    final open = _focused || _held;
+    if (_totalMs == 0) {
+      _opened.value = open ? 1 : 0;
+      return;
+    }
+    _opened.duration = Duration(milliseconds: _totalMs);
+    open ? _opened.forward() : _opened.reverse();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _held =
+        context.dependOnInheritedWidgetOfExactType<SidebarHold>()?.ids.contains(
+          _panel.id,
+        ) ??
+        false;
+    _sync();
+  }
+
+  @override
+  void dispose() {
+    _opened.dispose();
+    super.dispose();
+  }
 
   /// What of the sidebar can be seen, on the display.
   Rect? _visible() => switch (_box.currentContext?.findRenderObject()) {
@@ -44,17 +115,32 @@ class _SidebarState extends State<Sidebar> {
     _ => null,
   };
 
+  /// [tile] appearing the way what is in this sidebar does.
+  Widget _appearing(Widget tile, Alignment edge) =>
+      _panel.reveal == BarReveal.always
+      ? tile
+      : AnimatedBuilder(
+          animation: _opened,
+          child: tile,
+          builder: (context, tile) {
+            final shown = _revealed;
+            return Opacity(
+              opacity: shown,
+              child: _panel.reveal == BarReveal.slide
+                  ? Transform.translate(
+                      offset: Offset(edge.x, edge.y) * (28 * (1 - shown)),
+                      child: tile,
+                    )
+                  : tile,
+            );
+          },
+        );
+
   @override
   Widget build(BuildContext context) {
-    final panel = widget.view.panel;
-    final held =
-        context.dependOnInheritedWidgetOfExactType<SidebarHold>()?.ids.contains(
-          panel.id,
-        ) ??
-        false;
+    final panel = _panel;
     // With nothing in it there is nothing to show or to go to.
-    if (widget.view.isEmpty && !held) return const SizedBox.shrink();
-    final open = _focused || held;
+    if (widget.view.isEmpty && !_held) return const SizedBox.shrink();
     final edge = panel.edge!;
     final alignment = switch (edge) {
       BarEdge.left => Alignment.centerLeft,
@@ -63,66 +149,124 @@ class _SidebarState extends State<Sidebar> {
       BarEdge.bottom => Alignment.bottomCenter,
     };
     final root = widget.view.root;
-    final scrim = Colors.black.withValues(alpha: open ? 0.94 : 0);
     return LayoutBuilder(
       builder: (context, screen) {
         // As big as it is set to be, and no bigger than the screen.
         final width = panel.openWidth.clamp(0.0, screen.maxWidth);
         final height = panel.openHeight.clamp(0.0, screen.maxHeight);
         final across = panel.opensAcross;
-        final shown = open
-            ? (across ? width : height)
-            : panel.closedSize.clamp(0.0, across ? width : height);
+        final full = across ? width : height;
+        final closed = panel.closedSize.clamp(0.0, full);
+        // Keyed, to stay as it is when the fading comes and goes around it.
+        final contents = FocusBounds(
+          key: _contents,
+          visible: _visible,
+          // On the right the rows are mirrored, to keep their pictures at
+          // the edge.
+          child: Directionality(
+            textDirection: edge == BarEdge.right
+                ? TextDirection.rtl
+                : TextDirection.ltr,
+            child: PaneBox(
+              view: root,
+              tile: (entry) => _appearing(EntryTile(entry: entry), alignment),
+            ),
+          ),
+        );
         return Align(
           alignment: alignment,
           child: Focus(
             canRequestFocus: false,
             skipTraversal: true,
-            onFocusChange: (inside) => setState(() => _focused = inside),
-            child: AnimatedContainer(
-              key: _box,
-              duration: FocusTile.duration,
-              curve: Curves.easeOut,
-              width: across ? shown : width,
-              height: across ? height : shown,
-              clipBehavior: Clip.hardEdge,
-              // Fades into the home screen on the side it opens towards,
-              // unless the pane has a background of its own.
-              decoration: BoxDecoration(
-                gradient: root.pane.style.isEmpty
-                    ? LinearGradient(
-                        begin: alignment,
-                        end: -alignment,
-                        colors: [scrim, scrim, scrim.withValues(alpha: 0)],
-                        stops: const [0, 0.8, 1],
-                      )
-                    : null,
-              ),
-              child: OverflowBox(
-                alignment: alignment,
-                minWidth: width,
-                maxWidth: width,
-                minHeight: height,
-                maxHeight: height,
-                child: FocusBounds(
-                  visible: _visible,
-                  // On the right the rows are mirrored, to keep their
-                  // pictures at the edge.
-                  child: Directionality(
-                    textDirection: edge == BarEdge.right
-                        ? TextDirection.rtl
-                        : TextDirection.ltr,
-                    child: PaneBox(
-                      view: root,
-                      tile: (entry) => EntryTile(entry: entry),
+            onFocusChange: (inside) {
+              _focused = inside;
+              _sync();
+            },
+            child: AnimatedBuilder(
+              animation: _opened,
+              child: contents,
+              builder: (context, contents) {
+                final open = _barOpen;
+                final fading = panel.opening == BarOpening.fade;
+                // Fading in, it is at its open size from the start.
+                final shown = fading
+                    ? (open > 0 ? full : closed)
+                    : closed + (full - closed) * open;
+                final scrim = Colors.black.withValues(alpha: 0.94 * open);
+                final strip = full == 0 ? 0.0 : closed / full;
+                return Container(
+                  key: _box,
+                  width: across ? shown : width,
+                  height: across ? height : shown,
+                  clipBehavior: Clip.hardEdge,
+                  // Fades into the home screen on the side it opens
+                  // towards, unless the pane has a background of its own.
+                  decoration: BoxDecoration(
+                    gradient: root.pane.style.isEmpty
+                        ? LinearGradient(
+                            begin: alignment,
+                            end: -alignment,
+                            colors: [scrim, scrim, scrim.withValues(alpha: 0)],
+                            stops: const [0, 0.8, 1],
+                          )
+                        : null,
+                  ),
+                  child: _Faded(
+                    // All but the strip that shows while it is closed.
+                    amount: fading && open > 0 ? open : 1,
+                    from: alignment,
+                    kept: strip,
+                    child: OverflowBox(
+                      // Laid out at its open size whatever of it shows:
+                      // held to its edge it is uncovered, held to the
+                      // other side it is carried in.
+                      alignment: panel.opening == BarOpening.slide
+                          ? -alignment
+                          : alignment,
+                      minWidth: width,
+                      maxWidth: width,
+                      minHeight: height,
+                      maxHeight: height,
+                      child: contents,
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// [child] seen through by [amount] (1 is not at all), except for the
+/// first [kept] of it measured from the edge [from], which stays as it is.
+class _Faded extends StatelessWidget {
+  const _Faded({
+    required this.amount,
+    required this.from,
+    required this.kept,
+    required this.child,
+  });
+
+  final double amount, kept;
+  final Alignment from;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (amount >= 1) return child;
+    final rest = Colors.white.withValues(alpha: amount);
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => LinearGradient(
+        begin: from,
+        end: -from,
+        colors: [Colors.white, Colors.white, rest, rest],
+        stops: [0, kept, kept, 1],
+      ).createShader(bounds),
+      child: child,
     );
   }
 }

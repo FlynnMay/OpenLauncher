@@ -666,6 +666,34 @@ void main() {
       expect(bottom.width, isNull);
     });
 
+    test('how one opens is written and read back, the usual left out', () {
+      final usual = Panel.empty(Layout.leftId);
+      expect(
+        (usual.opening, usual.reveal),
+        (BarOpening.expand, BarReveal.always),
+      );
+      expect(usual.toJson().keys, isNot(contains('opening')));
+      expect(usual.toJson().keys, isNot(contains('reveal')));
+
+      final layout = Layout(
+        inbox: 'main',
+        panels: [
+          Panel.empty(Layout.homeId),
+          Panel.empty(
+            Layout.leftId,
+            opening: BarOpening.slide,
+            reveal: BarReveal.late,
+          ),
+        ],
+      ).normalised();
+      final left = Layout.fromJson(layout.toJson()).panel(Layout.leftId)!;
+      expect((left.opening, left.reveal), (BarOpening.slide, BarReveal.late));
+
+      // A word it does not know is taken as the usual.
+      final odd = Panel.fromJson({...left.toJson(), 'opening': 'spin'});
+      expect(odd.opening, BarOpening.expand);
+    });
+
     test('a sidebar saved before they were panes still looks like one', () {
       final old = Layout.fromJson(const {
         'inbox': 'home/root',

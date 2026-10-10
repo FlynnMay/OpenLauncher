@@ -204,6 +204,46 @@ class SidebarSettings extends ConsumerWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ]),
+        Section('Opening', [
+          LabelledRow(
+            'Opens by',
+            ChoiceBox<BarOpening>(
+              value: panel.opening,
+              choices: const {
+                BarOpening.expand: 'Growing from its edge',
+                BarOpening.slide: 'Sliding in',
+                BarOpening.fade: 'Fading in',
+                BarOpening.instant: 'At once',
+              },
+              onChanged: (opening) =>
+                  change((panel) => panel.copyWith(opening: opening)),
+            ),
+          ),
+          LabelledRow(
+            'Its cards',
+            ChoiceBox<BarReveal>(
+              value: panel.reveal,
+              choices: const {
+                BarReveal.always: 'Always there',
+                BarReveal.fade: 'Fade in',
+                BarReveal.late: 'Fade in once it is open',
+                BarReveal.slide: 'Slide in',
+              },
+              onChanged: (reveal) =>
+                  change((panel) => panel.copyWith(reveal: reveal)),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: ref.watch(barReplayProvider)
+                  ? null
+                  : () => ref.read(barReplayProvider.notifier).play(),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Show it opening'),
+            ),
+          ),
+        ]),
         PaneSettings(title: 'Its pane', panes: [panel.root], onChanged: pane),
         StyleSettings(
           styles: [panel.root.style],

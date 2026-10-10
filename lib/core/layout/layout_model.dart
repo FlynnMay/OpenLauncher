@@ -44,6 +44,14 @@ enum TileLook { card, row }
 /// The edge of the screen a sidebar is on.
 enum BarEdge { left, right, top, bottom }
 
+/// How a sidebar comes open: growing out from its edge over what is in it,
+/// sliding in whole, fading in where it will be, or at once.
+enum BarOpening { expand, slide, fade, instant }
+
+/// How what is in a sidebar appears: there all along, fading in as the
+/// sidebar opens, fading in once it is open, or sliding in from its edge.
+enum BarReveal { always, fade, late, slide }
+
 enum PopupPosition { center, bottom, left, right }
 
 enum PopupSize { small, medium, large }
@@ -513,6 +521,8 @@ class Panel {
     this.width,
     this.height,
     this.closed,
+    this.opening = BarOpening.expand,
+    this.reveal = BarReveal.always,
   });
 
   /// A panel with nothing on it yet.
@@ -524,6 +534,8 @@ class Panel {
     this.width,
     this.height,
     this.closed,
+    this.opening = BarOpening.expand,
+    this.reveal = BarReveal.always,
   }) : root = _emptyRoot(id);
 
   /// The width or height of a sidebar that takes all the screen has.
@@ -551,6 +563,10 @@ class Panel {
   /// How much of a sidebar shows while the focus is elsewhere, measured
   /// out from its edge; 0 hides it. Null for what its edge usually has.
   final double? closed;
+
+  /// How a sidebar comes open, and how what is in it appears as it does.
+  final BarOpening opening;
+  final BarReveal reveal;
 
   /// The edge a sidebar is on; null for a panel that is not one.
   BarEdge? get edge => edgeOf(id);
@@ -617,6 +633,8 @@ class Panel {
     Object? width = _keep,
     Object? height = _keep,
     Object? closed = _keep,
+    BarOpening? opening,
+    BarReveal? reveal,
   }) => Panel(
     id: id,
     root: root ?? this.root,
@@ -626,6 +644,8 @@ class Panel {
     width: identical(width, _keep) ? this.width : width as double?,
     height: identical(height, _keep) ? this.height : height as double?,
     closed: identical(closed, _keep) ? this.closed : closed as double?,
+    opening: opening ?? this.opening,
+    reveal: reveal ?? this.reveal,
   );
 
   /// A sidebar's size as written: a number, or the word for all there is.
@@ -667,6 +687,16 @@ class Panel {
       width: _extent(json, 'width'),
       height: _extent(json, 'height'),
       closed: _optional<num>(json, 'closed')?.toDouble(),
+      opening: _named(
+        BarOpening.values,
+        _optional<String>(json, 'opening'),
+        BarOpening.expand,
+      ),
+      reveal: _named(
+        BarReveal.values,
+        _optional<String>(json, 'reveal'),
+        BarReveal.always,
+      ),
     );
   }
 
@@ -687,6 +717,8 @@ class Panel {
       'width': ?_written(width),
       'height': ?_written(height),
       'closed': ?_written(closed),
+      if (opening != BarOpening.expand) 'opening': opening.name,
+      if (reveal != BarReveal.always) 'reveal': reveal.name,
     },
     'pane': root.toJson(),
   };
