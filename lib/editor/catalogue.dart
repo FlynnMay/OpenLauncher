@@ -71,6 +71,12 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             picture: const SymbolArt(Icons.create_new_folder_outlined),
           ),
         ),
+        _Offer(
+          Dragged.sidebar(
+            label: 'Sidebar',
+            picture: const SymbolArt(Icons.view_sidebar_outlined),
+          ),
+        ),
       ],
       'Widgets': [
         for (final widget in widgets)
@@ -158,8 +164,15 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                       for (final offer in offers)
                         _OfferTile(
                           offer,
-                          onTap: () =>
-                              placeDragged(context, ref, offer.dragged, inbox),
+                          // A sidebar has no pane to go to, only an edge.
+                          onTap: () => offer.dragged.sidebar
+                              ? addBarSomewhere(context, ref)
+                              : placeDragged(
+                                  context,
+                                  ref,
+                                  offer.dragged,
+                                  inbox,
+                                ),
                         ),
                     ]),
                   ),

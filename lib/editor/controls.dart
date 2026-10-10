@@ -8,31 +8,81 @@ import 'package:flutter/material.dart';
 T? shared<T>(Iterable<T> values) =>
     values.toSet().length == 1 ? values.first : null;
 
-/// A group of settings under a heading.
-class Section extends StatelessWidget {
-  const Section(this.title, this.children, {super.key});
+/// A group of like settings under a heading, which a press closes and opens
+/// again. Whether it is open is remembered by its [title] for as long as
+/// the page is up, so it stays as it was left from one thing picked out to
+/// the next.
+class Section extends StatefulWidget {
+  const Section(this.title, this.children, {super.key, this.open = true});
 
   final String title;
   final List<Widget> children;
 
+  /// Whether it is open until it has been pressed.
+  final bool open;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-    child: Column(
+  State<Section> createState() => _SectionState();
+}
+
+class _SectionState extends State<Section> {
+  late bool _open =
+      PageStorage.maybeOf(context)?.readState(context, identifier: _memory)
+          as bool? ??
+      widget.open;
+
+  ValueKey<String> get _memory => ValueKey('section ${widget.title}');
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    PageStorage.maybeOf(context)
+        ?.writeState(context, _open, identifier: _memory);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.labelLarge
-                ?.copyWith(color: Theme.of(context).colorScheme.primary),
+        const Divider(height: 1),
+        InkWell(
+          onTap: _toggle,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: _open ? 'Close' : 'Open',
+                  child: Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        ...children,
+        if (_open)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.children,
+            ),
+          ),
       ],
-    ),
-  );
+    );
+  }
 }
 
 /// A setting with its name in front of it.

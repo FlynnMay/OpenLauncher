@@ -52,6 +52,28 @@ Future<void> placeDragged(
   );
 }
 
+/// Puts a sidebar on the edge [id] names, if there is none, and brings it
+/// up to be arranged.
+Future<void> addBar(BuildContext context, WidgetRef ref, String id) async {
+  await changeLayout(context, ref, (layout) => withBar(layout, id));
+  if (!context.mounted) return;
+  ref.read(selectionProvider.notifier).clear();
+  ref.read(barProvider.notifier).set(id);
+}
+
+/// Puts a sidebar on the first edge that has none, or says there is none.
+Future<void> addBarSomewhere(BuildContext context, WidgetRef ref) async {
+  final layout = ref.read(configProvider).value?.layout;
+  if (layout == null) return;
+  if (freeEdges(layout).firstOrNull case final id?) {
+    await addBar(context, ref, id);
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Every edge has a sidebar already.')),
+    );
+  }
+}
+
 /// Takes what was dragged off the TV.
 Future<void> removeDragged(
   BuildContext context,

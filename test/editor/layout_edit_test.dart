@@ -398,4 +398,32 @@ void main() {
     );
     expect(placedCounts(layout), {'app:a': 2});
   });
+
+  group('sidebars from the catalogue', () {
+    test('an edge is free with no sidebar, or with an empty one', () {
+      final layout = withBar(Layout.fromJson(const {}).normalised(), 'top');
+      final full = changePanel(
+        withBar(layout, 'left'),
+        'left',
+        (panel) => panel.withRoot(
+          panel.root.copyWith(
+            items: const [LayoutItem(id: 'a', kind: ItemKind.card, ref: 'x')],
+          ),
+        ),
+      );
+      expect(freeEdges(layout), Layout.barIds);
+      expect(freeEdges(full), ['right', 'top', 'bottom']);
+    });
+
+    test('only an edge within reach takes it, the nearest free one', () {
+      const all = Layout.barIds;
+      expect(edgeNear(480, 270, 960, 540, all), isNull);
+      expect(edgeNear(20, 270, 960, 540, all), 'left');
+      expect(edgeNear(950, 270, 960, 540, all), 'right');
+      expect(edgeNear(30, 10, 960, 540, all), 'top');
+      // The corner's nearer edge is taken: the other one gets it.
+      expect(edgeNear(30, 10, 960, 540, ['left', 'bottom']), 'left');
+      expect(edgeNear(20, 270, 960, 540, ['right']), isNull);
+    });
+  });
 }

@@ -11,7 +11,15 @@ class Dragged {
     required this.picture,
     this.panel,
     this.placed = false,
-  });
+  }) : sidebar = false;
+
+  /// A sidebar from the catalogue. It is not an item: the only place for
+  /// it is an edge of the screen that has no sidebar yet.
+  Dragged.sidebar({required this.label, required this.picture})
+    : item = LayoutItem(id: 'sidebar', kind: ItemKind.panel, ref: ''),
+      panel = null,
+      placed = false,
+      sidebar = true;
 
   final LayoutItem item;
 
@@ -20,6 +28,9 @@ class Dragged {
 
   /// True when [item] is somewhere in the layout already.
   final bool placed;
+
+  /// True for a new sidebar, for which [item] stands for nothing.
+  final bool sidebar;
 
   /// What follows the pointer while it is dragged.
   final String label;

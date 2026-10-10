@@ -8,7 +8,6 @@ import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/order_list.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
-import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/wallpaper_settings.dart';
@@ -68,15 +67,8 @@ class GlobalProperties extends ConsumerWidget {
             children: [
               for (final id in Layout.barIds)
                 OutlinedButton.icon(
-                  onPressed: () async {
-                    // There to be arranged, even with nothing in it yet.
-                    await changeLayout(
-                      context,
-                      ref,
-                      (layout) => withBar(layout, id),
-                    );
-                    ref.read(barProvider.notifier).set(id);
-                  },
+                  // There to be arranged, even with nothing in it yet.
+                  onPressed: () => addBar(context, ref, id),
                   icon: Icon(
                     config.layout.panel(id)?.items.isEmpty ?? true
                         ? Icons.add
@@ -88,7 +80,7 @@ class GlobalProperties extends ConsumerWidget {
             ],
           ),
         ]),
-        Section('Menu on holding OK', [
+        Section('Menu on holding OK', open: false, [
           OrderList<CardAction>(
             all: CardAction.values,
             chosen: config.contextMenu,
@@ -96,7 +88,7 @@ class GlobalProperties extends ConsumerWidget {
             onChanged: controller.setContextMenu,
           ),
         ]),
-        Section('Notifications', [
+        Section('Notifications', open: false, [
           if (ref.watch(tvStateProvider).value?.notificationAccess == false)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),

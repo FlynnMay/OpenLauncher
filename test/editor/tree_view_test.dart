@@ -85,4 +85,53 @@ void main() {
     await tester.pump();
     expect(find.text('Apple'), findsOneWidget);
   });
+
+  testWidgets('picking: a press picks one line, a bare heading only opens', (
+    tester,
+  ) async {
+    final pressed = <String>[];
+    // Made anew each time, as a tree of what is on the screen is.
+    List<TreeNode<String>> made() => [
+      TreeNode(
+        id: 'fruit',
+        label: 'Fruit',
+        children: const [TreeNode(label: 'Apple', value: 'apple')],
+      ),
+      TreeNode(
+        id: 'box',
+        label: 'Box',
+        value: 'box',
+        children: const [TreeNode(label: 'Pear', value: 'pear')],
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Material(
+          child: StatefulBuilder(
+            builder: (context, setState) => TreeView<String>.pick(
+              nodes: made(),
+              picked: {...pressed},
+              onPicked: (value) => setState(() => pressed.add(value)),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(Checkbox), findsNothing);
+
+    await tester.tap(find.text('Box'));
+    await tester.pump();
+    expect(pressed, ['box']);
+    expect(find.text('Pear'), findsOneWidget);
+
+    await tester.tap(find.text('Fruit'));
+    await tester.pump();
+    expect(pressed, ['box']);
+    expect(find.text('Apple'), findsNothing);
+    // Still closed though the lines are new ones.
+    await tester.tap(find.text('Pear'));
+    await tester.pump();
+    expect(pressed, ['box', 'pear']);
+    expect(find.text('Apple'), findsNothing);
+  });
 }

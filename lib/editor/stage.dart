@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -31,6 +30,10 @@ class TvScreen extends StatelessWidget {
   /// The launcher's own navigator, for opening something on its screen
   /// from outside it.
   static final navigator = GlobalKey<NavigatorState>();
+
+  /// Closes whatever the launcher has open over its home screen.
+  static void closePopups() =>
+      navigator.currentState?.popUntil((route) => route.isFirst);
 
   /// Shows the popup [panelId] on the launcher's screen.
   static void openPopup(String panelId) {
@@ -152,9 +155,27 @@ class _StageState extends ConsumerState<Stage> {
 
   /// Where [dragged] would go if let go of at [pointer], and where on the
   /// screen that is; null over nothing that would take it.
-  ({Drop drop, Rect marker})? _target(Offset pointer, Dragged dragged) {
+  ({Drop? drop, String? bar, Rect marker})? _target(
+    Offset pointer,
+    Dragged dragged,
+  ) {
     final layout = ref.read(configProvider).value?.layout;
     if (layout == null) return null;
+    if (dragged.sidebar) {
+      // A sidebar goes nowhere but to an edge of the screen with none.
+      final screen = _box(_screen);
+      if (screen == null) return null;
+      final at = screen.globalToLocal(pointer);
+      final edge = edgeNear(
+        at.dx,
+        at.dy,
+        screen.size.width,
+        screen.size.height,
+        freeEdges(layout),
+      );
+      if (edge == null) return null;
+      return (drop: null, bar: edge, marker: _barRect(layout, edge));
+    }
     final item = dragged.item;
     // An open popup is all there is to drop on; otherwise a sidebar, over
     // as much of it as shows, and failing that the home screen.
@@ -248,8 +269,29 @@ class _StageState extends ConsumerState<Stage> {
     );
     return (
       drop: drop,
+      bar: null,
       marker: MatrixUtils.transformRect(grid.getTransformTo(screen), rect),
     );
+  }
+
+  /// Where on the screen a sidebar on the edge [id] is when open, or with
+  /// [thickness], a strip that thick along that edge.
+  static Rect _barRect(Layout layout, String id, {double? thickness}) {
+    final panel = layout.panel(id) ?? Panel.empty(id);
+    final Size(:width, :height) = TvScreen.size;
+    final across = panel.opensAcross;
+    final w = across && thickness != null
+        ? thickness
+        : panel.openWidth.clamp(0.0, width);
+    final h = !across && thickness != null
+        ? thickness
+        : panel.openHeight.clamp(0.0, height);
+    return switch (panel.edge) {
+      BarEdge.right => Rect.fromLTWH(width - w, (height - h) / 2, w, h),
+      BarEdge.bottom => Rect.fromLTWH((width - w) / 2, height - h, w, h),
+      BarEdge.top => Rect.fromLTWH((width - w) / 2, 0, w, h),
+      _ => Rect.fromLTWH(0, (height - h) / 2, w, h),
+    };
   }
 
   /// The one thing picked out, if it is somewhere its cells can be found:
@@ -419,11 +461,13 @@ class _StageState extends ConsumerState<Stage> {
             final target = _target(details.offset, details.data);
             _mark(null);
             if (_over != null) setState(() => _over = null);
-            if (target != null) {
-              placeDragged(context, ref, details.data, target.drop);
+            if (target?.bar case final bar?) {
+              addBar(context, ref, bar);
+            } else if (target?.drop case final drop?) {
+              placeDragged(context, ref, details.data, drop);
             }
           },
-          builder: (context, _, _) => Stack(
+          builder: (context, held, _) => Stack(
             key: _screen,
             children: [
               // A tap on nothing lets go of what was picked out.
@@ -472,6 +516,17 @@ class _StageState extends ConsumerState<Stage> {
                     ),
                   ),
                 ),
+              // While a sidebar is held over the screen, the edges that
+              // would take it.
+              if (ref.read(configProvider).value?.layout case final layout?
+                  when held.any((dragged) => dragged?.sidebar ?? false))
+                for (final id in freeEdges(layout))
+                  Positioned.fromRect(
+                    rect: _barRect(layout, id, thickness: 8),
+                    child: const IgnorePointer(
+                      child: ColoredBox(color: Color(0x9940C4FF)),
+                    ),
+                  ),
               if (_marker case final marker?)
                 Positioned.fromRect(
                   rect: marker,
@@ -535,19 +590,7 @@ class _Selectable extends ConsumerWidget {
     );
     final outline = selected ? Colors.lightBlueAccent : resting;
     return GestureDetector(
-      onTap: () {
-        final keys = HardwareKeyboard.instance;
-        ref
-            .read(selectionProvider.notifier)
-            .tap(
-              id,
-              adding:
-                  ref.read(selectSeveralProvider) ||
-                  keys.isControlPressed ||
-                  keys.isShiftPressed ||
-                  keys.isMetaPressed,
-            );
-      },
+      onTap: () => ref.read(selectionProvider.notifier).press(id),
       child: DecoratedBox(
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(

@@ -35,7 +35,12 @@ class PaneSettings extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Section(title, [
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [_arrangement, _spacing, if (shaped) _corners, _cards],
+  );
+
+  Widget get _arrangement => Section(title, [
     if (named && panes.length == 1)
       CommitField(
         label: 'Title',
@@ -62,6 +67,23 @@ class PaneSettings extends StatelessWidget {
       onChanged: (columns) => onChanged((pane) => withColumns(pane, columns)),
     ),
     NumberStepper(
+      label: 'Row height',
+      value: shared(panes.map((pane) => pane.rowHeight ?? -1)),
+      usual: 'By shape',
+      min: Pane.minRowHeight.round(),
+      max: Pane.maxRowHeight.round(),
+      step: 4,
+      onChanged: (height) => onChanged(
+        (pane) => pane.copyWith(
+          rowHeight: height < Pane.minRowHeight ? null : height * 1.0,
+        ),
+      ),
+    ),
+    ...children,
+  ]);
+
+  Widget get _spacing => Section('Spacing', [
+    NumberStepper(
       label: 'Spacing',
       value: shared(panes.map((pane) => pane.spacing ?? -1)),
       usual: 'Usual',
@@ -83,32 +105,20 @@ class PaneSettings extends StatelessWidget {
         (pane) => pane.copyWith(padding: padding < 0 ? null : padding * 1.0),
       ),
     ),
-    NumberStepper(
-      label: 'Row height',
-      value: shared(panes.map((pane) => pane.rowHeight ?? -1)),
-      usual: 'By shape',
-      min: Pane.minRowHeight.round(),
-      max: Pane.maxRowHeight.round(),
-      step: 4,
-      onChanged: (height) => onChanged(
-        (pane) => pane.copyWith(
-          rowHeight: height < Pane.minRowHeight ? null : height * 1.0,
-        ),
-      ),
+  ]);
+
+  Widget get _corners => Section('Corners', open: false, [
+    CornerSettings(
+      corners: panes.first.corners,
+      usual: Pane.defaultCorner,
+      max: Pane.maxCorner,
+      onChanged: (corners) =>
+          onChanged((pane) => pane.copyWith(corners: corners)),
     ),
-    if (shaped)
-      CornerSettings(
-        corners: panes.first.corners,
-        usual: Pane.defaultCorner,
-        max: Pane.maxCorner,
-        onChanged: (corners) =>
-            onChanged((pane) => pane.copyWith(corners: corners)),
-      ),
-    ...children,
-    const Padding(
-      padding: EdgeInsets.only(top: 12, bottom: 4),
-      child: Text('For every card in it'),
-    ),
+  ]);
+
+  /// What the pane decides for every card directly in it.
+  Widget get _cards => Section('Cards in it', open: false, [
     LabelledRow(
       'Drawn',
       ChoiceBox<String>(

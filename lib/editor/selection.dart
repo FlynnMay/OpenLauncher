@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -22,6 +23,21 @@ class Selection extends Notifier<Set<String>> {
     } else {
       state = {...state, id};
     }
+  }
+
+  /// A press on the item [id], on the screen or in a list of what is on
+  /// it: it joins or leaves the selection while several are being picked or
+  /// Ctrl, Shift or Cmd is held, and otherwise becomes it.
+  void press(String id) {
+    final keys = HardwareKeyboard.instance;
+    tap(
+      id,
+      adding:
+          ref.read(selectSeveralProvider) ||
+          keys.isControlPressed ||
+          keys.isShiftPressed ||
+          keys.isMetaPressed,
+    );
   }
 
   void clear() {

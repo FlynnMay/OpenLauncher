@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/cards/cards.dart';
-import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widget_kind.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/editor/global_properties.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/object_tree.dart';
 import 'package:openlauncher/editor/selected_properties.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
@@ -20,25 +20,11 @@ class Inspector extends ConsumerWidget {
     final found = ref.watch(selectedProvider);
     final bar = ref.watch(barProvider);
 
-    String name(Found one) {
-      final item = one.item;
-      return switch (item.kind) {
-        ItemKind.card =>
-          (ref.watch(allCardsProvider).value ?? const [])
-                  .where((card) => card.id == item.ref)
-                  .firstOrNull
-                  ?.label ??
-              'Card',
-        ItemKind.widget => WidgetKind.named(item.ref)?.label ?? 'Widget',
-        ItemKind.pane => item.pane!.title.isEmpty ? 'Pane' : item.pane!.title,
-        ItemKind.panel => switch (ref
-            .watch(selectedPanelsProvider)[item.ref]
-            ?.title) {
-          null || '' => 'Folder',
-          final title => title,
-        },
-      };
-    }
+    String name(Found one) => objectName(
+      one.item,
+      ref.watch(configProvider).value?.layout,
+      ref.watch(allCardsProvider).value ?? const [],
+    );
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),

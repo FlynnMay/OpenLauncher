@@ -464,6 +464,41 @@ Layout withBar(Layout layout, String id) => layout.panel(id) != null
         panels: [...layout.panels, Panel.empty(id)],
       );
 
+/// The edges, by sidebar id, that have no sidebar: none was ever put
+/// there, or the one that was has nothing in it.
+List<String> freeEdges(Layout layout) => [
+  for (final id in Layout.barIds)
+    if (layout.panel(id)?.root.items.isEmpty ?? true) id,
+];
+
+/// The edge [among] those given that the point ([x], [y]) is nearest to on
+/// a screen [width] by [height], if it is within [reach] of one.
+String? edgeNear(
+  double x,
+  double y,
+  double width,
+  double height,
+  Iterable<String> among, {
+  double reach = 90,
+}) {
+  String? nearest;
+  var least = reach;
+  for (final id in among) {
+    final away = switch (Panel.edgeOf(id)) {
+      BarEdge.left => x,
+      BarEdge.right => width - x,
+      BarEdge.top => y,
+      BarEdge.bottom => height - y,
+      null => double.infinity,
+    };
+    if (away <= least) {
+      nearest = id;
+      least = away;
+    }
+  }
+  return nearest;
+}
+
 /// [layout] with new apps going to the pane [paneId].
 Layout withInbox(Layout layout, String paneId) =>
     Layout(inbox: paneId, removed: layout.removed, panels: layout.panels);

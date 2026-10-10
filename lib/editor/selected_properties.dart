@@ -108,7 +108,9 @@ class SelectedProperties extends ConsumerWidget {
             onChanged: (h) =>
                 change((layout) => resizeItems(layout, ids, h: h * 1.0)),
           ),
-          if (allNamed) ...[
+        ]),
+        if (allNamed)
+          Section('Name', [
             TickBox(
               label: 'Show the name',
               value: shared(items.map((item) => !item.hideName)),
@@ -132,8 +134,7 @@ class SelectedProperties extends ConsumerWidget {
                 'cards. What is set here counts again when it stops.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-          ],
-        ]),
+          ]),
         StyleSettings(
           styles: [for (final item in items) _styleOf(item)],
           onChanged: (how) =>
