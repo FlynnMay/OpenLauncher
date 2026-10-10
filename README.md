@@ -10,23 +10,28 @@ by sideloading and is not on the Play Store.
 
 ## What it does
 
+On the TV:
+
 - Lists installed apps with their TV banners and launches them with the remote.
 - Shows the TV's inputs (HDMI ports, tuner) as cards next to the apps. Devices
   without inputs, such as streaming boxes, just don't get these cards.
-- Serves a config page on the local network where you arrange everything
-  below, hide cards, give them custom pictures, and set a wallpaper.
 - Panes: backgrounds that hold cards, widgets and other panes. You set each
   one's place and size. Inside, items go in order, on cells you choose, or
   anywhere at any size. The screen itself is one big pane, edge to edge, so
   things can also sit outside every pane.
-- Panes and cards can have their own background (a colour or a gradient,
-  with transparency) and border colour.
-- Folders and panels: a card that opens a popup holding other cards. You choose
-  where the popup opens and how big it is.
+- Panes and cards can have their own background (a colour, or a gradient with
+  a chosen point for each colour, with transparency) and border colour. Panes
+  also have their own spacing, padding, row height and corner roundness, and
+  can make every card in them look the same.
+- Cards can be renamed, have their name hidden, be given an uploaded picture
+  or use another card's picture. The same card can be placed more than once.
+- Folders: a card that opens a popup holding other cards. You choose where
+  the popup opens and how big it is.
+- Sidebars: a pane on any of the four edges that opens over the home screen
+  when you move onto it. You set its size open and closed, and how it and its
+  cards appear.
 - Moving with the remote prefers cards in the pane you are in, then what is
-  straight ahead. The config page can draw where each direction leads.
-- Sidebars: a pane on any edge of the screen that opens over the home screen
-  when you move onto it.
+  straight ahead.
 - Settings is a card like any other. If you remove it, a Settings button
   appears at the top right of the TV screen instead.
 - Widgets: clock, weather (from Open-Meteo), now playing, and widgets from
@@ -35,8 +40,15 @@ by sideloading and is not on the Play Store.
   and Remove. You choose which appear and in what order.
 - Shows notifications from other apps in a corner of the screen.
 - Wallpaper can be a picture (PNG, JPEG, animated GIF or WebP) or a looping
-  video (MP4, WebM, MKV).
+  video (MP4, WebM, MKV). You can keep several and have the TV take turns.
 - Can take over the remote's Home button using an accessibility service.
+
+From a phone or computer:
+
+- The TV serves an editor on the local network. It is the launcher itself
+  running in the browser, showing what the TV shows, with editing on top.
+- Everything above is arranged there; the TV itself can only remove cards.
+- It can also be used like the TV: pressing a card opens that app on the TV.
 
 ## Requirements
 
@@ -48,9 +60,15 @@ by sideloading and is not on the Play Store.
 
 ```bash
 flutter pub get
+tool/build_editor.sh
 flutter build apk --release --target-platform android-arm
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
+
+`tool/build_editor.sh` builds the editor for the web and puts it in
+`assets/editor/`, which is not kept in git. Run it before building the app,
+and again after changing anything the editor uses, or the TV will serve an
+old editor or none.
 
 Use `--target-platform android-arm64` if your device is 64-bit.
 
@@ -60,19 +78,43 @@ After installing, open OpenLauncher from the TV's app list.
 
 ### Customising
 
-Open **Settings** at the top right of the home screen and choose **Customise
+Open **Settings** on the home screen (its card, or the button at the top
+right if you removed the card) and choose **Customise
 from your phone**. Scan the QR code, or type the address it shows, on a phone or
 computer connected to the same network.
 
-The Layout tab shows your TV screen. Drag things where you want them (on a
-phone, hold an item for a moment first). Tap an item to resize it, by number
-or by dragging its edges, change its colours, or remove it; "Select several"
-does the same to many at once. Tap a pane for its settings, or "Screen ⚙" for the
-whole screen's; "+ Apps…" there adds apps, including ones you removed.
+The page shows your TV screen as it is, and follows changes made on either
+side. A switch at the top chooses between **Edit** and **Use**.
 
-The page has no login. Anyone on your network can open it.
+In Edit:
 
-The page is only reachable while OpenLauncher is on screen.
+- **Add** lists what can be put on the screen: panes, folders, sidebars,
+  widgets, inputs and apps, including ones you removed. Drag one onto the
+  screen (on a phone, hold it for a moment first), or tap it to add it where
+  new apps go. A sidebar can only be dropped on an edge that has none.
+- Drag things on the screen to move them. Drag one back onto the list to take
+  it off the TV.
+- Tap something to select it. Handles around it change its size, and its
+  settings appear in the panel: name, picture, size, colours, and what
+  belongs to a pane, folder or widget. Ctrl or Shift click, or "Select
+  several", selects more; the panel then shows only what they share.
+- With nothing selected the panel holds the launcher's own settings:
+  wallpapers, the screen, sidebars, the hold-OK menu and notifications.
+- **Objects** lists everything on the home screen, in sidebars and in folders
+  as a tree; pressing a line selects it.
+- The grid button turns snapping off, so that in "Anywhere" panes things go
+  exactly where they are put.
+- **Layers** draws arrows showing where each direction on the remote leads.
+
+In Use, the page behaves like the TV: tap or use the arrow keys and Enter.
+Opening an app or input, the quick actions, play and pause, and the Home
+button settings are carried out on the TV.
+
+The page has no login. Anyone on your network can open it, and can open and
+uninstall apps on the TV through it.
+
+The page is only reachable while OpenLauncher is on screen. Opening an app
+from the page therefore disconnects it until the TV is back on OpenLauncher.
 
 ### Home button
 
@@ -98,6 +140,9 @@ it those features stay empty, and Force stop opens the TV's own app screen.
   at startup. Expect a delay of around half a minute after boot in that case.
 - While the Home button is taken over, long-pressing Home does not open the
   Google TV dashboard.
+- The layout can only be edited from the page, not on the TV.
+- Use on the page does not move the focus on the TV or open popups there;
+  only what a press does reaches the TV.
 - The wallpaper is dimmed by a fixed amount.
 - Notifications are only shown while OpenLauncher is on screen.
 - Widgets from other apps are shown but cannot be selected with the remote,
@@ -113,9 +158,10 @@ lib/
   core/        cards, layout, config, wallpaper, widget data (no UI)
   platform/    interface to the device, with a fake for tests
   features/    TV screens: home, widgets, notifications, settings, wallpaper
-  server/      web config API and file uploads
-  editor/      the config page: the launcher itself as a web app, plus editing
-tool/          build_editor.sh, which builds the config page into the app
+  server/      web API, file uploads, and serving the editor
+  editor/      the editor: the launcher itself as a web app, plus editing
+web/           the editor's web shell
+tool/          build_editor.sh, which builds the editor into the app
 pigeons/       definition of the Dart <-> Kotlin bridge
 android/       Kotlin: app list, inputs, Home button service, setup,
                notifications and media, app widgets
@@ -125,6 +171,11 @@ test/          unit and widget tests
 The TV screens and the web server are both clients of `core/`. Config is only
 changed through `ConfigController`, so a change from either side reaches the
 other.
+
+The editor is a second entry point, `lib/editor/main.dart`, built with
+`flutter build web`. It runs the same home screen as the TV with the device
+swapped for the TV's web API (`lib/editor/tv_link.dart`), so anything under
+`features/` has to work in a browser as well.
 
 ## Development
 
