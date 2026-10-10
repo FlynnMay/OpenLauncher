@@ -2,12 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shelf/shelf.dart';
 
-/// Serves the web editor (`lib/editor`) under `/editor/`, from the app's
-/// assets, where `tool/build_editor.sh` puts it: one flat folder, `/` in a
-/// path written `__`, every file gzipped, and a `version` that changes with
-/// each build.
+/// Serves the web editor (`lib/editor`), the page the TV offers, at every
+/// address that is not the API's. It comes from the app's assets, where
+/// `tool/build_editor.sh` puts it: one flat folder, `/` in a path written
+/// `__`, every file gzipped, and a `version` that changes with each build.
 abstract final class EditorFiles {
-  static const _mount = 'editor';
+  static const _api = 'api';
   static const _folder = 'assets/editor/';
 
   static const _types = {
@@ -21,20 +21,15 @@ abstract final class EditorFiles {
     'otf': 'font/otf',
   };
 
-  /// Whether a request for [path] is one for the editor.
-  static bool owns(String path) =>
-      path == _mount || path.startsWith('$_mount/');
+  /// Whether a request for [path] is one for the editor rather than the
+  /// API.
+  static bool owns(String path) => path != _api && !path.startsWith('$_api/');
 
   /// Answers from [bundle], which is the app's own unless a test says so.
   static Future<Response> serve(Request request, [AssetBundle? bundle]) async {
     bundle ??= rootBundle;
     final path = request.url.path;
-    // The page's own addresses are relative to the folder.
-    if (path == _mount) return Response.movedPermanently('/$_mount/');
-    final file = switch (path.substring(_mount.length + 1)) {
-      '' => 'index.html',
-      final file => file,
-    };
+    final file = path.isEmpty ? 'index.html' : path;
     final ByteData data;
     final String tag;
     try {

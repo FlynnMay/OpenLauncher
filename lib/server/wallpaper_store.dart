@@ -71,11 +71,8 @@ class WallpaperStore {
 
   /// Writes [body] straight to disk (videos are too big to hold in memory)
   /// and, if it is a supported image or video, adds it after the wallpapers
-  /// there are; or with [replace], makes it the only one.
-  Future<WallpaperUpload> add(
-    Stream<List<int>> body, {
-    bool replace = false,
-  }) async {
+  /// there are.
+  Future<WallpaperUpload> add(Stream<List<int>> body) async {
     final dir = await _ref.read(wallpaperDirProvider.future);
     await dir.create(recursive: true);
     final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -99,7 +96,7 @@ class WallpaperStore {
     final extension = length > maxBytes
         ? null
         : sniffImageExtension(start) ?? sniffVideoExtension(start);
-    if (extension == null || !replace && previous.length >= maxCount) {
+    if (extension == null || previous.length >= maxCount) {
       await temp.delete();
       return length > maxBytes
           ? WallpaperUpload.tooLarge
@@ -113,10 +110,9 @@ class WallpaperStore {
       p.join(dir.path, 'wallpaper-$stamp.$extension'),
     );
     await _ref.read(configProvider.notifier).setWallpapers([
-      if (!replace) ...previous,
+      ...previous,
       file.path,
     ]);
-    if (replace) await _delete(previous, dir);
     return WallpaperUpload.saved;
   }
 

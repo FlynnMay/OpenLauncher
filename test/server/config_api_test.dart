@@ -54,7 +54,6 @@ void main() {
         wallpaperDirProvider.overrideWith(
           (ref) => Directory('${tmp.path}/wallpaper'),
         ),
-        configPageProvider.overrideWith((ref) => '<html>page</html>'),
         jsonFetcherProvider.overrideWithValue((uri) async {
           fetched.add(uri);
           return {
@@ -109,12 +108,6 @@ void main() {
       if (entry is CardEntry && entry.card.kind != CardKind.action)
         entry.card.id,
   ];
-
-  test('serves the page', () async {
-    final response = await call('GET', '/');
-    expect(response.headers['content-type'], contains('text/html'));
-    expect(await response.readAsString(), '<html>page</html>');
-  });
 
   test('state lists every card in display order', () async {
     expect((await cards()).map((c) => c['id']), [
@@ -492,15 +485,17 @@ void main() {
       ...List.filled(40, 7),
     ]);
 
+    /// The first wallpaper, which is the one shown.
     Future<Map<String, dynamic>?> wallpaper() async {
       final response = await call('GET', '/api/state');
-      return jsonDecode(await response.readAsString())['wallpaper'];
+      final all = jsonDecode(await response.readAsString())['wallpapers'];
+      return (all as List).firstOrNull;
     }
 
     test('video upload becomes the wallpaper and can be removed', () async {
       expect(await wallpaper(), isNull);
 
-      var response = await call('PUT', '/api/wallpaper', body: mp4);
+      var response = await call('POST', '/api/wallpapers', body: mp4);
       expect(response.statusCode, 200);
       final state = (await wallpaper())!;
       expect(state['kind'], 'video');
@@ -516,12 +511,10 @@ void main() {
       expect(response.headers['content-type'], 'video/mp4');
       expect(response.headers['content-length'], '${mp4.length}');
 
-      // A picture replaces the video and removes its file.
-      await call('PUT', '/api/wallpaper', body: _png);
-      expect((await wallpaper())!['kind'], 'image');
-      expect(saved.existsSync(), isFalse);
-
+      // With none named, all of them go, and their files with them.
+      await call('POST', '/api/wallpapers', body: _png);
       response = await call('DELETE', '/api/wallpaper');
+      expect(saved.existsSync(), isFalse);
       expect(response.statusCode, 200);
       expect(await wallpaper(), isNull);
       expect(store.config.wallpaper, isNull);
@@ -539,8 +532,7 @@ void main() {
       await call('POST', '/api/wallpapers', body: _png);
       var list = await all();
       expect([for (final one in list) one['kind']], ['video', 'image']);
-      // The first is the one shown, and the one the first page knows of.
-      expect(await wallpaper(), list.first);
+      // The first is the one shown.
       expect(container.read(wallpaperProvider)?.kind, WallpaperKind.video);
 
       // Each is served by its own name.
@@ -568,15 +560,10 @@ void main() {
         (await call('DELETE', '/api/wallpaper?id=nothing.png')).statusCode,
         404,
       );
-
-      // The first page's upload still leaves just the one.
-      await call('PUT', '/api/wallpaper', body: mp4);
-      expect([for (final one in await all()) one['kind']], ['video']);
-      expect(Directory('${tmp.path}/wallpaper').listSync(), hasLength(1));
     });
 
     test('serves byte ranges for video playback', () async {
-      await call('PUT', '/api/wallpaper', body: mp4);
+      await call('POST', '/api/wallpapers', body: mp4);
       Future<Response> range(String value) => api.handle(
         Request(
           'GET',
@@ -602,8 +589,8 @@ void main() {
 
     test('rejects files that are not pictures or videos', () async {
       final response = await call(
-        'PUT',
-        '/api/wallpaper',
+        'POST',
+        '/api/wallpapers',
         body: utf8.encode('just some text'),
       );
       expect(response.statusCode, 415);

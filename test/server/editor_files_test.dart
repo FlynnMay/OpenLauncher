@@ -41,16 +41,16 @@ void main() {
     gzip.decode(await response.read().expand((chunk) => chunk).toList()),
   );
 
-  test('knows which addresses are the editor\'s', () {
-    expect(EditorFiles.owns('editor'), isTrue);
-    expect(EditorFiles.owns('editor/main.dart.js'), isTrue);
-    expect(EditorFiles.owns('editors'), isFalse);
+  test('everything but the API is the editor\'s', () {
+    expect(EditorFiles.owns(''), isTrue);
+    expect(EditorFiles.owns('main.dart.js'), isTrue);
+    expect(EditorFiles.owns('apiary'), isTrue);
+    expect(EditorFiles.owns('api'), isFalse);
     expect(EditorFiles.owns('api/state'), isFalse);
   });
 
-  test('serves the page at the folder, gzipped as it was built', () async {
-    expect((await get('editor')).headers['location'], '/editor/');
-    final page = await get('editor/');
+  test('serves the page at the root, gzipped as it was built', () async {
+    final page = await get('');
     expect(page.statusCode, 200);
     expect(page.headers['content-type'], startsWith('text/html'));
     expect(page.headers['content-encoding'], 'gzip');
@@ -58,16 +58,16 @@ void main() {
   });
 
   test('finds files in folders, and says so when there is none', () async {
-    final wasm = await get('editor/canvaskit/chromium/canvaskit.wasm');
+    final wasm = await get('canvaskit/chromium/canvaskit.wasm');
     expect(wasm.headers['content-type'], 'application/wasm');
     expect(await unzipped(wasm), 'wasm');
-    expect((await get('editor/nothing.js')).statusCode, 404);
+    expect((await get('nothing.js')).statusCode, 404);
   });
 
   test('is not sent again until it is built again', () async {
-    final tag = (await get('editor/')).headers['etag']!;
+    final tag = (await get('')).headers['etag']!;
     expect(tag, '"abc"');
-    final again = await get('editor/', headers: {'if-none-match': tag});
+    final again = await get('', headers: {'if-none-match': tag});
     expect(again.statusCode, 304);
   });
 }

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
@@ -15,11 +14,6 @@ import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/wallpaper_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
-
-/// The HTML of the config page.
-final configPageProvider = FutureProvider<String>(
-  (ref) => rootBundle.loadString('assets/web/index.html'),
-);
 
 String _iconUrl(String id, String source) =>
     '/api/icon?id=${Uri.encodeQueryComponent(id)}'
@@ -50,8 +44,6 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
         },
   ];
   return {
-    // The first, for the page from before there could be several.
-    'wallpaper': wallpapers.firstOrNull,
     'wallpapers': wallpapers,
     // Minutes each one stays, or 0 to stay on the first.
     'wallpaperEvery': config.wallpaperEvery,
@@ -176,10 +168,6 @@ class ConfigApi {
       return EditorFiles.serve(request);
     }
     return switch ((request.method, path)) {
-      ('GET', '') => Response.ok(
-        await _ref.read(configPageProvider.future),
-        headers: {'content-type': 'text/html; charset=utf-8'},
-      ),
       ('GET', 'api/state') => Response.ok(
         jsonEncode(await _ref.read(configPageStateProvider.future)),
         headers: _json,
@@ -200,10 +188,8 @@ class ConfigApi {
       }),
       ('GET', 'api/media/art') => _cover(id),
       ('GET', 'api/wallpaper') => _wallpaper(request, id),
-      // The only wallpaper, as the first page sets it.
-      ('PUT', 'api/wallpaper') => _uploadWallpaper(request, replace: true),
       // One more, after those there are.
-      ('POST', 'api/wallpapers') => _uploadWallpaper(request, replace: false),
+      ('POST', 'api/wallpapers') => _uploadWallpaper(request),
       ('PUT', 'api/wallpapers') => _arrangeWallpapers(await _body(request)),
       ('DELETE', 'api/wallpaper') => () async {
         final store = _ref.read(wallpaperStoreProvider);
@@ -425,25 +411,21 @@ class ConfigApi {
     return _ok();
   }
 
-  Future<Response> _uploadWallpaper(
-    Request request, {
-    required bool replace,
-  }) async => switch (await _ref
-      .read(wallpaperStoreProvider)
-      .add(request.read(), replace: replace)) {
-    WallpaperUpload.saved => _ok(),
-    WallpaperUpload.tooLarge => _error(413, 'File too large (300 MB max)'),
-    WallpaperUpload.tooMany => _error(
-      409,
-      'There are ${WallpaperStore.maxCount} wallpapers already; '
-      'remove one first',
-    ),
-    WallpaperUpload.unsupported => _error(
-      415,
-      'Not a supported image (PNG, JPEG, GIF, WebP) or video (MP4, '
-      'WebM, MKV)',
-    ),
-  };
+  Future<Response> _uploadWallpaper(Request request) async =>
+      switch (await _ref.read(wallpaperStoreProvider).add(request.read())) {
+        WallpaperUpload.saved => _ok(),
+        WallpaperUpload.tooLarge => _error(413, 'File too large (300 MB max)'),
+        WallpaperUpload.tooMany => _error(
+          409,
+          'There are ${WallpaperStore.maxCount} wallpapers already; '
+          'remove one first',
+        ),
+        WallpaperUpload.unsupported => _error(
+          415,
+          'Not a supported image (PNG, JPEG, GIF, WebP) or video (MP4, '
+          'WebM, MKV)',
+        ),
+      };
 
   /// Serves the wallpaper [id], or the first if none is named. Byte ranges
   /// are honoured because browsers will not play a video without them.

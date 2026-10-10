@@ -25,7 +25,8 @@ by sideloading and is not on the Play Store.
   where the popup opens and how big it is.
 - Moving with the remote prefers cards in the pane you are in, then what is
   straight ahead. The config page can draw where each direction leads.
-- Sidebars: a strip on the left or right edge that opens when you move onto it.
+- Sidebars: a pane on any edge of the screen that opens over the home screen
+  when you move onto it.
 - Settings is a card like any other. If you remove it, a Settings button
   appears at the top right of the TV screen instead.
 - Widgets: clock, weather (from Open-Meteo), now playing, and widgets from
@@ -113,7 +114,8 @@ lib/
   platform/    interface to the device, with a fake for tests
   features/    TV screens: home, widgets, notifications, settings, wallpaper
   server/      web config API and file uploads
-assets/web/    the config page (one HTML file)
+  editor/      the config page: the launcher itself as a web app, plus editing
+tool/          build_editor.sh, which builds the config page into the app
 pigeons/       definition of the Dart <-> Kotlin bridge
 android/       Kotlin: app list, inputs, Home button service, setup,
                notifications and media, app widgets

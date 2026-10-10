@@ -30,7 +30,7 @@ class Placement {
 /// same order as [items].
 ///
 /// In [PaneMode.flow] the items follow one another the way CSS grid
-/// auto-placement puts them, the same way the config page places them. In [PaneMode.grid] items sit where they say; any that
+/// auto-placement puts them. In [PaneMode.grid] items sit where they say; any that
 /// have no position, or whose position is taken, fill the first free space.
 /// In [PaneMode.free] items are simply where they say, overlapping or
 /// not; any without a position line up below those.

@@ -50,9 +50,6 @@ NavKinship navKinship(List<String> from, List<String> to) {
 /// Being in line is put before the kind of pane so that, leaving a pane, the
 /// focus goes to what is straight ahead rather than to something of the pane
 /// around it that happens to lie far off to one side.
-///
-/// The config page draws these moves and has the same rule in JavaScript
-/// (`navigate` in assets/web/index.html); change them together.
 NavSpot<T>? navigate<T>(
   NavSpot<T> from,
   Iterable<NavSpot<T>> spots,

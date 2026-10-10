@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the web editor (lib/editor) and puts what a browser needs of it in
-# assets/editor/, from where the TV serves it at /editor/. Run it before
+# assets/editor/, from where the TV serves it as its page. Run it before
 # building the app.
 #
 # Flutter bundles an asset folder without its subfolders, so the files are
@@ -13,7 +13,7 @@ out=build/editor
 dest=assets/editor
 
 flutter build web --release -t lib/editor/main.dart -o "$out" \
-  --base-href /editor/ --no-web-resources-cdn --no-wasm-dry-run
+  --base-href / --no-web-resources-cdn --no-wasm-dry-run
 
 find "$dest" -type f ! -name .gitkeep -delete
 

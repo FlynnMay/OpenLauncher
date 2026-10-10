@@ -10,8 +10,7 @@ import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_link.dart';
 
-// The config page as a Flutter web app, served by the TV at /editor/ next
-// to the first page (assets/web/index.html), which it is to replace. It
+// The config page: a Flutter web app, served by the TV. It
 // runs the launcher itself, fed by the TV over the network (tv_link.dart),
 // and adds the means to rearrange it. Built by tool/build_editor.sh.
 

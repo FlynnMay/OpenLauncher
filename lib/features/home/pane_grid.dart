@@ -64,8 +64,6 @@ class PaneGrid extends StatelessWidget {
   final PaneView view;
   final Widget Function(Entry entry) tile;
 
-  // The config page draws the same grid; see `TV` in assets/web/index.html.
-
   /// Width over height of one cell, label included.
   static const cellRatio = 1.45;
 
