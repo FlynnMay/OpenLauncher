@@ -14,6 +14,7 @@
     --text: #eceef4;
     --muted: #9399a8;
     --accent: #8c9eff;
+    --go: #69f0ae;
     --danger: #ff8a80;
   }
   * { box-sizing: border-box; }
@@ -24,77 +25,204 @@
     font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   header {
-    position: sticky; top: 0; z-index: 2;
-    display: flex; align-items: center; gap: 12px;
-    padding: 14px 16px;
+    position: sticky; top: 0; z-index: 6;
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--line);
   }
+  #top { display: flex; align-items: center; gap: 12px; padding: 14px 16px 8px; }
   h1 { margin: 0; font-size: 18px; font-weight: 600; }
   #status { margin-left: auto; color: var(--muted); font-size: 13px; }
   #status::before {
     content: ""; display: inline-block; width: 8px; height: 8px;
     margin-right: 6px; border-radius: 50%; background: var(--danger);
   }
-  #status.live::before { background: #69f0ae; }
-  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
-  p.hint { margin: 0 0 16px; color: var(--muted); }
+  #status.live::before { background: var(--go); }
+  nav { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 0 0 12px; }
+  .chips .spacer { flex: 1; }
+  main { padding: 16px 16px 220px; max-width: 1280px; margin: 0 auto; }
+  main > section { display: none; }
+  main > section.current { display: block; }
+  p.hint { margin: 0 0 14px; color: var(--muted); }
   h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
-  #wallpaper {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
-    margin-bottom: 28px; padding: 14px;
+  button, select, input[type=text], input[type=number], input[type=search] {
+    font: inherit; font-size: 13px;
+    color: var(--text); background: var(--panel-hi);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 10px;
+  }
+  button { cursor: pointer; white-space: nowrap; }
+  button:hover:not(:disabled), select:hover, input:focus { border-color: var(--accent); outline: none; }
+  button:disabled { opacity: .35; cursor: default; }
+  button.on { background: var(--accent); border-color: var(--accent); color: #10121a; font-weight: 600; }
+  button.danger { color: var(--danger); }
+  input[type=number] { width: 64px; }
+  input[type=color] { width: 34px; height: 30px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-hi); }
+  input[type=range] { width: 84px; accent-color: var(--accent); }
+  label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+  .box {
+    margin-bottom: 18px; padding: 14px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .row + .row { margin-top: 12px; }
+  .grow { flex: 1; min-width: 120px; }
+
+  /* ---- The TV. Everything inside is sized in --u, one TV pixel of 960. ---- */
+  #scroller { overflow-x: auto; border-radius: 10px; border: 1px solid var(--line); scrollbar-color: var(--line) transparent; }
+  #stage {
+    position: relative; min-width: 640px; overflow: hidden;
+    background: #000 center top / cover no-repeat;
+    font-family: Roboto, system-ui, sans-serif; color: #fff; line-height: 1.3;
+    user-select: none; -webkit-user-select: none;
+  }
+  #stage > video.wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #stage > .dim { position: absolute; inset: 0; background: #00000073; }
+  #stage > .fold {
+    position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed #ffffff40; pointer-events: none; z-index: 1;
+  }
+  #stage > .fold::after {
+    content: "bottom of the TV screen"; position: absolute; right: 6px; bottom: 2px;
+    font: 11px system-ui, sans-serif; color: #ffffff70;
+  }
+  .content { position: relative; }
+  .tvhead {
+    display: flex; justify-content: flex-end; align-items: center; color: #ffffffb3;
+    height: calc(40 * var(--u)); font-size: calc(14 * var(--u)); padding-right: calc(12 * var(--u));
+  }
+  .sec { position: relative; padding: calc(12 * var(--u)) 0; }
+  .sec.chosen { outline: 2px dashed var(--accent); outline-offset: calc(4 * var(--u)); }
+  .sbox { border-radius: calc(14 * var(--u)); border: 0 solid transparent; }
+  .sbox.styled { padding: calc(16 * var(--u)); border-width: calc(2 * var(--u)); }
+  .stitle { font-size: calc(16 * var(--u)); font-weight: 500; color: #ffffffb3; padding-bottom: calc(10 * var(--u)); }
+  /* Not on the TV: the way into a section's settings. */
+  .sedit {
+    position: absolute; right: 0; top: calc(-6 * var(--u)); z-index: 2;
+    font: 12px system-ui, sans-serif; padding: 3px 9px; opacity: .5;
+    background: #000000a0; border-color: #ffffff50; color: #fff; border-radius: 999px;
+  }
+  .sec:hover .sedit, .sec.chosen .sedit { opacity: 1; }
+  .cells { position: relative; }
+  .cells.into, .tile.into > .art, .chips button.into { outline: 2px solid var(--go); outline-offset: 2px; }
+  .slot {
+    position: absolute; border: 1px dashed #ffffff55; border-radius: calc(10 * var(--u));
+    opacity: 0; pointer-events: none;
+  }
+  /* Free cells only show while there is something to put in them. */
+  body.dragging .slot, #stage.picking .slot { opacity: 1; }
+  #stage.picking .slot { pointer-events: auto; cursor: pointer; }
+  #stage.picking .slot:hover { background: #ffffff22; border-color: var(--go); }
+  .tile { position: absolute; display: flex; flex-direction: column; cursor: grab; -webkit-touch-callout: none; }
+  .tile > .art {
+    flex: 1; min-height: 0; position: relative; overflow: hidden;
+    display: grid; place-items: center; text-align: center;
+    background: #2b2a33; border-radius: calc(10 * var(--u));
+    font-size: calc(13 * var(--u)); font-weight: 500; pointer-events: none;
+    /* Its own outline only; not the one of the section around it. */
+    --edge: transparent;
+  }
+  /* The TV draws a card's outline over its picture, not around it. */
+  .tile > .art::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    border: calc(2 * var(--u)) solid var(--edge, transparent);
+  }
+  .tile.bare > .art { background: transparent; }
+  .tile > .art > img, .tile > .art > svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .tile > .art.icon > img { object-fit: contain; padding: calc(12 * var(--u)); }
+  .tile.bare > .art.icon > img { padding: 0; }
+  .tile > .art.mini { grid-template: 1fr 1fr / 1fr 1fr; gap: calc(4 * var(--u)); padding: calc(6 * var(--u)); place-items: stretch; }
+  .tile > .art.mini > img { position: static; border-radius: calc(4 * var(--u)); min-height: 0; background: #1a1c23; }
+  .tile > .label {
+    flex: none; margin-top: calc(6 * var(--u)); height: calc(16 * var(--u)); line-height: calc(16 * var(--u));
+    font-size: calc(12 * var(--u)); letter-spacing: .03em; color: #ffffff99; text-align: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none;
+  }
+  .tile.sel > .art { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tile.sel { z-index: 2; }
+  .tile.dragging { opacity: .25; }
+  .tile.before::before, .tile.after::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 4px; background: var(--go); border-radius: 2px; z-index: 3;
+  }
+  .tile.before::before { left: calc(-10 * var(--u) - 2px); }
+  .tile.after::after { right: calc(-10 * var(--u) - 2px); }
+  .rail .tile.before::before, .rail .tile.after::after { left: 0; right: 0; width: auto; height: 4px; }
+  .rail .tile.before::before { top: calc(-6 * var(--u) - 2px); bottom: auto; }
+  .rail .tile.after::after { bottom: calc(-6 * var(--u) - 2px); top: auto; }
+  .marker { position: absolute; border: 2px solid var(--go); border-radius: calc(10 * var(--u)); background: #69f0ae22; pointer-events: none; z-index: 3; }
+  /* Widgets are text straight on the wallpaper, as on the TV. */
+  .wface { display: flex; flex-direction: column; align-items: center; white-space: nowrap; line-height: 1.15; flex: none; }
+  .wface b { font-weight: 300; font-size: calc(44 * var(--u)); }
+  .wface span { color: #ffffffb3; font-size: calc(14 * var(--u)); font-weight: 400; }
+  .wface.weather { flex-direction: row; gap: calc(14 * var(--u)); }
+  .wface.weather > i { font-style: normal; font-size: calc(46 * var(--u)); }
+  .wface.weather > div { display: flex; flex-direction: column; align-items: flex-start; }
+  .wface.weather b { font-size: calc(38 * var(--u)); }
+  .wface.weather span + span { color: #ffffff8a; }
+  .wface.note span { font-size: calc(13 * var(--u)); line-height: 1.4; white-space: pre; }
+  .railbox { position: absolute; top: 0; bottom: 0; z-index: 1; }
+  .railbox.empty { display: none; border: 1px dashed #ffffff55; background: #00000080; }
+  body.dragging .railbox.empty { display: block; }
+  .railbox.empty::after {
+    content: attr(data-name); position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; font: 12px system-ui, sans-serif; color: #ffffffa0;
+  }
+  .sheet { position: absolute; background: #1a1c23fa; overflow-y: auto; }
+  .sheet > h3 { margin: 0; font-weight: 400; font-size: calc(22 * var(--u)); padding-bottom: calc(16 * var(--u)); }
+  #ghost { position: fixed !important; z-index: 9; pointer-events: none; opacity: .9; margin: 0; filter: drop-shadow(0 8px 16px #000a); }
+  #ghost .count {
+    position: absolute; right: -8px; top: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
+    background: var(--accent); color: #10121a; font: 600 12px/22px system-ui, sans-serif; text-align: center;
+  }
+  body.dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+  body.dragging #inspector { display: none; }
+  .handle { position: absolute; z-index: 4; touch-action: none; }
+  .handle.e { top: 0; bottom: 0; right: -7px; width: 12px; cursor: ew-resize; }
+  .handle.s { left: 0; right: 0; bottom: -7px; height: 12px; cursor: ns-resize; }
+  .handle.se {
+    right: -8px; bottom: -8px; width: 16px; height: 16px; cursor: nwse-resize;
+    background: var(--accent); border: 2px solid var(--bg); border-radius: 50%;
+  }
+
+  /* The bar that edits whatever is selected. */
+  #inspector {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 7;
+    max-height: 60vh; overflow-y: auto;
+    padding: 12px 16px; background: var(--panel); border-top: 1px solid var(--accent);
+  }
+  #inspector:empty { display: none; }
+  #inspector .inner { max-width: 1248px; margin: 0 auto; }
+  #inspector strong { margin-right: 4px; }
+  #inspector input[type=number] { width: 60px; }
+
+  /* Choosing apps to add. */
+  #picker { position: fixed; inset: 0; z-index: 10; background: #000a; display: grid; place-items: center; padding: 16px; }
+  #picker:empty { display: none; }
+  #picker .dialog {
+    width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  }
+  #picker .apps { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); overflow-y: auto; padding: 2px; }
+  #picker .app { padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: center; white-space: normal; position: relative; }
+  #picker .app.on { outline: 2px solid var(--go); border-color: var(--go); }
+  #picker .app .pic { aspect-ratio: 16 / 9; background: #2b2a33; display: grid; place-items: center; font-size: 12px; color: var(--muted); }
+  #picker .app .pic img { width: 100%; height: 100%; object-fit: cover; }
+  #picker .app .pic.icon img { object-fit: contain; padding: 8px; }
+  #picker .app .name { padding: 5px 6px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #picker .app .tag { position: absolute; left: 4px; top: 4px; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #000b; color: var(--muted); }
+  #picker .app .tag.off { color: var(--go); }
+
   #wp-preview {
     width: 240px; max-width: 100%; aspect-ratio: 16 / 9; flex: none;
     display: grid; place-items: center; overflow: hidden;
     background: #000; border-radius: 8px; color: var(--muted); font-size: 13px;
   }
   #wp-preview img, #wp-preview video { width: 100%; height: 100%; object-fit: cover; }
-  #wp-side { flex: 1; min-width: 200px; }
-  #wp-side p { margin: 0 0 10px; color: var(--muted); }
-  #wp-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-  #cards {
-    display: grid; gap: 14px;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    list-style: none; margin: 0; padding: 0;
-  }
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    overflow: hidden;
-    display: flex; flex-direction: column;
-  }
-  .card.hidden .art, .card.hidden .name { opacity: .35; }
-  .card.dragging { opacity: .4; }
-  .card.over { border-color: var(--accent); }
-  .art {
-    aspect-ratio: 16 / 9;
-    background: var(--panel-hi);
-    display: grid; place-items: center;
-    cursor: grab;
-    color: var(--muted); font-weight: 600; text-align: center; padding: 8px;
-  }
-  .art img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-  .art.wide { padding: 0; }
-  .art.wide img { object-fit: cover; }
-  .meta { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px 4px; }
-  .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kind { margin-left: auto; color: var(--muted); font-size: 12px; flex: none; }
-  .actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 12px; }
-  button {
-    font: inherit; font-size: 13px;
-    color: var(--text); background: var(--panel-hi);
-    border: 1px solid var(--line); border-radius: 8px;
-    padding: 6px 10px; cursor: pointer;
-  }
-  button:hover:not(:disabled) { border-color: var(--accent); }
-  button:disabled { opacity: .35; cursor: default; }
-  button.move { padding: 6px 12px; }
+  ol.plain { list-style: none; margin: 0; padding: 0; }
+  ol.plain li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  ol.plain li span { flex: 1; }
   #error {
-    position: fixed; left: 16px; right: 16px; bottom: 16px;
+    position: fixed; left: 16px; right: 16px; top: 16px; z-index: 11;
     max-width: 480px; margin: 0 auto; padding: 12px 14px;
     background: #3a1f1f; border: 1px solid var(--danger); border-radius: 10px;
   }
@@ -103,37 +231,88 @@
 </head>
 <body>
 <header>
-  <h1>OpenLauncher</h1>
-  <span id="status">Connecting…</span>
+  <div id="top">
+    <h1>OpenLauncher</h1>
+    <span id="status">Connecting…</span>
+  </div>
+  <nav id="tabs"></nav>
 </header>
 <main>
-  <h2>Wallpaper</h2>
-  <section id="wallpaper">
-    <div id="wp-preview"></div>
-    <div id="wp-side">
-      <p id="wp-status"></p>
-      <div id="wp-actions">
-        <button id="wp-choose">Choose…</button>
-        <button id="wp-remove">Remove</button>
+  <section id="tab-layout">
+    <p class="hint">This is your TV screen. Drag things where you want them (on a phone, hold one for a moment first), tap one to change it, and it shows on the TV straight away.</p>
+    <div class="chips" id="panels"></div>
+    <div id="panel-settings"></div>
+    <div id="scroller"><div id="stage"></div></div>
+  </section>
+  <section id="tab-wallpaper">
+    <div class="box row">
+      <div id="wp-preview"></div>
+      <div class="grow">
+        <p class="hint" id="wp-status"></p>
+        <div class="row">
+          <button id="wp-choose">Choose…</button>
+          <button id="wp-remove">Remove</button>
+        </div>
       </div>
     </div>
   </section>
-  <h2>Cards</h2>
-  <p class="hint">Changes appear on the TV straight away. Use the arrows to reorder, or drag a card by its picture.</p>
-  <ul id="cards"></ul>
+  <section id="tab-options">
+    <h2>Quick actions</h2>
+    <div class="box">
+      <p class="hint">Shown when you hold OK on a card. Untick the ones you do not want.</p>
+      <ol class="plain" id="actions"></ol>
+    </div>
+    <h2>Notifications</h2>
+    <div class="box">
+      <p class="hint" id="toast-note"></p>
+      <div class="row" id="toasts"></div>
+    </div>
+  </section>
 </main>
+<div id="inspector"></div>
+<div id="picker"></div>
 <div id="error" role="alert"></div>
 <input id="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
 <input id="wp-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,.mkv" hidden>
 
 <script>
-const list = document.getElementById('cards');
-const statusEl = document.getElementById('status');
-const errorEl = document.getElementById('error');
-const fileInput = document.getElementById('file');
-let cards = [];
+const $ = (id) => document.getElementById(id);
+const statusEl = $('status');
+const errorEl = $('error');
+const fileInput = $('file');
+const stage = $('stage');
+
+let state = null;      // The last state the TV sent.
+let layout = null;     // Our working copy of state.layout.
+let cardsById = {};
+let tab = 'layout';
+let panelId = 'home';  // What the stage shows: the home screen or one popup.
+let sel = new Set();   // Ids of the selected layout items.
+let selSection = null; // Id of the section whose settings are open.
+let multi = false;     // Whether a tap adds to the selection.
 let uploadTarget = null;
-let dragId = null;
+let drag = null;       // Items being dragged: see beginDrag.
+let press = null;      // A pointer that is down on a tile and may become a drag.
+let resizing = null;   // An item being resized by a handle.
+let styleOpen = new Set();  // Ids of sections and items whose colours are being edited.
+let pendingState = null;    // A state from the TV that arrived mid-drag.
+let picker = null;     // The "add apps" dialog: { section, chosen, query }.
+
+const TABS = { layout: 'Layout', wallpaper: 'Wallpaper', options: 'Options' };
+const SIDEBARS = { left: 'Left sidebar', right: 'Right sidebar' };
+const MAX_COLUMNS = 12, MAX_SPAN = 4, MIN_FREE = 0.25;
+
+/* The TV's own measurements, in its 960-wide pixels. Keep in step with the
+   Flutter side: home_screen.dart, section_grid.dart, rail.dart, popup_panel.dart. */
+const TV = {
+  width: 960, height: 540, padX: 48, padY: 27, gapX: 20, gapY: 16, ratio: 1.45,
+  railWidth: 98, railOut: 24, railPicW: 64, railPicH: 36, railGap: 12, railShift: 66,
+  stylePad: 16, styleBorder: 2,
+  // Share of the screen's width and height, for small, medium and large.
+  popup: { center: [[0.45, 0.62, 0.86], [0.8, 0.8, 0.8]], bottom: [[1, 1, 1], [0.34, 0.5, 0.72]], side: [[0.26, 0.36, 0.5], [1, 1, 1]] },
+  sheetPad: [24, 32, 28],
+};
+const SIZES = ['small', 'medium', 'large'];
 
 function showError(message) {
   errorEl.textContent = message;
@@ -148,116 +327,1141 @@ async function api(method, path, body, headers) {
       const detail = await response.json().catch(() => ({}));
       throw new Error(detail.error || `Request failed (${response.status})`);
     }
-    return true;
+    return await response.json();
   } catch (e) {
     showError(e.message);
     refresh();
-    return false;
+    return null;
   }
 }
 
 const json = (value) => [JSON.stringify(value), { 'content-type': 'application/json' }];
 const idQuery = (id) => '?id=' + encodeURIComponent(id);
+const newId = (prefix) => prefix + Math.random().toString(36).slice(2, 9);
+const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+const snap = (value) => Math.round(value * 20) / 20;
+const px = (value) => value + 'px';
 
-function setOrder(ids) {
-  // Show the new order immediately; the server confirms through the event stream.
-  cards = ids.map((id) => cards.find((c) => c.id === id));
-  render();
-  api('PUT', '/api/order', ...json({ order: ids }));
-}
+/* ---------- small DOM helpers ---------- */
 
-function move(id, delta) {
-  const ids = cards.map((c) => c.id);
-  const from = ids.indexOf(id);
-  const to = from + delta;
-  if (to < 0 || to >= ids.length) return;
-  ids.splice(to, 0, ...ids.splice(from, 1));
-  setOrder(ids);
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (key === 'class') node.className = value;
+    else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+    else if (value !== undefined && value !== null) node[key] = value;
+  }
+  node.append(...children.filter((child) => child !== null && child !== undefined));
+  return node;
 }
 
 function button(label, title, onClick, extra = {}) {
-  const el = document.createElement('button');
-  el.textContent = label;
-  el.title = title;
-  el.setAttribute('aria-label', title);
-  el.addEventListener('click', onClick);
-  Object.assign(el, extra);
-  return el;
+  return el('button', { textContent: label, title, ariaLabel: title, onclick: onClick, ...extra });
 }
 
-function render() {
-  list.replaceChildren(...cards.map((card, index) => {
-    const li = document.createElement('li');
-    li.className = 'card' + (card.hidden ? ' hidden' : '');
+function select(options, value, onChange, title) {
+  const node = el('select', { title, ariaLabel: title, onchange: () => onChange(node.value) });
+  for (const [id, label] of options) node.append(el('option', { value: id, textContent: label }));
+  node.value = value;
+  return node;
+}
 
-    const art = document.createElement('div');
-    art.className = 'art' + (card.wide ? ' wide' : '');
-    art.draggable = true;
-    if (card.icon) {
-      const img = document.createElement('img');
-      img.src = card.icon;
-      img.alt = '';
-      art.append(img);
+function check(label, checked, onChange) {
+  const box = el('input', { type: 'checkbox', checked, onchange: () => onChange(box.checked) });
+  return el('label', {}, box, label);
+}
+
+const image = (src) => el('img', { src, alt: '', draggable: false });
+
+/* ---------- the layout ---------- */
+
+const panelOf = (id) => layout.panels.find((p) => p.id === id);
+const panelKind = (panel) => panel.id === 'home' ? 'home' : SIDEBARS[panel.id] ? 'sidebar' : 'popup';
+const panelName = (panel) => panel.id === 'home' ? 'Home' : SIDEBARS[panel.id] || panel.title || 'Folder';
+const sectionOf = (id) => layout.panels.flatMap((p) => p.sections).find((s) => s.id === id);
+const panelOfSection = (section) => layout.panels.find((p) => p.sections.includes(section));
+const railSection = (section) => panelKind(panelOfSection(section)) === 'sidebar';
+const inboxSection = () => panelOf('home').sections.find((s) => s.id === layout.inbox) || panelOf('home').sections[0];
+
+function* allItems() {
+  for (const panel of layout.panels) {
+    for (const section of panel.sections) {
+      for (const [index, item] of section.items.entries()) yield { panel, section, index, item };
+    }
+  }
+}
+
+function find(itemId) {
+  for (const found of allItems()) if (found.item.id === itemId) return found;
+  return null;
+}
+
+const chosen = () => [...sel].map(find).filter(Boolean);
+
+/* Where each item of a section goes; the same rules the TV follows
+   (lib/core/layout/placement.dart). */
+function place(section) {
+  const columns = section.columns;
+  if (section.mode === 'free') {
+    const placed = section.items.map((item) => ({ x: item.x ?? 0, y: item.y ?? 0, w: Math.min(item.w, columns), h: item.h }));
+    return { placed, taken: new Set(), rows: placed.reduce((rows, p) => Math.max(rows, p.y + p.h), 0) };
+  }
+  const taken = new Set();
+  const free = (x, y, w, h) => {
+    if (x + w > columns) return false;
+    for (let row = y; row < y + h; row++) {
+      for (let column = x; column < x + w; column++) if (taken.has(column + ',' + row)) return false;
+    }
+    return true;
+  };
+  const take = (x, y, w, h) => {
+    for (let row = y; row < y + h; row++) {
+      for (let column = x; column < x + w; column++) taken.add(column + ',' + row);
+    }
+    return { x, y, w, h };
+  };
+  const placed = section.items.map(() => null);
+  if (section.mode === 'grid') {
+    section.items.forEach((item, index) => {
+      const w = Math.min(item.w, columns);
+      if (item.x != null && item.y != null && free(item.x, item.y, w, item.h)) {
+        placed[index] = take(item.x, item.y, w, item.h);
+      }
+    });
+  }
+  let cursorX = 0, cursorY = 0;
+  section.items.forEach((item, index) => {
+    if (placed[index]) return;
+    const w = Math.min(item.w, columns);
+    let x = section.mode === 'flow' ? cursorX : 0;
+    let y = section.mode === 'flow' ? cursorY : 0;
+    while (!free(x, y, w, item.h)) {
+      x++;
+      if (x + w > columns) { x = 0; y++; }
+    }
+    placed[index] = take(x, y, w, item.h);
+    cursorX = x; cursorY = y;
+  });
+  return { placed, taken, rows: placed.reduce((rows, p) => Math.max(rows, p.y + p.h), 0) };
+}
+
+/* Shows the change now; the TV confirms through the event stream. */
+function save() {
+  render();
+  api('PUT', '/api/layout', ...json(layout));
+}
+
+/* Gives every item of a cell-grid section a cell of its own, and writes it
+   down. `fixed`, if given, gets exactly the cell it asks for; the others keep
+   theirs when they can and otherwise take the nearest free one. The TV is
+   sent the result and only has to draw it. */
+function settle(section, fixed = null) {
+  if (section.mode !== 'grid') return;
+  const columns = section.columns;
+  const taken = new Set();
+  const free = (x, y, w, h) => {
+    if (x < 0 || y < 0 || x + w > columns) return false;
+    for (let row = y; row < y + h; row++) {
+      for (let column = x; column < x + w; column++) if (taken.has(column + ',' + row)) return false;
+    }
+    return true;
+  };
+  const take = (item, x, y) => {
+    for (let row = y; row < y + item.h; row++) {
+      for (let column = x; column < x + item.w; column++) taken.add(column + ',' + row);
+    }
+    item.x = x; item.y = y;
+  };
+  for (const item of section.items) item.w = Math.min(item.w, columns);
+  if (fixed) take(fixed, clamp(fixed.x ?? 0, 0, columns - fixed.w), Math.max(0, fixed.y ?? 0));
+  const homeless = [];
+  for (const item of section.items) {
+    if (item === fixed) continue;
+    if (item.x != null && item.y != null && free(item.x, item.y, item.w, item.h)) take(item, item.x, item.y);
+    else homeless.push(item);
+  }
+  for (const item of homeless) {
+    // No wish at all: the first free place, in reading order.
+    const wantX = item.x ?? 0, wantY = item.y ?? 0, picky = item.x != null && item.y != null;
+    let best = null;
+    for (let y = 0; best === null || y <= best.y + best.distance; y++) {
+      for (let x = 0; x + item.w <= columns; x++) {
+        if (!free(x, y, item.w, item.h)) continue;
+        const distance = picky ? Math.abs(x - wantX) + Math.abs(y - wantY) : y * columns + x;
+        if (best === null || distance < best.distance) best = { x, y, distance };
+      }
+      if (!picky && best) break;
+    }
+    take(item, best.x, best.y);
+  }
+}
+
+/* Makes an item fit the kind of section it is in. */
+function fit(item, section) {
+  if (section.mode !== 'free') {
+    item.w = Math.max(1, Math.round(item.w));
+    item.h = clamp(Math.round(item.h), 1, MAX_SPAN);
+  }
+  item.w = Math.min(item.w, section.columns);
+  if (railSection(section) && item.kind !== 'widget') item.h = 1;
+}
+
+/* Puts items (already taken out of wherever they were, or new) into a
+   section: at a cell, before another item, or wherever there is room. */
+function insert(items, section, { before = null, cell = null } = {}) {
+  const below = Math.ceil(place(section).rows);
+  for (const item of items) { fit(item, section); delete item.x; delete item.y; }
+  if (section.mode === 'flow') {
+    const index = before ? section.items.findIndex((i) => i.id === before) : -1;
+    section.items.splice(index < 0 ? section.items.length : index, 0, ...items);
+  } else if (section.mode === 'grid') {
+    section.items.push(...items);
+    // Dropped together, they all ask for the same cell and spread from it.
+    if (cell) for (const item of items) { item.x = cell.x; item.y = cell.y; }
+    settle(section, cell ? items[0] : null);
+  } else {
+    items.forEach((item, i) => {
+      const x = cell ? cell.x + i * 0.25 : i % section.columns;
+      item.x = clamp(snap(x), 0, section.columns - item.w);
+      item.y = Math.max(0, snap(cell ? cell.y + i * 0.25 : below + Math.floor(i / section.columns)));
+    });
+    section.items.push(...items);
+  }
+}
+
+/* Takes items out of their sections without putting them anywhere. */
+function takeOut(ids) {
+  const items = ids.map(find).filter(Boolean).map((found) => found.item);
+  for (const item of items) { const from = find(item.id); from.section.items.splice(from.index, 1); }
+  return items;
+}
+
+/* A card that is on no panel at all is noted as removed, so the TV does not
+   put it back as if it were a new app. */
+function noteRemoved(items) {
+  const placed = new Set([...allItems()].filter((f) => f.item.kind === 'card').map((f) => f.item.ref));
+  const removed = new Set(layout.removed);
+  for (const item of items) if (item.kind === 'card' && !placed.has(item.ref)) removed.add(item.ref);
+  layout.removed = [...removed];
+}
+
+function moveItems(ids, section, target = {}) {
+  insert(takeOut(ids), section, target);
+  save();
+}
+
+function addItems(section, items) {
+  const added = items.map((item) => ({ id: newId('i'), w: 1, h: 1, ...item }));
+  const refs = new Set(added.filter((i) => i.kind === 'card').map((i) => i.ref));
+  layout.removed = layout.removed.filter((ref) => !refs.has(ref));
+  insert(added, section);
+  sel = new Set(added.map((item) => item.id));
+  selSection = null;
+  save();
+}
+
+function removeItems(ids) {
+  noteRemoved(takeOut(ids));
+  sel.clear();
+  save();
+}
+
+function setSize(items, w, h) {
+  for (const item of items) {
+    const { section } = find(item.id);
+    const whole = section.mode !== 'free';
+    if (w != null) item.w = clamp(whole ? Math.round(w) || 1 : snap(w), whole ? 1 : MIN_FREE, section.columns - (whole ? 0 : item.x ?? 0));
+    if (h != null) item.h = clamp(whole ? Math.round(h) || 1 : snap(h), whole ? 1 : MIN_FREE, MAX_SPAN);
+    settle(section, item);
+  }
+  save();
+}
+
+function setMode(section, mode) {
+  const { placed } = place(section);
+  if (mode === 'flow') {
+    const order = section.items.map((item, i) => [item, placed[i]]);
+    order.sort((a, b) => a[1].y - b[1].y || a[1].x - b[1].x);
+    section.items = order.map(([item]) => item);
+  } else {
+    // Everything starts where it was.
+    section.items.forEach((item, i) => {
+      item.x = mode === 'grid' ? Math.round(placed[i].x) : placed[i].x;
+      item.y = mode === 'grid' ? Math.round(placed[i].y) : placed[i].y;
+    });
+  }
+  section.mode = mode;
+  for (const item of section.items) {
+    fit(item, section);
+    if (mode === 'flow') { delete item.x; delete item.y; }
+  }
+  settle(section);
+  save();
+}
+
+function addSection(panel) {
+  const section = { id: newId('s'), title: '', mode: 'flow', columns: 5, items: [] };
+  panel.sections.push(section);
+  selSection = section.id;
+  sel.clear();
+  save();
+}
+
+function addPopup(section) {
+  const title = prompt('Name of the folder or panel', 'Folder');
+  if (title === null) return;
+  const panel = { id: newId('p'), title: title.trim(), position: 'center', size: 'medium',
+    sections: [{ id: newId('s'), title: '', mode: 'flow', columns: 4, items: [] }] };
+  layout.panels.push(panel);
+  addItems(section, [{ kind: 'panel', ref: panel.id }]);
+}
+
+function deletePopup(panel) {
+  if (!confirm(`Delete "${panelName(panel)}"? What is in it comes off the TV; you can add the apps again anywhere.`)) return;
+  const inside = panel.sections.flatMap((s) => s.items);
+  layout.panels = layout.panels.filter((p) => p !== panel);
+  takeOut([...allItems()].filter((f) => f.item.kind === 'panel' && f.item.ref === panel.id).map((f) => f.item.id));
+  noteRemoved(inside);
+  panelId = 'home';
+  sel.clear();
+  save();
+}
+
+function deleteSection(section) {
+  const panel = panelOfSection(section);
+  if (section.items.length && !confirm('Delete this section? What is in it comes off the TV; you can add the apps again anywhere.')) return;
+  panel.sections.splice(panel.sections.indexOf(section), 1);
+  noteRemoved(section.items);
+  if (layout.inbox === section.id) layout.inbox = panelOf('home').sections[0].id;
+  selSection = null;
+  save();
+}
+
+/* ---------- colours ---------- */
+
+function styleCss(style) {
+  const colors = (style && style.colors) || [];
+  return {
+    background: colors.length > 1 ? `linear-gradient(${style.angle ?? 180}deg, ${colors.join(', ')})` : colors[0] || '',
+    borderColor: (style && style.border) || '',
+  };
+}
+
+function paint(node, style) {
+  const css = styleCss(style);
+  node.style.background = css.background;
+  node.style.borderColor = css.borderColor;
+  // A card's outline is drawn by its ::after.
+  if (node.classList.contains('art')) node.style.setProperty('--edge', css.borderColor || 'transparent');
+  node.classList.toggle('styled', !!(css.background || css.borderColor));
+}
+
+/* The controls for the fill and outline of sections or items. `targets` are
+   the objects carrying `style` (all get the same); `nodes` finds the elements
+   to repaint while a colour is being dragged, so nothing is sent until it is
+   let go. */
+function styleControls(targets, nodes) {
+  const style = targets[0].style || {};
+  const colors = style.colors || [];
+  const split = (css) => ({ hex: css.slice(0, 7), alpha: css.length > 7 ? Math.round(parseInt(css.slice(7), 16) / 2.55) : 100 });
+  const join = (hex, alpha) => hex + Math.round(clamp(alpha, 0, 100) * 2.55).toString(16).padStart(2, '0');
+  const current = () => targets[0].style || {};
+  const commit = (next, send) => {
+    const clean = {};
+    if (next.colors && next.colors.length) clean.colors = next.colors;
+    if (clean.colors && clean.colors.length > 1) clean.angle = next.angle ?? 180;
+    if (next.border) clean.border = next.border;
+    for (const target of targets) {
+      if (Object.keys(clean).length) target.style = structuredClone(clean); else delete target.style;
+    }
+    if (send) save(); else for (const node of nodes()) paint(node, clean);
+  };
+  const colour = (css, title, onChange) => {
+    const now = split(css);
+    const picker = el('input', { type: 'color', value: now.hex, title });
+    const alpha = el('input', { type: 'range', min: 0, max: 100, value: now.alpha, title: title + ': how solid it is' });
+    for (const input of [picker, alpha]) {
+      input.addEventListener('input', () => onChange(join(picker.value, +alpha.value), false));
+      input.addEventListener('change', () => onChange(join(picker.value, +alpha.value), true));
+    }
+    return [picker, alpha];
+  };
+  const kind = colors.length > 1 ? 'gradient' : colors.length ? 'flat' : 'none';
+  const parts = [el('label', {}, 'Background', select([['none', 'Default'], ['flat', 'Colour'], ['gradient', 'Gradient']], kind, (next) => {
+    const first = colors[0] || '#3d5afeff';
+    commit({ ...style, colors: next === 'none' ? [] : next === 'flat' ? [first] : [first, colors[1] || '#00000000'] }, true);
+  }, 'What is painted behind it'))];
+  colors.slice(0, 2).forEach((css, i) => parts.push(...colour(css, i ? 'Second colour' : 'Colour', (value, send) => {
+    const next = [...(current().colors || colors)];
+    next[i] = value;
+    commit({ ...current(), colors: next }, send);
+  })));
+  if (kind === 'gradient') {
+    const angle = el('input', { type: 'number', min: 0, max: 359, step: 15, value: style.angle ?? 180, title: 'Direction of the gradient in degrees',
+      onchange: () => commit({ ...current(), angle: ((Math.round(angle.value) || 0) % 360 + 360) % 360 }, true) });
+    parts.push(el('label', {}, 'Angle', angle));
+  }
+  parts.push(check('Border', !!style.border, (on) => commit({ ...current(), border: on ? '#ffffffff' : undefined }, true)));
+  if (style.border) parts.push(...colour(style.border, 'Border colour', (value, send) => commit({ ...current(), border: value }, send)));
+  return parts;
+}
+
+/* ---------- drawing what the TV draws ---------- */
+
+const FOLDER = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M46 30a5 5 0 0 1 5-5h18l8 9h32a5 5 0 0 1 5 5v26a5 5 0 0 1-5 5H51a5 5 0 0 1-5-5z"/></svg>';
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function clockText(options) {
+  const now = new Date();
+  const two = (n) => String(n).padStart(2, '0');
+  const tail = two(now.getMinutes()) + (options.seconds === true ? ':' + two(now.getSeconds()) : '');
+  const time = options.hour24 !== false ? `${two(now.getHours())}:${tail}` : `${now.getHours() % 12 || 12}:${tail} ${now.getHours() < 12 ? 'am' : 'pm'}`;
+  return [time, options.date !== false ? `${DAYS[now.getDay()]} ${now.getDate()} ${MONTHS[now.getMonth()]}` : null];
+}
+
+/* A widget as the TV draws it, at the TV's own sizes; `fitFaces` then scales
+   it to its box. What only the TV knows (the weather, what is playing) is
+   left blank. */
+function widgetFaceFor(item) {
+  const options = item.options || {};
+  const line = (text) => el('span', { textContent: text });
+  if (item.ref === 'clock') {
+    const [time, date] = clockText(options);
+    const face = el('div', { class: 'wface' }, el('b', { textContent: time }), date ? line(date) : null);
+    face.dataset.clock = JSON.stringify(options);
+    return face;
+  }
+  if (item.ref === 'weather') {
+    if (options.latitude == null) return el('div', { class: 'wface note' }, line('Choose a place for the weather\non the web page'));
+    return el('div', { class: 'wface weather' }, el('i', { textContent: '☁' }),
+      el('div', {}, el('b', { textContent: '–°' }), line('Weather'), options.place ? line(options.place) : null));
+  }
+  // These two are not scaled on the TV either.
+  if (item.ref === 'media') {
+    return el('div', { class: 'wface note fixed' }, line(state.notificationAccess ? 'Nothing is playing' : 'Run automatic setup in Settings\nto see what is playing'));
+  }
+  const provider = state.widgetProviders.find((p) => p.id === options.provider);
+  return el('div', { class: 'wface note fixed' }, line(provider ? `${provider.app}: ${provider.label}` : 'Choose a widget on the web page'));
+}
+
+/* Scales each widget to fill its box without changing its shape. */
+function fitFaces() {
+  for (const face of stage.querySelectorAll('.wface:not(.fixed)')) {
+    const box = face.parentElement;
+    face.style.transform = '';
+    const scale = Math.min(box.clientWidth / face.offsetWidth, box.clientHeight / face.offsetHeight);
+    if (isFinite(scale) && scale > 0) face.style.transform = `scale(${scale})`;
+  }
+}
+
+function cardArt(card) {
+  const art = el('div', { class: 'art' + (card.wide ? '' : ' icon') });
+  art.append(card.icon ? image(card.icon) : card.label);
+  return art;
+}
+
+const itemLabel = (item) => item.kind === 'card' ? cardsById[item.ref].label
+  : item.kind === 'panel' ? panelOf(item.ref).title || 'Folder'
+  : (state.widgets.find((w) => w.type === item.ref) || { label: 'Widget' }).label;
+
+/* What an item looks like: its picture, and whether it sits straight on the
+   wallpaper with no card behind it. */
+function itemArt(item) {
+  if (item.kind === 'card') {
+    const card = cardsById[item.ref];
+    return { art: cardArt(card), bare: card.kind === 'input' && !card.customIcon };
+  }
+  if (item.kind === 'panel') {
+    const panel = panelOf(item.ref);
+    if (state.panelIcons[panel.id]) return { art: el('div', { class: 'art' }, image(state.panelIcons[panel.id])) };
+    const inside = panel.sections.flatMap((s) => s.items).filter((i) => i.kind === 'card' && cardsById[i.ref].icon).slice(0, 4);
+    if (!inside.length) return { art: el('div', { class: 'art', innerHTML: FOLDER }), bare: true };
+    return { art: el('div', { class: 'art mini' }, ...inside.map((i) => image(cardsById[i.ref].icon))) };
+  }
+  return { art: el('div', { class: 'art' }, widgetFaceFor(item)), bare: true };
+}
+
+/* Draws a section's items on its cell grid, `width` pixels wide. In a rail a
+   cell is one picture. The grid remembers its measurements, for working out
+   where a pointer is. */
+function cells(section, width, u, rail) {
+  const columns = section.columns;
+  const m = rail
+    ? { columns, cellW: TV.railPicW * u, rowH: TV.railPicH * u, gapX: 0, gapY: TV.railGap * u }
+    : { columns, cellW: (width - (columns - 1) * TV.gapX * u) / columns, gapX: TV.gapX * u, gapY: TV.gapY * u };
+  if (!rail) m.rowH = m.cellW / TV.ratio;
+  const box = (p) => ({
+    left: p.x * (m.cellW + m.gapX), top: p.y * (m.rowH + m.gapY),
+    width: p.w * m.cellW + (p.w - 1) * m.gapX, height: p.h * m.rowH + (p.h - 1) * m.gapY,
+  });
+  const put = (node, p) => {
+    const b = box(p);
+    Object.assign(node.style, { left: px(b.left), top: px(b.top), width: px(b.width), height: px(b.height) });
+    return node;
+  };
+  const { placed, taken, rows } = place(section);
+  // Room to drop below what is there; an empty section still has a row.
+  const shown = Math.max(1, Math.ceil(rows) + (section.mode === 'flow' ? 0 : 1));
+  const grid = el('div', { class: 'cells' + (rail ? ' rail' : '') });
+  grid.style.width = px(rail ? m.cellW : width);
+  grid.style.height = px(shown * m.rowH + (shown - 1) * m.gapY);
+  grid.dataset.section = section.id;
+  Object.assign(grid, { metrics: m, put });
+  if (section.mode === 'grid') {
+    for (let y = 0; y < shown; y++) {
+      for (let x = 0; x < columns; x++) {
+        if (taken.has(x + ',' + y)) continue;
+        const slot = put(el('div', { class: 'slot', title: 'Put the selected item here' }), { x, y, w: 1, h: 1 });
+        slot.addEventListener('click', () => sel.size && moveItems([...sel], section, { cell: { x, y } }));
+        grid.append(slot);
+      }
+    }
+  }
+  section.items.forEach((item, index) => {
+    const p = placed[index];
+    const { art, bare } = itemArt(item);
+    const picked = sel.has(item.id);
+    const label = itemLabel(item);
+    const node = put(el('div', {
+      class: 'tile' + (picked ? ' sel' : '') + (bare && !item.style ? ' bare' : ''),
+      title: label,
+      oncontextmenu: (e) => e.preventDefault(),
+      onpointerdown: (e) => startPress(e, item, node),
+      // On the TV a card's name is under it; a widget has none, and a rail only shows names while open.
+    }, art, rail || item.kind === 'widget' ? null : el('div', { class: 'label', textContent: label })), p);
+    node.dataset.item = item.id;
+    if (item.kind === 'panel') node.dataset.folder = item.ref;
+    if (item.style) paint(art, item.style);
+    if (picked && sel.size === 1 && (!rail || item.kind === 'widget')) {
+      for (const edge of rail ? ['s'] : ['e', 's', 'se']) {
+        node.append(el('div', { class: 'handle ' + edge, title: 'Drag to resize',
+          onpointerdown: (e) => startResize(e, item, section, p, edge, node) }));
+      }
+    }
+    grid.append(node);
+  });
+  return grid;
+}
+
+function sectionBlock(section, width, u) {
+  const inner = width - (section.style ? 2 * (TV.stylePad + TV.styleBorder) * u : 0);
+  const box = el('div', { class: 'sbox' },
+    section.title ? el('div', { class: 'stitle', textContent: section.title }) : null,
+    cells(section, inner, u, false));
+  box.dataset.sbox = section.id;
+  if (section.style) paint(box, section.style);
+  const pick = () => { selSection = selSection === section.id ? null : section.id; sel.clear(); render(); };
+  return el('div', { class: 'sec' + (selSection === section.id ? ' chosen' : '') },
+    button('Section ⚙', 'Title, columns, colours, and adding things to this section', pick, { className: 'sedit' }),
+    box);
+}
+
+function railBlock(panel, u, onLeft) {
+  const empty = !panel.sections.some((s) => s.items.length);
+  const node = el('div', { class: 'railbox' + (empty ? ' empty' : '') });
+  node.dataset.name = SIDEBARS[panel.id];
+  Object.assign(node.style, { width: px(TV.railWidth * u), [onLeft ? 'left' : 'right']: 0 });
+  const grid = cells(panel.sections[0], 0, u, true);
+  Object.assign(grid.style, { position: 'absolute', top: px(TV.padY * u), [onLeft ? 'left' : 'right']: px(TV.railOut * u) });
+  node.append(grid);
+  return node;
+}
+
+function wallpaperLayers() {
+  const wallpaper = state.wallpaper;
+  stage.style.backgroundImage = wallpaper && wallpaper.kind === 'image' ? `url("${wallpaper.url}")` : '';
+  const layers = [];
+  if (wallpaper && wallpaper.kind === 'video') {
+    layers.push(el('video', { className: 'wall', src: wallpaper.url, muted: true, loop: true, autoplay: true, playsInline: true }));
+  }
+  if (wallpaper) layers.push(el('div', { class: 'dim' }));
+  return layers;
+}
+
+function renderStage() {
+  const width = stage.clientWidth;
+  if (!width) return;
+  const u = width / TV.width;
+  stage.style.setProperty('--u', px(u));
+  stage.classList.toggle('picking', sel.size > 0);
+  const panel = panelOf(panelId);
+  const oldSheet = stage.querySelector('.sheet');
+  const scrollTop = oldSheet ? oldSheet.scrollTop : 0;
+  const layers = wallpaperLayers();
+
+  if (panel.id === 'home') {
+    const left = panelOf('left'), right = panelOf('right');
+    const has = (rail) => rail.sections.some((s) => s.items.length);
+    const padLeft = (TV.padX + (has(left) ? TV.railShift : 0)) * u;
+    const padRight = (TV.padX + (has(right) ? TV.railShift : 0)) * u;
+    const content = el('div', { class: 'content' },
+      el('div', { class: 'tvhead', textContent: '⚙  Settings' }),
+      ...panel.sections.map((section) => sectionBlock(section, width - padLeft - padRight, u)));
+    Object.assign(content.style, { padding: `${px(TV.padY * u)} ${px(padRight)} ${px(TV.padY * u)} ${px(padLeft)}`, minHeight: px(TV.height * u) });
+    const fold = el('div', { class: 'fold' });
+    fold.style.top = px(TV.height * u);
+    stage.style.height = '';
+    stage.replaceChildren(...layers, content, railBlock(left, u, true), railBlock(right, u, false), fold);
+    return fitFaces();
+  }
+
+  // A popup: the TV screen dimmed, with the panel where it opens.
+  const side = panel.position === 'left' || panel.position === 'right';
+  const [widths, heights] = TV.popup[side ? 'side' : panel.position];
+  const step = Math.max(0, SIZES.indexOf(panel.size));
+  const sheetW = widths[step] * width, sheetH = heights[step] * TV.height * u;
+  const [padTop, padX, padBottom] = TV.sheetPad.map((n) => n * u);
+  const sheet = el('div', { class: 'sheet' },
+    panel.title ? el('h3', { textContent: panel.title }) : null,
+    ...panel.sections.map((section) => sectionBlock(section, sheetW - 2 * padX, u)));
+  Object.assign(sheet.style, { width: px(sheetW), padding: `${px(padTop)} ${px(padX)} ${px(padBottom)}` });
+  if (panel.position === 'center') {
+    Object.assign(sheet.style, { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', maxHeight: px(sheetH), borderRadius: px(18 * u) });
+  } else {
+    Object.assign(sheet.style, { height: px(sheetH), bottom: 0, [panel.position === 'right' ? 'right' : 'left']: 0 });
+  }
+  stage.style.height = px(TV.height * u);
+  stage.replaceChildren(...layers, el('div', { class: 'dim' }), sheet);
+  sheet.scrollTop = scrollTop;
+  fitFaces();
+}
+
+// Clocks on the page keep time like the ones on the TV.
+setInterval(() => {
+  for (const face of document.querySelectorAll('[data-clock]')) {
+    const [time, date] = clockText(JSON.parse(face.dataset.clock));
+    if (face.firstChild.textContent === time) continue;
+    face.firstChild.textContent = time;
+    if (date && face.children[1]) face.children[1].textContent = date;
+  }
+}, 1000);
+
+let stageWidth = 0;
+new ResizeObserver(() => {
+  // Only a change of width changes anything; redrawing changes the height.
+  if (stage.clientWidth === stageWidth || drag || resizing || !state) return;
+  stageWidth = stage.clientWidth;
+  // Not inside the observer itself: redrawing resizes what it observes.
+  requestAnimationFrame(renderStage);
+}).observe(stage);
+
+/* ---------- dragging: one way of working for mouse, pen and finger ---------- */
+
+const HOLD_MS = 280, SLOP = 6;
+
+function startPress(e, item, node) {
+  if (e.button > 0 || drag || resizing) return;
+  const touch = e.pointerType === 'touch';
+  press = { id: item.id, node, x: e.clientX, y: e.clientY, touch };
+  // A finger has to rest on the item first, so that swiping still scrolls.
+  if (touch) press.timer = setTimeout(() => press && beginDrag(press.x, press.y), HOLD_MS);
+}
+
+function cancelPress() {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+const tileOf = (id) => document.querySelector(`[data-item="${CSS.escape(id)}"]`);
+
+function beginDrag(x, y) {
+  const { id, node } = press;
+  clearTimeout(press.timer);
+  press = null;
+  // Dragging one of several selected items takes them all along.
+  const ids = sel.has(id) && sel.size > 1 ? [id, ...[...sel].filter((other) => other !== id)] : [id];
+  const rect = node.getBoundingClientRect();
+  const m = node.parentElement.metrics;
+  const ghost = node.cloneNode(true);
+  ghost.id = 'ghost';
+  ghost.classList.remove('sel');
+  ghost.querySelectorAll('.handle').forEach((handle) => handle.remove());
+  ghost.style.setProperty('--u', stage.style.getPropertyValue('--u'));
+  Object.assign(ghost.style, { width: px(rect.width), height: px(rect.height), fontFamily: 'Roboto, system-ui, sans-serif', color: '#fff' });
+  if (ids.length > 1) ghost.append(el('div', { class: 'count', textContent: ids.length }));
+  document.body.append(ghost);
+  for (const other of ids) tileOf(other)?.classList.add('dragging');
+  document.body.classList.add('dragging');
+  if (navigator.vibrate) navigator.vibrate(10);
+  drag = {
+    ids, item: find(id).item, ghost,
+    offsetX: x - rect.left, offsetY: y - rect.top,
+    // Which of the item's own cells is under the pointer.
+    grabX: Math.floor((x - rect.left) / (m.cellW + m.gapX)), grabY: Math.floor((y - rect.top) / (m.rowH + m.gapY)),
+    x, y, target: null,
+  };
+  moveDrag(x, y);
+  requestAnimationFrame(autoScroll);
+}
+
+function clearMarks() {
+  document.querySelectorAll('.before, .after, .into').forEach((node) => node.classList.remove('before', 'after', 'into'));
+  document.querySelectorAll('.marker').forEach((node) => node.remove());
+}
+
+function cellAt(grid, clientX, clientY) {
+  const m = grid.metrics, rect = grid.getBoundingClientRect();
+  return {
+    x: clamp(Math.floor((clientX - rect.left + m.gapX / 2) / (m.cellW + m.gapX)), 0, m.columns - 1),
+    y: Math.max(0, Math.floor((clientY - rect.top + m.gapY / 2) / (m.rowH + m.gapY))),
+  };
+}
+
+function moveDrag(x, y) {
+  drag.x = x; drag.y = y;
+  drag.ghost.style.left = px(x - drag.offsetX);
+  drag.ghost.style.top = px(y - drag.offsetY);
+  clearMarks();
+  drag.target = null;
+  const under = document.elementFromPoint(x, y);
+  if (!under) return;
+  const item = drag.item;
+  const folders = drag.ids.map((id) => find(id).item).filter((i) => i.kind === 'panel').map((i) => i.ref);
+
+  // Onto the name of a panel: to the end of it.
+  const chip = under.closest('[data-panel]');
+  if (chip && !folders.includes(chip.dataset.panel)) {
+    chip.classList.add('into');
+    drag.target = { panel: chip.dataset.panel };
+    return;
+  }
+  const grid = under.closest('.cells') || under.closest('.railbox')?.querySelector('.cells');
+  if (!grid) return;
+  const section = sectionOf(grid.dataset.section);
+  const m = grid.metrics;
+  const over = under.closest('.tile');
+  const overId = over && over.dataset.item;
+
+  // Onto the middle of a folder: into it.
+  if (over && over.dataset.folder && !drag.ids.includes(overId) && !folders.length) {
+    const rect = over.getBoundingClientRect();
+    if (Math.abs(x - (rect.left + rect.width / 2)) < rect.width / 4) {
+      over.classList.add('into');
+      drag.target = { panel: over.dataset.folder };
+      return;
+    }
+  }
+  if (section.mode !== 'flow') {
+    const rect = grid.getBoundingClientRect();
+    const onCells = section.mode === 'grid';
+    const w = onCells ? Math.max(1, Math.round(Math.min(item.w, section.columns))) : Math.min(item.w, section.columns);
+    const h = onCells ? Math.max(1, Math.round(item.h)) : item.h;
+    let cell;
+    if (onCells) {
+      const pointer = cellAt(grid, x, y);
+      cell = { x: clamp(pointer.x - drag.grabX, 0, section.columns - w), y: Math.max(0, pointer.y - drag.grabY) };
     } else {
-      art.textContent = card.label;
+      // Anywhere at all, to a twentieth of a cell.
+      cell = {
+        x: clamp(snap((x - drag.offsetX - rect.left) / (m.cellW + m.gapX)), 0, section.columns - w),
+        y: Math.max(0, snap((y - drag.offsetY - rect.top) / (m.rowH + m.gapY))),
+      };
     }
-    art.addEventListener('dragstart', (e) => {
-      dragId = card.id;
-      e.dataTransfer.effectAllowed = 'move';
-      li.classList.add('dragging');
-    });
-    art.addEventListener('dragend', () => {
-      dragId = null;
-      li.classList.remove('dragging');
-    });
-    li.addEventListener('dragover', (e) => {
-      if (!dragId || dragId === card.id) return;
-      e.preventDefault();
-      li.classList.add('over');
-    });
-    li.addEventListener('dragleave', () => li.classList.remove('over'));
-    li.addEventListener('drop', (e) => {
-      e.preventDefault();
-      li.classList.remove('over');
-      if (!dragId || dragId === card.id) return;
-      // Lands in the target's slot: after it when dragged forward, before it otherwise.
-      const ids = cards.map((c) => c.id);
-      ids.splice(index, 0, ...ids.splice(ids.indexOf(dragId), 1));
-      setOrder(ids);
-    });
-
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    const name = document.createElement('span');
-    name.className = 'name';
-    name.textContent = card.label;
-    name.title = card.label;
-    const kind = document.createElement('span');
-    kind.className = 'kind';
-    kind.textContent = card.kind === 'input' ? 'Input' : 'App';
-    meta.append(name, kind);
-
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-    actions.append(
-      button('◀', `Move ${card.label} earlier`, () => move(card.id, -1), { className: 'move', disabled: index === 0 }),
-      button('▶', `Move ${card.label} later`, () => move(card.id, 1), { className: 'move', disabled: index === cards.length - 1 }),
-      button(card.hidden ? 'Show' : 'Hide', `${card.hidden ? 'Show' : 'Hide'} ${card.label} on the TV`, () =>
-        api('PUT', '/api/hidden' + idQuery(card.id), ...json({ hidden: !card.hidden }))),
-      button('Image…', `Choose a picture for ${card.label}`, () => {
-        uploadTarget = card.id;
-        fileInput.click();
-      }),
-    );
-    if (card.customIcon) {
-      actions.append(button('Reset', `Use the automatic picture for ${card.label}`, () =>
-        api('DELETE', '/api/icon' + idQuery(card.id))));
-    }
-
-    li.append(art, meta, actions);
-    return li;
-  }));
+    grid.append(grid.put(el('div', { class: 'marker' }), { ...cell, w, h }));
+    drag.target = { section, cell };
+    return;
+  }
+  if (over && !drag.ids.includes(overId)) {
+    const rect = over.getBoundingClientRect();
+    const rail = grid.classList.contains('rail');
+    const after = rail ? y > rect.top + rect.height / 2 : x > rect.left + rect.width / 2;
+    over.classList.add(after ? 'after' : 'before');
+    const index = section.items.findIndex((i) => i.id === overId);
+    // "After the last one" is the end; otherwise before whatever follows.
+    const next = after ? section.items.slice(index + 1).find((i) => !drag.ids.includes(i.id)) : section.items[index];
+    drag.target = { section, before: next ? next.id : null };
+  } else if (!over) {
+    grid.classList.add('into');
+    drag.target = { section, before: null };
+  }
 }
+
+function autoScroll() {
+  if (!drag) return;
+  const edge = 70;
+  const speed = drag.y < edge ? -(edge - drag.y) / 4 : drag.y > innerHeight - edge ? (drag.y - (innerHeight - edge)) / 4 : 0;
+  if (speed) {
+    scrollBy(0, speed);
+    moveDrag(drag.x, drag.y);
+  }
+  requestAnimationFrame(autoScroll);
+}
+
+function endDrag(drop) {
+  const { ids, target, ghost } = drag;
+  ghost.remove();
+  clearMarks();
+  document.body.classList.remove('dragging');
+  drag = null;
+  if (drop && target) {
+    pendingState = null;
+    sel = new Set(ids);
+    selSection = null;
+    if (target.panel) {
+      const panel = panelOf(target.panel);
+      moveItems(ids, panel.id === 'home' ? inboxSection() : panel.sections[0]);
+    } else {
+      moveItems(ids, target.section, target);
+    }
+    return;
+  }
+  finishGesture();
+}
+
+/* Shows what the TV sent while a drag or resize was going on, if anything. */
+function finishGesture() {
+  const waiting = pendingState;
+  pendingState = null;
+  if (waiting) apply(waiting); else render();
+}
+
+function startResize(e, item, section, placement, edge, node) {
+  if (e.button > 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  resizing = { item, section, placement, edge, node, grid: node.parentElement, w: item.w, h: item.h };
+  document.body.classList.add('dragging');
+}
+
+function moveResize(x, y) {
+  const { placement, edge, grid, section, node } = resizing;
+  const m = grid.metrics;
+  if (section.mode === 'free') {
+    const rect = node.getBoundingClientRect();
+    if (edge !== 's') resizing.w = clamp(snap((x - rect.left + m.gapX) / (m.cellW + m.gapX)), MIN_FREE, section.columns - placement.x);
+    if (edge !== 'e') resizing.h = clamp(snap((y - rect.top + m.gapY) / (m.rowH + m.gapY)), MIN_FREE, MAX_SPAN);
+  } else {
+    const cell = cellAt(grid, x, y);
+    if (edge !== 's') resizing.w = clamp(cell.x - placement.x + 1, 1, section.columns - placement.x);
+    if (edge !== 'e') resizing.h = clamp(cell.y - placement.y + 1, 1, MAX_SPAN);
+  }
+  grid.put(node, { ...placement, w: resizing.w, h: resizing.h });
+  node.style.zIndex = 3;
+}
+
+function endResize() {
+  const { item, section, placement, w, h } = resizing;
+  resizing = null;
+  document.body.classList.remove('dragging');
+  if (w === item.w && h === item.h) return finishGesture();
+  pendingState = null;
+  if (section.mode !== 'flow') { item.x = placement.x; item.y = placement.y; }
+  setSize([item], w, h);
+}
+
+function tap(id, e) {
+  selSection = null;
+  if (multi || e.ctrlKey || e.metaKey || e.shiftKey) {
+    sel.has(id) ? sel.delete(id) : sel.add(id);
+  } else {
+    sel = sel.size === 1 && sel.has(id) ? new Set() : new Set([id]);
+  }
+  render();
+}
+
+document.addEventListener('pointermove', (e) => {
+  if (resizing) return moveResize(e.clientX, e.clientY);
+  if (drag) return moveDrag(e.clientX, e.clientY);
+  if (!press) return;
+  if (Math.hypot(e.clientX - press.x, e.clientY - press.y) <= SLOP) return;
+  // A finger that moves before the hold is up is scrolling the page.
+  if (press.touch) cancelPress(); else beginDrag(e.clientX, e.clientY);
+});
+document.addEventListener('pointerup', (e) => {
+  if (resizing) return endResize();
+  if (drag) return endDrag(true);
+  if (!press) return;
+  // Down and up without moving is a tap.
+  const id = press.id;
+  cancelPress();
+  tap(id, e);
+});
+document.addEventListener('pointercancel', () => {
+  cancelPress();
+  if (resizing) { resizing = null; document.body.classList.remove('dragging'); finishGesture(); }
+  if (drag) endDrag(false);
+});
+// Once a finger is dragging an item, the page must not scroll under it.
+document.addEventListener('touchmove', (e) => { if (drag || resizing) e.preventDefault(); }, { passive: false });
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches && e.target.matches('input, select, textarea')) return;
+  if (e.key === 'Escape') {
+    if (drag) return endDrag(false);
+    picker = null; sel.clear(); selSection = null;
+    return render();
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel.size && tab === 'layout' && !picker) removeItems([...sel]);
+});
+
+/* ---------- above the stage ---------- */
+
+function renderPanels() {
+  const chips = layout.panels.filter((panel) => panelKind(panel) !== 'sidebar').map((panel) => {
+    const chip = button(panelName(panel), `Show ${panelName(panel)}, or drop something on it to move it there`, () => {
+      panelId = panel.id; sel.clear(); selSection = null; render();
+    }, { className: panel.id === panelId ? 'on' : '' });
+    chip.dataset.panel = panel.id;
+    return chip;
+  });
+  $('panels').replaceChildren(
+    ...chips,
+    button('+ Folder', 'Make a new folder or panel, with a card on Home that opens it', () => addPopup(inboxSection())),
+    el('span', { class: 'spacer' }),
+    button(multi ? 'Selecting several' : 'Select several', 'Tap items to add them to the selection (with a mouse, Ctrl or Shift and click does the same)',
+      () => { multi = !multi; render(); }, { className: multi ? 'on' : '' }),
+    button('+ Section', 'Add another section here', () => addSection(panelOf(panelId))),
+  );
+}
+
+function renderPanelSettings(panel) {
+  const box = $('panel-settings');
+  if (panelKind(panel) !== 'popup') return box.replaceChildren();
+  const title = el('input', { type: 'text', value: panel.title, placeholder: 'Name', className: 'grow',
+    onchange: () => { panel.title = title.value.trim(); save(); } });
+  const opened = [...allItems()].some((found) => found.item.kind === 'panel' && found.item.ref === panel.id);
+  box.replaceChildren(el('div', { class: 'box' },
+    el('div', { class: 'row' },
+      title,
+      el('label', {}, 'Opens', select([['center', 'in the middle'], ['bottom', 'along the bottom'], ['left', 'on the left'], ['right', 'on the right']],
+        panel.position, (value) => { panel.position = value; save(); }, 'Where the popup opens')),
+      el('label', {}, 'Size', select([['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']],
+        panel.size, (value) => { panel.size = value; save(); }, 'How big the popup is')),
+      button('Picture…', 'Choose a picture for the card that opens this', () => { uploadTarget = 'panel:' + panel.id; fileInput.click(); }),
+      state.panelIcons[panel.id] ? button('Reset picture', 'Show what is inside instead', () => api('DELETE', '/api/icon' + idQuery('panel:' + panel.id))) : null,
+      opened ? null : button('Add its card to Home', 'Nothing opens this yet', () => { panelId = 'home'; addItems(inboxSection(), [{ kind: 'panel', ref: panel.id }]); }),
+      button('Delete', 'Delete this folder and take what is in it off the TV', () => deletePopup(panel), { className: 'danger' }),
+    ),
+  ));
+}
+
+/* ---------- the bar for whatever is selected ---------- */
+
+function widgetOptions(item) {
+  const options = item.options || (item.options = {});
+  const set = (key, value) => { options[key] = value; save(); };
+  if (item.ref === 'clock') {
+    return [
+      check('24-hour', options.hour24 !== false, (v) => set('hour24', v)),
+      check('Show the date', options.date !== false, (v) => set('date', v)),
+      check('Show seconds', options.seconds === true, (v) => set('seconds', v)),
+    ];
+  }
+  if (item.ref === 'weather') {
+    const query = el('input', { type: 'search', placeholder: 'Town or city', value: '' });
+    const results = el('span', { class: 'row' });
+    const search = async () => {
+      if (!query.value.trim()) return;
+      results.replaceChildren('Searching…');
+      const reply = await api('GET', '/api/geocode?q=' + encodeURIComponent(query.value.trim()));
+      if (!reply) return results.replaceChildren();
+      results.replaceChildren(...(reply.places.length ? reply.places.map((place) =>
+        button(place.name, 'Show the weather here', () => {
+          Object.assign(options, { place: place.name, latitude: place.latitude, longitude: place.longitude });
+          save();
+        })) : ['No place found by that name.']));
+    };
+    query.addEventListener('keydown', (e) => e.key === 'Enter' && search());
+    return [
+      el('span', { textContent: options.place ? `Weather for ${options.place}` : 'No place chosen yet' }),
+      query, button('Find', 'Look the place up', search), results,
+      check('Fahrenheit', options.fahrenheit === true, (v) => set('fahrenheit', v)),
+    ];
+  }
+  if (item.ref === 'android') {
+    return [select([['', 'Choose a widget…'], ...state.widgetProviders.map((p) => [p.id, `${p.app}: ${p.label}`])],
+      options.provider || '', (id) => set('provider', id || undefined), 'Which app widget to show'),
+      el('span', { class: 'hint', textContent: 'Shown on the TV, but it cannot be selected with the remote.' })];
+  }
+  if (item.ref === 'media' && !state.notificationAccess) {
+    return [el('span', { textContent: 'Needs "Set up automatically" in the TV\'s Settings before it can see what is playing.' })];
+  }
+  return [];
+}
+
+function coloursButton(id, title) {
+  return button('Colours', title, () => {
+    styleOpen.has(id) ? styleOpen.delete(id) : styleOpen.add(id);
+    render();
+  }, { className: styleOpen.has(id) ? 'on' : '' });
+}
+
+function moveToSelect(items, section) {
+  const folders = items.filter((item) => item.kind === 'panel').map((item) => item.ref);
+  const places = [['', 'Move to…']];
+  for (const panel of layout.panels) {
+    // A folder cannot go inside itself.
+    if (folders.includes(panel.id)) continue;
+    panel.sections.forEach((s, i) => {
+      if (s === section) return;
+      places.push([s.id, panelName(panel) + (panel.sections.length > 1 ? ` › ${s.title || 'Section ' + (i + 1)}` : '')]);
+    });
+  }
+  return select(places, '', (id) => {
+    if (sectionOf(id)) moveItems(items.map((item) => item.id), sectionOf(id));
+  }, 'Move to another section, sidebar or folder');
+}
+
+function sectionBar(section) {
+  const panel = panelOfSection(section);
+  const index = panel.sections.indexOf(section);
+  const title = el('input', { type: 'text', value: section.title, placeholder: 'Section title (optional)', className: 'grow',
+    onchange: () => { section.title = title.value.trim(); save(); } });
+  const columns = el('input', { type: 'number', min: 1, max: MAX_COLUMNS, value: section.columns, title: 'More columns make smaller cards',
+    onchange: () => {
+      section.columns = clamp(Math.round(columns.value) || 1, 1, MAX_COLUMNS);
+      for (const item of section.items) {
+        item.w = Math.min(item.w, section.columns);
+        if (section.mode === 'free') item.x = clamp(item.x ?? 0, 0, section.columns - item.w);
+      }
+      settle(section);
+      save();
+    } });
+  const shift = (delta) => {
+    panel.sections.splice(index + delta, 0, ...panel.sections.splice(index, 1));
+    save();
+  };
+  const popups = layout.panels.filter((p) => panelKind(p) === 'popup' && p.id !== panel.id);
+  const several = panel.sections.length > 1;
+  return [
+    el('div', { class: 'row' },
+      el('strong', { textContent: 'Section' }), title,
+      el('label', {}, 'Placement', select([['flow', 'In order'], ['grid', 'On cells'], ['free', 'Anywhere']], section.mode, (mode) => setMode(section, mode),
+        'In order: one after another. On cells: each in a cell you choose. Anywhere: any position and size, overlapping allowed.')),
+      el('label', {}, 'Columns', columns),
+      panel.id === 'home' ? check('New apps go here', layout.inbox === section.id, () => { layout.inbox = section.id; save(); }) : null,
+      coloursButton(section.id, 'Background and border of this section'),
+      several ? button('▲', 'Move section up', () => shift(-1), { disabled: index === 0 }) : null,
+      several ? button('▼', 'Move section down', () => shift(1), { disabled: index === panel.sections.length - 1 }) : null,
+      several ? button('Delete section', 'Delete this section and take what is in it off the TV', () => deleteSection(section), { className: 'danger' }) : null,
+      button('Done', 'Close', () => { selSection = null; render(); }),
+    ),
+    styleOpen.has(section.id) ? el('div', { class: 'row' }, ...styleControls([section], () => [...document.querySelectorAll(`[data-sbox="${CSS.escape(section.id)}"]`)])) : null,
+    el('div', { class: 'row' },
+      button('+ Apps…', 'Choose apps and inputs to add to this section', () => { picker = { section: section.id, chosen: new Set(), query: '' }; render(); }),
+      select([['', '+ Widget…'], ...state.widgets.map((w) => [w.type, w.label])], '', (type) => {
+        const widget = state.widgets.find((w) => w.type === type);
+        if (widget) addItems(section, [{ kind: 'widget', ref: type, w: widget.w, h: widget.h, options: {} }]);
+      }, 'Add a widget'),
+      button('+ Folder', 'Make a new folder or panel and a card here that opens it', () => addPopup(section)),
+      popups.length ? select([['', '+ Card for…'], ...popups.map((p) => [p.id, panelName(p)])], '', (id) => {
+        if (id) addItems(section, [{ kind: 'panel', ref: id }]);
+      }, 'Add a card that opens an existing folder or panel') : null,
+    ),
+  ];
+}
+
+function itemsBar(found) {
+  const items = found.map((f) => f.item);
+  const one = items.length === 1 ? found[0] : null;
+  const artNodes = () => items.map((item) => tileOf(item.id)?.querySelector('.art')).filter(Boolean);
+  const sameSection = found.every((f) => f.section === found[0].section) ? found[0].section : null;
+  const free = found.every((f) => f.section.mode === 'free');
+  const number = (value, max, title, onChange) => {
+    const input = el('input', { type: 'number', min: free ? MIN_FREE : 1, max, step: free ? 0.05 : 1, value, title,
+      onchange: () => input.value !== '' && onChange(+input.value) });
+    return input;
+  };
+  const same = (key) => items.every((item) => item[key] === items[0][key]) ? items[0][key] : '';
+  const inRail = (f) => railSection(f.section);
+  const parts = [el('strong', { textContent: one ? itemLabel(one.item) : `${items.length} selected` })];
+
+  if (one) {
+    const { section, index, item } = one;
+    const here = place(section).placed[index];
+    if (section.mode === 'flow') {
+      const step = (delta) => { section.items.splice(index + delta, 0, ...section.items.splice(index, 1)); save(); };
+      parts.push(button(inRail(one) ? '▲' : '◀', 'Move earlier', () => step(-1), { disabled: index === 0 }),
+        button(inRail(one) ? '▼' : '▶', 'Move later', () => step(1), { disabled: index === section.items.length - 1 }));
+    } else {
+      const by = section.mode === 'free' ? 0.25 : 1;
+      const nudge = (dx, dy) => {
+        const x = here.x + dx * by, y = here.y + dy * by;
+        if (x < 0 || y < 0 || x + item.w > section.columns) return;
+        moveItems([item.id], section, { cell: { x, y } });
+      };
+      parts.push(button('←', 'Move left', () => nudge(-1, 0)), button('↑', 'Move up', () => nudge(0, -1)),
+        button('↓', 'Move down', () => nudge(0, 1)), button('→', 'Move right', () => nudge(1, 0)));
+    }
+  }
+  // In a rail only a widget has a size, and only a height.
+  if (!found.some(inRail)) parts.push(el('label', {}, 'Cells wide', number(same('w'), MAX_COLUMNS, 'How many cells wide', (w) => setSize(items, w, null))));
+  if (!found.every((f) => inRail(f) && f.item.kind !== 'widget')) {
+    parts.push(el('label', {}, 'Cells tall', number(same('h'), MAX_SPAN, 'How many cells tall', (h) => setSize(items, null, h))));
+  }
+  const coloursId = one ? one.item.id : 'several';
+  parts.push(moveToSelect(items, sameSection), coloursButton(coloursId, 'Background and border'));
+  if (one && one.item.kind === 'card') {
+    const card = cardsById[one.item.ref];
+    parts.push(button('Picture…', `Choose a picture for ${card.label}`, () => { uploadTarget = card.id; fileInput.click(); }),
+      card.customIcon ? button('Reset picture', `Use the automatic picture for ${card.label}`, () => api('DELETE', '/api/icon' + idQuery(card.id))) : null);
+  }
+  if (one && one.item.kind === 'panel') {
+    parts.push(button('Edit what is inside', 'Show this folder or panel', () => { panelId = one.item.ref; sel.clear(); render(); }));
+  }
+  parts.push(
+    button('Remove', 'Take off the TV. Apps can be added again to any section.', () => removeItems(items.map((i) => i.id)), { className: 'danger' }),
+    button('Done', 'Deselect', () => { sel.clear(); render(); }));
+  return [
+    el('div', { class: 'row' }, ...parts),
+    styleOpen.has(coloursId) ? el('div', { class: 'row' }, ...styleControls(items, artNodes)) : null,
+    one && one.item.kind === 'widget' ? el('div', { class: 'row' }, ...widgetOptions(one.item)) : null,
+  ];
+}
+
+function renderInspector() {
+  const bar = $('inspector');
+  if (tab !== 'layout') return bar.replaceChildren();
+  const found = chosen();
+  const section = selSection && sectionOf(selSection);
+  const rows = found.length ? itemsBar(found) : section ? sectionBar(section) : null;
+  bar.replaceChildren(...(rows ? [el('div', { class: 'inner' }, ...rows)] : []));
+}
+
+/* ---------- choosing apps to add ---------- */
+
+function renderPicker() {
+  const host = $('picker');
+  if (!picker || !sectionOf(picker.section)) { picker = null; return host.replaceChildren(); }
+  const counts = {};
+  for (const { item } of allItems()) if (item.kind === 'card') counts[item.ref] = (counts[item.ref] || 0) + 1;
+  const query = picker.query.trim().toLowerCase();
+  // What is not on the TV yet comes first.
+  const cards = state.cards.filter((card) => card.label.toLowerCase().includes(query))
+    .sort((a, b) => !!counts[a.id] - !!counts[b.id]);
+  const close = () => { picker = null; render(); };
+  const add = () => {
+    const section = sectionOf(picker.section), refs = [...picker.chosen];
+    picker = null;
+    addItems(section, refs.map((ref) => ({ kind: 'card', ref })));
+  };
+  const apps = el('div', { class: 'apps' }, ...cards.map((card) => {
+    const on = picker.chosen.has(card.id);
+    const pic = el('div', { class: 'pic' + (card.wide ? '' : ' icon') });
+    pic.append(card.icon ? image(card.icon) : card.label);
+    return el('button', { className: 'app' + (on ? ' on' : ''), title: card.label,
+      onclick: () => { on ? picker.chosen.delete(card.id) : picker.chosen.add(card.id); renderPicker(); } },
+      pic, el('div', { class: 'name', textContent: card.label }),
+      el('span', { class: 'tag' + (counts[card.id] ? '' : ' off'), textContent: counts[card.id] ? `on TV${counts[card.id] > 1 ? ' ×' + counts[card.id] : ''}` : 'not on TV' }));
+  }));
+  const footer = el('div', { class: 'row' },
+    el('span', { class: 'grow hint', textContent: 'An app can be on the TV in more than one place.' }),
+    button('Cancel', 'Close without adding', close),
+    button(`Add ${picker.chosen.size || ''}`.trim(), 'Add the chosen apps to the section', add, { disabled: !picker.chosen.size, className: picker.chosen.size ? 'on' : '' }));
+  // Typing in the search box must not lose its place: only the list is redrawn.
+  const dialog = host.querySelector('.dialog');
+  if (dialog) {
+    dialog.querySelector('.apps').replaceWith(apps);
+    dialog.lastElementChild.replaceWith(footer);
+    return;
+  }
+  const search = el('input', { type: 'search', placeholder: 'Search apps and inputs', value: picker.query, className: 'grow',
+    oninput: () => { picker.query = search.value; renderPicker(); } });
+  host.replaceChildren(el('div', { class: 'dialog' }, el('div', { class: 'row' }, el('strong', { textContent: 'Add apps' }), search), apps, footer));
+  host.onclick = (e) => { if (e.target === host) close(); };
+}
+
+/* ---------- the other tabs ---------- */
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
@@ -265,16 +1469,17 @@ fileInput.addEventListener('change', () => {
   if (file && uploadTarget) api('PUT', '/api/icon' + idQuery(uploadTarget), file);
 });
 
-const wpPreview = document.getElementById('wp-preview');
-const wpStatus = document.getElementById('wp-status');
-const wpRemove = document.getElementById('wp-remove');
-const wpFile = document.getElementById('wp-file');
+const wpPreview = $('wp-preview');
+const wpStatus = $('wp-status');
+const wpRemove = $('wp-remove');
+const wpFile = $('wp-file');
 let wallpaperUrl;
 let uploading = false;
 
-function renderWallpaper(wallpaper) {
+function renderWallpaper() {
+  const wallpaper = state.wallpaper;
   wpRemove.disabled = !wallpaper || uploading;
-  document.getElementById('wp-choose').disabled = uploading;
+  $('wp-choose').disabled = uploading;
   if (uploading) {
     wpStatus.textContent = 'Uploading… keep this page open.';
   } else if (!wallpaper) {
@@ -300,25 +1505,89 @@ function renderWallpaper(wallpaper) {
   wpPreview.replaceChildren(media);
 }
 
-let currentWallpaper = null;
-document.getElementById('wp-choose').addEventListener('click', () => wpFile.click());
+$('wp-choose').addEventListener('click', () => wpFile.click());
 wpRemove.addEventListener('click', () => api('DELETE', '/api/wallpaper'));
 wpFile.addEventListener('change', async () => {
   const file = wpFile.files[0];
   wpFile.value = '';
   if (!file) return;
   uploading = true;
-  renderWallpaper(currentWallpaper);
+  renderWallpaper();
   await api('PUT', '/api/wallpaper', file);
   uploading = false;
-  renderWallpaper(currentWallpaper);
+  renderWallpaper();
 });
 
-function apply(state) {
-  cards = state.cards;
-  currentWallpaper = state.wallpaper;
-  renderWallpaper(currentWallpaper);
-  render();
+function renderOptions() {
+  // Chosen actions first, in their order; the rest follow, unticked.
+  const menu = state.contextMenu;
+  const order = [...menu, ...state.actions.map((a) => a.id).filter((id) => !menu.includes(id))];
+  const setMenu = (ids) => api('PUT', '/api/options', ...json({ contextMenu: ids }));
+  $('actions').replaceChildren(...order.map((id) => {
+    const at = menu.indexOf(id);
+    const swap = (delta) => {
+      const ids = [...menu];
+      ids.splice(at + delta, 0, ...ids.splice(at, 1));
+      setMenu(ids);
+    };
+    const label = state.actions.find((a) => a.id === id).label;
+    return el('li', {},
+      check('', at >= 0, (on) => setMenu(on ? [...menu, id] : menu.filter((other) => other !== id))),
+      el('span', { textContent: label }),
+      button('▲', `Move ${label} up`, () => swap(-1), { disabled: at <= 0 }),
+      button('▼', `Move ${label} down`, () => swap(1), { disabled: at < 0 || at === menu.length - 1 }),
+    );
+  }));
+
+  const toasts = state.toasts;
+  const setToasts = (change) => api('PUT', '/api/options', ...json({ toasts: { ...toasts, ...change } }));
+  $('toast-note').textContent = state.notificationAccess
+    ? 'Notifications from other apps pop up in a corner while OpenLauncher is on screen.'
+    : 'Run "Set up automatically" in the TV\'s Settings first: until then OpenLauncher cannot see notifications.';
+  const seconds = el('input', { type: 'number', min: 2, max: 30, value: toasts.seconds,
+    onchange: () => setToasts({ seconds: Math.round(seconds.value) || 6 }) });
+  $('toasts').replaceChildren(
+    check('Show notifications', toasts.enabled, (enabled) => setToasts({ enabled })),
+    el('label', {}, 'Corner', select([['topLeft', 'Top left'], ['topRight', 'Top right'], ['bottomLeft', 'Bottom left'], ['bottomRight', 'Bottom right']],
+      toasts.position, (position) => setToasts({ position }), 'Where notifications appear')),
+    el('label', {}, 'Seconds on screen', seconds),
+  );
+}
+
+/* ---------- putting it together ---------- */
+
+function render() {
+  if (!state) return;
+  $('tabs').replaceChildren(...Object.entries(TABS).map(([id, label]) =>
+    button(label, label, () => { tab = id; render(); }, { className: id === tab ? 'on' : '' })));
+  for (const id of Object.keys(TABS)) $('tab-' + id).classList.toggle('current', id === tab);
+  for (const id of [...sel]) if (!find(id)) sel.delete(id);
+  renderPanels();
+  renderPanelSettings(panelOf(panelId));
+  renderStage();
+  renderInspector();
+  renderPicker();
+  renderWallpaper();
+  renderOptions();
+}
+
+function apply(next) {
+  // Redrawing would pull the item out from under the pointer.
+  if (drag || resizing) { pendingState = next; return; }
+  // Typing in a box must survive an update from the TV.
+  const typing = document.activeElement && document.activeElement.matches('input[type=search], input[type=text], input[type=number]');
+  state = next;
+  cardsById = Object.fromEntries(state.cards.map((card) => [card.id, card]));
+  layout = structuredClone(state.layout);
+  layout.removed = layout.removed || [];
+  // The rails always exist here, so that things can be dropped into them.
+  for (const id of Object.keys(SIDEBARS)) {
+    if (!panelOf(id)) layout.panels.push({ id, title: '', sections: [] });
+    if (!panelOf(id).sections.length) panelOf(id).sections.push({ id: 'rail-' + id, title: '', mode: 'flow', columns: 1, items: [] });
+  }
+  if (!panelOf(panelId) || panelKind(panelOf(panelId)) === 'sidebar') panelId = 'home';
+  if (selSection && !sectionOf(selSection)) selSection = null;
+  if (!typing) render();
 }
 
 async function refresh() {

@@ -2,9 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/server/config_api.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
-
-import 'config_api.dart';
 
 /// The running config web server, or null if it could not be started.
 final configServerProvider = FutureProvider<ConfigServer?>((ref) async {

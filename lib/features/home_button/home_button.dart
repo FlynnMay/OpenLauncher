@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../platform/launcher_platform.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Whether the remote's Home button opens this launcher. Re-checked whenever
 /// the app comes back to the front, since it can be changed in the TV's

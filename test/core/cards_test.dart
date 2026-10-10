@@ -1,11 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/cards/cards_provider.dart';
-import 'package:openlauncher/core/cards/input_artwork.dart';
-import 'package:openlauncher/core/cards/launcher_card.dart';
-import 'package:openlauncher/core/config/config_controller.dart';
-import 'package:openlauncher/core/config/config_store.dart';
-import 'package:openlauncher/core/config/launcher_config.dart';
+import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 LauncherCard _card(String name, {String? icon}) => LauncherCard(
@@ -18,22 +15,7 @@ LauncherCard _card(String name, {String? icon}) => LauncherCard(
 
 void main() {
   group('arrangeCards', () {
-    final available = [_card('Plex'), _card('alpha'), _card('Zed')];
-
-    test('sorts alphabetically, ignoring case, with no config', () {
-      final cards = arrangeCards(available, const LauncherConfig());
-      expect(cards.map((c) => c.label), ['alpha', 'Plex', 'Zed']);
-    });
-
-    test('ordered cards come first, the rest follow alphabetically', () {
-      final cards = arrangeCards(
-        available,
-        const LauncherConfig(order: ['app:Zed', 'app:gone', 'app:Plex']),
-      );
-      expect(cards.map((c) => c.label), ['Zed', 'Plex', 'alpha']);
-    });
-
-    test('unlisted inputs come before unlisted apps', () {
+    test('sorts inputs first, then apps, each alphabetically', () {
       const hdmi = LauncherCard(
         id: 'input:x/HW1',
         kind: CardKind.input,
@@ -41,24 +23,18 @@ void main() {
         label: 'HDMI 1',
       );
       final cards = arrangeCards([
-        ...available,
+        _card('Plex'),
+        _card('alpha'),
         hdmi,
-      ], const LauncherConfig(order: ['app:Zed']));
-      expect(cards.map((c) => c.label), ['Zed', 'HDMI 1', 'alpha', 'Plex']);
-    });
-
-    test('drops hidden cards', () {
-      final cards = arrangeCards(
-        available,
-        const LauncherConfig(hidden: {'app:Plex'}),
-      );
-      expect(cards.map((c) => c.label), ['alpha', 'Zed']);
+        _card('Zed'),
+      ], LauncherConfig());
+      expect(cards.map((c) => c.label), ['HDMI 1', 'alpha', 'Plex', 'Zed']);
     });
 
     test('icon override replaces the automatic icon', () {
       final cards = arrangeCards([
         _card('Plex', icon: '/auto.png'),
-      ], const LauncherConfig(iconOverrides: {'app:Plex': '/custom.png'}));
+      ], LauncherConfig(iconOverrides: {'app:Plex': '/custom.png'}));
       expect(cards.single.iconPath, '/custom.png');
       expect(cards.single.wideIcon, isTrue);
     });
@@ -83,24 +59,38 @@ void main() {
       );
       addTearDown(container.dispose);
       // Keep the providers alive for the duration of the test.
-      container.listen(cardsProvider, (_, _) {});
+      container.listen(layoutViewProvider, (_, _) {});
     });
 
+    Future<List<LauncherCard>> cards() async => [
+      for (final entry in (await container.read(
+        layoutViewProvider.future,
+      )).home.sections.single.entries)
+        (entry as CardEntry).card,
+    ];
+
     Future<List<String>> ids() async =>
-        (await container.read(cardsProvider.future)).map((c) => c.id).toList();
+        (await cards()).map((c) => c.id).toList();
 
     test('config changes are persisted and reflected in cards', () async {
       expect(await ids(), ['app:a', 'app:b']);
 
       final config = container.read(configProvider.notifier);
-      await config.setOrder(['app:b', 'app:a']);
+      await config.setLayout(Layout.initial(['app:b', 'app:a']));
       expect(await ids(), ['app:b', 'app:a']);
-      expect(store.config.order, ['app:b', 'app:a']);
+      expect(store.config.layout.home.items.map((i) => i.ref), [
+        'app:b',
+        'app:a',
+      ]);
 
-      await config.setHidden('app:b', true);
+      // Removed cards are gone until they are placed again; they are not
+      // mistaken for new apps.
+      await config.removeCard('app:b');
       expect(await ids(), ['app:a']);
-      await config.setHidden('app:b', false);
+      expect(store.config.layout.removed, {'app:b'});
+      await config.setLayout(Layout.initial(['app:b', 'app:a']));
       expect(await ids(), ['app:b', 'app:a']);
+      expect(store.config.layout.removed, isEmpty);
 
       await config.setIconOverride('app:a', '/x.png');
       expect(store.config.iconOverrides, {'app:a': '/x.png'});
@@ -127,15 +117,53 @@ void main() {
       await pumpEventQueue();
       expect(await ids(), ['input:tv/HW15', 'app:a', 'app:b']);
 
-      final cards = await container.read(cardsProvider.future);
-      await container.read(cardActionsProvider).launch(cards.first);
+      await container.read(cardActionsProvider).launch((await cards()).first);
       expect(platform.launched, ['tv/HW15']);
     });
 
     test('launching an app card goes to the platform', () async {
-      final cards = await container.read(cardsProvider.future);
-      await container.read(cardActionsProvider).launch(cards.last);
+      await container.read(cardActionsProvider).launch((await cards()).last);
       expect(platform.launched, ['b']);
+    });
+
+    test('quick actions follow the saved menu and the kind of card', () async {
+      platform.inputs = [
+        TvInput(id: 'tv/HW15', label: 'HDMI 1', kind: TvInputKind.hdmi),
+      ];
+      platform.notifyInputsChanged();
+      await pumpEventQueue();
+      final actions = container.read(cardActionsProvider);
+      final [input, app, _] = await cards();
+
+      expect(await actions.actionsFor(app), CardAction.values);
+      // An input is not an app: nothing to stop or uninstall.
+      expect(await actions.actionsFor(input), [
+        CardAction.open,
+        CardAction.remove,
+      ]);
+      await container.read(configProvider.notifier).setContextMenu([
+        CardAction.uninstall,
+        CardAction.open,
+      ]);
+      expect(await actions.actionsFor(app), [
+        CardAction.uninstall,
+        CardAction.open,
+      ]);
+
+      expect(await actions.perform(CardAction.uninstall, app), isNull);
+      expect(await actions.perform(CardAction.forceStop, app), contains('A'));
+      expect(platform.appActions, ['uninstall a', 'stop a']);
+
+      // Without ADB the TV's own screen is opened instead.
+      platform.canForceStop = false;
+      expect(
+        await actions.perform(CardAction.forceStop, app),
+        contains('Force stop'),
+      );
+      expect(platform.appActions.last, 'info a');
+
+      await actions.perform(CardAction.remove, app);
+      expect(await ids(), ['input:tv/HW15', 'app:b']);
     });
   });
 
@@ -158,22 +186,5 @@ void main() {
       expect(pictures, hasLength(TvInputKind.values.length));
       expect(pictures.any((svg) => svg.contains('<text')), isFalse);
     });
-  });
-
-  test('LauncherConfig survives a JSON round trip', () {
-    const config = LauncherConfig(
-      order: ['app:a'],
-      hidden: {'app:b'},
-      iconOverrides: {'app:a': '/x.png'},
-      wallpaper: '/w.mp4',
-    );
-    final copy = LauncherConfig.fromJson(config.toJson());
-    expect(copy.wallpaper, '/w.mp4');
-    expect(copy.copyWith(order: []).wallpaper, '/w.mp4');
-    expect(copy.copyWith(wallpaper: null).wallpaper, isNull);
-    expect(copy.order, config.order);
-    expect(copy.hidden, config.hidden);
-    expect(copy.iconOverrides, config.iconOverrides);
-    expect(LauncherConfig.fromJson(const {}).order, isEmpty);
   });
 }

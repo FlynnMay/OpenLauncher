@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../platform/launcher_platform.dart';
-import '../home_button/home_button.dart';
-import '../remote/remote_config_dialog.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/features/home_button/home_button.dart';
+import 'package:openlauncher/features/remote/remote_config_dialog.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -37,6 +37,9 @@ class SettingsScreen extends ConsumerWidget {
     }
     ref.invalidate(homeButtonEnabledProvider);
     ref.invalidate(canManageHomeButtonProvider);
+    // Setup also lets the launcher see notifications and what is playing.
+    ref.invalidate(notificationAccessProvider);
+    ref.invalidate(nowPlayingProvider);
     navigator.pop();
     if (!context.mounted) return;
 
@@ -139,8 +142,8 @@ class SettingsScreen extends ConsumerWidget {
                   leading: const Icon(Icons.auto_fix_high),
                   title: const Text('Set up automatically'),
                   subtitle: const Text(
-                    'Gives OpenLauncher what it needs and turns on the Home '
-                    'button, in one step.',
+                    'Turns on the Home button, notifications, now playing, '
+                    'app widgets and force stop, in one step.',
                   ),
                   onTap: () => _runSetup(context, ref),
                 ),
@@ -148,7 +151,8 @@ class SettingsScreen extends ConsumerWidget {
                   leading: const Icon(Icons.qr_code_2),
                   title: const Text('Customise from your phone'),
                   subtitle: const Text(
-                    'Reorder and hide cards, and choose their pictures.',
+                    'Arrange cards, folders, widgets and sidebars, and '
+                    'choose pictures.',
                   ),
                   onTap: () => RemoteConfigDialog.show(context),
                 ),

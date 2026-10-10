@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/server/config_server.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-
-import '../../server/config_server.dart';
 
 /// The address of the config page, re-read each time the dialog opens.
 final _configUrlProvider = FutureProvider.autoDispose<Uri?>((ref) async {

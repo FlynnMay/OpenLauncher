@@ -1,9 +1,6 @@
 package com.maypoint.openlauncher
 
 import android.content.Context
-import dadb.AdbKeyPair
-import dadb.Dadb
-import java.io.File
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import kotlinx.coroutines.delay
@@ -18,21 +15,28 @@ class DeviceSetup(private val context: Context) {
     suspend fun run(): SetupResult {
         val pkg = context.packageName
         try {
-            Dadb.create("127.0.0.1", ADB_PORT, keyPair(), CONNECT_TIMEOUT_MS, AUTH_TIMEOUT_MS)
-                .use { adb ->
-                    val grant = adb.shell("pm grant $pkg android.permission.WRITE_SECURE_SETTINGS")
-                    if (grant.exitCode != 0) {
-                        return SetupResult(SetupOutcome.FAILED, grant.allOutput.trim())
-                    }
-                    // TCL TVs refuse to start a third-party service without these;
-                    // other TVs do not know the names and reject them, harmlessly.
-                    // The uid-level mode is the one that matters: TCL resets the
-                    // package-level mode to "ignore" on every boot.
-                    for (op in listOf("AUTO_START", "ASSOC_START")) {
-                        adb.shell("appops set --uid $pkg $op allow")
-                        adb.shell("appops set $pkg $op allow")
-                    }
+            val refusal = LocalAdb.use(context, LocalAdb.PROMPT_TIMEOUT_MS) { adb ->
+                val grant = adb.shell("pm grant $pkg android.permission.WRITE_SECURE_SETTINGS")
+                if (grant.exitCode != 0) return@use grant.allOutput.trim()
+                // TCL TVs refuse to start a third-party service without these;
+                // other TVs do not know the names and reject them, harmlessly.
+                // The uid-level mode is the one that matters: TCL resets the
+                // package-level mode to "ignore" on every boot.
+                for (op in listOf("AUTO_START", "ASSOC_START")) {
+                    adb.shell("appops set --uid $pkg $op allow")
+                    adb.shell("appops set $pkg $op allow")
                 }
+                // Optional extras; a TV that lacks one just says so.
+                // Seeing notifications and what is playing:
+                adb.shell(
+                    "cmd notification allow_listener " +
+                        NotificationService.component(context).flattenToString(),
+                )
+                // Showing other apps' widgets:
+                adb.shell(WidgetHost.grantCommand(context))
+                null
+            }
+            if (refusal != null) return SetupResult(SetupOutcome.FAILED, refusal)
         } catch (e: Exception) {
             val causes = generateSequence<Throwable>(e) { it.cause }.toList()
             return when {
@@ -51,23 +55,7 @@ class DeviceSetup(private val context: Context) {
         return SetupResult(SetupOutcome.DONE)
     }
 
-    /** This app's ADB identity, created once so the TV can remember allowing it. */
-    private fun keyPair(): AdbKeyPair {
-        val dir = File(context.filesDir, "adb").apply { mkdirs() }
-        val privateKey = File(dir, "adbkey")
-        val publicKey = File(dir, "adbkey.pub")
-        if (!privateKey.exists() || !publicKey.exists()) {
-            AdbKeyPair.generate(privateKey, publicKey)
-        }
-        return AdbKeyPair.read(privateKey, publicKey)
-    }
-
     private companion object {
-        const val ADB_PORT = 5555
-        const val CONNECT_TIMEOUT_MS = 5_000
-
-        // Long enough to read and answer the "Allow USB debugging?" prompt.
-        const val AUTH_TIMEOUT_MS = 60_000
         const val SETTING_SETTLE_MS = 1_000L
     }
 }

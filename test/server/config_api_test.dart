@@ -4,13 +4,14 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/cards/cards_provider.dart';
-import 'package:openlauncher/core/cards/input_artwork.dart';
-import 'package:openlauncher/core/config/config_store.dart';
+import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_api.dart';
 import 'package:openlauncher/server/config_server.dart';
-import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/server/custom_icons.dart';
 import 'package:openlauncher/server/wallpaper_store.dart';
 import 'package:shelf/shelf.dart';
@@ -32,6 +33,7 @@ void main() {
   late Directory tmp;
   late ProviderContainer container;
   late ConfigApi api;
+  final fetched = <Uri>[];
 
   setUp(() async {
     store = MemoryConfigStore();
@@ -53,6 +55,20 @@ void main() {
           (ref) => Directory('${tmp.path}/wallpaper'),
         ),
         configPageProvider.overrideWith((ref) => '<html>page</html>'),
+        jsonFetcherProvider.overrideWithValue((uri) async {
+          fetched.add(uri);
+          return {
+            'results': [
+              {
+                'name': 'Perth',
+                'admin1': 'Western Australia',
+                'country': 'Australia',
+                'latitude': -31.95,
+                'longitude': 115.86,
+              },
+            ],
+          };
+        }),
       ],
     );
     // Listened to, as it is in the app, so it keeps following state changes.
@@ -72,12 +88,23 @@ void main() {
         ),
       );
 
-  Future<List<Map<String, dynamic>>> cards() async {
+  Future<Map<String, dynamic>> state() async {
     final response = await call('GET', '/api/state');
     expect(response.statusCode, 200);
-    final state = jsonDecode(await response.readAsString());
-    return (state['cards'] as List).cast();
+    return jsonDecode(await response.readAsString());
   }
+
+  Future<List<Map<String, dynamic>>> cards() async =>
+      ((await state())['cards'] as List).cast();
+
+  /// The ids of the cards on the TV's home screen, in order.
+  Future<List<String>> onTv() async => [
+    for (final section in (await container.read(
+      layoutViewProvider.future,
+    )).home.sections)
+      for (final entry in section.entries)
+        if (entry is CardEntry) entry.card.id,
+  ];
 
   test('serves the page', () async {
     final response = await call('GET', '/');
@@ -95,7 +122,6 @@ void main() {
       'id': 'input:tv/HW1',
       'kind': 'input',
       'label': 'HDMI 1',
-      'hidden': false,
       'customIcon': false,
       'wide': false,
       'icon': isA<String>(),
@@ -112,26 +138,222 @@ void main() {
     expect((await cards()).last['icon'], isNull);
   });
 
-  test('reordering is saved and changes the TV cards', () async {
+  test('state offers the layout and what there is to choose from', () async {
+    final page = await state();
+    // Nothing has been arranged yet, so every card is in the one section.
+    final section = page['layout']['panels'][0]['sections'][0];
+    expect(page['layout']['inbox'], section['id']);
+    expect((section['items'] as List).map((i) => i['ref']), [
+      'input:tv/HW1',
+      'app:a',
+      'app:b',
+    ]);
+    // No app on this device offers widgets, so that kind is not offered.
+    expect((page['widgets'] as List).map((w) => w['type']), [
+      'clock',
+      'weather',
+      'media',
+    ]);
+    expect(
+      (page['actions'] as List).map((a) => a['id']),
+      CardAction.values.map((a) => a.name),
+    );
+    expect(page['contextMenu'], hasLength(CardAction.values.length));
+    expect(page['toasts'], const ToastOptions().toJson());
+    expect(page['notificationAccess'], isTrue);
+  });
+
+  test('a new layout is saved, repaired and shown on the TV', () async {
     final response = await call(
       'PUT',
-      '/api/order',
+      '/api/layout',
       body: {
-        'order': ['app:b', 'input:tv/HW1', 'app:a'],
+        'inbox': 'rest',
+        'panels': [
+          {
+            'id': 'home',
+            'sections': [
+              {
+                'id': 'top',
+                'title': 'Favourites',
+                'mode': 'grid',
+                'columns': 4,
+                'items': [
+                  {'id': 'i1', 'ref': 'app:b', 'x': 2, 'y': 0, 'w': 9},
+                  {'id': 'i2', 'kind': 'panel', 'ref': 'games'},
+                  {'id': 'i3', 'kind': 'panel', 'ref': 'nothing'},
+                  {
+                    'id': 'i4',
+                    'kind': 'widget',
+                    'ref': 'weather',
+                    'options': {'place': 'Perth'},
+                  },
+                ],
+              },
+              {'id': 'rest'},
+            ],
+          },
+          {
+            'id': 'games',
+            'title': 'Games',
+            'position': 'bottom',
+            'sections': [
+              {
+                'id': 'in',
+                'items': [
+                  {'id': 'i5', 'ref': 'app:a'},
+                ],
+              },
+            ],
+          },
+        ],
       },
     );
     expect(response.statusCode, 200);
-    expect(store.config.order, ['app:b', 'input:tv/HW1', 'app:a']);
-    final tv = await container.read(cardsProvider.future);
-    expect(tv.map((c) => c.id), ['app:b', 'input:tv/HW1', 'app:a']);
+
+    final saved = store.config.layout;
+    final top = saved.home.sections.first;
+    expect((top.mode, top.columns), (SectionMode.grid, 4));
+    // Too wide for the section, and a link to a panel that does not exist.
+    expect(top.items.map((i) => i.id), ['i1', 'i2', 'i4']);
+    expect((top.items.first.w, top.items.first.x), (4, 0));
+    expect(top.items.last.options, {'place': 'Perth'});
+    expect(saved.panel('games')!.position, PopupPosition.bottom);
+
+    // On the TV: app:b on top, app:a inside the folder, and the input,
+    // which was placed nowhere, in the section for new cards.
+    expect(await onTv(), ['app:b', 'input:tv/HW1']);
+    final view = await container.read(layoutViewProvider.future);
+    final folder = view.home.sections.first.entries[1] as PanelEntry;
+    expect(folder.preview.single.id, 'app:a');
+    final rest = (await state())['layout']['panels'][0]['sections'][1];
+    expect(rest['items'].single['ref'], 'input:tv/HW1');
   });
 
-  test('hidden cards stay on the page but leave the TV', () async {
-    final id = Uri.encodeQueryComponent('input:tv/HW1');
-    await call('PUT', '/api/hidden?id=$id', body: {'hidden': true});
-    expect((await cards()).first['hidden'], isTrue);
-    final tv = await container.read(cardsProvider.future);
-    expect(tv.map((c) => c.id), ['app:a', 'app:b']);
+  test('a folder card can have a picture, removed with the folder', () async {
+    Map<String, Object?> layout(List<Object?> popups) => {
+      'panels': [
+        {
+          'id': 'home',
+          'sections': [
+            {'id': 's'},
+          ],
+        },
+        ...popups,
+      ],
+    };
+    await call(
+      'PUT',
+      '/api/layout',
+      body: layout([
+        {'id': 'games', 'title': 'Games'},
+      ]),
+    );
+    expect(
+      (await call('PUT', '/api/icon?id=panel:nope', body: _png)).statusCode,
+      404,
+    );
+    expect(
+      (await call('PUT', '/api/icon?id=panel:home', body: _png)).statusCode,
+      404,
+    );
+    expect(
+      (await call('PUT', '/api/icon?id=panel:games', body: _png)).statusCode,
+      200,
+    );
+
+    final url = (await state())['panelIcons']['games'] as String;
+    final response = await call('GET', url);
+    expect(response.headers['content-type'], 'image/png');
+    expect(tmp.listSync(), hasLength(1));
+
+    await call('PUT', '/api/layout', body: layout([]));
+    expect(store.config.iconOverrides, isEmpty);
+    expect(tmp.listSync(), isEmpty);
+    expect((await state())['panelIcons'], isEmpty);
+  });
+
+  test('options set the quick actions and notification pop-ups', () async {
+    var response = await call(
+      'PUT',
+      '/api/options',
+      body: {
+        'contextMenu': ['uninstall', 'open', 'open'],
+      },
+    );
+    expect(response.statusCode, 200);
+    expect(store.config.contextMenu, [CardAction.uninstall, CardAction.open]);
+
+    response = await call(
+      'PUT',
+      '/api/options',
+      body: {
+        'toasts': {'enabled': false, 'position': 'bottomLeft', 'seconds': 99},
+      },
+    );
+    expect(response.statusCode, 200);
+    expect(store.config.toasts.toJson(), {
+      'enabled': false,
+      'position': 'bottomLeft',
+      'seconds': 30,
+    });
+    // Each call only touches what it names.
+    expect(store.config.contextMenu, hasLength(2));
+    expect((await state())['contextMenu'], ['uninstall', 'open']);
+
+    response = await call(
+      'PUT',
+      '/api/options',
+      body: {
+        'contextMenu': ['explode'],
+      },
+    );
+    expect(response.statusCode, 400);
+  });
+
+  test('looks places up for the weather widget', () async {
+    final response = await call('GET', '/api/geocode?q=Perth');
+    expect(response.statusCode, 200);
+    expect(jsonDecode(await response.readAsString()), {
+      'places': [
+        {
+          'name': 'Perth, Western Australia, Australia',
+          'latitude': -31.95,
+          'longitude': 115.86,
+        },
+      ],
+    });
+    expect(fetched.single.queryParameters['name'], 'Perth');
+    expect((await call('GET', '/api/geocode?q=')).statusCode, 400);
+  });
+
+  test('cards left out of the layout are removed, not put back', () async {
+    final page = await state();
+    final layout = page['layout'] as Map<String, dynamic>;
+    final section = layout['panels'][0]['sections'][0];
+    // What the page does to remove a card: drop its item and say so.
+    (section['items'] as List).removeWhere((i) => i['ref'] == 'input:tv/HW1');
+    layout['removed'] = ['input:tv/HW1'];
+    expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
+
+    expect(await onTv(), ['app:a', 'app:b']);
+    final after = await state();
+    expect(after['layout']['removed'], ['input:tv/HW1']);
+    // Still offered, so it can be added again.
+    expect(
+      (after['cards'] as List).map((c) => c['id']),
+      contains('input:tv/HW1'),
+    );
+
+    // Adding it again, twice: a card can be in more than one place.
+    final again = after['layout'] as Map<String, dynamic>;
+    (again['panels'][0]['sections'][0]['items'] as List).addAll([
+      {'id': 'x1', 'ref': 'input:tv/HW1'},
+      {'id': 'x2', 'ref': 'input:tv/HW1'},
+    ]);
+    await call('PUT', '/api/layout', body: again);
+    expect(await onTv(), ['app:a', 'app:b', 'input:tv/HW1', 'input:tv/HW1']);
+    expect(store.config.layout.removed, isEmpty);
   });
 
   test('custom image upload, download and reset', () async {
@@ -269,15 +491,15 @@ void main() {
         (await call(method, path, body: body)).statusCode;
 
     expect(await status('GET', '/nope'), 404);
-    expect(await status('PUT', '/api/hidden?id=app:zzz', body: {}), 404);
-    expect(await status('PUT', '/api/hidden?id=app:a', body: {}), 400);
-    expect(await status('PUT', '/api/order', body: 'not json'), 400);
+    expect(await status('PUT', '/api/hidden?id=app:a', body: {}), 404);
+    expect(await status('DELETE', '/api/icon?id=app:zzz'), 404);
+    expect(await status('PUT', '/api/layout', body: 'not json'), 400);
     expect(
       await status(
         'PUT',
-        '/api/order',
+        '/api/layout',
         body: {
-          'order': [1],
+          'panels': [1],
         },
       ),
       400,
@@ -306,13 +528,16 @@ void main() {
     await pumpEventQueue();
     expect(events, hasLength(1));
 
-    await call('PUT', '/api/hidden?id=app:a', body: {'hidden': true});
+    await call(
+      'PUT',
+      '/api/options',
+      body: {
+        'contextMenu': ['open'],
+      },
+    );
     await pumpEventQueue();
     expect(events, hasLength(2));
-    final a = (events.last['cards'] as List).firstWhere(
-      (c) => c['id'] == 'app:a',
-    );
-    expect(a['hidden'], isTrue);
+    expect(events.last['contextMenu'], ['open']);
   });
 
   test('the real server answers over HTTP', () async {

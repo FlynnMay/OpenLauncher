@@ -68,6 +68,58 @@ class SetupResult {
   String? detail;
 }
 
+/// What an app is playing, as reported by its media session.
+class NowPlaying {
+  NowPlaying({
+    required this.packageName,
+    required this.appLabel,
+    required this.playing,
+    this.title,
+    this.artist,
+    this.artPath,
+  });
+
+  String packageName;
+  String appLabel;
+  String? title;
+  String? artist;
+
+  /// Absolute path of the cover art as a cached PNG, if the app gives any.
+  String? artPath;
+  bool playing;
+}
+
+enum MediaCommand { playPause, next, previous }
+
+/// A notification another app has just posted.
+class AppNotification {
+  AppNotification({
+    required this.packageName,
+    required this.appLabel,
+    this.title,
+    this.text,
+  });
+
+  String packageName;
+  String appLabel;
+  String? title;
+  String? text;
+}
+
+/// A widget an installed app offers.
+class WidgetProvider {
+  WidgetProvider({
+    required this.id,
+    required this.label,
+    required this.appLabel,
+  });
+
+  /// The provider's component name, e.g. `com.example/.ClockWidget`.
+  String id;
+  String label;
+  String appLabel;
+}
+
 @HostApi()
 abstract class LauncherHostApi {
   @async
@@ -97,6 +149,38 @@ abstract class LauncherHostApi {
   /// switches the Home button service on.
   @async
   SetupResult runAutomaticSetup();
+
+  /// Opens the TV's own details screen for an app.
+  void openAppInfo(String packageName);
+
+  /// Asks the TV to uninstall an app; the TV confirms with the user.
+  void uninstallApp(String packageName);
+
+  /// Stops an app through the TV's ADB service. False when that is not
+  /// available, e.g. before [runAutomaticSetup] has been allowed.
+  @async
+  bool forceStopApp(String packageName);
+
+  /// Whether the app may see other apps' notifications and media sessions,
+  /// which [runAutomaticSetup] grants.
+  bool isNotificationAccessEnabled();
+
+  /// Null when nothing is playing or access has not been granted.
+  @async
+  NowPlaying? getNowPlaying();
+
+  void sendMediaCommand(MediaCommand command);
+
+  /// Empty on devices that do not support app widgets.
+  List<WidgetProvider> listWidgetProviders();
+
+  /// Makes sure the layout item [itemId] has a widget from [provider] and
+  /// returns the id to show it with, or null if the TV does not allow it.
+  @async
+  int? bindWidget(String itemId, String provider);
+
+  /// Frees the widgets of layout items that are not in [itemIds] any more.
+  void pruneWidgets(List<String> itemIds);
 }
 
 @FlutterApi()
@@ -106,4 +190,9 @@ abstract class LauncherFlutterApi {
 
   /// An input was added, removed or renamed.
   void onInputsChanged();
+
+  /// What [LauncherHostApi.getNowPlaying] returns has changed.
+  void onNowPlayingChanged();
+
+  void onNotification(AppNotification notification);
 }

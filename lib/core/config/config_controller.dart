@@ -1,13 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'config_store.dart';
-import 'launcher_config.dart';
+import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/config/config_store.dart';
+import 'package:openlauncher/core/config/launcher_config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 
 final configProvider = AsyncNotifierProvider<ConfigController, LauncherConfig>(
   ConfigController.new,
 );
 
-/// The only place config is mutated. The TV UI and (later) the web server
+/// The only place config is mutated. The TV UI and the web server
 /// both go through these methods, so every change is persisted and every
 /// listener is notified the same way.
 class ConfigController extends AsyncNotifier<LauncherConfig> {
@@ -20,15 +21,20 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     await ref.read(configStoreProvider).save(next);
   }
 
-  /// Sets the full display order, as the ids of the cards in sequence.
-  Future<void> setOrder(List<String> ids) =>
-      _update((c) => c.copyWith(order: List.unmodifiable(ids)));
+  /// Replaces where everything is. [layout] is made valid first.
+  Future<void> setLayout(Layout layout) =>
+      _update((c) => c.copyWith(layout: layout.normalised()));
 
-  Future<void> setHidden(String id, bool hidden) => _update(
-    (c) => c.copyWith(
-      hidden: hidden ? {...c.hidden, id} : ({...c.hidden}..remove(id)),
-    ),
-  );
+  /// Sets which quick actions a held-down card offers, in order.
+  Future<void> setContextMenu(List<CardAction> actions) =>
+      _update((c) => c.copyWith(contextMenu: List.unmodifiable(actions)));
+
+  Future<void> setToasts(ToastOptions toasts) =>
+      _update((c) => c.copyWith(toasts: toasts));
+
+  /// Takes a card off every panel. It stays off until it is placed again.
+  Future<void> removeCard(String id) =>
+      _update((c) => c.copyWith(layout: c.layout.without({id}).normalised()));
 
   /// Sets the image or video behind the home screen; null removes it.
   Future<void> setWallpaper(String? path) =>

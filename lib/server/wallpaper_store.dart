@@ -2,11 +2,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/server/custom_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-
-import '../core/config/config_controller.dart';
-import 'custom_icons.dart';
 
 /// Where the uploaded wallpaper is kept.
 final wallpaperDirProvider = FutureProvider<Directory>((ref) async {

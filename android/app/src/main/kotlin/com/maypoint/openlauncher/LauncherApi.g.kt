@@ -231,6 +231,18 @@ enum class SetupOutcome(val raw: Int) {
   }
 }
 
+enum class MediaCommand(val raw: Int) {
+  PLAY_PAUSE(0),
+  NEXT(1),
+  PREVIOUS(2);
+
+  companion object {
+    fun ofRaw(raw: Int): MediaCommand? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
+
 /** Generated class from Pigeon that represents data sent in messages. */
 data class InstalledApp (
   val packageName: String,
@@ -373,6 +385,171 @@ data class SetupResult (
     return "SetupResult(outcome=$outcome, detail=$detail)"
   }
 }
+
+/**
+ * What an app is playing, as reported by its media session.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class NowPlaying (
+  val packageName: String,
+  val appLabel: String,
+  val title: String? = null,
+  val artist: String? = null,
+  /** Absolute path of the cover art as a cached PNG, if the app gives any. */
+  val artPath: String? = null,
+  val playing: Boolean
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): NowPlaying {
+      val packageName = pigeonVar_list[0] as String
+      val appLabel = pigeonVar_list[1] as String
+      val title = pigeonVar_list[2] as String?
+      val artist = pigeonVar_list[3] as String?
+      val artPath = pigeonVar_list[4] as String?
+      val playing = pigeonVar_list[5] as Boolean
+      return NowPlaying(packageName, appLabel, title, artist, artPath, playing)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      packageName,
+      appLabel,
+      title,
+      artist,
+      artPath,
+      playing,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as NowPlaying
+    return LauncherApiPigeonUtils.deepEquals(this.packageName, other.packageName) && LauncherApiPigeonUtils.deepEquals(this.appLabel, other.appLabel) && LauncherApiPigeonUtils.deepEquals(this.title, other.title) && LauncherApiPigeonUtils.deepEquals(this.artist, other.artist) && LauncherApiPigeonUtils.deepEquals(this.artPath, other.artPath) && LauncherApiPigeonUtils.deepEquals(this.playing, other.playing)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.packageName)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.appLabel)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.title)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.artist)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.artPath)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.playing)
+    return result
+  }
+  override fun toString(): String {
+    return "NowPlaying(packageName=$packageName, appLabel=$appLabel, title=$title, artist=$artist, artPath=$artPath, playing=$playing)"
+  }
+}
+
+/**
+ * A notification another app has just posted.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class AppNotification (
+  val packageName: String,
+  val appLabel: String,
+  val title: String? = null,
+  val text: String? = null
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): AppNotification {
+      val packageName = pigeonVar_list[0] as String
+      val appLabel = pigeonVar_list[1] as String
+      val title = pigeonVar_list[2] as String?
+      val text = pigeonVar_list[3] as String?
+      return AppNotification(packageName, appLabel, title, text)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      packageName,
+      appLabel,
+      title,
+      text,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as AppNotification
+    return LauncherApiPigeonUtils.deepEquals(this.packageName, other.packageName) && LauncherApiPigeonUtils.deepEquals(this.appLabel, other.appLabel) && LauncherApiPigeonUtils.deepEquals(this.title, other.title) && LauncherApiPigeonUtils.deepEquals(this.text, other.text)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.packageName)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.appLabel)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.title)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.text)
+    return result
+  }
+  override fun toString(): String {
+    return "AppNotification(packageName=$packageName, appLabel=$appLabel, title=$title, text=$text)"
+  }
+}
+
+/**
+ * A widget an installed app offers.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class WidgetProvider (
+  /** The provider's component name, e.g. `com.example/.ClockWidget`. */
+  val id: String,
+  val label: String,
+  val appLabel: String
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): WidgetProvider {
+      val id = pigeonVar_list[0] as String
+      val label = pigeonVar_list[1] as String
+      val appLabel = pigeonVar_list[2] as String
+      return WidgetProvider(id, label, appLabel)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      id,
+      label,
+      appLabel,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as WidgetProvider
+    return LauncherApiPigeonUtils.deepEquals(this.id, other.id) && LauncherApiPigeonUtils.deepEquals(this.label, other.label) && LauncherApiPigeonUtils.deepEquals(this.appLabel, other.appLabel)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.id)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.label)
+    result = 31 * result + LauncherApiPigeonUtils.deepHash(this.appLabel)
+    return result
+  }
+  override fun toString(): String {
+    return "WidgetProvider(id=$id, label=$label, appLabel=$appLabel)"
+  }
+}
 private open class LauncherApiPigeonCodec : StandardMessageCodec() {
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
     return when (type) {
@@ -387,18 +564,38 @@ private open class LauncherApiPigeonCodec : StandardMessageCodec() {
         }
       }
       131.toByte() -> {
-        return (readValue(buffer) as? List<Any?>)?.let {
-          InstalledApp.fromList(it)
+        return (readValue(buffer) as Long?)?.let {
+          MediaCommand.ofRaw(it.toInt())
         }
       }
       132.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TvInput.fromList(it)
+          InstalledApp.fromList(it)
         }
       }
       133.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
+          TvInput.fromList(it)
+        }
+      }
+      134.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
           SetupResult.fromList(it)
+        }
+      }
+      135.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          NowPlaying.fromList(it)
+        }
+      }
+      136.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          AppNotification.fromList(it)
+        }
+      }
+      137.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          WidgetProvider.fromList(it)
         }
       }
       else -> super.readValueOfType(type, buffer)
@@ -414,16 +611,32 @@ private open class LauncherApiPigeonCodec : StandardMessageCodec() {
         stream.write(130)
         writeValue(stream, value.raw.toLong())
       }
-      is InstalledApp -> {
+      is MediaCommand -> {
         stream.write(131)
-        writeValue(stream, value.toList())
+        writeValue(stream, value.raw.toLong())
       }
-      is TvInput -> {
+      is InstalledApp -> {
         stream.write(132)
         writeValue(stream, value.toList())
       }
-      is SetupResult -> {
+      is TvInput -> {
         stream.write(133)
+        writeValue(stream, value.toList())
+      }
+      is SetupResult -> {
+        stream.write(134)
+        writeValue(stream, value.toList())
+      }
+      is NowPlaying -> {
+        stream.write(135)
+        writeValue(stream, value.toList())
+      }
+      is AppNotification -> {
+        stream.write(136)
+        writeValue(stream, value.toList())
+      }
+      is WidgetProvider -> {
+        stream.write(137)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -454,6 +667,32 @@ interface LauncherHostApi {
    * switches the Home button service on.
    */
   suspend fun runAutomaticSetup(): SetupResult
+  /** Opens the TV's own details screen for an app. */
+  fun openAppInfo(packageName: String)
+  /** Asks the TV to uninstall an app; the TV confirms with the user. */
+  fun uninstallApp(packageName: String)
+  /**
+   * Stops an app through the TV's ADB service. False when that is not
+   * available, e.g. before [runAutomaticSetup] has been allowed.
+   */
+  suspend fun forceStopApp(packageName: String): Boolean
+  /**
+   * Whether the app may see other apps' notifications and media sessions,
+   * which [runAutomaticSetup] grants.
+   */
+  fun isNotificationAccessEnabled(): Boolean
+  /** Null when nothing is playing or access has not been granted. */
+  suspend fun getNowPlaying(): NowPlaying?
+  fun sendMediaCommand(command: MediaCommand)
+  /** Empty on devices that do not support app widgets. */
+  fun listWidgetProviders(): List<WidgetProvider>
+  /**
+   * Makes sure the layout item [itemId] has a widget from [provider] and
+   * returns the id to show it with, or null if the TV does not allow it.
+   */
+  suspend fun bindWidget(itemId: String, provider: String): Long?
+  /** Frees the widgets of layout items that are not in [itemIds] any more. */
+  fun pruneWidgets(itemIds: List<String>)
 
   companion object {
     /** The codec used by LauncherHostApi. */
@@ -615,6 +854,164 @@ interface LauncherHostApi {
           channel.setMessageHandler(null)
         }
       }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.openAppInfo$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val packageNameArg = args[0] as String
+            val wrapped: List<Any?> = try {
+              api.openAppInfo(packageNameArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              LauncherApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.uninstallApp$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val packageNameArg = args[0] as String
+            val wrapped: List<Any?> = try {
+              api.uninstallApp(packageNameArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              LauncherApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.forceStopApp$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val packageNameArg = args[0] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.forceStopApp(packageNameArg))
+              } catch (exception: Throwable) {
+                LauncherApiPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.isNotificationAccessEnabled$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.isNotificationAccessEnabled())
+            } catch (exception: Throwable) {
+              LauncherApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.getNowPlaying$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.getNowPlaying())
+              } catch (exception: Throwable) {
+                LauncherApiPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.sendMediaCommand$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val commandArg = args[0] as MediaCommand
+            val wrapped: List<Any?> = try {
+              api.sendMediaCommand(commandArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              LauncherApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.listWidgetProviders$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.listWidgetProviders())
+            } catch (exception: Throwable) {
+              LauncherApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.bindWidget$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val itemIdArg = args[0] as String
+            val providerArg = args[1] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.bindWidget(itemIdArg, providerArg))
+              } catch (exception: Throwable) {
+                LauncherApiPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.pruneWidgets$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val itemIdsArg = args[0] as List<String>
+            val wrapped: List<Any?> = try {
+              api.pruneWidgets(itemIdsArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              LauncherApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
     }
   }
 }
@@ -654,6 +1051,45 @@ class LauncherFlutterApi(private val binaryMessenger: BinaryMessenger, private v
       val channelName = "dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onInputsChanged$separatedMessageChannelSuffix"
       val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
       channel.send(null) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(LauncherApiPigeonUtils.createConnectionError(channelName))
+        } 
+      }
+    }
+  }
+  /** What [LauncherHostApi.getNowPlaying] returns has changed. */
+  suspend fun onNowPlayingChanged()
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNowPlayingChanged$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(null) {
+        if (it is List<*>) {
+          if (it.size > 1) {
+            continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))
+          } else {
+            continuation.resume(Unit)
+          }
+        } else {
+          continuation.resumeWithException(LauncherApiPigeonUtils.createConnectionError(channelName))
+        } 
+      }
+    }
+  }
+  suspend fun onNotification(notificationArg: AppNotification)
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    return suspendCancellableCoroutine { continuation ->
+      val channelName = "dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNotification$separatedMessageChannelSuffix"
+      val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+      channel.send(listOf(notificationArg)) {
         if (it is List<*>) {
           if (it.size > 1) {
             continuation.resumeWithException(FlutterError(it[0] as String, it[1] as String, it[2] as String?))

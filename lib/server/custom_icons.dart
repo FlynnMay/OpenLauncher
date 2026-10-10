@@ -2,10 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-
-import '../core/config/config_controller.dart';
 
 /// Where user-uploaded card images are kept.
 final customIconDirProvider = FutureProvider<Directory>((ref) async {

@@ -12,6 +12,8 @@
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
+    <!-- "Uninstall" in a card's quick actions; the TV still asks the user. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <application
         android:label="OpenLauncher"
         android:name="${applicationName}"
@@ -52,6 +54,17 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/home_button_service" />
+        </service>
+        <!-- Notification toasts and the now-playing widget. Off until
+             automatic setup, or the user, allows it. -->
+        <service
+            android:name=".NotificationService"
+            android:exported="true"
+            android:label="@string/notification_service_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

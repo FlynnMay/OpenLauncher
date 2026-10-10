@@ -2,9 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:video_player/video_player.dart';
-
-import '../../core/wallpaper/wallpaper.dart';
 
 /// Fills its parent with the wallpaper, dimmed so cards stay readable.
 class WallpaperBackground extends ConsumerWidget {
@@ -23,6 +22,12 @@ class WallpaperBackground extends ConsumerWidget {
             // A new upload has a new path, so this also restarts animations.
             key: ValueKey(wallpaper.path),
             fit: BoxFit.cover,
+            // Decoded no larger than the screen: a camera photo at full
+            // size takes seconds to appear and a lot of memory.
+            cacheWidth:
+                (MediaQuery.sizeOf(context).width *
+                        MediaQuery.devicePixelRatioOf(context))
+                    .round(),
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => const SizedBox.shrink(),
           ),

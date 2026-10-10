@@ -2,8 +2,8 @@
 
 A home screen for Android TV and Google TV, written in Flutter.
 
-It shows your apps and the TV's own inputs as cards in one grid, and is
-customised from a web page served by the TV.
+It shows your apps and the TV's own inputs as cards, arranged the way you
+like, and is customised from a web page served by the TV.
 
 This is an early project, developed against a TCL Google TV. It is installed
 by sideloading and is not on the Play Store.
@@ -13,8 +13,20 @@ by sideloading and is not on the Play Store.
 - Lists installed apps with their TV banners and launches them with the remote.
 - Shows the TV's inputs (HDMI ports, tuner) as cards next to the apps. Devices
   without inputs, such as streaming boxes, just don't get these cards.
-- Serves a config page on the local network where you can reorder cards, hide
-  them, give them custom pictures, and set a wallpaper.
+- Serves a config page on the local network where you arrange everything
+  below, hide cards, give them custom pictures, and set a wallpaper.
+- Sections: each one flows its cards in order, places them on cells you
+  choose, or lets you put them anywhere at any size.
+- Sections and cards can have their own background (a colour or a gradient,
+  with transparency) and border colour.
+- Folders and panels: a card that opens a popup holding other cards. You choose
+  where the popup opens and how big it is.
+- Sidebars: a strip on the left or right edge that opens when you move onto it.
+- Widgets: clock, weather (from Open-Meteo), now playing, and widgets from
+  installed apps.
+- Quick actions: hold OK on a card for Open, App info, Force stop, Uninstall
+  and Remove. You choose which appear and in what order.
+- Shows notifications from other apps in a corner of the screen.
 - Wallpaper can be a picture (PNG, JPEG, animated GIF or WebP) or a looping
   video (MP4, WebM, MKV).
 - Can take over the remote's Home button using an accessibility service.
@@ -45,6 +57,12 @@ Open **Settings** at the top right of the home screen and choose **Customise
 from your phone**. Scan the QR code, or type the address it shows, on a phone or
 computer connected to the same network.
 
+The Layout tab shows your TV screen. Drag things where you want them (on a
+phone, hold an item for a moment first). Tap an item to resize it, by number
+or by dragging its edges, change its colours, or remove it; "Select several"
+does the same to many at once. "Section ⚙" opens a section's settings, where
+"+ Apps…" adds apps, including ones you removed.
+
 The page has no login. Anyone on your network can open it.
 
 The page is only reachable while OpenLauncher is on screen.
@@ -62,6 +80,10 @@ ADB service to grant itself the permission it needs.
 
 To undo it, turn off **Home button opens OpenLauncher** in the same screen.
 
+The same setup lets OpenLauncher see notifications and what is playing, show
+widgets from other apps, and force stop apps from the quick actions. Without
+it those features stay empty, and Force stop opens the TV's own app screen.
+
 ## Known limitations
 
 - On TCL TVs the Home button service is not started at boot. Open OpenLauncher
@@ -70,8 +92,10 @@ To undo it, turn off **Home button opens OpenLauncher** in the same screen.
 - While the Home button is taken over, long-pressing Home does not open the
   Google TV dashboard.
 - The wallpaper is dimmed by a fixed amount.
-- Reordering on a phone uses arrow buttons; drag and drop only works with a
-  mouse.
+- Notifications are only shown while OpenLauncher is on screen.
+- Widgets from other apps are shown but cannot be selected with the remote,
+  and ones that need their own setup screen are not supported.
+- Popups are opened from a card; they cannot yet be tied to a remote button.
 - Tested on one TCL TV and the Android TV emulator. Other devices may behave
   differently, particularly for inputs and the Home button.
 
@@ -79,13 +103,14 @@ To undo it, turn off **Home button opens OpenLauncher** in the same screen.
 
 ```
 lib/
-  core/        cards, config, wallpaper model (no UI, no platform code)
+  core/        cards, layout, config, wallpaper, widget data (no UI)
   platform/    interface to the device, with a fake for tests
-  features/    TV screens: home grid, settings, wallpaper
+  features/    TV screens: home, widgets, notifications, settings, wallpaper
   server/      web config API and file uploads
 assets/web/    the config page (one HTML file)
 pigeons/       definition of the Dart <-> Kotlin bridge
-android/       Kotlin: app list, inputs, Home button service, setup
+android/       Kotlin: app list, inputs, Home button service, setup,
+               notifications and media, app widgets
 test/          unit and widget tests
 ```
 
@@ -99,6 +124,11 @@ other.
 flutter analyze
 flutter test
 ```
+
+Imports of the project's own files are written `package:openlauncher/...`,
+never as relative paths (a lint enforces it). The areas of `core/` each have a
+barrel file, such as `core/layout/layout.dart`; code outside the folder imports
+that, and a new file in the folder is added to it.
 
 After editing `pigeons/launcher_api.dart`, regenerate the bridge:
 

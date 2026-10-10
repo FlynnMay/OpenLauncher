@@ -2,4 +2,5 @@
 <resources>
     <string name="home_button_service_label">OpenLauncher Home button</string>
     <string name="home_button_service_description">Opens OpenLauncher when you press the Home button on the remote. It watches for the Home button and for the original home screen appearing; it does not read what is on screen.</string>
+    <string name="notification_service_label">OpenLauncher notifications and now playing</string>
 </resources>

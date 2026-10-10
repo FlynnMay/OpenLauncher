@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:path/path.dart' as p;
-
-import '../config/config_controller.dart';
 
 enum WallpaperKind { image, video }
 

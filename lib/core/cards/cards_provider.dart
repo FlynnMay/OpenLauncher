@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../platform/launcher_platform.dart';
-import '../config/config_controller.dart';
-import '../config/launcher_config.dart';
-import 'input_artwork.dart';
-import 'launcher_card.dart';
+import 'package:openlauncher/core/cards/card_action.dart';
+import 'package:openlauncher/core/cards/input_artwork.dart';
+import 'package:openlauncher/core/cards/launcher_card.dart';
+import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Installed apps as reported by the device, refreshed on package changes.
 final installedAppsProvider =
@@ -61,8 +60,9 @@ class TvInputsNotifier extends _DeviceListNotifier<TvInput> {
   Stream<void> changes(LauncherPlatform platform) => platform.inputsChanged;
 }
 
-/// Every card the device offers, in display order, hidden ones included.
-/// This is what the config page edits.
+/// Every card the device offers, removed ones included, with the user's
+/// pictures applied. Inputs come before apps, each alphabetically. Where
+/// they are shown is up to the layout.
 final allCardsProvider = FutureProvider<List<LauncherCard>>((ref) async {
   final apps = await ref.watch(installedAppsProvider.future);
   final inputs = await ref.watch(tvInputsProvider.future);
@@ -86,49 +86,31 @@ final allCardsProvider = FutureProvider<List<LauncherCard>>((ref) async {
         wideIcon: app.isBanner,
       ),
   ];
-  return arrangeCards(available, config, includeHidden: true);
+  return arrangeCards(available, config);
 });
 
-/// The cards to show on the home screen, in order, with user config applied.
-final cardsProvider = FutureProvider<List<LauncherCard>>((ref) async {
-  final all = await ref.watch(allCardsProvider.future);
-  final config = await ref.watch(configProvider.future);
-  return [
-    for (final card in all)
-      if (!config.hidden.contains(card.id)) card,
-  ];
-});
-
-/// Applies [config] to the cards the device offers: drops hidden ones (unless
-/// [includeHidden]), swaps in custom icons, and sorts by the saved order.
-/// Unlisted cards go last: inputs before apps, each alphabetically.
+/// Swaps in the user's pictures and sorts the cards the device offers:
+/// inputs before apps, each alphabetically.
 List<LauncherCard> arrangeCards(
   List<LauncherCard> available,
-  LauncherConfig config, {
-  bool includeHidden = false,
-}) {
-  final position = {for (final (i, id) in config.order.indexed) id: i};
+  LauncherConfig config,
+) {
   final cards = [
     for (final card in available)
-      if (includeHidden || !config.hidden.contains(card.id))
-        switch (config.iconOverrides[card.id]) {
-          null => card,
-          // Custom art is assumed to be drawn for the full card.
-          final path => LauncherCard(
-            id: card.id,
-            kind: card.kind,
-            target: card.target,
-            label: card.label,
-            iconPath: path,
-            wideIcon: true,
-          ),
-        },
+      switch (config.iconOverrides[card.id]) {
+        null => card,
+        // Custom art is assumed to be drawn for the full card.
+        final path => LauncherCard(
+          id: card.id,
+          kind: card.kind,
+          target: card.target,
+          label: card.label,
+          iconPath: path,
+          wideIcon: true,
+        ),
+      },
   ];
   cards.sort((a, b) {
-    final pa = position[a.id], pb = position[b.id];
-    if (pa != null && pb != null) return pa.compareTo(pb);
-    if (pa != null) return -1;
-    if (pb != null) return 1;
     if (a.kind != b.kind) return a.kind.index.compareTo(b.kind.index);
     return a.label.toLowerCase().compareTo(b.label.toLowerCase());
   });
@@ -143,9 +125,41 @@ class CardActions {
 
   final Ref _ref;
 
+  LauncherPlatform get _platform => _ref.read(launcherPlatformProvider);
+
   Future<void> launch(LauncherCard card) => switch (card.kind) {
-    CardKind.app => _ref.read(launcherPlatformProvider).launchApp(card.target),
-    CardKind.input =>
-      _ref.read(launcherPlatformProvider).switchToInput(card.target),
+    CardKind.app => _platform.launchApp(card.target),
+    CardKind.input => _platform.switchToInput(card.target),
   };
+
+  /// The quick actions that apply to [card], in the user's order.
+  Future<List<CardAction>> actionsFor(LauncherCard card) async => [
+    for (final action in (await _ref.read(configProvider.future)).contextMenu)
+      if (card.kind == CardKind.app || !action.appOnly) action,
+  ];
+
+  /// Does [action] to [card]. Returns something to tell the user, if there
+  /// is anything to tell.
+  Future<String?> perform(CardAction action, LauncherCard card) async {
+    switch (action) {
+      case CardAction.open:
+        await launch(card);
+      case CardAction.info:
+        await _platform.openAppInfo(card.target);
+      case CardAction.uninstall:
+        await _platform.uninstallApp(card.target);
+      case CardAction.remove:
+        await _ref.read(configProvider.notifier).removeCard(card.id);
+        return '${card.label} was removed. Add it again from the web page.';
+      case CardAction.forceStop:
+        if (await _platform.forceStopApp(card.target)) {
+          return '${card.label} was stopped.';
+        }
+        // The launcher could not do it; the TV's own screen can.
+        await _platform.openAppInfo(card.target);
+        return 'Choose "Force stop" here. Run automatic setup in Settings '
+            'to stop apps straight from the menu.';
+    }
+    return null;
+  }
 }

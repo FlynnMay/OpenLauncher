@@ -5,26 +5,34 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/server/custom_icons.dart';
+import 'package:openlauncher/server/wallpaper_store.dart';
 import 'package:shelf/shelf.dart';
-
-import '../core/cards/cards_provider.dart';
-import '../core/config/config_controller.dart';
-import '../core/wallpaper/wallpaper.dart';
-import 'custom_icons.dart';
-import 'wallpaper_store.dart';
 
 /// The HTML of the config page.
 final configPageProvider = FutureProvider<String>(
   (ref) => rootBundle.loadString('assets/web/index.html'),
 );
 
-/// What the config page shows: the wallpaper and every card, in order, as
-/// JSON.
+String _iconUrl(String id, String source) =>
+    '/api/icon?id=${Uri.encodeQueryComponent(id)}'
+    // The source changes whenever the image does, so it doubles as a cache
+    // key.
+    '&v=${source.hashCode.toRadixString(36)}';
+
+/// What the config page shows and edits, as JSON: the wallpaper, every card
+/// there is (placed or not), the layout, and what there is to choose from.
 final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   ref,
 ) async {
   final cards = await ref.watch(allCardsProvider.future);
   final config = await ref.watch(configProvider.future);
+  final providers = await ref.watch(widgetProvidersProvider.future);
   return {
     'wallpaper': switch (Wallpaper.fromPath(config.wallpaper)) {
       null => null,
@@ -39,19 +47,46 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
           'id': card.id,
           'kind': card.kind.name,
           'label': card.label,
-          'hidden': config.hidden.contains(card.id),
           'customIcon': config.iconOverrides.containsKey(card.id),
           'wide': card.wideIcon,
-          // The path changes whenever the image does, so it doubles as a
-          // cache key.
           'icon': switch (card.iconPath ?? card.svg) {
             null => null,
-            final source =>
-              '/api/icon?id=${Uri.encodeQueryComponent(card.id)}'
-                  '&v=${source.hashCode.toRadixString(36)}',
+            final source => _iconUrl(card.id, source),
           },
         },
     ],
+    // Exactly what the TV arranges: cards placed nowhere are already in
+    // their section, and cards that are gone are left out.
+    'layout': config.layout.withCards(cards.map((card) => card.id)).toJson(),
+    // Pictures the user gave to cards that open a popup, by panel id.
+    'panelIcons': {
+      for (final panel in config.layout.panels)
+        if (config.iconOverrides[PanelEntry.iconKey(panel.id)] case final path?)
+          panel.id: _iconUrl(PanelEntry.iconKey(panel.id), path),
+    },
+    'widgets': [
+      for (final kind in WidgetKind.values)
+        // App widgets are only offered where there are some.
+        if (kind != WidgetKind.android || providers.isNotEmpty)
+          {
+            'type': kind.name,
+            'label': kind.label,
+            'w': kind.defaultW,
+            'h': kind.defaultH,
+          },
+    ],
+    'widgetProviders': [
+      for (final provider in providers)
+        {'id': provider.id, 'label': provider.label, 'app': provider.appLabel},
+    ],
+    'actions': [
+      for (final action in CardAction.values)
+        {'id': action.name, 'label': action.label},
+    ],
+    'contextMenu': [for (final action in config.contextMenu) action.name],
+    'toasts': config.toasts.toJson(),
+    // Toasts and the now-playing widget stay empty without it.
+    'notificationAccess': await ref.watch(notificationAccessProvider.future),
   };
 });
 
@@ -106,14 +141,12 @@ class ConfigApi {
         headers: _json,
       ),
       ('GET', 'api/events') => _events(),
-      ('PUT', 'api/order') => _setOrder(await _body(request)),
-      ('PUT', 'api/hidden') => _withCard(
-        id,
-        (id) async => _setHidden(id, await _body(request)),
-      ),
-      ('GET', 'api/icon') => _withCard(id, _icon),
-      ('PUT', 'api/icon') => _withCard(id, (id) => _uploadIcon(id, request)),
-      ('DELETE', 'api/icon') => _withCard(id, (id) async {
+      ('PUT', 'api/layout') => _setLayout(await _body(request)),
+      ('PUT', 'api/options') => _setOptions(await _body(request)),
+      ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
+      ('GET', 'api/icon') => _withPicture(id, _icon),
+      ('PUT', 'api/icon') => _withPicture(id, (id) => _uploadIcon(id, request)),
+      ('DELETE', 'api/icon') => _withPicture(id, (id) async {
         await _ref.read(customIconsProvider).clear(id);
         return _ok();
       }),
@@ -150,32 +183,99 @@ class ConfigApi {
     return action(id);
   }
 
-  Future<Response> _setOrder(Map<String, Object?> body) async {
-    final order = body['order'];
-    if (order is! List || order.any((id) => id is! String)) {
-      throw const FormatException('"order" must be a list of card ids');
+  /// Like [_withCard], but [id] may also name the card of a popup panel
+  /// (`panel:<panel id>`), which can have a picture too.
+  Future<Response> _withPicture(
+    String? id,
+    Future<Response> Function(String id) action,
+  ) async {
+    final layout = (await _ref.read(configProvider.future)).layout;
+    final isPanel = layout.panels.any(
+      (panel) =>
+          panel.kind == PanelKind.popup && PanelEntry.iconKey(panel.id) == id,
+    );
+    return isPanel ? action(id!) : _withCard(id, action);
+  }
+
+  /// Replaces the whole layout with the one the page sends.
+  Future<Response> _setLayout(Map<String, Object?> body) async {
+    final layout = Layout.fromJson(body);
+    await _ref.read(configProvider.notifier).setLayout(layout);
+    // Pictures of popups that no longer exist have nothing to show on.
+    final config = await _ref.read(configProvider.future);
+    final kept = {
+      for (final panel in config.layout.panels) PanelEntry.iconKey(panel.id),
+    };
+    for (final key in config.iconOverrides.keys.toList()) {
+      if (key.startsWith(PanelEntry.iconKey('')) && !kept.contains(key)) {
+        await _ref.read(customIconsProvider).clear(key);
+      }
     }
-    await _ref.read(configProvider.notifier).setOrder(order.cast<String>());
     return _ok();
   }
 
-  Future<Response> _setHidden(String id, Map<String, Object?> body) async {
-    final hidden = body['hidden'];
-    if (hidden is! bool) {
-      throw const FormatException('"hidden" must be true or false');
+  /// Sets the quick actions (`contextMenu`) and how notifications pop up
+  /// (`toasts`); whichever the body leaves out stays as it is.
+  Future<Response> _setOptions(Map<String, Object?> body) async {
+    final config = _ref.read(configProvider.notifier);
+    if (body['contextMenu'] case final menu?) {
+      final actions = [
+        if (menu is List)
+          for (final name in menu) ?CardAction.named(name),
+      ];
+      if (menu is! List || actions.length != menu.length) {
+        throw const FormatException('"contextMenu" must list action ids');
+      }
+      await config.setContextMenu(actions.toSet().toList());
     }
-    await _ref.read(configProvider.notifier).setHidden(id, hidden);
+    if (body['toasts'] case final toasts?) {
+      if (toasts is! Map<String, Object?>) {
+        throw const FormatException('"toasts" must be an object');
+      }
+      await config.setToasts(ToastOptions.fromJson(toasts));
+    }
     return _ok();
+  }
+
+  /// Finds places by name for the weather widget. Done here rather than by
+  /// the page so the page never talks to anything but the TV.
+  Future<Response> _geocode(String? query) async {
+    if (query == null || query.trim().isEmpty) {
+      throw const FormatException('"q" must name a place');
+    }
+    try {
+      final places = await findPlaces(
+        _ref.read(jsonFetcherProvider),
+        query.trim(),
+      );
+      return Response.ok(
+        jsonEncode({
+          'places': [
+            for (final place in places)
+              {
+                'name': place.name,
+                'latitude': place.latitude,
+                'longitude': place.longitude,
+              },
+          ],
+        }),
+        headers: _json,
+      );
+    } on Exception catch (e) {
+      return _error(502, 'The TV could not look that up: $e');
+    }
   }
 
   Future<Response> _icon(String id) async {
     final cards = await _ref.read(allCardsProvider.future);
-    final card = cards.firstWhere((card) => card.id == id);
+    final config = await _ref.read(configProvider.future);
+    // Null for the card of a popup, which only has a picture if given one.
+    final card = cards.where((card) => card.id == id).firstOrNull;
     // The URL carries a version, so the image behind it never changes.
     const cache = {'cache-control': 'public, max-age=31536000, immutable'};
-    final path = card.iconPath;
+    final path = card == null ? config.iconOverrides[id] : card.iconPath;
     if (path == null) {
-      return switch (card.svg) {
+      return switch (card?.svg) {
         null => _error(404, 'No icon'),
         final svg => Response.ok(
           svg,

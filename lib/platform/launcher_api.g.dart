@@ -132,6 +132,8 @@ enum SetupOutcome {
   failed,
 }
 
+enum MediaCommand { playPause, next, previous }
+
 class InstalledApp {
   InstalledApp({
     required this.packageName,
@@ -292,6 +294,193 @@ class SetupResult {
   }
 }
 
+/// What an app is playing, as reported by its media session.
+class NowPlaying {
+  NowPlaying({
+    required this.packageName,
+    required this.appLabel,
+    this.title,
+    this.artist,
+    this.artPath,
+    required this.playing,
+  });
+
+  String packageName;
+
+  String appLabel;
+
+  String? title;
+
+  String? artist;
+
+  /// Absolute path of the cover art as a cached PNG, if the app gives any.
+  String? artPath;
+
+  bool playing;
+
+  List<Object?> _toList() {
+    return <Object?>[packageName, appLabel, title, artist, artPath, playing];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static NowPlaying decode(Object result) {
+    result as List<Object?>;
+    return NowPlaying(
+      packageName: result[0]! as String,
+      appLabel: result[1]! as String,
+      title: result[2] as String?,
+      artist: result[3] as String?,
+      artPath: result[4] as String?,
+      playing: result[5]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! NowPlaying || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(packageName, other.packageName) &&
+        _deepEquals(appLabel, other.appLabel) &&
+        _deepEquals(title, other.title) &&
+        _deepEquals(artist, other.artist) &&
+        _deepEquals(artPath, other.artPath) &&
+        _deepEquals(playing, other.playing);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'NowPlaying(packageName: $packageName, appLabel: $appLabel, title: $title, artist: $artist, artPath: $artPath, playing: $playing)';
+  }
+}
+
+/// A notification another app has just posted.
+class AppNotification {
+  AppNotification({
+    required this.packageName,
+    required this.appLabel,
+    this.title,
+    this.text,
+  });
+
+  String packageName;
+
+  String appLabel;
+
+  String? title;
+
+  String? text;
+
+  List<Object?> _toList() {
+    return <Object?>[packageName, appLabel, title, text];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static AppNotification decode(Object result) {
+    result as List<Object?>;
+    return AppNotification(
+      packageName: result[0]! as String,
+      appLabel: result[1]! as String,
+      title: result[2] as String?,
+      text: result[3] as String?,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! AppNotification || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(packageName, other.packageName) &&
+        _deepEquals(appLabel, other.appLabel) &&
+        _deepEquals(title, other.title) &&
+        _deepEquals(text, other.text);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'AppNotification(packageName: $packageName, appLabel: $appLabel, title: $title, text: $text)';
+  }
+}
+
+/// A widget an installed app offers.
+class WidgetProvider {
+  WidgetProvider({
+    required this.id,
+    required this.label,
+    required this.appLabel,
+  });
+
+  /// The provider's component name, e.g. `com.example/.ClockWidget`.
+  String id;
+
+  String label;
+
+  String appLabel;
+
+  List<Object?> _toList() {
+    return <Object?>[id, label, appLabel];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static WidgetProvider decode(Object result) {
+    result as List<Object?>;
+    return WidgetProvider(
+      id: result[0]! as String,
+      label: result[1]! as String,
+      appLabel: result[2]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! WidgetProvider || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(id, other.id) &&
+        _deepEquals(label, other.label) &&
+        _deepEquals(appLabel, other.appLabel);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'WidgetProvider(id: $id, label: $label, appLabel: $appLabel)';
+  }
+}
+
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -305,14 +494,26 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is SetupOutcome) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    } else if (value is InstalledApp) {
+    } else if (value is MediaCommand) {
       buffer.putUint8(131);
-      writeValue(buffer, value.encode());
-    } else if (value is TvInput) {
+      writeValue(buffer, value.index);
+    } else if (value is InstalledApp) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    } else if (value is SetupResult) {
+    } else if (value is TvInput) {
       buffer.putUint8(133);
+      writeValue(buffer, value.encode());
+    } else if (value is SetupResult) {
+      buffer.putUint8(134);
+      writeValue(buffer, value.encode());
+    } else if (value is NowPlaying) {
+      buffer.putUint8(135);
+      writeValue(buffer, value.encode());
+    } else if (value is AppNotification) {
+      buffer.putUint8(136);
+      writeValue(buffer, value.encode());
+    } else if (value is WidgetProvider) {
+      buffer.putUint8(137);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -329,11 +530,20 @@ class _PigeonCodec extends StandardMessageCodec {
         final value = readValue(buffer) as int?;
         return value == null ? null : SetupOutcome.values[value];
       case 131:
-        return InstalledApp.decode(readValue(buffer)!);
+        final value = readValue(buffer) as int?;
+        return value == null ? null : MediaCommand.values[value];
       case 132:
-        return TvInput.decode(readValue(buffer)!);
+        return InstalledApp.decode(readValue(buffer)!);
       case 133:
+        return TvInput.decode(readValue(buffer)!);
+      case 134:
         return SetupResult.decode(readValue(buffer)!);
+      case 135:
+        return NowPlaying.decode(readValue(buffer)!);
+      case 136:
+        return AppNotification.decode(readValue(buffer)!);
+      case 137:
+        return WidgetProvider.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -536,6 +746,196 @@ class LauncherHostApi {
     );
     return pigeonVar_replyValue! as SetupResult;
   }
+
+  /// Opens the TV's own details screen for an app.
+  Future<void> openAppInfo(String packageName) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.openAppInfo$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[packageName],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Asks the TV to uninstall an app; the TV confirms with the user.
+  Future<void> uninstallApp(String packageName) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.uninstallApp$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[packageName],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Stops an app through the TV's ADB service. False when that is not
+  /// available, e.g. before [runAutomaticSetup] has been allowed.
+  Future<bool> forceStopApp(String packageName) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.forceStopApp$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[packageName],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as bool;
+  }
+
+  /// Whether the app may see other apps' notifications and media sessions,
+  /// which [runAutomaticSetup] grants.
+  Future<bool> isNotificationAccessEnabled() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.isNotificationAccessEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as bool;
+  }
+
+  /// Null when nothing is playing or access has not been granted.
+  Future<NowPlaying?> getNowPlaying() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.getNowPlaying$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+    return pigeonVar_replyValue as NowPlaying?;
+  }
+
+  Future<void> sendMediaCommand(MediaCommand command) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.sendMediaCommand$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[command],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Empty on devices that do not support app widgets.
+  Future<List<WidgetProvider>> listWidgetProviders() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.listWidgetProviders$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return (pigeonVar_replyValue! as List<Object?>).cast<WidgetProvider>();
+  }
+
+  /// Makes sure the layout item [itemId] has a widget from [provider] and
+  /// returns the id to show it with, or null if the TV does not allow it.
+  Future<int?> bindWidget(String itemId, String provider) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.bindWidget$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[itemId, provider],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+    return pigeonVar_replyValue as int?;
+  }
+
+  /// Frees the widgets of layout items that are not in [itemIds] any more.
+  Future<void> pruneWidgets(List<String> itemIds) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.pruneWidgets$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[itemIds],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
 }
 
 abstract class LauncherFlutterApi {
@@ -546,6 +946,11 @@ abstract class LauncherFlutterApi {
 
   /// An input was added, removed or renamed.
   void onInputsChanged();
+
+  /// What [LauncherHostApi.getNowPlaying] returns has changed.
+  void onNowPlayingChanged();
+
+  void onNotification(AppNotification notification);
 
   static void setUp(
     LauncherFlutterApi? api, {
@@ -590,6 +995,54 @@ abstract class LauncherFlutterApi {
         pigeonVar_channel.setMessageHandler((Object? message) async {
           try {
             api.onInputsChanged();
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
+          }
+        });
+      }
+    }
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+        'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNowPlayingChanged$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          try {
+            api.onNowPlayingChanged();
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
+          }
+        });
+      }
+    }
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+        'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNotification$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          final List<Object?> args = message! as List<Object?>;
+          final AppNotification arg_notification = args[0]! as AppNotification;
+          try {
+            api.onNotification(arg_notification);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);

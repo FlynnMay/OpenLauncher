@@ -3,10 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/config/launcher_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-
-import 'launcher_config.dart';
 
 /// Where [LauncherConfig] is persisted.
 abstract class ConfigStore {
@@ -26,7 +25,7 @@ class FileConfigStore implements ConfigStore {
   @override
   Future<LauncherConfig> load() async {
     final file = await _file();
-    if (!await file.exists()) return const LauncherConfig();
+    if (!await file.exists()) return LauncherConfig();
     try {
       final json = jsonDecode(await file.readAsString());
       return LauncherConfig.fromJson(json as Map<String, dynamic>);
@@ -35,7 +34,7 @@ class FileConfigStore implements ConfigStore {
       // inspection and start from defaults.
       debugPrint('config.json unreadable, using defaults: $e');
       await file.copy('${file.path}.corrupt');
-      return const LauncherConfig();
+      return LauncherConfig();
     }
   }
 
@@ -49,7 +48,8 @@ class FileConfigStore implements ConfigStore {
 }
 
 class MemoryConfigStore implements ConfigStore {
-  MemoryConfigStore([this.config = const LauncherConfig()]);
+  MemoryConfigStore([LauncherConfig? config])
+    : config = config ?? LauncherConfig();
 
   LauncherConfig config;
 
