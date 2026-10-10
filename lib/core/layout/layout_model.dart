@@ -140,6 +140,22 @@ class LayoutItem {
     pane: pane,
   );
 
+  /// This item at another size and place; with no [x] and [y], wherever
+  /// its pane puts it.
+  LayoutItem sized(double w, double h, {double? x, double? y}) => LayoutItem(
+    id: id,
+    kind: kind,
+    ref: ref,
+    w: w,
+    h: h,
+    x: x,
+    y: y,
+    options: options,
+    style: style,
+    hideName: hideName,
+    pane: pane,
+  );
+
   factory LayoutItem.fromJson(Map<Object?, Object?> json) {
     final kind = _named(
       ItemKind.values,

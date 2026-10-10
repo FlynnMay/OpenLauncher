@@ -11,6 +11,48 @@ class FirstFocus {
   bool take() => !_taken && (_taken = true);
 }
 
+/// The sizes of a pane's cells when its grid is [width] wide.
+@immutable
+class PaneMetrics {
+  PaneMetrics(Pane pane, double width)
+    : gapX = pane.spacingX,
+      gapY = pane.spacingY,
+      cellWidth = (width - (pane.columns - 1) * pane.spacingX) / pane.columns;
+
+  final double gapX, gapY, cellWidth;
+
+  double get cellHeight => cellWidth / PaneGrid.cellRatio;
+
+  /// How far [cells] cells reach across, the gaps between them included.
+  double across(double cells) => cells * cellWidth + (cells - 1) * gapX;
+
+  /// The same, down.
+  double down(double cells) => cells * cellHeight + (cells - 1) * gapY;
+
+  /// Where in the grid something placed at [placement] is drawn.
+  Rect rectOf(Placement placement) => Rect.fromLTWH(
+    placement.x * (cellWidth + gapX),
+    placement.y * (cellHeight + gapY),
+    across(placement.w),
+    down(placement.h),
+  );
+
+  /// The column and row, with fractions, that a point of the grid is at.
+  Offset cellAt(Offset point) =>
+      Offset(point.dx / (cellWidth + gapX), point.dy / (cellHeight + gapY));
+}
+
+/// Puts something around the grid of every pane drawn under it. The TV has
+/// none; the editor uses it to know where each pane's cells are on screen.
+class PaneFrame extends InheritedWidget {
+  const PaneFrame({super.key, required this.wrap, required super.child});
+
+  final Widget Function(Pane pane, Widget grid) wrap;
+
+  @override
+  bool updateShouldNotify(PaneFrame oldWidget) => wrap != oldWidget.wrap;
+}
+
 /// Lays a pane's entries out on its cell grid, filling the width given and
 /// as tall as they need.
 class PaneGrid extends StatelessWidget {
@@ -27,18 +69,13 @@ class PaneGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pane = view.pane;
-    return LayoutBuilder(
+    final grid = LayoutBuilder(
       builder: (context, constraints) {
-        final gapX = pane.spacingX, gapY = pane.spacingY;
-        final cellWidth =
-            (constraints.maxWidth - (pane.columns - 1) * gapX) / pane.columns;
-        final cellHeight = cellWidth / cellRatio;
-        double span(double cells, double cell, double gap) =>
-            cells * cell + (cells - 1) * gap;
+        final metrics = PaneMetrics(pane, constraints.maxWidth);
         final placements = placeItems(pane.items, pane.columns, pane.mode);
         final rows = rowCount(placements);
         return SizedBox(
-          height: rows == 0 ? 0 : span(rows, cellHeight, gapY),
+          height: rows == 0 ? 0 : metrics.down(rows),
           // What is in here is in this pane, inside whichever it is in.
           child: PaneScope(
             panes: [...PaneScope.of(context), pane.id],
@@ -47,12 +84,9 @@ class PaneGrid extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 for (final (index, entry) in view.entries.indexed)
-                  Positioned(
+                  Positioned.fromRect(
                     key: ValueKey(entry.item.id),
-                    left: placements[index].x * (cellWidth + gapX),
-                    top: placements[index].y * (cellHeight + gapY),
-                    width: span(placements[index].w, cellWidth, gapX),
-                    height: span(placements[index].h, cellHeight, gapY),
+                    rect: metrics.rectOf(placements[index]),
                     child: tile(entry),
                   ),
               ],
@@ -61,6 +95,8 @@ class PaneGrid extends StatelessWidget {
         );
       },
     );
+    final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
+    return frame == null ? grid : frame.wrap(pane, grid);
   }
 }
 
