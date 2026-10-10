@@ -6,6 +6,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/picture_tile.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 
@@ -151,19 +152,16 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                 ),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  sliver: SliverGrid.extent(
-                    maxCrossAxisExtent: 104,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 1.1,
-                    children: [
+                  sliver: SliverGrid(
+                    gridDelegate: pictureTileGrid,
+                    delegate: SliverChildListDelegate([
                       for (final offer in offers)
                         _OfferTile(
                           offer,
                           onTap: () =>
                               placeDragged(context, ref, offer.dragged, inbox),
                         ),
-                    ],
+                    ]),
                   ),
                 ),
               ],
@@ -209,67 +207,20 @@ class _OfferTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final label = offer.dragged.label;
     return DragHandle(
       data: offer.dragged,
-      child: Tooltip(
-        message: offer.count == 0 ? label : '$label (on the TV)',
-        waitDuration: const Duration(milliseconds: 600),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Container(
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        color: offer.backed
-                            ? theme.colorScheme.surfaceContainerHigh
-                            : Colors.white10,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: offer.dragged.picture,
-                    ),
-                    if (offer.count > 0)
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: Container(
-                          margin: const EdgeInsets.all(3),
-                          padding: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            offer.count == 1 ? 'on TV' : '×${offer.count}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onPrimary,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelSmall,
-              ),
-            ],
-          ),
-        ),
+      child: PictureTile(
+        label: label,
+        picture: offer.dragged.picture,
+        backed: offer.backed,
+        badge: switch (offer.count) {
+          0 => null,
+          1 => 'on TV',
+          final count => '×$count',
+        },
+        tooltip: offer.count == 0 ? label : '$label (on the TV)',
+        onTap: onTap,
       ),
     );
   }

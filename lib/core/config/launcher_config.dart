@@ -45,7 +45,8 @@ class LauncherConfig {
     this.iconOverrides = const {},
     this.iconSources = const {},
     this.names = const {},
-    this.wallpaper,
+    this.wallpapers = const [],
+    this.wallpaperEvery = 0,
     this.contextMenu = CardAction.values,
     this.toasts = const ToastOptions(),
   }) : layout = layout ?? Layout.initial();
@@ -63,24 +64,33 @@ class LauncherConfig {
   /// Card id -> the name the user gave it.
   final Map<String, String> names;
 
-  /// Absolute path of the image or video shown behind the home screen, or
-  /// null for a plain background.
-  final String? wallpaper;
+  /// Absolute paths of the images and videos shown behind the home screen;
+  /// none for a plain background. The first is the one shown, unless they
+  /// take turns.
+  final List<String> wallpapers;
+
+  /// How many minutes each wallpaper stays before the next takes its turn;
+  /// 0 to stay on the first.
+  final int wallpaperEvery;
+
+  /// The longest [wallpaperEvery] may be: a week.
+  static const maxWallpaperEvery = 7 * 24 * 60;
+
+  /// The first wallpaper, which is the only one unless they take turns.
+  String? get wallpaper => wallpapers.firstOrNull;
 
   /// The quick actions offered when a card is held down, in order.
   final List<CardAction> contextMenu;
 
   final ToastOptions toasts;
 
-  static const _keep = Object();
-
   LauncherConfig copyWith({
     Layout? layout,
     Map<String, String>? iconOverrides,
     Map<String, String>? iconSources,
     Map<String, String>? names,
-    // Nullable, so "not given" needs its own marker.
-    Object? wallpaper = _keep,
+    List<String>? wallpapers,
+    int? wallpaperEvery,
     List<CardAction>? contextMenu,
     ToastOptions? toasts,
   }) => LauncherConfig(
@@ -88,9 +98,8 @@ class LauncherConfig {
     iconOverrides: iconOverrides ?? this.iconOverrides,
     iconSources: iconSources ?? this.iconSources,
     names: names ?? this.names,
-    wallpaper: identical(wallpaper, _keep)
-        ? this.wallpaper
-        : wallpaper as String?,
+    wallpapers: wallpapers ?? this.wallpapers,
+    wallpaperEvery: wallpaperEvery ?? this.wallpaperEvery,
     contextMenu: contextMenu ?? this.contextMenu,
     toasts: toasts ?? this.toasts,
   );
@@ -102,7 +111,15 @@ class LauncherConfig {
     },
     iconSources: _strings(json['iconSources']),
     names: _strings(json['names']),
-    wallpaper: json['wallpaper'] as String?,
+    wallpapers: switch (json['wallpapers']) {
+      final List<Object?> paths => paths.whereType<String>().toList(),
+      // Configs from before there could be several had the one.
+      _ => [?(json['wallpaper'] as String?)],
+    },
+    wallpaperEvery: switch (json['wallpaperEvery']) {
+      final num minutes => minutes.toInt().clamp(0, maxWallpaperEvery),
+      _ => 0,
+    },
     contextMenu: switch (json['contextMenu']) {
       final List<Object?> names => [
         for (final name in names) ?CardAction.named(name),
@@ -147,7 +164,8 @@ class LauncherConfig {
     'iconOverrides': iconOverrides,
     'iconSources': iconSources,
     'names': names,
-    'wallpaper': ?wallpaper,
+    'wallpapers': wallpapers,
+    'wallpaperEvery': wallpaperEvery,
     'contextMenu': [for (final action in contextMenu) action.name],
     'toasts': toasts.toJson(),
   };

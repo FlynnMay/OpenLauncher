@@ -46,11 +46,19 @@ class EditorScreen extends ConsumerStatefulWidget {
 class _EditorScreenState extends ConsumerState<EditorScreen> {
   bool _editing = true;
 
+  /// Where there is no room for both under the screen: whether the settings
+  /// are showing, rather than what can be added.
+  bool _settings = false;
+
   /// Keeps the launcher as it was when the page is laid out anew.
   final _stage = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
+    // Picking something out brings up its settings.
+    ref.listen(selectionProvider.select((ids) => ids.isNotEmpty), (_, picked) {
+      if (picked) setState(() => _settings = true);
+    });
     final surface = Theme.of(context).colorScheme.surfaceContainerLow;
     return Scaffold(
       backgroundColor: const Color(0xFF101014),
@@ -123,14 +131,32 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       SizedBox(width: 300, child: side(const Inspector())),
                     ],
                   )
-                // With less room they take turns under the screen: what
-                // can be added, until something is picked out.
+                // With less room they take turns under the screen.
                 : Column(
                     children: [
                       screen,
+                      SegmentedButton<bool>(
+                        showSelectedIcon: false,
+                        segments: [
+                          const ButtonSegment(
+                            value: false,
+                            icon: Icon(Icons.add),
+                            label: Text('Add'),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            icon: const Icon(Icons.tune),
+                            label: Text(picked ? 'Selected' : 'Settings'),
+                          ),
+                        ],
+                        selected: {_settings},
+                        onSelectionChanged: (chosen) =>
+                            setState(() => _settings = chosen.single),
+                      ),
+                      const SizedBox(height: 8),
                       Expanded(
                         child: side(
-                          picked ? const Inspector() : const Catalogue(),
+                          _settings ? const Inspector() : const Catalogue(),
                         ),
                       ),
                     ],

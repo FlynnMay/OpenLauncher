@@ -15,7 +15,7 @@ final wallpaperDirProvider = FutureProvider<Directory>((ref) async {
 
 final wallpaperStoreProvider = Provider<WallpaperStore>(WallpaperStore.new);
 
-enum WallpaperUpload { saved, tooLarge, unsupported }
+enum WallpaperUpload { saved, tooLarge, unsupported, tooMany }
 
 /// Recognises MP4, WebM and Matroska by their leading bytes. Returns the file
 /// extension, or null if [header] is none of them.
@@ -48,20 +48,34 @@ String wallpaperContentType(String path) =>
       final extension => imageContentType(extension.replaceFirst('.', '')),
     };
 
-/// Stores the uploaded wallpaper and points the config at it.
+/// Stores uploaded wallpapers and keeps the config's list of them. Each is
+/// known to the page by its file name, which no other upload ever has.
 class WallpaperStore {
   WallpaperStore(this._ref);
 
   static const maxBytes = 300 * 1024 * 1024;
+
+  /// How many there can be at once.
+  static const maxCount = 12;
 
   // Enough of the file to recognise every supported format.
   static const _headerBytes = 64;
 
   final Ref _ref;
 
+  /// The name a wallpaper is known by.
+  static String idOf(String path) => p.basename(path);
+
+  Future<List<String>> _paths() async =>
+      (await _ref.read(configProvider.future)).wallpapers;
+
   /// Writes [body] straight to disk (videos are too big to hold in memory)
-  /// and makes it the wallpaper if it is a supported image or video.
-  Future<WallpaperUpload> save(Stream<List<int>> body) async {
+  /// and, if it is a supported image or video, adds it after the wallpapers
+  /// there are; or with [replace], makes it the only one.
+  Future<WallpaperUpload> add(
+    Stream<List<int>> body, {
+    bool replace = false,
+  }) async {
     final dir = await _ref.read(wallpaperDirProvider.future);
     await dir.create(recursive: true);
     final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -80,37 +94,73 @@ class WallpaperStore {
       await sink.close();
     }
 
+    final previous = await _paths();
     final start = header.takeBytes();
     final extension = length > maxBytes
         ? null
         : sniffImageExtension(start) ?? sniffVideoExtension(start);
-    if (extension == null) {
+    if (extension == null || !replace && previous.length >= maxCount) {
       await temp.delete();
       return length > maxBytes
           ? WallpaperUpload.tooLarge
-          : WallpaperUpload.unsupported;
+          : extension == null
+          ? WallpaperUpload.unsupported
+          : WallpaperUpload.tooMany;
     }
 
     // A fresh name per upload, so players and caches never show the old one.
     final file = await temp.rename(
       p.join(dir.path, 'wallpaper-$stamp.$extension'),
     );
-    final previous = (await _ref.read(configProvider.future)).wallpaper;
-    await _ref.read(configProvider.notifier).setWallpaper(file.path);
-    await _deleteIfOurs(previous, dir);
+    await _ref.read(configProvider.notifier).setWallpapers([
+      if (!replace) ...previous,
+      file.path,
+    ]);
+    if (replace) await _delete(previous, dir);
     return WallpaperUpload.saved;
+  }
+
+  /// Takes the wallpaper [id] away. False if there is none by that name.
+  Future<bool> remove(String id) async {
+    final paths = await _paths();
+    final gone = paths.where((path) => idOf(path) == id).toList();
+    if (gone.isEmpty) return false;
+    await _ref.read(configProvider.notifier).setWallpapers([
+      for (final path in paths)
+        if (!gone.contains(path)) path,
+    ]);
+    await _delete(gone, await _ref.read(wallpaperDirProvider.future));
+    return true;
+  }
+
+  /// Puts the wallpapers in the order of [ids]; any left out follow in the
+  /// order they were in.
+  Future<void> arrange(List<String> ids) async {
+    final paths = await _paths();
+    int place(String path) => switch (ids.indexOf(idOf(path))) {
+      -1 => ids.length + paths.indexOf(path),
+      final index => index,
+    };
+    await _ref
+        .read(configProvider.notifier)
+        .setWallpapers(
+          [...paths]..sort((a, b) => place(a).compareTo(place(b))),
+        );
   }
 
   /// Returns to the plain background.
   Future<void> clear() async {
-    final previous = (await _ref.read(configProvider.future)).wallpaper;
-    await _ref.read(configProvider.notifier).setWallpaper(null);
-    await _deleteIfOurs(previous, await _ref.read(wallpaperDirProvider.future));
+    final previous = await _paths();
+    await _ref.read(configProvider.notifier).setWallpapers(const []);
+    await _delete(previous, await _ref.read(wallpaperDirProvider.future));
   }
 
-  Future<void> _deleteIfOurs(String? path, Directory dir) async {
-    if (path == null || !p.isWithin(dir.path, path)) return;
-    final file = File(path);
-    if (await file.exists()) await file.delete();
+  /// Deletes those of [paths] that are files of ours.
+  Future<void> _delete(List<String> paths, Directory dir) async {
+    for (final path in paths) {
+      if (!p.isWithin(dir.path, path)) continue;
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    }
   }
 }

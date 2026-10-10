@@ -23,8 +23,17 @@ final List<Override> tvOverrides = [
   allCardsProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).cards,
   ),
-  wallpaperProvider.overrideWith(
-    (ref) => ref.watch(tvStateProvider).value?.wallpaper,
+  // Which of them shows, and when the next takes its turn, is worked out
+  // here as it is on the TV.
+  wallpapersProvider.overrideWith(
+    (ref) => [
+      for (final one
+          in ref.watch(tvStateProvider).value?.wallpapers ?? const [])
+        one.wallpaper,
+    ],
+  ),
+  wallpaperEveryProvider.overrideWith(
+    (ref) => ref.watch(tvStateProvider).value?.wallpaperEvery ?? 0,
   ),
   launcherPlatformProvider.overrideWithValue(BrowserPlatform()),
   // The page is the config server's guest; it does not run one.

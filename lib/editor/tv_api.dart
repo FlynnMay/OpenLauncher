@@ -7,6 +7,7 @@ import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/editor/file_pick.dart';
 
 /// A widget the TV can show, as the catalogue offers it.
 typedef WidgetOffer = ({
@@ -17,6 +18,12 @@ typedef WidgetOffer = ({
   Map<String, Object?> options,
 });
 
+/// What the user has changed about a card, beyond where it is.
+typedef CardDetails = ({bool renamed, bool customIcon, String? iconFrom});
+
+/// A place the weather can be shown for.
+typedef Place = ({String name, double latitude, double longitude});
+
 /// What the TV says it has: the same things the launcher on the TV works
 /// from, with every picture as the address the TV serves it at.
 class TvState {
@@ -24,7 +31,11 @@ class TvState {
     required this.cards,
     required this.config,
     required this.widgets,
-    this.wallpaper,
+    this.details = const {},
+    this.wallpapers = const [],
+    this.wallpaperEvery = 0,
+    this.widgetProviders = const {},
+    this.notificationAccess = true,
   });
 
   /// Every card, with the user's names and pictures already applied.
@@ -33,7 +44,21 @@ class TvState {
   /// The layout, the pictures of folders and the options.
   final LauncherConfig config;
   final List<WidgetOffer> widgets;
-  final Wallpaper? wallpaper;
+
+  /// By card id.
+  final Map<String, CardDetails> details;
+
+  /// Every wallpaper, by the name the TV knows it by, in order.
+  final List<({String id, Wallpaper wallpaper})> wallpapers;
+
+  /// How many minutes each wallpaper stays; 0 to stay on the first.
+  final int wallpaperEvery;
+
+  /// The app widgets there are to show, by id, with how each is called.
+  final Map<String, String> widgetProviders;
+
+  /// Whether the TV lets the launcher see notifications and what plays.
+  final bool notificationAccess;
 }
 
 final tvApiProvider = Provider<TvApi>((ref) => TvApi());
@@ -81,7 +106,6 @@ class TvApi {
   }
 
   Future<TvState> _state(Map<Object?, Object?> json) async {
-    final wallpaper = json['wallpaper'] as Map?;
     final providers = json['widgetProviders'] as List;
     return TvState(
       cards: await Future.wait([
@@ -115,12 +139,30 @@ class TvApi {
               options: {'provider': ?provider?['id']},
             ),
       ],
-      wallpaper: wallpaper == null
-          ? null
-          : Wallpaper(
+      details: {
+        for (final Map card in json['cards'] as List)
+          card['id'] as String: (
+            renamed: card['renamed'] == true,
+            customIcon: card['customIcon'] == true,
+            iconFrom: card['iconFrom'] as String?,
+          ),
+      },
+      wallpapers: [
+        for (final Map wallpaper in json['wallpapers'] as List)
+          (
+            id: wallpaper['id'] as String,
+            wallpaper: Wallpaper(
               _at(wallpaper['url'] as String).toString(),
               WallpaperKind.values.byName(wallpaper['kind'] as String),
             ),
+          ),
+      ],
+      wallpaperEvery: (json['wallpaperEvery'] as num).toInt(),
+      widgetProviders: {
+        for (final Map provider in providers)
+          provider['id'] as String: '${provider['app']}: ${provider['label']}',
+      },
+      notificationAccess: json['notificationAccess'] != false,
     );
   }
 
@@ -144,17 +186,86 @@ class TvApi {
     );
   }
 
-  Future<void> _put(String path, Object? body) async {
-    final response = await _client.put(_at(path), body: jsonEncode(body));
-    if (response.statusCode != 200) {
-      throw Exception('The TV answered ${response.statusCode}');
+  /// What the TV said was wrong, from the body of its reply.
+  static Exception _refused(int status, String body) {
+    try {
+      if (jsonDecode(body) case {'error': final String error}) {
+        return Exception(error);
+      }
+    } on FormatException {
+      // Not one of the TV's own replies.
     }
+    return Exception('The TV answered $status');
   }
 
-  Future<void> setLayout(Layout layout) => _put('/api/layout', layout.toJson());
+  Future<Object?> _ask(String method, String path, [Object? body]) async {
+    final request = http.Request(method, _at(path));
+    if (body != null) request.body = jsonEncode(body);
+    final response = await http.Response.fromStream(
+      await _client.send(request),
+    );
+    final text = utf8.decode(response.bodyBytes);
+    if (response.statusCode != 200) throw _refused(response.statusCode, text);
+    return jsonDecode(text);
+  }
 
-  Future<void> setOptions(LauncherConfig config) => _put('/api/options', {
-    'contextMenu': [for (final action in config.contextMenu) action.name],
-    'toasts': config.toasts.toJson(),
-  });
+  Future<void> _upload(String method, String path, PickedFile file) async {
+    final reply = await file.send(method, _at(path));
+    if (reply.status != 200) throw _refused(reply.status, reply.body);
+  }
+
+  static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
+
+  Future<void> setLayout(Layout layout) =>
+      _ask('PUT', '/api/layout', layout.toJson());
+
+  Future<void> setOptions(LauncherConfig config) =>
+      _ask('PUT', '/api/options', {
+        'contextMenu': [for (final action in config.contextMenu) action.name],
+        'toasts': config.toasts.toJson(),
+      });
+
+  /// Gives the card [id], or the card of the popup `panel:<id>`, the
+  /// picture [file].
+  Future<void> setPicture(String id, PickedFile file) =>
+      _upload('PUT', '/api/icon${_id(id)}', file);
+
+  /// Returns a card to its own picture, whether it had one given to it or
+  /// borrowed another card's.
+  Future<void> clearPicture(String id) => _ask('DELETE', '/api/icon${_id(id)}');
+
+  /// Has the card [id] show the picture of the card [from].
+  Future<void> borrowPicture(String id, String from) =>
+      _ask('PUT', '/api/card${_id(id)}', {'iconFrom': from});
+
+  /// Names the card [id]; null gives it back the name the TV has for it.
+  Future<void> rename(String id, String? name) =>
+      _ask('PUT', '/api/card${_id(id)}', {'name': name});
+
+  Future<void> addWallpaper(PickedFile file) =>
+      _upload('POST', '/api/wallpapers', file);
+
+  Future<void> removeWallpaper(String id) =>
+      _ask('DELETE', '/api/wallpaper${_id(id)}');
+
+  /// Sets the order of the wallpapers, by id, and how many minutes each
+  /// stays; whichever is left out stays as it is.
+  Future<void> arrangeWallpapers({List<String>? order, int? every}) =>
+      _ask('PUT', '/api/wallpapers', {'order': ?order, 'every': ?every});
+
+  /// Finds places by name, for the weather widget.
+  Future<List<Place>> findPlaces(String name) async {
+    final reply = await _ask(
+      'GET',
+      '/api/geocode?q=${Uri.encodeQueryComponent(name)}',
+    ) as Map;
+    return [
+      for (final Map place in reply['places'] as List)
+        (
+          name: place['name'] as String,
+          latitude: (place['latitude'] as num).toDouble(),
+          longitude: (place['longitude'] as num).toDouble(),
+        ),
+    ];
+  }
 }

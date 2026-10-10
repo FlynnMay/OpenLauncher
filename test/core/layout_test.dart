@@ -594,7 +594,8 @@ void main() {
       final config = LauncherConfig(
         layout: Layout.initial(['app:a']).without({'app:b'}),
         iconOverrides: {'app:a': '/x.png'},
-        wallpaper: '/w.mp4',
+        wallpapers: ['/w.mp4', '/x.png'],
+        wallpaperEvery: 30,
         contextMenu: [CardAction.uninstall, CardAction.open],
         toasts: const ToastOptions(
           enabled: false,
@@ -606,7 +607,8 @@ void main() {
       expect(copy.toJson(), config.toJson());
       expect(copy.layout.removed, {'app:b'});
       expect(copy.copyWith(iconOverrides: {}).wallpaper, '/w.mp4');
-      expect(copy.copyWith(wallpaper: null).wallpaper, isNull);
+      expect(copy.wallpaperEvery, 30);
+      expect(copy.copyWith(wallpapers: const []).wallpaper, isNull);
     });
 
     test('a config from before layouts keeps its card order', () {
@@ -627,7 +629,9 @@ void main() {
         'layout': {'panels': 7},
         'wallpaper': '/w.png',
       });
-      expect(config.wallpaper, '/w.png');
+      // The one wallpaper older configs had is the first of the list now.
+      expect(config.wallpapers, ['/w.png']);
+      expect(config.wallpaperEvery, 0);
       expect(config.layout.home.root.items, hasLength(1));
     });
   });

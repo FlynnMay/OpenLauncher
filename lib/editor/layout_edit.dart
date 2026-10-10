@@ -399,6 +399,38 @@ Layout changePanel(Layout layout, String id, Panel Function(Panel) change) =>
       ],
     );
 
+/// [layout] without the popup [id], the cards that open it, and what was in
+/// it; cards that are then nowhere are noted as removed.
+Layout removePanel(Layout layout, String id) {
+  final panel = layout.panel(id);
+  if (panel == null) return layout;
+  final rest = _rebuilt(
+    Layout(
+      inbox: layout.inbox,
+      removed: layout.removed,
+      panels: [
+        for (final other in layout.panels)
+          if (other.id != id) other,
+      ],
+    ),
+    (_, items) => [
+      for (final item in items)
+        if (item.kind != ItemKind.panel || item.ref != id) item,
+    ],
+  );
+  final placed = placedCounts(rest);
+  return Layout(
+    inbox: rest.inbox,
+    panels: rest.panels,
+    removed: {
+      ...rest.removed,
+      for (final item in panel.items)
+        if (item.kind == ItemKind.card && !placed.containsKey(item.ref))
+          item.ref,
+    },
+  );
+}
+
 /// [layout] with new apps going to the pane [paneId].
 Layout withInbox(Layout layout, String paneId) =>
     Layout(inbox: paneId, removed: layout.removed, panels: layout.panels);

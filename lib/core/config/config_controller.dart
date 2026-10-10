@@ -36,9 +36,17 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   Future<void> removeCard(String id) =>
       _update((c) => c.copyWith(layout: c.layout.without({id}).normalised()));
 
-  /// Sets the image or video behind the home screen; null removes it.
-  Future<void> setWallpaper(String? path) =>
-      _update((c) => c.copyWith(wallpaper: path));
+  /// Sets the images and videos behind the home screen, the first being
+  /// the one shown unless they take turns; none leaves it plain.
+  Future<void> setWallpapers(List<String> paths) =>
+      _update((c) => c.copyWith(wallpapers: List.unmodifiable(paths)));
+
+  /// Sets how many minutes each wallpaper stays; 0 keeps to the first.
+  Future<void> setWallpaperEvery(int minutes) => _update(
+    (c) => c.copyWith(
+      wallpaperEvery: minutes.clamp(0, LauncherConfig.maxWallpaperEvery),
+    ),
+  );
 
   /// Sets a custom image for a card; pass null to return to the automatic one.
   /// Either way the card stops showing another card's picture.

@@ -34,14 +34,24 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   final cards = await ref.watch(allCardsProvider.future);
   final config = await ref.watch(configProvider.future);
   final providers = await ref.watch(widgetProvidersProvider.future);
+  final wallpapers = [
+    for (final path in config.wallpapers)
+      if (Wallpaper.fromPath(path) case final wallpaper?)
+        {
+          'id': WallpaperStore.idOf(path),
+          'kind': wallpaper.kind.name,
+          // A file never changes under its name, so this caches for good.
+          'url':
+              '/api/wallpaper?id='
+              '${Uri.encodeQueryComponent(WallpaperStore.idOf(path))}',
+        },
+  ];
   return {
-    'wallpaper': switch (Wallpaper.fromPath(config.wallpaper)) {
-      null => null,
-      final wallpaper => {
-        'kind': wallpaper.kind.name,
-        'url': '/api/wallpaper?v=${wallpaper.path.hashCode.toRadixString(36)}',
-      },
-    },
+    // The first, for the page from before there could be several.
+    'wallpaper': wallpapers.firstOrNull,
+    'wallpapers': wallpapers,
+    // Minutes each one stays, or 0 to stay on the first.
+    'wallpaperEvery': config.wallpaperEvery,
     'cards': [
       for (final card in cards)
         {
@@ -169,10 +179,19 @@ class ConfigApi {
         await _ref.read(customIconsProvider).clear(id);
         return _ok();
       }),
-      ('GET', 'api/wallpaper') => _wallpaper(request),
-      ('PUT', 'api/wallpaper') => _uploadWallpaper(request),
+      ('GET', 'api/wallpaper') => _wallpaper(request, id),
+      // The only wallpaper, as the first page sets it.
+      ('PUT', 'api/wallpaper') => _uploadWallpaper(request, replace: true),
+      // One more, after those there are.
+      ('POST', 'api/wallpapers') => _uploadWallpaper(request, replace: false),
+      ('PUT', 'api/wallpapers') => _arrangeWallpapers(await _body(request)),
       ('DELETE', 'api/wallpaper') => () async {
-        await _ref.read(wallpaperStoreProvider).clear();
+        final store = _ref.read(wallpaperStoreProvider);
+        if (id == null) {
+          await store.clear();
+        } else if (!await store.remove(id)) {
+          return _error(404, 'No such wallpaper');
+        }
         return _ok();
       }(),
       _ => _error(404, 'Not found'),
@@ -352,21 +371,52 @@ class ConfigApi {
     return saved ? _ok() : _error(415, 'Not a PNG, JPEG, GIF or WebP image');
   }
 
-  Future<Response> _uploadWallpaper(Request request) async =>
-      switch (await _ref.read(wallpaperStoreProvider).save(request.read())) {
-        WallpaperUpload.saved => _ok(),
-        WallpaperUpload.tooLarge => _error(413, 'File too large (300 MB max)'),
-        WallpaperUpload.unsupported => _error(
-          415,
-          'Not a supported image (PNG, JPEG, GIF, WebP) or video (MP4, '
-          'WebM, MKV)',
-        ),
-      };
+  /// Sets the order of the wallpapers (`order`, their ids) and how many
+  /// minutes each stays (`every`, 0 to stay on the first); whichever the
+  /// body leaves out stays as it is.
+  Future<Response> _arrangeWallpapers(Map<String, Object?> body) async {
+    if (body['order'] case final order?) {
+      if (order is! List || order.any((id) => id is! String)) {
+        throw const FormatException('"order" must list wallpaper ids');
+      }
+      await _ref.read(wallpaperStoreProvider).arrange(order.cast());
+    }
+    if (body['every'] case final every?) {
+      if (every is! num || every < 0) {
+        throw const FormatException('"every" must be a number of minutes');
+      }
+      await _ref.read(configProvider.notifier).setWallpaperEvery(every.toInt());
+    }
+    return _ok();
+  }
 
-  /// Serves the wallpaper for the page's preview. Byte ranges are honoured
-  /// because browsers will not play a video without them.
-  Future<Response> _wallpaper(Request request) async {
-    final path = (await _ref.read(configProvider.future)).wallpaper;
+  Future<Response> _uploadWallpaper(
+    Request request, {
+    required bool replace,
+  }) async => switch (await _ref
+      .read(wallpaperStoreProvider)
+      .add(request.read(), replace: replace)) {
+    WallpaperUpload.saved => _ok(),
+    WallpaperUpload.tooLarge => _error(413, 'File too large (300 MB max)'),
+    WallpaperUpload.tooMany => _error(
+      409,
+      'There are ${WallpaperStore.maxCount} wallpapers already; '
+      'remove one first',
+    ),
+    WallpaperUpload.unsupported => _error(
+      415,
+      'Not a supported image (PNG, JPEG, GIF, WebP) or video (MP4, '
+      'WebM, MKV)',
+    ),
+  };
+
+  /// Serves the wallpaper [id], or the first if none is named. Byte ranges
+  /// are honoured because browsers will not play a video without them.
+  Future<Response> _wallpaper(Request request, String? id) async {
+    final paths = (await _ref.read(configProvider.future)).wallpapers;
+    final path = id == null
+        ? paths.firstOrNull
+        : paths.where((path) => WallpaperStore.idOf(path) == id).firstOrNull;
     final file = path == null ? null : File(path);
     if (file == null || !await file.exists()) {
       return _error(404, 'No wallpaper');

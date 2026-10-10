@@ -495,6 +495,53 @@ void main() {
       expect(Directory('${tmp.path}/wallpaper').listSync(), isEmpty);
     });
 
+    test('several wallpapers are kept, ordered, timed and removed', () async {
+      Future<List<Map<String, dynamic>>> all() async =>
+          ((await state())['wallpapers'] as List).cast();
+
+      expect(
+        (await call('POST', '/api/wallpapers', body: mp4)).statusCode,
+        200,
+      );
+      await call('POST', '/api/wallpapers', body: _png);
+      var list = await all();
+      expect([for (final one in list) one['kind']], ['video', 'image']);
+      // The first is the one shown, and the one the first page knows of.
+      expect(await wallpaper(), list.first);
+      expect(container.read(wallpaperProvider)?.kind, WallpaperKind.video);
+
+      // Each is served by its own name.
+      final picture = await call('GET', list[1]['url'] as String);
+      expect(picture.headers['content-type'], 'image/png');
+
+      var response = await call(
+        'PUT',
+        '/api/wallpapers',
+        body: {
+          'order': [list[1]['id'], list[0]['id']],
+          'every': 15,
+        },
+      );
+      expect(response.statusCode, 200);
+      expect([for (final one in await all()) one['kind']], ['image', 'video']);
+      expect((await state())['wallpaperEvery'], 15);
+      expect(store.config.wallpaperEvery, 15);
+
+      response = await call('DELETE', '/api/wallpaper?id=${list[0]['id']}');
+      expect(response.statusCode, 200);
+      expect([for (final one in await all()) one['kind']], ['image']);
+      expect(Directory('${tmp.path}/wallpaper').listSync(), hasLength(1));
+      expect(
+        (await call('DELETE', '/api/wallpaper?id=nothing.png')).statusCode,
+        404,
+      );
+
+      // The first page's upload still leaves just the one.
+      await call('PUT', '/api/wallpaper', body: mp4);
+      expect([for (final one in await all()) one['kind']], ['video']);
+      expect(Directory('${tmp.path}/wallpaper').listSync(), hasLength(1));
+    });
+
     test('serves byte ranges for video playback', () async {
       await call('PUT', '/api/wallpaper', body: mp4);
       Future<Response> range(String value) => api.handle(

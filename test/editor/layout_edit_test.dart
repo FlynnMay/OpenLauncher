@@ -339,6 +339,40 @@ void main() {
     });
   });
 
+  test('deleting a folder takes its cards and what was in it', () {
+    final layout = Layout(
+      inbox: 'p',
+      panels: [
+        Panel(
+          id: Layout.homeId,
+          root: Pane(
+            id: 'p',
+            items: [
+              card('a'),
+              const LayoutItem(id: 'opens', kind: ItemKind.panel, ref: 'f'),
+            ],
+          ),
+        ),
+        Panel(
+          id: 'f',
+          root: Pane(
+            id: 'f/root',
+            items: [
+              card('b'),
+              const LayoutItem(id: 'a2', kind: ItemKind.card, ref: 'app:a'),
+            ],
+          ),
+        ),
+      ],
+    );
+    final deleted = removePanel(layout, 'f');
+    expect(deleted.panel('f'), isNull);
+    expect(ids(deleted, 'p'), ['a']);
+    // Only what is now nowhere counts as removed.
+    expect(deleted.removed, {'app:b'});
+    expect(removePanel(layout, 'nothing'), same(layout));
+  });
+
   test('counts how often each card is on the TV', () {
     final layout = home(
       Pane(
