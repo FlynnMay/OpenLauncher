@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:openlauncher/core/cards/launcher_card.dart';
-import 'package:openlauncher/core/config/launcher_config.dart';
+import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 
 /// A widget the TV can show, as the catalogue offers it.
 typedef WidgetOffer = ({
@@ -15,7 +17,8 @@ typedef WidgetOffer = ({
   Map<String, Object?> options,
 });
 
-/// What the TV says there is to show and to choose from.
+/// What the TV says it has: the same things the launcher on the TV works
+/// from, with every picture as the address the TV serves it at.
 class TvState {
   const TvState({
     required this.cards,
@@ -24,40 +27,60 @@ class TvState {
     this.wallpaper,
   });
 
+  /// Every card, with the user's names and pictures already applied.
   final List<LauncherCard> cards;
 
-  /// The layout and the pictures of folders, as far as the page knows them.
+  /// The layout, the pictures of folders and the options.
   final LauncherConfig config;
   final List<WidgetOffer> widgets;
-
-  /// The address of a still wallpaper, if that is what the TV has.
-  final String? wallpaper;
-
-  Layout get layout => config.layout;
-
-  TvState withLayout(Layout layout) => TvState(
-    cards: cards,
-    config: LauncherConfig(layout: layout, iconOverrides: config.iconOverrides),
-    widgets: widgets,
-    wallpaper: wallpaper,
-  );
+  final Wallpaper? wallpaper;
 }
 
 final tvApiProvider = Provider<TvApi>((ref) => TvApi());
+
+/// What the TV has, and again each time it changes.
+final tvStateProvider = StreamProvider<TvState>(
+  (ref) => ref.watch(tvApiProvider).states(),
+);
 
 /// The TV's config API, at the address this page came from.
 class TvApi {
   final _client = http.Client();
   final _base = Uri.base;
 
+  /// Line art by address: the address changes when the drawing does.
+  final _drawings = <String, Future<String>>{};
+
   Uri _at(String path) => _base.resolve(path);
 
-  Future<TvState> state() async {
-    final response = await _client.get(_at('/api/state'));
-    if (response.statusCode != 200) {
-      throw Exception('The TV answered ${response.statusCode}');
+  /// Follows the TV's event stream, joining it again whenever it is lost.
+  /// Fails only if the TV cannot be reached to begin with.
+  Stream<TvState> states() async* {
+    var reached = false;
+    while (true) {
+      try {
+        final response = await _client.send(
+          http.Request('GET', _at('/api/events')),
+        );
+        if (response.statusCode != 200) {
+          throw Exception('The TV answered ${response.statusCode}');
+        }
+        final lines = response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+        await for (final line in lines) {
+          if (!line.startsWith('data: ')) continue;
+          yield await _state(jsonDecode(line.substring(6)) as Map);
+          reached = true;
+        }
+      } on Object {
+        if (!reached) rethrow;
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
     }
-    final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+  }
+
+  Future<TvState> _state(Map<Object?, Object?> json) async {
     final wallpaper = json['wallpaper'] as Map?;
     final providers = json['widgetProviders'] as List;
     return TvState(
@@ -71,6 +94,11 @@ class TvApi {
               in (json['panelIcons'] as Map).entries)
             PanelEntry.iconKey(key as String): _at(value as String).toString(),
         },
+        contextMenu: [
+          for (final name in json['contextMenu'] as List)
+            ?CardAction.named(name),
+        ],
+        toasts: ToastOptions.fromJson(json['toasts'] as Map),
       ),
       widgets: [
         for (final Map widget in json['widgets'] as List)
@@ -87,9 +115,12 @@ class TvApi {
               options: {'provider': ?provider?['id']},
             ),
       ],
-      wallpaper: wallpaper?['kind'] == 'image'
-          ? _at(wallpaper!['url'] as String).toString()
-          : null,
+      wallpaper: wallpaper == null
+          ? null
+          : Wallpaper(
+              _at(wallpaper['url'] as String).toString(),
+              WallpaperKind.values.byName(wallpaper['kind'] as String),
+            ),
     );
   }
 
@@ -99,46 +130,31 @@ class TvApi {
     return LauncherCard(
       id: json['id'] as String,
       kind: CardKind.values.byName(json['kind'] as String),
-      target: '',
+      target: json['id'] as String,
       label: json['label'] as String,
       // On the TV this is a file; here it is where the TV serves that file.
       iconPath: bare || icon == null ? null : _at(icon).toString(),
       wideIcon: json['wide'] == true,
-      svg: bare ? (await _client.get(_at(icon))).body : null,
+      svg: bare
+          ? await _drawings.putIfAbsent(
+              icon,
+              () async => (await _client.get(_at(icon))).body,
+            )
+          : null,
     );
   }
 
-  Future<void> setLayout(Layout layout) async {
-    final response = await _client.put(
-      _at('/api/layout'),
-      body: jsonEncode(layout.toJson()),
-    );
+  Future<void> _put(String path, Object? body) async {
+    final response = await _client.put(_at(path), body: jsonEncode(body));
     if (response.statusCode != 200) {
       throw Exception('The TV answered ${response.statusCode}');
     }
   }
-}
 
-final editorProvider = AsyncNotifierProvider<EditorController, TvState>(
-  EditorController.new,
-);
+  Future<void> setLayout(Layout layout) => _put('/api/layout', layout.toJson());
 
-/// What the editor shows: the TV's state, with the user's own changes
-/// applied the moment they are made.
-class EditorController extends AsyncNotifier<TvState> {
-  @override
-  Future<TvState> build() => ref.watch(tvApiProvider).state();
-
-  /// Shows [layout] at once and sends it to the TV. If the TV does not take
-  /// it, what the TV has is shown again and the error is thrown.
-  Future<void> setLayout(Layout layout) async {
-    final api = ref.read(tvApiProvider);
-    // Repaired here the way the TV will repair it, so the two agree.
-    state = AsyncData((await future).withLayout(layout.normalised()));
-    try {
-      await api.setLayout(layout);
-    } finally {
-      state = await AsyncValue.guard(api.state);
-    }
-  }
+  Future<void> setOptions(LauncherConfig config) => _put('/api/options', {
+    'contextMenu': [for (final action in config.contextMenu) action.name],
+    'toasts': config.toasts.toJson(),
+  });
 }

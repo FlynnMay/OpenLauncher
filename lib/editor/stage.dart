@@ -1,25 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/picture.dart';
-import 'package:openlauncher/features/home/styled_box.dart';
+import 'package:openlauncher/features/home/popup_panel.dart';
 
-/// The TV's home screen at the TV's own size, drawn by the TV's own
-/// widgets, on which things are dropped and moved about.
-class Stage extends ConsumerStatefulWidget {
-  const Stage({super.key, required this.state});
-
-  final TvState state;
+/// The launcher itself, running in a box the size of the TV's screen: the
+/// same home screen, popups, menus and settings, each kept inside the box.
+class TvScreen extends StatelessWidget {
+  const TvScreen({super.key});
 
   /// The TV's screen, in the units everything on it is measured in.
   static const size = Size(960, 540);
+
+  @override
+  Widget build(BuildContext context) => SizedBox.fromSize(
+    size: size,
+    child: MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        size: size,
+        padding: EdgeInsets.zero,
+        viewInsets: EdgeInsets.zero,
+        viewPadding: EdgeInsets.zero,
+      ),
+      child: ClipRect(
+        // Its own, so that what the launcher opens and says stays on its
+        // screen instead of covering the page.
+        child: ScaffoldMessenger(
+          child: Navigator(
+            onGenerateRoute: (_) =>
+                MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// The TV's screen with, while [editing], everything on it something to
+/// pick up and move rather than to open, and the screen itself somewhere to
+/// drop things. Otherwise it is simply the launcher, to be used.
+class Stage extends ConsumerStatefulWidget {
+  const Stage({super.key, required this.editing});
+
+  final bool editing;
 
   @override
   ConsumerState<Stage> createState() => _StageState();
@@ -40,18 +71,82 @@ class _StageState extends ConsumerState<Stage> {
         _ => null,
       };
 
-  Widget _frame(Pane pane, Widget grid) => KeyedSubtree(
+  Widget _grid(Pane pane, Widget grid) => KeyedSubtree(
     key: _grids.putIfAbsent(pane.id, GlobalKey.new),
     child: grid,
   );
 
+  Widget _plainTile(Entry entry, Widget tile) => tile;
+
+  Widget _editTile(Entry entry, Widget tile) {
+    Dragged dragged(String label, Widget picture) =>
+        Dragged(item: entry.item, placed: true, label: label, picture: picture);
+    // The tile's own taps and holds are the remote's; absorbed, not
+    // ignored, so that a drag starts where the tile is touched.
+    final still = AbsorbPointer(child: tile);
+    switch (entry) {
+      case PaneEntry(view: PaneView(:final pane)):
+        return KeyedSubtree(
+          key: _boxes.putIfAbsent(pane.id, GlobalKey.new),
+          child: DragHandle(
+            data: dragged(
+              pane.title.isEmpty ? 'Pane' : pane.title,
+              const SymbolArt(Icons.dashboard_outlined),
+            ),
+            // Outlined, so that a pane with no background can be seen and
+            // picked up by any part of it.
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: tile,
+            ),
+          ),
+        );
+      case CardEntry(:final card):
+        return DragHandle(
+          data: dragged(card.label, CardArt(card: card, padding: 4)),
+          child: still,
+        );
+      case PanelEntry(:final panel):
+        return DragHandle(
+          data: dragged(entry.label, FolderArt(entry: entry)),
+          // A folder still opens, so that what is in it can be arranged.
+          child: Builder(
+            builder: (context) => GestureDetector(
+              onTap: () => showPanelPopup(context, panel.id),
+              child: still,
+            ),
+          ),
+        );
+      case WidgetEntry(:final item):
+        return DragHandle(
+          data: dragged(
+            WidgetKind.named(item.ref)?.label ?? item.ref,
+            const SymbolArt(Icons.widgets_outlined),
+          ),
+          child: still,
+        );
+    }
+  }
+
   /// Where [dragged] would go if let go of at [pointer], and where on the
   /// screen that is; null over nothing that would take it.
   ({Drop drop, Rect marker})? _target(Offset pointer, Dragged dragged) {
-    final layout = widget.state.layout;
+    final layout = ref.read(configProvider).value?.layout;
+    if (layout == null) return null;
     final item = dragged.item;
-    // The innermost pane under the pointer, other than the one dragged.
+    // An open popup is all there is to drop on; otherwise the home screen.
     var pane = layout.home.root;
+    for (final panel in layout.panels) {
+      if (panel.kind == PanelKind.popup &&
+          _box(_grids[panel.root.id]) != null) {
+        pane = panel.root;
+      }
+    }
+    // The innermost pane under the pointer, other than the one dragged.
     for (Pane? inner = pane; inner != null;) {
       pane = inner;
       inner = null;
@@ -120,115 +215,31 @@ class _StageState extends ConsumerState<Stage> {
     if (marker != _marker) setState(() => _marker = marker);
   }
 
-  Widget _tile(Entry entry) {
-    final item = entry.item;
-    Dragged dragged(String label, Widget picture) =>
-        Dragged(item: item, placed: true, label: label, picture: picture);
-    switch (entry) {
-      case PaneEntry(:final view):
-        final pane = view.pane;
-        return KeyedSubtree(
-          key: _boxes.putIfAbsent(pane.id, GlobalKey.new),
-          child: DragHandle(
-            data: dragged(
-              pane.title.isEmpty ? 'Pane' : pane.title,
-              const SymbolArt(Icons.dashboard_outlined),
-            ),
-            // Outlined, so that a pane with no background can be seen and
-            // picked up by any part of it.
-            child: DecoratedBox(
-              position: DecorationPosition.foreground,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: PaneBox(view: view, tile: _tile),
-            ),
-          ),
-        );
-      case CardEntry(:final card):
-        return DragHandle(
-          data: dragged(card.label, CardArt(card: card, padding: 4)),
-          // The tile's own taps and holds are the remote's; absorbed, not
-          // ignored, so that the drag starts where the tile is touched.
-          child: AbsorbPointer(
-            child: ArtTile(
-              label: card.label,
-              art: CardArt(card: card),
-              bare: CardArt.isBare(card),
-              showLabel: !item.hideName,
-              boxStyle: item.style,
-              onSelect: () {},
-            ),
-          ),
-        );
-      case PanelEntry():
-        return DragHandle(
-          data: dragged(entry.label, FolderArt(entry: entry)),
-          child: AbsorbPointer(
-            child: ArtTile(
-              label: entry.label,
-              art: FolderArt(entry: entry),
-              bare: FolderArt.isBare(entry),
-              showLabel: !item.hideName,
-              boxStyle: item.style,
-              onSelect: () {},
-            ),
-          ),
-        );
-      case WidgetEntry():
-        final label = WidgetKind.named(item.ref)?.label ?? item.ref;
-        return DragHandle(
-          data: dragged(label, const SymbolArt(Icons.widgets_outlined)),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: item.style.isEmpty ? Colors.white10 : null,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: StyledBox(
-              style: item.style,
-              radius: 10,
-              padding: const EdgeInsets.all(8),
-              child: Center(child: Text(label, textAlign: TextAlign.center)),
-            ),
-          ),
-        );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final state = widget.state;
-    final home = resolveLayout(state.cards, state.config).home.root;
+    final editing = widget.editing;
+    // The frames are always there, so that going in and out of editing
+    // leaves the launcher as it was: the same screen, the same popup open.
     return PaneFrame(
-      wrap: _frame,
-      child: DragTarget<Dragged>(
-        onMove: (details) =>
-            _mark(_target(details.offset, details.data)?.marker),
-        onLeave: (_) => _mark(null),
-        onAcceptWithDetails: (details) {
-          final target = _target(details.offset, details.data);
-          _mark(null);
-          if (target != null) {
-            placeDragged(context, ref, details.data, target.drop);
-          }
-        },
-        builder: (context, _, _) => Container(
-          key: _screen,
-          width: Stage.size.width,
-          height: Stage.size.height,
-          clipBehavior: Clip.hardEdge,
-          decoration: const BoxDecoration(color: Colors.black),
-          child: Stack(
-            fit: StackFit.expand,
+      wrap: _grid,
+      child: TileFrame(
+        wrap: editing ? _editTile : _plainTile,
+        child: DragTarget<Dragged>(
+          onWillAcceptWithDetails: (_) => editing,
+          onMove: (details) =>
+              _mark(_target(details.offset, details.data)?.marker),
+          onLeave: (_) => _mark(null),
+          onAcceptWithDetails: (details) {
+            final target = _target(details.offset, details.data);
+            _mark(null);
+            if (target != null) {
+              placeDragged(context, ref, details.data, target.drop);
+            }
+          },
+          builder: (context, _, _) => Stack(
+            key: _screen,
             children: [
-              if (state.wallpaper case final wallpaper?)
-                Image(image: pictureAt(wallpaper), fit: BoxFit.cover),
-              const ColoredBox(color: Color(0x73000000)),
-              SingleChildScrollView(
-                padding: EdgeInsets.all(home.pane.padding ?? 0),
-                child: PaneGrid(view: home, tile: _tile),
-              ),
+              const TvScreen(),
               if (_marker case final marker?)
                 Positioned.fromRect(
                   rect: marker,

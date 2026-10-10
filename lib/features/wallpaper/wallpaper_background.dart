@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/features/home/picture.dart';
 import 'package:video_player/video_player.dart';
 
 /// Fills its parent with the wallpaper, dimmed so cards stay readable.
@@ -17,17 +20,19 @@ class WallpaperBackground extends ConsumerWidget {
       fit: StackFit.expand,
       children: [
         switch (wallpaper.kind) {
-          WallpaperKind.image => Image.file(
-            File(wallpaper.path),
+          WallpaperKind.image => Image(
+            // Decoded no larger than the screen: a camera photo at full
+            // size takes seconds to appear and a lot of memory.
+            image: ResizeImage(
+              pictureAt(wallpaper.path),
+              width:
+                  (MediaQuery.sizeOf(context).width *
+                          MediaQuery.devicePixelRatioOf(context))
+                      .round(),
+            ),
             // A new upload has a new path, so this also restarts animations.
             key: ValueKey(wallpaper.path),
             fit: BoxFit.cover,
-            // Decoded no larger than the screen: a camera photo at full
-            // size takes seconds to appear and a lot of memory.
-            cacheWidth:
-                (MediaQuery.sizeOf(context).width *
-                        MediaQuery.devicePixelRatioOf(context))
-                    .round(),
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => const SizedBox.shrink(),
           ),
@@ -54,57 +59,105 @@ class _VideoWallpaper extends StatefulWidget {
 }
 
 class _VideoWallpaperState extends State<_VideoWallpaper> {
-  late final VideoPlayerController _controller;
+  /// How often a video that will not play is tried again before it is left
+  /// until the launcher is next brought to the front.
+  static const _tries = 5;
+
+  /// The player, once it is playing; null while there is none that works.
+  VideoPlayerController? _controller;
   late final AppLifecycleListener _lifecycle;
-  bool _ready = false;
+  Timer? _retry;
+  int _failures = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.file(
-      File(widget.path),
-      // Never take audio focus from whatever else is playing.
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
     _lifecycle = AppLifecycleListener(
-      onStateChange: (state) => state == AppLifecycleState.resumed
-          ? _controller.play()
-          : _controller.pause(),
+      onStateChange: (state) {
+        if (state != AppLifecycleState.resumed) {
+          _retry?.cancel();
+          _controller?.pause();
+        } else if (_controller case final controller?) {
+          controller.play();
+        } else {
+          // Whatever stood in the way may be gone by now.
+          _failures = 0;
+          _start();
+        }
+      },
     );
     _start();
   }
 
   Future<void> _start() async {
+    _retry?.cancel();
+    // Never take audio focus from whatever else is playing.
+    final options = VideoPlayerOptions(mixWithOthers: true);
+    // In the browser the wallpaper is at an address, as pictures are.
+    final controller = kIsWeb
+        ? VideoPlayerController.networkUrl(
+            Uri.parse(widget.path),
+            videoPlayerOptions: options,
+          )
+        : VideoPlayerController.file(
+            File(widget.path),
+            videoPlayerOptions: options,
+          );
     try {
-      await _controller.setVolume(0);
-      await _controller.setLooping(true);
-      await _controller.initialize();
-      await _controller.play();
-      if (mounted) setState(() => _ready = true);
+      await controller.setVolume(0);
+      await controller.setLooping(true);
+      await controller.initialize();
+      await controller.play();
     } on Object catch (error) {
-      // An unplayable file leaves the plain background.
-      debugPrint('Wallpaper video failed: $error');
+      await controller.dispose();
+      _failed(error);
+      return;
     }
+    if (!mounted || _controller != null) {
+      await controller.dispose();
+      return;
+    }
+    _failures = 0;
+    // A player can also fail later, when another app takes the decoder.
+    controller.addListener(() {
+      if (controller.value.hasError && _controller == controller) {
+        setState(() => _controller = null);
+        controller.dispose();
+        _failed(controller.value.errorDescription);
+      }
+    });
+    setState(() => _controller = controller);
+  }
+
+  /// A TV has few video decoders, often one, and the app that was on screen
+  /// a moment ago may still hold it: a video that fails is tried again,
+  /// leaving the plain background meanwhile and for good if it never plays.
+  void _failed(Object? error) {
+    debugPrint('Wallpaper video failed: $error');
+    if (!mounted || ++_failures >= _tries) return;
+    _retry = Timer(Duration(seconds: 1 << (_failures - 1)), _start);
   }
 
   @override
   void dispose() {
+    _retry?.cancel();
     _lifecycle.dispose();
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_ready) return const SizedBox.shrink();
-    final size = _controller.value.size;
+    final controller = _controller;
+    if (controller == null) return const SizedBox.shrink();
+    final size = controller.value.size;
     return FittedBox(
       fit: BoxFit.cover,
       clipBehavior: Clip.hardEdge,
       child: SizedBox(
         width: size.width,
         height: size.height,
-        child: VideoPlayer(_controller),
+        child: VideoPlayer(controller),
       ),
     );
   }

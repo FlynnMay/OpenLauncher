@@ -1,29 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 /// Fetches a JSON object from the internet. Replaced in tests.
 final jsonFetcherProvider =
     Provider<Future<Map<String, Object?>> Function(Uri)>(
       (ref) => (uri) async {
-        final client = HttpClient()
-          ..connectionTimeout = const Duration(seconds: 10);
-        try {
-          final request = await client.getUrl(uri);
-          final response = await request.close().timeout(
-            const Duration(seconds: 15),
-          );
-          if (response.statusCode != 200) {
-            throw HttpException('Status ${response.statusCode}', uri: uri);
-          }
-          final body = await response.transform(utf8.decoder).join();
-          return (jsonDecode(body) as Map).cast<String, Object?>();
-        } finally {
-          client.close(force: true);
+        // The same on the TV and in a browser.
+        final response = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) {
+          throw http.ClientException('Status ${response.statusCode}', uri);
         }
+        final body = utf8.decode(response.bodyBytes);
+        return (jsonDecode(body) as Map).cast<String, Object?>();
       },
     );
 

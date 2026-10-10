@@ -53,6 +53,8 @@ class DragHandle extends StatelessWidget {
             data: data,
             delay: holdTime,
             dragAnchorStrategy: pointerDragAnchorStrategy,
+            // Over the whole page, not only the launcher's own screen.
+            rootOverlay: true,
             feedback: feedback,
             childWhenDragging: resting,
             child: child,
@@ -60,6 +62,8 @@ class DragHandle extends StatelessWidget {
         : Draggable<Dragged>(
             data: data,
             dragAnchorStrategy: pointerDragAnchorStrategy,
+            // Over the whole page, not only the launcher's own screen.
+            rootOverlay: true,
             feedback: feedback,
             childWhenDragging: resting,
             child: child,

@@ -10,6 +10,18 @@ import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/widgets/widget_tile.dart';
 
+/// Puts something around every tile drawn under it. The TV has none; the
+/// web editor uses it to make tiles things that are picked up and moved
+/// instead of opened.
+class TileFrame extends InheritedWidget {
+  const TileFrame({super.key, required this.wrap, required super.child});
+
+  final Widget Function(Entry entry, Widget tile) wrap;
+
+  @override
+  bool updateShouldNotify(TileFrame oldWidget) => wrap != oldWidget.wrap;
+}
+
 /// Draws one layout entry and gives it its behaviour: cards open (hold for
 /// quick actions), folders show their popup, widgets do their own thing,
 /// and a pane draws what is in it the same way.
@@ -60,6 +72,12 @@ class EntryTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tile = _tile(context, ref);
+    final frame = context.dependOnInheritedWidgetOfExactType<TileFrame>();
+    return frame == null ? tile : frame.wrap(entry, tile);
+  }
+
+  Widget _tile(BuildContext context, WidgetRef ref) {
     final entry = this.entry;
     switch (entry) {
       case CardEntry(:final card):

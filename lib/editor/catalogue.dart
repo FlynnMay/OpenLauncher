@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/launcher_card.dart';
+import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/dragging.dart';
@@ -12,9 +13,7 @@ import 'package:openlauncher/features/home/card_tile.dart';
 /// or tapped to go where new apps go. Dragging something from the screen
 /// back here takes it off.
 class Catalogue extends ConsumerStatefulWidget {
-  const Catalogue({super.key, required this.state});
-
-  final TvState state;
+  const Catalogue({super.key});
 
   @override
   ConsumerState<Catalogue> createState() => _CatalogueState();
@@ -27,9 +26,10 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       LayoutItem(id: newId('i'), kind: kind, ref: ref);
 
   /// What there is to add, under the heading it is listed under.
-  Map<String, List<_Offer>> _offers() {
-    final state = widget.state;
-    final counts = placedCounts(state.layout);
+  Map<String, List<_Offer>> _offers(Layout layout) {
+    final all = ref.watch(allCardsProvider).value ?? const [];
+    final widgets = ref.watch(tvStateProvider).value?.widgets ?? const [];
+    final counts = placedCounts(layout);
     final folder = Panel(
       id: newId('p'),
       title: 'Folder',
@@ -45,7 +45,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       count: counts[card.id] ?? 0,
     );
     List<_Offer> cards(bool Function(LauncherCard card) which) {
-      final offers = state.cards.where(which).map(card).toList();
+      final offers = all.where(which).map(card).toList();
       // What is not on the TV yet comes first; otherwise as the TV has them.
       return [
         ...offers.where((offer) => offer.count == 0),
@@ -72,7 +72,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         ),
       ],
       'Widgets': [
-        for (final widget in state.widgets)
+        for (final widget in widgets)
           _Offer(
             Dragged(
               item: LayoutItem(
@@ -89,7 +89,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           ),
       ],
       'Folders': [
-        for (final panel in state.layout.panels)
+        for (final panel in layout.panels)
           if (panel.kind == PanelKind.popup)
             _Offer(
               Dragged(
@@ -108,13 +108,15 @@ class _CatalogueState extends ConsumerState<Catalogue> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final query = _query.trim().toLowerCase();
-    final offers = _offers().map(
+    final layout = ref.watch(configProvider).value?.layout;
+    if (layout == null) return const SizedBox.shrink();
+    final offers = _offers(layout).map(
       (heading, offers) => MapEntry(heading, [
         for (final offer in offers)
           if (offer.dragged.label.toLowerCase().contains(query)) offer,
       ]),
     )..removeWhere((_, offers) => offers.isEmpty);
-    final inbox = Drop(widget.state.layout.inbox);
+    final inbox = Drop(layout.inbox);
     return DragTarget<Dragged>(
       onWillAcceptWithDetails: (details) => details.data.placed,
       onAcceptWithDetails: (details) =>

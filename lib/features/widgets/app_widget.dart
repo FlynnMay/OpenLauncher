@@ -56,7 +56,7 @@ class AppWidgetView extends ConsumerWidget {
     );
     return switch (id) {
       AsyncData(:final value?)
-          when defaultTargetPlatform == TargetPlatform.android =>
+          when !kIsWeb && defaultTargetPlatform == TargetPlatform.android =>
         ExcludeFocus(
           child: IgnorePointer(
             child: AndroidView(

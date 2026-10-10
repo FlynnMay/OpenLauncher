@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Shows what is playing; OK plays or pauses it.
@@ -60,8 +59,8 @@ class MediaWidget extends ConsumerWidget {
                         color: Colors.white10,
                         child: Icon(Icons.music_note_outlined),
                       )
-                    : Image.file(
-                        File(art),
+                    : Image(
+                        image: pictureAt(art),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                       ),
