@@ -45,26 +45,47 @@ class WidgetEntry extends Entry {
   const WidgetEntry(super.item);
 }
 
-@immutable
-class SectionView {
-  const SectionView(this.section, this.entries);
+/// A pane inside another, with what is in it.
+class PaneEntry extends Entry {
+  const PaneEntry(super.item, this.view);
 
-  /// [Section.items] here are exactly the items of [entries], in order.
-  final Section section;
+  final PaneView view;
+}
+
+/// A pane with each of its items matched to what it shows.
+@immutable
+class PaneView {
+  const PaneView(this.pane, this.entries);
+
+  final Pane pane;
+
+  /// One per item of [pane], in order.
   final List<Entry> entries;
+
+  /// Everything in this pane and the panes inside it, other than the panes
+  /// themselves.
+  Iterable<Entry> get contents => entries.expand(
+    (entry) => entry is PaneEntry ? entry.view.contents : [entry],
+  );
+
+  /// Whether there is nothing in it but, at most, empty panes.
+  bool get isEmpty =>
+      entries.every((entry) => entry is PaneEntry && entry.view.isEmpty);
 }
 
 @immutable
 class PanelView {
-  const PanelView(this.panel, this.sections);
+  const PanelView(this.panel, this.root);
 
   final Panel panel;
-  final List<SectionView> sections;
 
-  bool get isEmpty => sections.every((section) => section.entries.isEmpty);
+  /// The pane that fills the panel.
+  final PaneView root;
+
+  bool get isEmpty => root.isEmpty;
 }
 
-/// The layout with every item matched to the card, panel or widget it
+/// The layout with every item matched to the card, panel, widget or pane it
 /// stands for: what the TV draws.
 @immutable
 class LayoutView {
@@ -83,19 +104,22 @@ class LayoutView {
 
 const _previewCount = 4;
 
-/// Matches [config]'s layout against the [cards] the device offers. Cards
-/// placed nowhere appear in the inbox section, unless the user removed them.
+/// Matches [config]'s layout against the [cards] there are. Cards placed
+/// nowhere appear in the inbox pane, unless the user removed them.
 LayoutView resolveLayout(List<LauncherCard> cards, LauncherConfig config) {
   final byId = {for (final card in cards) card.id: card};
   final layout = config.layout.withCards(byId.keys);
+
   List<LauncherCard> preview(Panel panel) => [
     for (final item in panel.items)
       if (item.kind == ItemKind.card) byId[item.ref]!,
   ].take(_previewCount).toList();
 
+  late PaneView Function(Pane) view;
   Entry entry(LayoutItem item) => switch (item.kind) {
     ItemKind.card => CardEntry(item, byId[item.ref]!),
     ItemKind.widget => WidgetEntry(item),
+    ItemKind.pane => PaneEntry(item, view(item.pane!)),
     ItemKind.panel => () {
       final panel = layout.panel(item.ref)!;
       return PanelEntry(
@@ -106,13 +130,11 @@ LayoutView resolveLayout(List<LauncherCard> cards, LauncherConfig config) {
       );
     }(),
   };
+  view = (pane) => PaneView(pane, pane.items.map(entry).toList());
 
   return LayoutView({
     for (final panel in layout.panels)
-      panel.id: PanelView(panel, [
-        for (final section in panel.sections)
-          SectionView(section, section.items.map(entry).toList()),
-      ]),
+      panel.id: PanelView(panel, view(panel.root)),
   });
 }
 

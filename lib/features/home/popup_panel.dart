@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
-import 'package:openlauncher/features/home/section_grid.dart';
-import 'package:openlauncher/features/home/styled_box.dart';
+import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// Opens the popup panel [panelId] over the current screen. Back closes it.
 Future<void> showPanelPopup(BuildContext context, String panelId) =>
@@ -43,7 +42,7 @@ class _PanelPopup extends ConsumerWidget {
     final screen = MediaQuery.sizeOf(context);
     final (width, height) = _extent(panel);
     final centred = panel.position == PopupPosition.center;
-    var first = true;
+    final focus = FirstFocus();
     return Align(
       alignment: switch (panel.position) {
         PopupPosition.center => Alignment.center,
@@ -82,32 +81,12 @@ class _PanelPopup extends ConsumerWidget {
                     'Nothing here yet. Add cards from the web page.',
                     style: TextStyle(color: Colors.white60),
                   ),
-                for (final section in view.sections)
-                  if (section.entries.isNotEmpty) ...[
-                    StyledBox(
-                      style: section.section.style,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (section.section.title.isNotEmpty)
-                            SectionTitle(section.section.title),
-                          SectionGrid(
-                            view: section,
-                            tile: (entry, _) {
-                              final autofocus = first && entry is! WidgetEntry;
-                              if (autofocus) first = false;
-                              return EntryTile(
-                                entry: entry,
-                                autofocus: autofocus,
-                                inPopup: true,
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                  ],
+                // The popup's global pane fills it, inside its margins.
+                PaneGrid(
+                  view: view.root,
+                  tile: (entry) =>
+                      EntryTile(entry: entry, focus: focus, inPopup: true),
+                ),
               ],
             ),
           ),
@@ -115,20 +94,4 @@ class _PanelPopup extends ConsumerWidget {
       ),
     );
   }
-}
-
-class SectionTitle extends StatelessWidget {
-  const SectionTitle(this.title, {super.key});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Text(
-      title,
-      style: Theme.of(context).textTheme.titleMedium
-          ?.copyWith(color: Colors.white70),
-    ),
-  );
 }

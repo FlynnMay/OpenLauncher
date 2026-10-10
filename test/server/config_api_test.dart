@@ -94,16 +94,20 @@ void main() {
     return jsonDecode(await response.readAsString());
   }
 
-  Future<List<Map<String, dynamic>>> cards() async =>
-      ((await state())['cards'] as List).cast();
+  /// The apps and inputs the page is told about; the launcher's own
+  /// Settings card is listed too, after them.
+  Future<List<Map<String, dynamic>>> cards() async => [
+    for (final Map<String, dynamic> card in (await state())['cards'])
+      if (card['kind'] != 'action') card,
+  ];
 
   /// The ids of the cards on the TV's home screen, in order.
   Future<List<String>> onTv() async => [
-    for (final section in (await container.read(
+    for (final entry in (await container.read(
       layoutViewProvider.future,
-    )).home.sections)
-      for (final entry in section.entries)
-        if (entry is CardEntry) entry.card.id,
+    )).home.root.contents)
+      if (entry is CardEntry && entry.card.kind != CardKind.action)
+        entry.card.id,
   ];
 
   test('serves the page', () async {
@@ -124,6 +128,7 @@ void main() {
       'label': 'HDMI 1',
       'customIcon': false,
       'wide': false,
+      'bare': true,
       'icon': isA<String>(),
     });
 
@@ -141,12 +146,14 @@ void main() {
   test('state offers the layout and what there is to choose from', () async {
     final page = await state();
     // Nothing has been arranged yet, so every card is in the one section.
-    final section = page['layout']['panels'][0]['sections'][0];
+    // It sits in the screen's global pane.
+    final section = page['layout']['panels'][0]['pane']['items'].single['pane'];
     expect(page['layout']['inbox'], section['id']);
     expect((section['items'] as List).map((i) => i['ref']), [
       'input:tv/HW1',
       'app:a',
       'app:b',
+      'launcher:settings',
     ]);
     // No app on this device offers widgets, so that kind is not offered.
     expect((page['widgets'] as List).map((w) => w['type']), [
@@ -212,8 +219,10 @@ void main() {
     expect(response.statusCode, 200);
 
     final saved = store.config.layout;
-    final top = saved.home.sections.first;
-    expect((top.mode, top.columns), (SectionMode.grid, 4));
+    // The sections an older page sends arrive as panes in the global pane.
+    final [top, rest] = saved.home.root.items.map((i) => i.pane!).toList();
+    expect((top.mode, top.columns), (PaneMode.grid, 4));
+    expect((top.title, saved.inbox), ('Favourites', rest.id));
     // Too wide for the section, and a link to a panel that does not exist.
     expect(top.items.map((i) => i.id), ['i1', 'i2', 'i4']);
     expect((top.items.first.w, top.items.first.x), (4, 0));
@@ -224,10 +233,13 @@ void main() {
     // which was placed nowhere, in the section for new cards.
     expect(await onTv(), ['app:b', 'input:tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
-    final folder = view.home.sections.first.entries[1] as PanelEntry;
+    final folder = view.home.root.contents.elementAt(1) as PanelEntry;
     expect(folder.preview.single.id, 'app:a');
-    final rest = (await state())['layout']['panels'][0]['sections'][1];
-    expect(rest['items'].single['ref'], 'input:tv/HW1');
+    final shown = (await state())['layout']['panels'][0]['pane']['items'][1];
+    expect((shown['pane']['items'] as List).map((i) => i['ref']), [
+      'input:tv/HW1',
+      'launcher:settings',
+    ]);
   });
 
   test('a folder card can have a picture, removed with the folder', () async {
@@ -330,7 +342,7 @@ void main() {
   test('cards left out of the layout are removed, not put back', () async {
     final page = await state();
     final layout = page['layout'] as Map<String, dynamic>;
-    final section = layout['panels'][0]['sections'][0];
+    final section = layout['panels'][0]['pane']['items'][0]['pane'];
     // What the page does to remove a card: drop its item and say so.
     (section['items'] as List).removeWhere((i) => i['ref'] == 'input:tv/HW1');
     layout['removed'] = ['input:tv/HW1'];
@@ -347,7 +359,7 @@ void main() {
 
     // Adding it again, twice: a card can be in more than one place.
     final again = after['layout'] as Map<String, dynamic>;
-    (again['panels'][0]['sections'][0]['items'] as List).addAll([
+    (again['panels'][0]['pane']['items'][0]['pane']['items'] as List).addAll([
       {'id': 'x1', 'ref': 'input:tv/HW1'},
       {'id': 'x2', 'ref': 'input:tv/HW1'},
     ]);
@@ -548,6 +560,6 @@ void main() {
     final response = await request.close();
     expect(response.statusCode, 200);
     final state = jsonDecode(await response.transform(utf8.decoder).join());
-    expect(state['cards'], hasLength(3));
+    expect(state['cards'], hasLength(4));
   });
 }

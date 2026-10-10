@@ -8,9 +8,10 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  static Future<void> show(BuildContext context) =>
-      Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+  static Future<void> show(BuildContext context) => open(Navigator.of(context));
+
+  static Future<void> open(NavigatorState navigator) =>
+      navigator.push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
 
   /// Runs automatic setup behind a progress dialog, then reports the result.
   Future<void> _runSetup(BuildContext context, WidgetRef ref) async {

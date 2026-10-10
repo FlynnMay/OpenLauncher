@@ -62,11 +62,13 @@ void main() {
       container.listen(layoutViewProvider, (_, _) {});
     });
 
+    /// The apps and inputs on the home screen, in order. The launcher's
+    /// own Settings card is there too, after them.
     Future<List<LauncherCard>> cards() async => [
       for (final entry in (await container.read(
         layoutViewProvider.future,
-      )).home.sections.single.entries)
-        (entry as CardEntry).card,
+      )).home.root.contents)
+        if ((entry as CardEntry).card.kind != CardKind.action) entry.card,
     ];
 
     Future<List<String>> ids() async =>

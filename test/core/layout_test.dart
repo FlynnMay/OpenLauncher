@@ -20,13 +20,15 @@ LauncherCard _card(String name) => LauncherCard(
   label: name,
 );
 
+Panel _home(Pane root) => Panel(id: 'home', root: root);
+
 void main() {
   group('placeItems', () {
     test('flow fills rows in order and wraps', () {
       final placed = placeItems(
         [_item('a'), _item('b', w: 2), _item('c'), _item('d')],
         3,
-        SectionMode.flow,
+        PaneMode.flow,
       );
       expect(placed, const [
         Placement(0, 0, 1, 1),
@@ -41,7 +43,7 @@ void main() {
       final placed = placeItems(
         [_item('tall', h: 2), _item('wide', w: 2), _item('c'), _item('d')],
         3,
-        SectionMode.flow,
+        PaneMode.flow,
       );
       expect(placed, const [
         Placement(0, 0, 1, 2),
@@ -52,7 +54,7 @@ void main() {
     });
 
     test('an item wider than the section is cut down to fit', () {
-      expect(placeItems([_item('a', w: 4)], 2, SectionMode.flow), const [
+      expect(placeItems([_item('a', w: 4)], 2, PaneMode.flow), const [
         Placement(0, 0, 2, 1),
       ]);
     });
@@ -61,7 +63,7 @@ void main() {
       final placed = placeItems(
         [_item('a', x: 2, y: 1), _item('b', x: 0, y: 0)],
         4,
-        SectionMode.grid,
+        PaneMode.grid,
       );
       expect(placed, const [Placement(2, 1, 1, 1), Placement(0, 0, 1, 1)]);
     });
@@ -75,7 +77,7 @@ void main() {
           _item('off', x: 3, y: 0, w: 2),
         ],
         4,
-        SectionMode.grid,
+        PaneMode.grid,
       );
       expect(placed, const [
         Placement(0, 0, 2, 1),
@@ -83,125 +85,6 @@ void main() {
         Placement(3, 0, 1, 1),
         Placement(0, 1, 2, 1),
       ]);
-    });
-  });
-
-  group('Layout', () {
-    test('normalised repairs what is wrong and keeps what is right', () {
-      final layout = Layout(
-        inbox: 'nowhere',
-        panels: [
-          Panel(
-            id: 'left',
-            sections: [
-              Section(id: 's', columns: 4, items: [_item('a', w: 3)]),
-            ],
-          ),
-          Panel(
-            id: 'games',
-            title: 'Games',
-            sections: [
-              Section(
-                id: 's',
-                mode: SectionMode.grid,
-                columns: 3,
-                items: [
-                  _item('a', x: 9, y: 2, w: 2, h: 9),
-                  _item('half', x: 1),
-                  _item('gone', kind: ItemKind.panel, ref: 'missing'),
-                  _item('open', kind: ItemKind.panel, ref: 'games'),
-                ],
-              ),
-            ],
-          ),
-          const Panel(id: 'games', title: 'Duplicate'),
-        ],
-      ).normalised();
-
-      expect(layout.panels.map((p) => p.id), ['home', 'left', 'games']);
-      // Home was missing: it gets a section, which becomes the inbox.
-      expect(layout.inbox, layout.home.sections.single.id);
-
-      final rail = layout.panel('left')!.sections.single;
-      expect((rail.columns, rail.items.single.w), (1, 1));
-
-      final games = layout.panel('games')!;
-      expect(games.title, 'Games');
-      final section = games.sections.single;
-      expect(section.id, isNot(rail.id));
-      final [a, half, open] = section.items;
-      expect(a.id, isNot(rail.items.single.id));
-      expect((a.x, a.y, a.w, a.h), (1, 2, 2, Section.maxSpan));
-      expect((half.x, half.y), (null, null));
-      expect(open.ref, 'games');
-    });
-
-    test('survives JSON and rejects what is not a layout', () {
-      final layout = Layout(
-        inbox: 'main',
-        panels: [
-          Panel(
-            id: 'home',
-            sections: [
-              Section(
-                id: 'main',
-                title: 'Favourites',
-                mode: SectionMode.grid,
-                columns: 6,
-                items: [
-                  _item('a', x: 1, y: 2, w: 2),
-                  const LayoutItem(
-                    id: 'w',
-                    kind: ItemKind.widget,
-                    ref: 'clock',
-                    options: {'seconds': true},
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const Panel(
-            id: 'p',
-            title: 'Games',
-            position: PopupPosition.bottom,
-            size: PopupSize.large,
-          ),
-        ],
-      );
-      final copy = Layout.fromJson(layout.toJson());
-      expect(copy.toJson(), layout.toJson());
-      expect(copy.panel('p')!.position, PopupPosition.bottom);
-      expect(copy.home.sections.single.items.last.options, {'seconds': true});
-
-      expect(
-        () => Layout.fromJson(const {'panels': 'no'}),
-        throwsFormatException,
-      );
-      expect(
-        () => Layout.fromJson(const {
-          'panels': [
-            {
-              'id': 'home',
-              'sections': [
-                {
-                  'id': 's',
-                  'items': [
-                    {'id': 1, 'ref': 'app:a'},
-                  ],
-                },
-              ],
-            },
-          ],
-        }),
-        throwsFormatException,
-      );
-    });
-
-    test('withCards drops missing cards and puts new ones in the inbox', () {
-      final layout = Layout.initial(['app:b', 'app:gone'])
-          .withCards(['app:a', 'app:b']);
-      expect(layout.home.items.map((i) => i.ref), ['app:b', 'app:a']);
-      expect(layout.home.items.map((i) => i.id).toSet(), hasLength(2));
     });
   });
 
@@ -214,18 +97,166 @@ void main() {
           _item('c'),
         ],
         4,
-        SectionMode.free,
+        PaneMode.free,
       );
+      // What has no position lines up below what has, not on top of it.
       expect(placed, const [
         Placement(0.5, 0.25, 1.5, 0.75),
         Placement(1, 0.5, 1, 1),
-        Placement(0, 0, 1, 1),
+        Placement(0, 2, 1, 1),
       ]);
-      expect(rowCount(placed), 1.5);
+      expect(rowCount(placed), 3);
     });
 
-    test('fractions survive repair in a free section and nowhere else', () {
-      Section section(String id, SectionMode mode) => Section(
+    test('several without a position fill rows under the rest', () {
+      final placed = placeItems(
+        [
+          _item('placed', x: 0, y: 0, h: 1.2),
+          _item('a', w: 2),
+          _item('b', w: 2, h: 2),
+          _item('c'),
+        ],
+        4,
+        PaneMode.free,
+      );
+      expect(placed.skip(1), const [
+        Placement(0, 2, 2, 1),
+        Placement(2, 2, 2, 2),
+        Placement(0, 4, 1, 1),
+      ]);
+    });
+  });
+
+  group('panes', () {
+    Pane pane(
+      String id, {
+      PaneMode mode = PaneMode.flow,
+      List<LayoutItem>? items,
+    }) => Pane(id: id, mode: mode, columns: 4, items: items ?? const []);
+
+    test('nest, and are found with what is in them', () {
+      final root = pane(
+        'global',
+        mode: PaneMode.free,
+        items: [
+          _item('loose', ref: 'app:a'),
+          LayoutItem.pane(
+            pane(
+              'outer',
+              items: [
+                _item('in-outer', ref: 'app:b'),
+                LayoutItem.pane(
+                  pane('inner', items: [_item('in-inner', ref: 'app:c')]),
+                ),
+              ],
+            ),
+            x: 0.5,
+            y: 1,
+            w: 3,
+            h: 2.5,
+          ),
+        ],
+      );
+      expect(root.panes.map((p) => p.id), ['global', 'outer', 'inner']);
+      // A card can sit in the global pane, outside every other.
+      expect(root.contents.map((i) => i.ref), ['app:a', 'app:b', 'app:c']);
+
+      final layout = Layout(inbox: 'inner', panels: [_home(root)]).normalised();
+      expect(layout.inbox, 'inner');
+      final outer = layout.home.root.items.last;
+      expect((outer.x, outer.y, outer.w, outer.h), (0.5, 1, 3, 2.5));
+      final json = layout.toJson();
+      expect(Layout.fromJson(json).normalised().toJson(), json);
+
+      // New cards turn up in the inbox, however deep it is.
+      final shown = layout.withCards(['app:a', 'app:b', 'app:c', 'app:new']);
+      final inner = shown.home.root.panes.last;
+      expect(inner.items.map((i) => i.ref), ['app:c', 'app:new']);
+      // Removing a card takes it out of every pane.
+      expect(shown.without({'app:b', 'app:c'}).home.items.map((i) => i.ref), [
+        'app:a',
+        'app:new',
+      ]);
+    });
+
+    test('normalised repairs what is wrong and keeps what is right', () {
+      Pane nest(int depth) => pane(
+        'p$depth',
+        items: [
+          _item('card$depth', ref: 'app:$depth'),
+          if (depth < 6) LayoutItem.pane(nest(depth + 1)),
+        ],
+      );
+      final layout = Layout(
+        inbox: 'nowhere',
+        panels: [
+          Panel(
+            id: 'left',
+            root: Pane(
+              id: 'rail',
+              columns: 4,
+              items: [
+                _item('a', w: 3),
+                LayoutItem.pane(pane('in-rail', items: [_item('b')])),
+              ],
+            ),
+          ),
+          Panel(
+            id: 'games',
+            title: 'Games',
+            root: pane(
+              'rail',
+              mode: PaneMode.grid,
+              items: [
+                _item('a', x: 9, y: 2, w: 2, h: 99),
+                _item('half', x: 1),
+                _item('gone', kind: ItemKind.panel, ref: 'missing'),
+                _item('open', kind: ItemKind.panel, ref: 'games'),
+                const LayoutItem(id: 'empty', kind: ItemKind.pane, ref: 'x'),
+                LayoutItem.pane(nest(2)),
+              ],
+            ),
+          ),
+          Panel.empty('games', title: 'Duplicate'),
+        ],
+      ).normalised();
+
+      expect(layout.panels.map((p) => p.id), ['home', 'left', 'games']);
+      // Home was missing: it gets a global pane, which becomes the inbox.
+      expect(layout.inbox, layout.home.root.id);
+      expect(layout.home.root.mode, PaneMode.grid);
+
+      // A rail is one column of things in order: no panes, no widths.
+      final rail = layout.panel('left')!.root;
+      expect(rail.columns, 1);
+      expect(rail.items.map((i) => (i.id, i.kind, i.w)), [
+        ('a', ItemKind.card, 1),
+        ('b', ItemKind.card, 1),
+      ]);
+
+      final games = layout.panel('games')!;
+      expect(games.title, 'Games');
+      expect(games.root.id, isNot(rail.id));
+      final [a, half, open, nested] = games.root.items;
+      expect(a.id, isNot('a'));
+      expect((a.x, a.y, a.w, a.h), (2, 2, 2, Pane.maxRows));
+      expect((half.x, half.y), (null, null));
+      expect(open.ref, 'games');
+      // Panes deeper than allowed give their contents to the last that is.
+      final depths = games.root.panes.map((p) => p.id).toList();
+      expect(depths, hasLength(Pane.maxDepth));
+      expect(nested.pane!.contents.map((i) => i.ref), [
+        for (var depth = 2; depth <= 6; depth++) 'app:$depth',
+      ]);
+      final ids = [
+        for (final panel in layout.panels)
+          for (final p in panel.root.panes) ...p.items.map((i) => i.id),
+      ];
+      expect(ids.toSet(), hasLength(ids.length));
+    });
+
+    test('fractions survive repair in a free pane and nowhere else', () {
+      Pane of(String id, PaneMode mode) => Pane(
         id: id,
         mode: mode,
         columns: 4,
@@ -234,27 +265,122 @@ void main() {
       final layout = Layout(
         inbox: 'f',
         panels: [
-          Panel(
-            id: 'home',
-            sections: [
-              section('f', SectionMode.free),
-              section('g', SectionMode.grid),
-            ],
+          _home(
+            pane(
+              'global',
+              items: [
+                LayoutItem.pane(of('f', PaneMode.free)),
+                LayoutItem.pane(of('g', PaneMode.grid)),
+              ],
+            ),
           ),
         ],
       ).normalised();
-      final [free, grid] = layout.home.sections
-          .map((s) => s.items.single)
-          .toList();
-      // Kept inside the section, and no smaller than a quarter cell.
+      final [free, grid] = layout.home.items.toList();
+      // Kept inside the pane, and no smaller than a quarter cell.
       expect((free.x, free.y, free.w, free.h), (2.5, 0.3, 1.5, 0.25));
       expect((grid.x, grid.y, grid.w, grid.h), (2, 0, 2, 1));
-      final json = layout.toJson();
-      expect(Layout.fromJson(json).toJson(), json);
+    });
+
+    test('rejects what is not a layout', () {
       expect(
-        (json['panels'] as List).first['sections'][1]['items'][0]['w'],
-        isA<int>(),
+        () => Layout.fromJson(const {'panels': 'no'}),
+        throwsFormatException,
       );
+      expect(
+        () => Layout.fromJson(const {
+          'panels': [
+            {
+              'id': 'home',
+              'pane': {
+                'id': 's',
+                'items': [
+                  {'id': 1, 'ref': 'app:a'},
+                ],
+              },
+            },
+          ],
+        }),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('layouts from before panes', () {
+    Map<String, Object?> section(
+      String id, {
+      int items = 0,
+      Object? style,
+      String title = '',
+    }) => {
+      'id': id,
+      'title': title,
+      'columns': 6,
+      'style': ?style,
+      'items': [
+        for (var i = 0; i < items; i++) {'id': '$id$i', 'ref': 'app:$id$i'},
+      ],
+    };
+
+    test('sections become panes where they were', () {
+      final layout = Layout.fromJson({
+        'inbox': 'rest',
+        'panels': [
+          {
+            'id': 'home',
+            'sections': [
+              section(
+                'top',
+                items: 6,
+                title: 'Favourites',
+                style: {'border': '#ffffffff'},
+              ),
+              section('rest', items: 13),
+            ],
+          },
+          {
+            'id': 'left',
+            'sections': [section('r1', items: 1), section('r2', items: 2)],
+          },
+          {
+            'id': 'folder',
+            'sections': [section('only', items: 3)],
+          },
+        ],
+      }).normalised();
+
+      final global = layout.home.root;
+      expect(
+        (global.mode, global.columns),
+        (PaneMode.free, Pane.globalColumns),
+      );
+      final [top, rest] = global.items;
+      expect((top.pane!.title, top.pane!.columns), ('Favourites', 6));
+      expect(layout.inbox, 'rest');
+      // Inside the screen's old margins, one under the other, full width.
+      for (final item in [top, rest]) {
+        expect(item.x, closeTo(0.59, 0.01));
+        expect(item.w, closeTo(10.82, 0.01));
+      }
+      expect(top.y, closeTo(1.35, 0.01));
+      expect(rest.y!, greaterThan(top.y! + top.h));
+      // One row of six cards against three rows of them.
+      expect(rest.h, greaterThan(top.h));
+
+      // A rail keeps its things, in one list; a plain folder keeps its look.
+      expect(layout.panel('left')!.root.items, hasLength(3));
+      final folder = layout.panel('folder')!.root;
+      expect((folder.id, folder.items.length), ('only', 3));
+    });
+
+    test('a new home screen is one pane as tall as the screen', () {
+      final layout = Layout.initial(['app:b', 'app:gone'])
+          .withCards(['app:a', 'app:b']);
+      final item = layout.home.root.items.single;
+      expect(item.pane!.items.map((i) => i.ref), ['app:b', 'app:a']);
+      expect(layout.inbox, item.pane!.id);
+      // From under the top margin to the bottom one, on a 540-high screen.
+      expect(item.h, closeTo(7.7, 0.1));
     });
   });
 
@@ -270,9 +396,7 @@ void main() {
         inbox: layout.inbox,
         removed: layout.removed,
         panels: [
-          layout.home.withSections([
-            layout.home.sections.single.withItems([_item('x', ref: 'app:b')]),
-          ]),
+          _home(const Pane(id: 'global').withItems([_item('x', ref: 'app:b')])),
         ],
       ).normalised();
       expect(again.removed, isEmpty);
@@ -309,112 +433,70 @@ void main() {
         'colors': ['#abcdefff'],
       });
     });
-
-    test('sections and items keep their style through repair and JSON', () {
-      final layout = Layout.fromJson(const {
-        'panels': [
-          {
-            'id': 'home',
-            'sections': [
-              {
-                'id': 's',
-                'style': {
-                  'colors': ['#11223344', '#55667788'],
-                  'angle': 90,
-                },
-                'items': [
-                  {
-                    'id': 'i',
-                    'ref': 'app:a',
-                    'style': {'border': '#ffd54fff'},
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      }).normalised().withCards(['app:a', 'app:b']);
-      final section = layout.home.sections.single;
-      expect(section.style.colors, [0x44112233, 0x88556677]);
-      expect(section.items.first.style.border, 0xFFFFD54F);
-      expect(section.items.last.style.isEmpty, isTrue);
-      final json = Layout.fromJson(layout.toJson()).toJson();
-      expect(json, layout.toJson());
-      expect((json['panels'] as List).first['sections'][0]['style'], {
-        'colors': ['#11223344', '#55667788'],
-        'angle': 90,
-      });
-    });
   });
 
   group('resolveLayout', () {
     final cards = [_card('a'), _card('b'), _card('c')];
 
-    test('matches items to cards, folders and widgets', () {
+    test('matches items to cards, folders, widgets and panes', () {
       final config = LauncherConfig(
         iconOverrides: {'panel:games': '/games.png'},
         layout: Layout(
           inbox: 'main',
           removed: const {'app:c'},
           panels: [
-            Panel(
-              id: 'home',
-              sections: [
-                Section(
-                  id: 'main',
-                  items: [
-                    _item('folder', kind: ItemKind.panel, ref: 'games'),
-                    _item('clock', kind: ItemKind.widget, ref: 'clock'),
-                  ],
-                ),
-              ],
+            _home(
+              Pane(
+                id: 'global',
+                items: [
+                  _item('folder', kind: ItemKind.panel, ref: 'games'),
+                  _item('clock', kind: ItemKind.widget, ref: 'clock'),
+                  LayoutItem.pane(const Pane(id: 'main')),
+                ],
+              ),
             ),
             Panel(
               id: 'games',
               title: 'Games',
-              sections: [
-                Section(id: 'inside', items: [_item('app:b')]),
-              ],
+              root: Pane(id: 'inside', items: [_item('app:b')]),
             ),
           ],
         ),
       );
       final view = resolveLayout(cards, config);
-      final [folder, clock, unplaced] = view.home.sections.single.entries;
+      final [folder, clock, pane] = view.home.root.entries;
 
       folder as PanelEntry;
       expect(folder.label, 'Games');
       expect(folder.icon, '/games.png');
       expect(folder.preview.map((c) => c.id), ['app:b']);
-
       expect(clock, isA<WidgetEntry>());
-      // The card placed nowhere turns up in the inbox; the removed one
-      // does not.
-      expect((unplaced as CardEntry).card.id, 'app:a');
+      // The card placed nowhere turns up in the inbox pane; the removed
+      // one does not.
+      final inside = (pane as PaneEntry).view.entries.single as CardEntry;
+      expect(inside.card.id, 'app:a');
+      expect(view.home.root.contents, hasLength(3));
       expect(view.sidebar(Layout.leftId), isNull);
     });
 
     test('the same card can be in several places', () {
       final config = LauncherConfig(
         layout: Layout(
-          inbox: 'main',
+          inbox: 'global',
           panels: [
-            Panel(
-              id: 'home',
-              sections: [
-                Section(
-                  id: 'main',
-                  items: [
-                    _item('one', ref: 'app:a'),
-                    _item('two', ref: 'app:a'),
-                  ],
-                ),
-              ],
+            _home(
+              Pane(
+                id: 'global',
+                items: [
+                  _item('one', ref: 'app:a'),
+                  _item('two', ref: 'app:a'),
+                ],
+              ),
             ),
           ],
         ).normalised(),
       );
-      final entries = resolveLayout(cards, config).home.sections.single.entries;
+      final entries = resolveLayout(cards, config).home.root.entries;
       expect(entries.map((e) => (e as CardEntry).card.id), [
         'app:a',
         'app:a',
@@ -463,7 +545,7 @@ void main() {
         'wallpaper': '/w.png',
       });
       expect(config.wallpaper, '/w.png');
-      expect(config.layout.home.sections, hasLength(1));
+      expect(config.layout.home.root.items, hasLength(1));
     });
   });
 }

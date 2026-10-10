@@ -15,12 +15,13 @@ IconData _icon(CardAction action) => switch (action) {
 /// Offers [card]'s quick actions and carries out the one chosen.
 ///
 /// [held] says the OK button that asked for the menu is still down; its
-/// release must not choose anything.
+/// release must not choose anything. [open] is what selecting the card does.
 Future<void> showCardMenu(
   BuildContext context,
   WidgetRef ref,
   LauncherCard card, {
   required bool held,
+  required VoidCallback open,
 }) async {
   final actions = ref.read(cardActionsProvider);
   final messenger = ScaffoldMessenger.of(context);
@@ -31,6 +32,7 @@ Future<void> showCardMenu(
     builder: (_) => _CardMenu(card: card, actions: offered, held: held),
   );
   if (chosen == null) return;
+  if (chosen == CardAction.open) return open();
   String? message;
   try {
     message = await actions.perform(chosen, card);

@@ -49,6 +49,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
           'label': card.label,
           'customIcon': config.iconOverrides.containsKey(card.id),
           'wide': card.wideIcon,
+          // Line art, drawn straight on the wallpaper with no card behind.
+          'bare': card.iconPath == null && card.svg != null,
           'icon': switch (card.iconPath ?? card.svg) {
             null => null,
             final source => _iconUrl(card.id, source),

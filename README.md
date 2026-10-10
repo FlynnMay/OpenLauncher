@@ -15,13 +15,17 @@ by sideloading and is not on the Play Store.
   without inputs, such as streaming boxes, just don't get these cards.
 - Serves a config page on the local network where you arrange everything
   below, hide cards, give them custom pictures, and set a wallpaper.
-- Sections: each one flows its cards in order, places them on cells you
-  choose, or lets you put them anywhere at any size.
-- Sections and cards can have their own background (a colour or a gradient,
+- Panes: backgrounds that hold cards, widgets and other panes. You set each
+  one's place and size. Inside, items go in order, on cells you choose, or
+  anywhere at any size. The screen itself is one big pane, edge to edge, so
+  things can also sit outside every pane.
+- Panes and cards can have their own background (a colour or a gradient,
   with transparency) and border colour.
 - Folders and panels: a card that opens a popup holding other cards. You choose
   where the popup opens and how big it is.
 - Sidebars: a strip on the left or right edge that opens when you move onto it.
+- Settings is a card like any other. If you remove it, a Settings button
+  appears at the top right of the TV screen instead.
 - Widgets: clock, weather (from Open-Meteo), now playing, and widgets from
   installed apps.
 - Quick actions: hold OK on a card for Open, App info, Force stop, Uninstall
@@ -60,8 +64,8 @@ computer connected to the same network.
 The Layout tab shows your TV screen. Drag things where you want them (on a
 phone, hold an item for a moment first). Tap an item to resize it, by number
 or by dragging its edges, change its colours, or remove it; "Select several"
-does the same to many at once. "Section ⚙" opens a section's settings, where
-"+ Apps…" adds apps, including ones you removed.
+does the same to many at once. Tap a pane for its settings, or "Screen ⚙" for the
+whole screen's; "+ Apps…" there adds apps, including ones you removed.
 
 The page has no login. Anyone on your network can open it.
 

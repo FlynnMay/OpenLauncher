@@ -86,25 +86,22 @@
     content: "bottom of the TV screen"; position: absolute; right: 6px; bottom: 2px;
     font: 11px system-ui, sans-serif; color: #ffffff70;
   }
-  .content { position: relative; }
-  .tvhead {
-    display: flex; justify-content: flex-end; align-items: center; color: #ffffffb3;
-    height: calc(40 * var(--u)); font-size: calc(14 * var(--u)); padding-right: calc(12 * var(--u));
+  .unplaced {
+    position: absolute; z-index: 1; pointer-events: none; color: #ffffffb3;
+    top: calc(27 * var(--u)); right: calc(48 * var(--u)); font-size: calc(14 * var(--u));
   }
-  .sec { position: relative; padding: calc(12 * var(--u)) 0; }
-  .sec.chosen { outline: 2px dashed var(--accent); outline-offset: calc(4 * var(--u)); }
-  .sbox { border-radius: calc(14 * var(--u)); border: 0 solid transparent; }
+  .sbox { height: 100%; display: flex; flex-direction: column; border-radius: calc(14 * var(--u)); border: 0 solid transparent; pointer-events: none; }
   .sbox.styled { padding: calc(16 * var(--u)); border-width: calc(2 * var(--u)); }
-  .stitle { font-size: calc(16 * var(--u)); font-weight: 500; color: #ffffffb3; padding-bottom: calc(10 * var(--u)); }
-  /* Not on the TV: the way into a section's settings. */
-  .sedit {
-    position: absolute; right: 0; top: calc(-6 * var(--u)); z-index: 2;
-    font: 12px system-ui, sans-serif; padding: 3px 9px; opacity: .5;
-    background: #000000a0; border-color: #ffffff50; color: #fff; border-radius: 999px;
+  .stitle {
+    flex: none; font-size: calc(16 * var(--u)); font-weight: 500; color: #ffffffb3; padding-bottom: calc(10 * var(--u));
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .sec:hover .sedit, .sec.chosen .sedit { opacity: 1; }
+  /* What does not fit a pane scrolls, as it does on the TV. */
+  .pscroll { flex: 1; min-height: 0; overflow: hidden auto; scrollbar-width: none; pointer-events: auto; }
+  .tile.pane { outline: 1px dashed #ffffff30; outline-offset: -1px; border-radius: calc(14 * var(--u)); }
+  .tile.pane.sel { outline: 2px solid var(--accent); outline-offset: 2px; }
   .cells { position: relative; }
-  .cells.into, .tile.into > .art, .chips button.into { outline: 2px solid var(--go); outline-offset: 2px; }
+  .cells.into, .tile.into > .art, .tile.pane.into, .chips button.into { outline: 2px solid var(--go); outline-offset: 2px; }
   .slot {
     position: absolute; border: 1px dashed #ffffff55; border-radius: calc(10 * var(--u));
     opacity: 0; pointer-events: none;
@@ -170,6 +167,8 @@
   .sheet { position: absolute; background: #1a1c23fa; overflow-y: auto; }
   .sheet > h3 { margin: 0; font-weight: 400; font-size: calc(22 * var(--u)); padding-bottom: calc(16 * var(--u)); }
   #ghost { position: fixed !important; z-index: 9; pointer-events: none; opacity: .9; margin: 0; filter: drop-shadow(0 8px 16px #000a); }
+  /* Nothing in the copy being dragged may catch the pointer: what counts is what lies under it. */
+  #ghost, #ghost * { pointer-events: none !important; }
   #ghost .count {
     position: absolute; right: -8px; top: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
     background: var(--accent); color: #10121a; font: 600 12px/22px system-ui, sans-serif; text-align: center;
@@ -239,7 +238,7 @@
 </header>
 <main>
   <section id="tab-layout">
-    <p class="hint">This is your TV screen. Drag things where you want them (on a phone, hold one for a moment first), tap one to change it, and it shows on the TV straight away.</p>
+    <p class="hint">This is your TV screen, edge to edge. Drag things where you want them (on a phone, hold one for a moment first) and tap one to change it. Panes are backgrounds that hold cards, widgets and other panes; anything can also sit straight on the screen.</p>
     <div class="chips" id="panels"></div>
     <div id="panel-settings"></div>
     <div id="scroller"><div id="stage"></div></div>
@@ -288,7 +287,7 @@ let cardsById = {};
 let tab = 'layout';
 let panelId = 'home';  // What the stage shows: the home screen or one popup.
 let sel = new Set();   // Ids of the selected layout items.
-let selSection = null; // Id of the section whose settings are open.
+let selSection = null; // Id of a global pane whose settings are open.
 let multi = false;     // Whether a tap adds to the selection.
 let uploadTarget = null;
 let drag = null;       // Items being dragged: see beginDrag.
@@ -300,13 +299,13 @@ let picker = null;     // The "add apps" dialog: { section, chosen, query }.
 
 const TABS = { layout: 'Layout', wallpaper: 'Wallpaper', options: 'Options' };
 const SIDEBARS = { left: 'Left sidebar', right: 'Right sidebar' };
-const MAX_COLUMNS = 12, MAX_SPAN = 4, MIN_FREE = 0.25;
+const MAX_COLUMNS = 24, MAX_ROWS = 60, MAX_DEPTH = 4;
 
 /* The TV's own measurements, in its 960-wide pixels. Keep in step with the
    Flutter side: home_screen.dart, section_grid.dart, rail.dart, popup_panel.dart. */
 const TV = {
-  width: 960, height: 540, padX: 48, padY: 27, gapX: 20, gapY: 16, ratio: 1.45,
-  railWidth: 98, railOut: 24, railPicW: 64, railPicH: 36, railGap: 12, railShift: 66,
+  width: 960, height: 540, padY: 27, gapX: 20, gapY: 16, ratio: 1.45,
+  railWidth: 98, railOut: 24, railPicW: 64, railPicH: 36, railGap: 12,
   stylePad: 16, styleBorder: 2,
   // Share of the screen's width and height, for small, medium and large.
   popup: { center: [[0.45, 0.62, 0.86], [0.8, 0.8, 0.8]], bottom: [[1, 1, 1], [0.34, 0.5, 0.72]], side: [[0.26, 0.36, 0.5], [1, 1, 1]] },
@@ -339,7 +338,13 @@ const json = (value) => [JSON.stringify(value), { 'content-type': 'application/j
 const idQuery = (id) => '?id=' + encodeURIComponent(id);
 const newId = (prefix) => prefix + Math.random().toString(36).slice(2, 9);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
-const snap = (value) => Math.round(value * 20) / 20;
+/* In an "Anywhere" pane things still land on whole cells, and are whole
+   cells big, unless the user turns "Snap to grid" off; then they move by a
+   twentieth of a cell and can be a quarter of one. Remembered per browser. */
+let snapToGrid = true;
+try { snapToGrid = localStorage.getItem('snapToGrid') !== 'off'; } catch (e) { /* private browsing */ }
+const snap = (value) => snapToGrid ? Math.round(value) : Math.round(value * 20) / 20;
+const minFree = () => snapToGrid ? 1 : 0.25;
 const px = (value) => value + 'px';
 
 /* ---------- small DOM helpers ---------- */
@@ -378,18 +383,34 @@ const image = (src) => el('img', { src, alt: '', draggable: false });
 const panelOf = (id) => layout.panels.find((p) => p.id === id);
 const panelKind = (panel) => panel.id === 'home' ? 'home' : SIDEBARS[panel.id] ? 'sidebar' : 'popup';
 const panelName = (panel) => panel.id === 'home' ? 'Home' : SIDEBARS[panel.id] || panel.title || 'Folder';
-const sectionOf = (id) => layout.panels.flatMap((p) => p.sections).find((s) => s.id === id);
-const panelOfSection = (section) => layout.panels.find((p) => p.sections.includes(section));
-const railSection = (section) => panelKind(panelOfSection(section)) === 'sidebar';
-const inboxSection = () => panelOf('home').sections.find((s) => s.id === layout.inbox) || panelOf('home').sections[0];
+
+/* Every pane there is: each panel's global pane and the panes inside it.
+   `host` is the item a pane is, or null for a global one. */
+function* allPanes() {
+  function* inside(panel, pane, depth, host) {
+    yield { panel, pane, depth, host };
+    for (const item of pane.items) if (item.pane) yield* inside(panel, item.pane, depth + 1, item);
+  }
+  for (const panel of layout.panels) yield* inside(panel, panel.pane, 1, null);
+}
 
 function* allItems() {
-  for (const panel of layout.panels) {
-    for (const section of panel.sections) {
-      for (const [index, item] of section.items.entries()) yield { panel, section, index, item };
-    }
+  for (const { panel, pane } of allPanes()) {
+    for (const [index, item] of pane.items.entries()) yield { panel, section: pane, index, item };
   }
 }
+
+const whereIs = (pane) => { for (const found of allPanes()) if (found.pane === pane) return found; return null; };
+const sectionOf = (id) => { for (const found of allPanes()) if (found.pane.id === id) return found.pane; return undefined; };
+const panelOfSection = (pane) => whereIs(pane).panel;
+const railSection = (pane) => panelKind(panelOfSection(pane)) === 'sidebar';
+const inboxSection = () => sectionOf(layout.inbox) || panelOf('home').pane;
+/* An item with everything inside it, if it is a pane. */
+const flat = (items) => items.flatMap((item) => item.pane ? flat(item.pane.items) : [item]);
+const paneName = (pane) => {
+  const { panel, host } = whereIs(pane);
+  return host ? `${panelName(panel)} › ${pane.title || 'Pane'}` : panelName(panel);
+};
 
 function find(itemId) {
   for (const found of allItems()) if (found.item.id === itemId) return found;
@@ -403,7 +424,17 @@ const chosen = () => [...sel].map(find).filter(Boolean);
 function place(section) {
   const columns = section.columns;
   if (section.mode === 'free') {
-    const placed = section.items.map((item) => ({ x: item.x ?? 0, y: item.y ?? 0, w: Math.min(item.w, columns), h: item.h }));
+    // What has no position yet goes in rows under everything that has one.
+    const positioned = (item) => item.x != null && item.y != null;
+    let x = 0, y = Math.ceil(section.items.filter(positioned).reduce((rows, item) => Math.max(rows, item.y + item.h), 0)), rowHeight = 0;
+    const placed = section.items.map((item) => {
+      const w = Math.min(item.w, columns);
+      if (positioned(item)) return { x: item.x, y: item.y, w, h: item.h };
+      if (x > 0 && x + w > columns) { x = 0; y += rowHeight; rowHeight = 0; }
+      const here = { x, y, w, h: item.h };
+      x += w; rowHeight = Math.max(rowHeight, item.h);
+      return here;
+    });
     return { placed, taken: new Set(), rows: placed.reduce((rows, p) => Math.max(rows, p.y + p.h), 0) };
   }
   const taken = new Set();
@@ -500,7 +531,7 @@ function settle(section, fixed = null) {
 function fit(item, section) {
   if (section.mode !== 'free') {
     item.w = Math.max(1, Math.round(item.w));
-    item.h = clamp(Math.round(item.h), 1, MAX_SPAN);
+    item.h = clamp(Math.round(item.h), 1, MAX_ROWS);
   }
   item.w = Math.min(item.w, section.columns);
   if (railSection(section) && item.kind !== 'widget') item.h = 1;
@@ -541,11 +572,32 @@ function takeOut(ids) {
 function noteRemoved(items) {
   const placed = new Set([...allItems()].filter((f) => f.item.kind === 'card').map((f) => f.item.ref));
   const removed = new Set(layout.removed);
-  for (const item of items) if (item.kind === 'card' && !placed.has(item.ref)) removed.add(item.ref);
+  for (const item of flat(items)) if (item.kind === 'card' && !placed.has(item.ref)) removed.add(item.ref);
   layout.removed = [...removed];
 }
 
+/* Why these items cannot go into this pane, or null if they can. */
+function refusal(items, section) {
+  const panes = items.filter((item) => item.pane);
+  if (!panes.length) return null;
+  if (railSection(section)) return 'A sidebar holds cards and widgets, not panes.';
+  const deepest = (pane) => 1 + Math.max(0, ...pane.items.filter((i) => i.pane).map((i) => deepest(i.pane)));
+  for (const item of panes) {
+    if ([...flatPanes(item.pane)].includes(section)) return 'A pane cannot go inside itself.';
+    if (whereIs(section).depth + deepest(item.pane) > MAX_DEPTH) return `Panes can be nested ${MAX_DEPTH - 1} deep.`;
+  }
+  return null;
+}
+
+function* flatPanes(pane) {
+  yield pane;
+  for (const item of pane.items) if (item.pane) yield* flatPanes(item.pane);
+}
+
 function moveItems(ids, section, target = {}) {
+  const items = ids.map(find).filter(Boolean).map((found) => found.item);
+  const no = refusal(items, section);
+  if (no) { showError(no); return render(); }
   insert(takeOut(ids), section, target);
   save();
 }
@@ -561,6 +613,8 @@ function addItems(section, items) {
 }
 
 function removeItems(ids) {
+  const full = ids.map(find).filter((f) => f && f.item.pane && f.item.pane.items.length);
+  if (full.length && !confirm('Remove the pane and everything in it? You can add the apps again anywhere.')) return;
   noteRemoved(takeOut(ids));
   sel.clear();
   save();
@@ -570,8 +624,8 @@ function setSize(items, w, h) {
   for (const item of items) {
     const { section } = find(item.id);
     const whole = section.mode !== 'free';
-    if (w != null) item.w = clamp(whole ? Math.round(w) || 1 : snap(w), whole ? 1 : MIN_FREE, section.columns - (whole ? 0 : item.x ?? 0));
-    if (h != null) item.h = clamp(whole ? Math.round(h) || 1 : snap(h), whole ? 1 : MIN_FREE, MAX_SPAN);
+    if (w != null) item.w = clamp(whole ? Math.round(w) || 1 : snap(w), whole ? 1 : minFree(), section.columns - (whole ? 0 : item.x ?? 0));
+    if (h != null) item.h = clamp(whole ? Math.round(h) || 1 : snap(h), whole ? 1 : minFree(), MAX_ROWS);
     settle(section, item);
   }
   save();
@@ -599,42 +653,43 @@ function setMode(section, mode) {
   save();
 }
 
-function addSection(panel) {
-  const section = { id: newId('s'), title: '', mode: 'flow', columns: 5, items: [] };
-  panel.sections.push(section);
-  selSection = section.id;
-  sel.clear();
-  save();
+/* A new, empty pane inside another, as wide as it and a few rows tall. */
+function addPane(parent) {
+  if (railSection(parent)) return showError('A sidebar holds cards and widgets, not panes.');
+  if (whereIs(parent).depth >= MAX_DEPTH) return showError(`Panes can be nested ${MAX_DEPTH - 1} deep.`);
+  const pane = { id: newId('s'), title: '', mode: 'flow', columns: 5, items: [] };
+  addItems(parent, [{ kind: 'pane', ref: pane.id, w: Math.min(parent.columns, 6), h: 3, pane }]);
 }
 
 function addPopup(section) {
   const title = prompt('Name of the folder or panel', 'Folder');
   if (title === null) return;
   const panel = { id: newId('p'), title: title.trim(), position: 'center', size: 'medium',
-    sections: [{ id: newId('s'), title: '', mode: 'flow', columns: 4, items: [] }] };
+    pane: { id: newId('s'), title: '', mode: 'flow', columns: 4, items: [] } };
   layout.panels.push(panel);
   addItems(section, [{ kind: 'panel', ref: panel.id }]);
 }
 
 function deletePopup(panel) {
   if (!confirm(`Delete "${panelName(panel)}"? What is in it comes off the TV; you can add the apps again anywhere.`)) return;
-  const inside = panel.sections.flatMap((s) => s.items);
   layout.panels = layout.panels.filter((p) => p !== panel);
   takeOut([...allItems()].filter((f) => f.item.kind === 'panel' && f.item.ref === panel.id).map((f) => f.item.id));
-  noteRemoved(inside);
+  noteRemoved(panel.pane.items);
   panelId = 'home';
   sel.clear();
   save();
 }
 
-function deleteSection(section) {
-  const panel = panelOfSection(section);
-  if (section.items.length && !confirm('Delete this section? What is in it comes off the TV; you can add the apps again anywhere.')) return;
-  panel.sections.splice(panel.sections.indexOf(section), 1);
-  noteRemoved(section.items);
-  if (layout.inbox === section.id) layout.inbox = panelOf('home').sections[0].id;
-  selSection = null;
-  save();
+/* Makes a pane just tall enough for what is in it, measured as drawn. */
+function fitPane(item) {
+  const { section: parent } = find(item.id);
+  const tile = tileOf(item.id), parentGrid = tile.parentElement, scroll = tile.querySelector('.pscroll');
+  const m = parentGrid.metrics;
+  // What is in it, without the spare row the page keeps for dropping into.
+  const im = scroll.firstElementChild.metrics, inside = Math.max(1, place(item.pane).rows);
+  const needed = tile.offsetHeight - scroll.clientHeight + inside * im.rowH + (inside - 1) * im.gapY;
+  const rows = (needed + m.gapY) / (m.rowH + m.gapY);
+  setSize([item], null, parent.mode === 'free' && !snapToGrid ? Math.ceil(rows * 20) / 20 : Math.ceil(rows - 0.01));
 }
 
 /* ---------- colours ---------- */
@@ -762,6 +817,7 @@ function cardArt(card) {
 }
 
 const itemLabel = (item) => item.kind === 'card' ? cardsById[item.ref].label
+  : item.kind === 'pane' ? item.pane.title || 'Pane'
   : item.kind === 'panel' ? panelOf(item.ref).title || 'Folder'
   : (state.widgets.find((w) => w.type === item.ref) || { label: 'Widget' }).label;
 
@@ -770,12 +826,12 @@ const itemLabel = (item) => item.kind === 'card' ? cardsById[item.ref].label
 function itemArt(item) {
   if (item.kind === 'card') {
     const card = cardsById[item.ref];
-    return { art: cardArt(card), bare: card.kind === 'input' && !card.customIcon };
+    return { art: cardArt(card), bare: card.bare };
   }
   if (item.kind === 'panel') {
     const panel = panelOf(item.ref);
     if (state.panelIcons[panel.id]) return { art: el('div', { class: 'art' }, image(state.panelIcons[panel.id])) };
-    const inside = panel.sections.flatMap((s) => s.items).filter((i) => i.kind === 'card' && cardsById[i.ref].icon).slice(0, 4);
+    const inside = flat(panel.pane.items).filter((i) => i.kind === 'card' && cardsById[i.ref].icon).slice(0, 4);
     if (!inside.length) return { art: el('div', { class: 'art', innerHTML: FOLDER }), bare: true };
     return { art: el('div', { class: 'art mini' }, ...inside.map((i) => image(cardsById[i.ref].icon))) };
   }
@@ -785,7 +841,7 @@ function itemArt(item) {
 /* Draws a section's items on its cell grid, `width` pixels wide. In a rail a
    cell is one picture. The grid remembers its measurements, for working out
    where a pointer is. */
-function cells(section, width, u, rail) {
+function cells(section, width, u, rail, minHeight = 0) {
   const columns = section.columns;
   const m = rail
     ? { columns, cellW: TV.railPicW * u, rowH: TV.railPicH * u, gapX: 0, gapY: TV.railGap * u }
@@ -805,7 +861,7 @@ function cells(section, width, u, rail) {
   const shown = Math.max(1, Math.ceil(rows) + (section.mode === 'flow' ? 0 : 1));
   const grid = el('div', { class: 'cells' + (rail ? ' rail' : '') });
   grid.style.width = px(rail ? m.cellW : width);
-  grid.style.height = px(shown * m.rowH + (shown - 1) * m.gapY);
+  grid.style.height = px(Math.max(minHeight, shown * m.rowH + (shown - 1) * m.gapY));
   grid.dataset.section = section.id;
   Object.assign(grid, { metrics: m, put });
   if (section.mode === 'grid') {
@@ -820,19 +876,34 @@ function cells(section, width, u, rail) {
   }
   section.items.forEach((item, index) => {
     const p = placed[index];
-    const { art, bare } = itemArt(item);
     const picked = sel.has(item.id);
     const label = itemLabel(item);
     const node = put(el('div', {
-      class: 'tile' + (picked ? ' sel' : '') + (bare && !item.style ? ' bare' : ''),
+      class: 'tile' + (picked ? ' sel' : ''),
       title: label,
       oncontextmenu: (e) => e.preventDefault(),
       onpointerdown: (e) => startPress(e, item, node),
-      // On the TV a card's name is under it; a widget has none, and a rail only shows names while open.
-    }, art, rail || item.kind === 'widget' ? null : el('div', { class: 'label', textContent: label })), p);
+    }), p);
     node.dataset.item = item.id;
-    if (item.kind === 'panel') node.dataset.folder = item.ref;
-    if (item.style) paint(art, item.style);
+    if (item.pane) {
+      // A pane: its background and title, and its own grid inside.
+      const b = box(p), pane = item.pane;
+      const edge = pane.style ? (TV.stylePad + TV.styleBorder) * u : 0;
+      const inner = el('div', { class: 'sbox' },
+        pane.title ? el('div', { class: 'stitle', textContent: pane.title }) : null,
+        el('div', { class: 'pscroll' }, cells(pane, Math.max(1, b.width - 2 * edge), u, false)));
+      inner.dataset.sbox = pane.id;
+      if (pane.style) paint(inner, pane.style);
+      node.classList.add('pane');
+      node.append(inner);
+    } else {
+      const { art, bare } = itemArt(item);
+      if (bare && !item.style) node.classList.add('bare');
+      // On the TV a card's name is under it; a widget has none, and a rail only shows names while open.
+      node.append(art, rail || item.kind === 'widget' ? '' : el('div', { class: 'label', textContent: label }));
+      if (item.kind === 'panel') node.dataset.folder = item.ref;
+      if (item.style) paint(art, item.style);
+    }
     if (picked && sel.size === 1 && (!rail || item.kind === 'widget')) {
       for (const edge of rail ? ['s'] : ['e', 's', 'se']) {
         node.append(el('div', { class: 'handle ' + edge, title: 'Drag to resize',
@@ -844,25 +915,14 @@ function cells(section, width, u, rail) {
   return grid;
 }
 
-function sectionBlock(section, width, u) {
-  const inner = width - (section.style ? 2 * (TV.stylePad + TV.styleBorder) * u : 0);
-  const box = el('div', { class: 'sbox' },
-    section.title ? el('div', { class: 'stitle', textContent: section.title }) : null,
-    cells(section, inner, u, false));
-  box.dataset.sbox = section.id;
-  if (section.style) paint(box, section.style);
-  const pick = () => { selSection = selSection === section.id ? null : section.id; sel.clear(); render(); };
-  return el('div', { class: 'sec' + (selSection === section.id ? ' chosen' : '') },
-    button('Section ⚙', 'Title, columns, colours, and adding things to this section', pick, { className: 'sedit' }),
-    box);
-}
-
 function railBlock(panel, u, onLeft) {
-  const empty = !panel.sections.some((s) => s.items.length);
+  const empty = !panel.pane.items.length;
   const node = el('div', { class: 'railbox' + (empty ? ' empty' : '') });
   node.dataset.name = SIDEBARS[panel.id];
-  Object.assign(node.style, { width: px(TV.railWidth * u), [onLeft ? 'left' : 'right']: 0 });
-  const grid = cells(panel.sections[0], 0, u, true);
+  // An empty rail is only a strip in the screen's margin to drop onto: the
+  // screen under it is the global pane's, to its very edge.
+  Object.assign(node.style, { width: px((empty ? TV.railOut : TV.railWidth) * u), [onLeft ? 'left' : 'right']: 0 });
+  const grid = cells(panel.pane, 0, u, true);
   Object.assign(grid.style, { position: 'absolute', top: px(TV.padY * u), [onLeft ? 'left' : 'right']: px(TV.railOut * u) });
   node.append(grid);
   return node;
@@ -891,18 +951,15 @@ function renderStage() {
   const layers = wallpaperLayers();
 
   if (panel.id === 'home') {
-    const left = panelOf('left'), right = panelOf('right');
-    const has = (rail) => rail.sections.some((s) => s.items.length);
-    const padLeft = (TV.padX + (has(left) ? TV.railShift : 0)) * u;
-    const padRight = (TV.padX + (has(right) ? TV.railShift : 0)) * u;
-    const content = el('div', { class: 'content' },
-      el('div', { class: 'tvhead', textContent: '⚙  Settings' }),
-      ...panel.sections.map((section) => sectionBlock(section, width - padLeft - padRight, u)));
-    Object.assign(content.style, { padding: `${px(TV.padY * u)} ${px(padRight)} ${px(TV.padY * u)} ${px(padLeft)}`, minHeight: px(TV.height * u) });
+    // The global pane is the whole screen, edge to edge; the rails lie over it.
+    const global = cells(panel.pane, width, u, false, TV.height * u);
     const fold = el('div', { class: 'fold' });
     fold.style.top = px(TV.height * u);
+    // The TV shows a Settings button for as long as its card is nowhere.
+    const placed = [...allItems()].some((f) => f.item.ref === 'launcher:settings');
     stage.style.height = '';
-    stage.replaceChildren(...layers, content, railBlock(left, u, true), railBlock(right, u, false), fold);
+    stage.replaceChildren(...layers, global, railBlock(panelOf('left'), u, true), railBlock(panelOf('right'), u, false),
+      placed ? '' : el('div', { class: 'unplaced', textContent: '⚙  Settings' }), fold);
     return fitFaces();
   }
 
@@ -914,7 +971,7 @@ function renderStage() {
   const [padTop, padX, padBottom] = TV.sheetPad.map((n) => n * u);
   const sheet = el('div', { class: 'sheet' },
     panel.title ? el('h3', { textContent: panel.title }) : null,
-    ...panel.sections.map((section) => sectionBlock(section, sheetW - 2 * padX, u)));
+    cells(panel.pane, sheetW - 2 * padX, u, false));
   Object.assign(sheet.style, { width: px(sheetW), padding: `${px(padTop)} ${px(padX)} ${px(padBottom)}` });
   if (panel.position === 'center') {
     Object.assign(sheet.style, { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', maxHeight: px(sheetH), borderRadius: px(18 * u) });
@@ -951,7 +1008,8 @@ new ResizeObserver(() => {
 const HOLD_MS = 280, SLOP = 6;
 
 function startPress(e, item, node) {
-  if (e.button > 0 || drag || resizing) return;
+  // The innermost tile under the pointer hears of it first, and keeps it.
+  if (e.button > 0 || drag || resizing || press) return;
   const touch = e.pointerType === 'touch';
   press = { id: item.id, node, x: e.clientX, y: e.clientY, touch };
   // A finger has to rest on the item first, so that swiping still scrolls.
@@ -1026,11 +1084,17 @@ function moveDrag(x, y) {
     drag.target = { panel: chip.dataset.panel };
     return;
   }
-  const grid = under.closest('.cells') || under.closest('.railbox')?.querySelector('.cells');
+  // The innermost pane under the pointer, other than one being dragged.
+  const dragged = drag.ids.map(tileOf).filter(Boolean);
+  let grid = under.closest('.cells') || under.closest('.railbox')?.querySelector('.cells');
+  while (grid && dragged.some((tile) => tile.contains(grid))) grid = grid.parentElement.closest('.cells');
   if (!grid) return;
   const section = sectionOf(grid.dataset.section);
+  if (refusal(drag.ids.map((id) => find(id).item), section)) return;
   const m = grid.metrics;
-  const over = under.closest('.tile');
+  // What it is over in that pane: one of the pane's own items.
+  let over = under.closest('.tile');
+  while (over && over.parentElement !== grid) over = over.parentElement.closest('.tile');
   const overId = over && over.dataset.item;
 
   // Onto the middle of a folder: into it.
@@ -1041,6 +1105,12 @@ function moveDrag(x, y) {
       drag.target = { panel: over.dataset.folder };
       return;
     }
+  }
+  // Onto a pane but not onto its grid (its edge, its title): into it.
+  if (over && over.classList.contains('pane') && section.mode !== 'flow' && !refusal(drag.ids.map((id) => find(id).item), find(overId).item.pane)) {
+    over.classList.add('into');
+    drag.target = { section: find(overId).item.pane };
+    return;
   }
   if (section.mode !== 'flow') {
     const rect = grid.getBoundingClientRect();
@@ -1100,7 +1170,7 @@ function endDrag(drop) {
     selSection = null;
     if (target.panel) {
       const panel = panelOf(target.panel);
-      moveItems(ids, panel.id === 'home' ? inboxSection() : panel.sections[0]);
+      moveItems(ids, panel.id === 'home' ? inboxSection() : panel.pane);
     } else {
       moveItems(ids, target.section, target);
     }
@@ -1129,12 +1199,12 @@ function moveResize(x, y) {
   const m = grid.metrics;
   if (section.mode === 'free') {
     const rect = node.getBoundingClientRect();
-    if (edge !== 's') resizing.w = clamp(snap((x - rect.left + m.gapX) / (m.cellW + m.gapX)), MIN_FREE, section.columns - placement.x);
-    if (edge !== 'e') resizing.h = clamp(snap((y - rect.top + m.gapY) / (m.rowH + m.gapY)), MIN_FREE, MAX_SPAN);
+    if (edge !== 's') resizing.w = clamp(snap((x - rect.left + m.gapX) / (m.cellW + m.gapX)), minFree(), section.columns - placement.x);
+    if (edge !== 'e') resizing.h = clamp(snap((y - rect.top + m.gapY) / (m.rowH + m.gapY)), minFree(), MAX_ROWS);
   } else {
     const cell = cellAt(grid, x, y);
     if (edge !== 's') resizing.w = clamp(cell.x - placement.x + 1, 1, section.columns - placement.x);
-    if (edge !== 'e') resizing.h = clamp(cell.y - placement.y + 1, 1, MAX_SPAN);
+    if (edge !== 'e') resizing.h = clamp(cell.y - placement.y + 1, 1, MAX_ROWS);
   }
   grid.put(node, { ...placement, w: resizing.w, h: resizing.h });
   node.style.zIndex = 3;
@@ -1208,9 +1278,18 @@ function renderPanels() {
     ...chips,
     button('+ Folder', 'Make a new folder or panel, with a card on Home that opens it', () => addPopup(inboxSection())),
     el('span', { class: 'spacer' }),
+    check('Snap to grid', snapToGrid, (on) => {
+      snapToGrid = on;
+      try { localStorage.setItem('snapToGrid', on ? 'on' : 'off'); } catch (e) { /* not remembered, then */ }
+      render();
+    }),
     button(multi ? 'Selecting several' : 'Select several', 'Tap items to add them to the selection (with a mouse, Ctrl or Shift and click does the same)',
       () => { multi = !multi; render(); }, { className: multi ? 'on' : '' }),
-    button('+ Section', 'Add another section here', () => addSection(panelOf(panelId))),
+    button('Screen ⚙', 'Columns and placement of the whole screen, and adding things straight onto it', () => {
+      const id = panelOf(panelId).pane.id;
+      selSection = selSection === id ? null : id; sel.clear(); render();
+    }, { className: selSection === panelOf(panelId).pane.id ? 'on' : '' }),
+    button('+ Pane', 'Add an empty pane: a background that holds cards, widgets and other panes', () => addPane(panelOf(panelId).pane)),
   );
 }
 
@@ -1289,25 +1368,23 @@ function coloursButton(id, title) {
 function moveToSelect(items, section) {
   const folders = items.filter((item) => item.kind === 'panel').map((item) => item.ref);
   const places = [['', 'Move to…']];
-  for (const panel of layout.panels) {
-    // A folder cannot go inside itself.
-    if (folders.includes(panel.id)) continue;
-    panel.sections.forEach((s, i) => {
-      if (s === section) return;
-      places.push([s.id, panelName(panel) + (panel.sections.length > 1 ? ` › ${s.title || 'Section ' + (i + 1)}` : '')]);
-    });
+  for (const { panel, pane } of allPanes()) {
+    // A folder cannot go inside itself, nor a pane.
+    if (folders.includes(panel.id) || pane === section || refusal(items, pane)) continue;
+    places.push([pane.id, paneName(pane)]);
   }
   return select(places, '', (id) => {
     if (sectionOf(id)) moveItems(items.map((item) => item.id), sectionOf(id));
-  }, 'Move to another section, sidebar or folder');
+  }, 'Move to another pane, sidebar or folder');
 }
 
-function sectionBar(section) {
+/* The settings of a pane, and what can be added to it. `host` is the item
+   the pane is, or null for a global pane, which has no look of its own. */
+function paneRows(section, host) {
   const panel = panelOfSection(section);
-  const index = panel.sections.indexOf(section);
-  const title = el('input', { type: 'text', value: section.title, placeholder: 'Section title (optional)', className: 'grow',
+  const title = el('input', { type: 'text', value: section.title, placeholder: 'Title (optional)', className: 'grow',
     onchange: () => { section.title = title.value.trim(); save(); } });
-  const columns = el('input', { type: 'number', min: 1, max: MAX_COLUMNS, value: section.columns, title: 'More columns make smaller cards',
+  const columns = el('input', { type: 'number', min: 1, max: MAX_COLUMNS, value: section.columns, title: 'More columns make smaller cells',
     onchange: () => {
       section.columns = clamp(Math.round(columns.value) || 1, 1, MAX_COLUMNS);
       for (const item of section.items) {
@@ -1317,36 +1394,31 @@ function sectionBar(section) {
       settle(section);
       save();
     } });
-  const shift = (delta) => {
-    panel.sections.splice(index + delta, 0, ...panel.sections.splice(index, 1));
-    save();
-  };
   const popups = layout.panels.filter((p) => panelKind(p) === 'popup' && p.id !== panel.id);
-  const several = panel.sections.length > 1;
+  const rail = railSection(section);
   return [
-    el('div', { class: 'row' },
-      el('strong', { textContent: 'Section' }), title,
+    rail ? null : el('div', { class: 'row' },
+      host ? title : el('strong', { textContent: `${panelName(panel)}: the whole screen` }),
       el('label', {}, 'Placement', select([['flow', 'In order'], ['grid', 'On cells'], ['free', 'Anywhere']], section.mode, (mode) => setMode(section, mode),
-        'In order: one after another. On cells: each in a cell you choose. Anywhere: any position and size, overlapping allowed.')),
+        'In order: one after another. On cells: each in a cell of its own. Anywhere: overlapping allowed, and with "Snap to grid" off, any position and size.')),
       el('label', {}, 'Columns', columns),
       panel.id === 'home' ? check('New apps go here', layout.inbox === section.id, () => { layout.inbox = section.id; save(); }) : null,
-      coloursButton(section.id, 'Background and border of this section'),
-      several ? button('▲', 'Move section up', () => shift(-1), { disabled: index === 0 }) : null,
-      several ? button('▼', 'Move section down', () => shift(1), { disabled: index === panel.sections.length - 1 }) : null,
-      several ? button('Delete section', 'Delete this section and take what is in it off the TV', () => deleteSection(section), { className: 'danger' }) : null,
-      button('Done', 'Close', () => { selSection = null; render(); }),
+      host ? coloursButton(section.id, 'Background and border of this pane') : null,
+      host ? button('Fit to contents', 'Make the pane just tall enough for what is in it', () => fitPane(host)) : null,
     ),
-    styleOpen.has(section.id) ? el('div', { class: 'row' }, ...styleControls([section], () => [...document.querySelectorAll(`[data-sbox="${CSS.escape(section.id)}"]`)])) : null,
+    host && styleOpen.has(section.id) ? el('div', { class: 'row' }, ...styleControls([section], () => [...document.querySelectorAll(`[data-sbox="${CSS.escape(section.id)}"]`)])) : null,
     el('div', { class: 'row' },
-      button('+ Apps…', 'Choose apps and inputs to add to this section', () => { picker = { section: section.id, chosen: new Set(), query: '' }; render(); }),
+      button('+ Apps…', 'Choose apps and inputs to add here', () => { picker = { section: section.id, chosen: new Set(), query: '' }; render(); }),
       select([['', '+ Widget…'], ...state.widgets.map((w) => [w.type, w.label])], '', (type) => {
         const widget = state.widgets.find((w) => w.type === type);
         if (widget) addItems(section, [{ kind: 'widget', ref: type, w: widget.w, h: widget.h, options: {} }]);
       }, 'Add a widget'),
+      rail ? null : button('+ Pane', 'Add an empty pane inside this one', () => addPane(section)),
       button('+ Folder', 'Make a new folder or panel and a card here that opens it', () => addPopup(section)),
       popups.length ? select([['', '+ Card for…'], ...popups.map((p) => [p.id, panelName(p)])], '', (id) => {
         if (id) addItems(section, [{ kind: 'panel', ref: id }]);
       }, 'Add a card that opens an existing folder or panel') : null,
+      host ? null : button('Done', 'Close', () => { selSection = null; render(); }),
     ),
   ];
 }
@@ -1354,11 +1426,13 @@ function sectionBar(section) {
 function itemsBar(found) {
   const items = found.map((f) => f.item);
   const one = items.length === 1 ? found[0] : null;
-  const artNodes = () => items.map((item) => tileOf(item.id)?.querySelector('.art')).filter(Boolean);
+  // A pane's look is the pane's own; a card's or widget's is the item's.
+  const styled = items.map((item) => item.pane || item);
+  const artNodes = () => items.map((item) => tileOf(item.id)?.querySelector(item.pane ? ':scope > .sbox' : ':scope > .art')).filter(Boolean);
   const sameSection = found.every((f) => f.section === found[0].section) ? found[0].section : null;
   const free = found.every((f) => f.section.mode === 'free');
   const number = (value, max, title, onChange) => {
-    const input = el('input', { type: 'number', min: free ? MIN_FREE : 1, max, step: free ? 0.05 : 1, value, title,
+    const input = el('input', { type: 'number', min: free ? minFree() : 1, max, step: free && !snapToGrid ? 0.05 : 1, value, title,
       onchange: () => input.value !== '' && onChange(+input.value) });
     return input;
   };
@@ -1374,7 +1448,7 @@ function itemsBar(found) {
       parts.push(button(inRail(one) ? '▲' : '◀', 'Move earlier', () => step(-1), { disabled: index === 0 }),
         button(inRail(one) ? '▼' : '▶', 'Move later', () => step(1), { disabled: index === section.items.length - 1 }));
     } else {
-      const by = section.mode === 'free' ? 0.25 : 1;
+      const by = section.mode === 'free' && !snapToGrid ? 0.25 : 1;
       const nudge = (dx, dy) => {
         const x = here.x + dx * by, y = here.y + dy * by;
         if (x < 0 || y < 0 || x + item.w > section.columns) return;
@@ -1387,10 +1461,11 @@ function itemsBar(found) {
   // In a rail only a widget has a size, and only a height.
   if (!found.some(inRail)) parts.push(el('label', {}, 'Cells wide', number(same('w'), MAX_COLUMNS, 'How many cells wide', (w) => setSize(items, w, null))));
   if (!found.every((f) => inRail(f) && f.item.kind !== 'widget')) {
-    parts.push(el('label', {}, 'Cells tall', number(same('h'), MAX_SPAN, 'How many cells tall', (h) => setSize(items, null, h))));
+    parts.push(el('label', {}, 'Cells tall', number(same('h'), MAX_ROWS, 'How many cells tall', (h) => setSize(items, null, h))));
   }
+  const onePane = one && one.item.pane;
   const coloursId = one ? one.item.id : 'several';
-  parts.push(moveToSelect(items, sameSection), coloursButton(coloursId, 'Background and border'));
+  parts.push(moveToSelect(items, sameSection), onePane ? null : coloursButton(coloursId, 'Background and border'));
   if (one && one.item.kind === 'card') {
     const card = cardsById[one.item.ref];
     parts.push(button('Picture…', `Choose a picture for ${card.label}`, () => { uploadTarget = card.id; fileInput.click(); }),
@@ -1400,12 +1475,13 @@ function itemsBar(found) {
     parts.push(button('Edit what is inside', 'Show this folder or panel', () => { panelId = one.item.ref; sel.clear(); render(); }));
   }
   parts.push(
-    button('Remove', 'Take off the TV. Apps can be added again to any section.', () => removeItems(items.map((i) => i.id)), { className: 'danger' }),
+    button('Remove', 'Take off the TV. Apps can be added again to any pane.', () => removeItems(items.map((i) => i.id)), { className: 'danger' }),
     button('Done', 'Deselect', () => { sel.clear(); render(); }));
   return [
     el('div', { class: 'row' }, ...parts),
-    styleOpen.has(coloursId) ? el('div', { class: 'row' }, ...styleControls(items, artNodes)) : null,
+    !onePane && styleOpen.has(coloursId) ? el('div', { class: 'row' }, ...styleControls(styled, artNodes)) : null,
     one && one.item.kind === 'widget' ? el('div', { class: 'row' }, ...widgetOptions(one.item)) : null,
+    ...(onePane ? paneRows(onePane, one.item) : []),
   ];
 }
 
@@ -1414,7 +1490,7 @@ function renderInspector() {
   if (tab !== 'layout') return bar.replaceChildren();
   const found = chosen();
   const section = selSection && sectionOf(selSection);
-  const rows = found.length ? itemsBar(found) : section ? sectionBar(section) : null;
+  const rows = found.length ? itemsBar(found) : section ? paneRows(section, null) : null;
   bar.replaceChildren(...(rows ? [el('div', { class: 'inner' }, ...rows)] : []));
 }
 
@@ -1447,7 +1523,7 @@ function renderPicker() {
   const footer = el('div', { class: 'row' },
     el('span', { class: 'grow hint', textContent: 'An app can be on the TV in more than one place.' }),
     button('Cancel', 'Close without adding', close),
-    button(`Add ${picker.chosen.size || ''}`.trim(), 'Add the chosen apps to the section', add, { disabled: !picker.chosen.size, className: picker.chosen.size ? 'on' : '' }));
+    button(`Add ${picker.chosen.size || ''}`.trim(), 'Add the chosen apps', add, { disabled: !picker.chosen.size, className: picker.chosen.size ? 'on' : '' }));
   // Typing in the search box must not lose its place: only the list is redrawn.
   const dialog = host.querySelector('.dialog');
   if (dialog) {
@@ -1582,8 +1658,7 @@ function apply(next) {
   layout.removed = layout.removed || [];
   // The rails always exist here, so that things can be dropped into them.
   for (const id of Object.keys(SIDEBARS)) {
-    if (!panelOf(id)) layout.panels.push({ id, title: '', sections: [] });
-    if (!panelOf(id).sections.length) panelOf(id).sections.push({ id: 'rail-' + id, title: '', mode: 'flow', columns: 1, items: [] });
+    if (!panelOf(id)) layout.panels.push({ id, title: '', pane: { id: id + '/root', title: '', mode: 'flow', columns: 1, items: [] } });
   }
   if (!panelOf(panelId) || panelKind(panelOf(panelId)) === 'sidebar') panelId = 'home';
   if (selSection && !sectionOf(selSection)) selSection = null;

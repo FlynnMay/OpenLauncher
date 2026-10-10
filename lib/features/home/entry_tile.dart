@@ -4,24 +4,29 @@ import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/context_menu.dart';
+import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/popup_panel.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
+import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/widgets/widget_tile.dart';
 
 /// Draws one layout entry and gives it its behaviour: cards open (hold for
-/// quick actions), folders show their popup, widgets do their own thing.
+/// quick actions), folders show their popup, widgets do their own thing,
+/// and a pane draws what is in it the same way.
 class EntryTile extends ConsumerWidget {
   const EntryTile({
     super.key,
     required this.entry,
-    this.autofocus = false,
+    this.focus,
     this.style = TileStyle.card,
     this.inPopup = false,
     this.compact = false,
   });
 
   final Entry entry;
-  final bool autofocus;
+
+  /// Gives the starting focus to the first card on screen.
+  final FirstFocus? focus;
   final TileStyle style;
 
   /// True inside a popup, which closes when one of its cards is opened.
@@ -36,8 +41,14 @@ class EntryTile extends ConsumerWidget {
     LauncherCard card,
   ) async {
     final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     final actions = ref.read(cardActionsProvider);
-    if (inPopup) Navigator.of(context).pop();
+    if (inPopup) navigator.pop();
+    if (card.kind == CardKind.action) {
+      // The launcher's own screens; there is only the one so far.
+      await SettingsScreen.open(navigator);
+      return;
+    }
     try {
       await actions.launch(card);
     } on Object catch (error) {
@@ -56,19 +67,25 @@ class EntryTile extends ConsumerWidget {
           label: card.label,
           art: CardArt(card: card, padding: style == TileStyle.card ? 14 : 4),
           bare: CardArt.isBare(card),
-          autofocus: autofocus,
+          autofocus: focus?.take() ?? false,
           style: style,
           showLabel: !compact,
           boxStyle: entry.item.style,
           onSelect: () => _open(context, ref, card),
-          onMenu: (held) => showCardMenu(context, ref, card, held: held),
+          onMenu: (held) => showCardMenu(
+            context,
+            ref,
+            card,
+            held: held,
+            open: () => _open(context, ref, card),
+          ),
         );
       case PanelEntry():
         return ArtTile(
           label: entry.label,
           art: FolderArt(entry: entry),
           bare: FolderArt.isBare(entry),
-          autofocus: autofocus,
+          autofocus: focus?.take() ?? false,
           style: style,
           showLabel: !compact,
           boxStyle: entry.item.style,
@@ -80,6 +97,12 @@ class EntryTile extends ConsumerWidget {
           radius: 10,
           padding: const EdgeInsets.all(8),
           child: WidgetTile(item: item, compact: compact),
+        );
+      case PaneEntry(:final view):
+        return PaneBox(
+          view: view,
+          tile: (inner) =>
+              EntryTile(entry: inner, focus: focus, inPopup: inPopup),
         );
     }
   }

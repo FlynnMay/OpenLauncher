@@ -65,6 +65,21 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// A home screen of [panes] one under another, each five rows tall,
+    /// with room on the left for a rail.
+    Panel home(List<Pane> panes) => Panel(
+      id: Layout.homeId,
+      root: Pane(
+        id: 'global',
+        mode: PaneMode.grid,
+        columns: 12,
+        items: [
+          for (final (index, pane) in panes.indexed)
+            LayoutItem.pane(pane, x: 2, y: index * 5, w: 10, h: 5),
+        ],
+      ),
+    );
+
     LayoutItem card(String package) =>
         LayoutItem(id: 'i-$package', kind: ItemKind.card, ref: 'app:$package');
 
@@ -102,43 +117,38 @@ void main() {
           layout: Layout(
             inbox: 'main',
             panels: [
-              Panel(
-                id: Layout.homeId,
-                sections: [
-                  Section(
-                    id: 'top',
-                    title: 'Favourites',
-                    mode: SectionMode.grid,
-                    columns: 4,
-                    items: [
-                      const LayoutItem(
-                        id: 'folder',
-                        kind: ItemKind.panel,
-                        ref: 'games',
-                        x: 1,
-                        y: 0,
-                      ),
-                      const LayoutItem(
-                        id: 'clock',
-                        kind: ItemKind.widget,
-                        ref: 'clock',
-                        w: 2,
-                        x: 2,
-                        y: 1,
-                        options: {'date': false},
-                      ),
-                    ],
-                  ),
-                  const Section(id: 'main'),
-                ],
-              ),
+              home([
+                Pane(
+                  id: 'top',
+                  title: 'Favourites',
+                  mode: PaneMode.grid,
+                  columns: 4,
+                  items: [
+                    const LayoutItem(
+                      id: 'folder',
+                      kind: ItemKind.panel,
+                      ref: 'games',
+                      x: 1,
+                      y: 0,
+                    ),
+                    const LayoutItem(
+                      id: 'clock',
+                      kind: ItemKind.widget,
+                      ref: 'clock',
+                      w: 2,
+                      x: 2,
+                      y: 1,
+                      options: {'date': false},
+                    ),
+                  ],
+                ),
+                const Pane(id: 'main'),
+              ]),
               Panel(
                 id: 'games',
                 title: 'Games',
                 position: PopupPosition.bottom,
-                sections: [
-                  Section(id: 'in', items: [card('pkg.b')]),
-                ],
+                root: Pane(id: 'in', items: [card('pkg.b')]),
               ),
             ],
           ).normalised(),
@@ -170,27 +180,24 @@ void main() {
           layout: Layout(
             inbox: 'main',
             panels: [
-              Panel(
-                id: Layout.homeId,
-                sections: [
-                  Section(
-                    id: 'main',
-                    style: const BoxStyle(
-                      colors: [0xCC3D5AFE, 0x00000000],
-                      angle: 90,
-                      border: 0x55FFFFFF,
-                    ),
-                    items: [
-                      const LayoutItem(
-                        id: 'a',
-                        kind: ItemKind.card,
-                        ref: 'app:pkg.a',
-                        style: BoxStyle(colors: [0xFFB71C1C]),
-                      ),
-                    ],
+              home([
+                Pane(
+                  id: 'main',
+                  style: const BoxStyle(
+                    colors: [0xCC3D5AFE, 0x00000000],
+                    angle: 90,
+                    border: 0x55FFFFFF,
                   ),
-                ],
-              ),
+                  items: [
+                    const LayoutItem(
+                      id: 'a',
+                      kind: ItemKind.card,
+                      ref: 'app:pkg.a',
+                      style: BoxStyle(colors: [0xFFB71C1C]),
+                    ),
+                  ],
+                ),
+              ]),
             ],
           ).normalised(),
         ),
@@ -235,15 +242,10 @@ void main() {
           layout: Layout(
             inbox: 'main',
             panels: [
-              const Panel(
-                id: Layout.homeId,
-                sections: [Section(id: 'main')],
-              ),
+              home([const Pane(id: 'main')]),
               Panel(
                 id: Layout.leftId,
-                sections: [
-                  Section(id: 'rail', items: [card('pkg.c')]),
-                ],
+                root: Pane(id: 'rail', columns: 1, items: [card('pkg.c')]),
               ),
             ],
           ).normalised(),

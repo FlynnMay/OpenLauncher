@@ -85,6 +85,7 @@ final allCardsProvider = FutureProvider<List<LauncherCard>>((ref) async {
         iconPath: app.iconPath,
         wideIcon: app.isBanner,
       ),
+    LauncherCard.settings,
   ];
   return arrangeCards(available, config);
 });
@@ -130,6 +131,8 @@ class CardActions {
   Future<void> launch(LauncherCard card) => switch (card.kind) {
     CardKind.app => _platform.launchApp(card.target),
     CardKind.input => _platform.switchToInput(card.target),
+    // The launcher's own screens are opened by the UI showing the card.
+    CardKind.action => throw UnsupportedError('Not something to launch'),
   };
 
   /// The quick actions that apply to [card], in the user's order.

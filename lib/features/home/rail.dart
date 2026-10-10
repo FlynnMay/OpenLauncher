@@ -33,9 +33,7 @@ class _RailState extends State<Rail> {
 
   @override
   Widget build(BuildContext context) {
-    final entries = [
-      for (final section in widget.view.sections) ...section.entries,
-    ];
+    final entries = widget.view.root.entries;
     final scrim = Colors.black.withValues(alpha: _open ? 0.94 : 0);
     final edge = widget.onLeft ? Alignment.centerLeft : Alignment.centerRight;
     return Focus(

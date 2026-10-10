@@ -1,14 +1,16 @@
-import 'package:flutter/foundation.dart';
+import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/layout/box_style.dart';
+import 'package:openlauncher/core/layout/placement.dart';
 
 /// Where a panel is shown. Decided by the panel's id: [Layout.homeId] is the
 /// main screen, [Layout.leftId] and [Layout.rightId] are the rails on the
 /// screen edges, and every other panel is a popup opened from a card.
 enum PanelKind { home, sidebar, popup }
 
-/// How a section positions its items on its cell grid.
-enum SectionMode {
+/// How a pane positions its items on its cell grid.
+enum PaneMode {
   /// One after another, wrapping at the last column.
   flow,
 
@@ -21,7 +23,7 @@ enum SectionMode {
 }
 
 enum ItemKind {
-  /// An app or input; [LayoutItem.ref] is the card id.
+  /// An app, input or launcher action; [LayoutItem.ref] is the card id.
   card,
 
   /// Opens a popup panel (this is what a folder is); [LayoutItem.ref] is the
@@ -30,6 +32,9 @@ enum ItemKind {
 
   /// A launcher widget; [LayoutItem.ref] is the `WidgetKind` name.
   widget,
+
+  /// A pane inside this one, held in [LayoutItem.pane].
+  pane,
 }
 
 enum PopupPosition { center, bottom, left, right }
@@ -49,6 +54,8 @@ T _required<T>(Map<Object?, Object?> json, String key) =>
 num _tidy(double value) =>
     value == value.roundToDouble() ? value.toInt() : value;
 
+double _hundredths(double value) => (value * 100).roundToDouble() / 100;
+
 T _named<T extends Enum>(List<T> values, String? name, T fallback) =>
     values.asNameMap()[name] ?? fallback;
 
@@ -64,7 +71,7 @@ List<T> _list<T>(
       throw FormatException('"$key" must hold objects'),
 ];
 
-/// One thing placed in a section.
+/// One thing placed in a pane.
 @immutable
 class LayoutItem {
   const LayoutItem({
@@ -77,61 +84,78 @@ class LayoutItem {
     this.y,
     this.options = const {},
     this.style = BoxStyle.none,
+    this.pane,
   });
+
+  /// A pane as an item of the pane around it.
+  LayoutItem.pane(Pane this.pane, {this.w = 1, this.h = 1, this.x, this.y})
+    : id = 'pane:${pane.id}',
+      kind = ItemKind.pane,
+      ref = pane.id,
+      options = const {},
+      style = BoxStyle.none;
 
   /// Unique within the layout.
   final String id;
   final ItemKind kind;
   final String ref;
 
-  /// Size in cells. Whole numbers except in [SectionMode.free] sections.
+  /// Size in the cells of the pane it is in. Whole numbers except in
+  /// [PaneMode.free] panes.
   final double w, h;
 
-  /// Column and row, from zero. Not used by [SectionMode.flow] sections.
+  /// Column and row, from zero. Not used by [PaneMode.flow] panes.
   final double? x, y;
 
   /// Settings of a widget, e.g. the place a weather widget shows.
   final Map<String, Object?> options;
 
-  /// How the box behind it is painted.
+  /// How the box behind a card or widget is painted. A pane's own look is
+  /// [Pane.style].
   final BoxStyle style;
+
+  /// The pane this item is, for [ItemKind.pane].
+  final Pane? pane;
 
   /// The id given to a card that is shown without having been placed.
   static String autoId(String cardId) => 'auto:$cardId';
 
-  LayoutItem copyWith({
-    String? id,
-    double? w,
-    double? h,
-    double? x,
-    double? y,
-  }) => LayoutItem(
-    id: id ?? this.id,
+  LayoutItem withPane(Pane pane) => LayoutItem(
+    id: id,
     kind: kind,
-    ref: ref,
-    w: w ?? this.w,
-    h: h ?? this.h,
-    x: x ?? this.x,
-    y: y ?? this.y,
+    ref: pane.id,
+    w: w,
+    h: h,
+    x: x,
+    y: y,
     options: options,
     style: style,
+    pane: pane,
   );
 
-  factory LayoutItem.fromJson(Map<Object?, Object?> json) => LayoutItem(
-    id: _required<String>(json, 'id'),
-    kind: _named(
+  factory LayoutItem.fromJson(Map<Object?, Object?> json) {
+    final kind = _named(
       ItemKind.values,
       _optional<String>(json, 'kind'),
       ItemKind.card,
-    ),
-    ref: _required<String>(json, 'ref'),
-    w: _optional<num>(json, 'w')?.toDouble() ?? 1,
-    h: _optional<num>(json, 'h')?.toDouble() ?? 1,
-    x: _optional<num>(json, 'x')?.toDouble(),
-    y: _optional<num>(json, 'y')?.toDouble(),
-    options: {...?_optional<Map<Object?, Object?>>(json, 'options')?.cast()},
-    style: BoxStyle.fromJson(json['style']),
-  );
+    );
+    final pane = switch (_optional<Map<Object?, Object?>>(json, 'pane')) {
+      final pane? when kind == ItemKind.pane => Pane.fromJson(pane),
+      _ => null,
+    };
+    return LayoutItem(
+      id: _required<String>(json, 'id'),
+      kind: kind,
+      ref: pane?.id ?? _required<String>(json, 'ref'),
+      w: _optional<num>(json, 'w')?.toDouble() ?? 1,
+      h: _optional<num>(json, 'h')?.toDouble() ?? 1,
+      x: _optional<num>(json, 'x')?.toDouble(),
+      y: _optional<num>(json, 'y')?.toDouble(),
+      options: {...?_optional<Map<Object?, Object?>>(json, 'options')?.cast()},
+      style: BoxStyle.fromJson(json['style']),
+      pane: pane,
+    );
+  }
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -149,40 +173,53 @@ class LayoutItem {
     },
     if (options.isNotEmpty) 'options': options,
     if (!style.isEmpty) 'style': style.toJson(),
+    'pane': ?pane?.toJson(),
   };
 }
 
-/// A titled block of items sharing one cell grid.
+/// A container with its own cell grid: a background, optionally titled, that
+/// holds cards, widgets and other panes. Every panel has one that fills it,
+/// the "global" pane; the rest sit inside that, as [ItemKind.pane] items
+/// which give them their place and size.
 @immutable
-class Section {
-  const Section({
+class Pane {
+  const Pane({
     required this.id,
     this.title = '',
-    this.mode = SectionMode.flow,
+    this.mode = PaneMode.flow,
     this.columns = defaultColumns,
     this.items = const [],
     this.style = BoxStyle.none,
   });
 
   static const defaultColumns = 5;
-  static const maxColumns = 12;
-  static const maxSpan = 4;
 
-  /// The smallest an item of a [SectionMode.free] section can be, in cells.
+  /// The columns a new global pane has: enough to place things finely.
+  static const globalColumns = 12;
+  static const maxColumns = 24;
+
+  /// The tallest an item can be, in cells.
+  static const maxRows = 60;
+
+  /// The smallest an item of a [PaneMode.free] pane can be, in cells.
   static const minFreeSpan = 0.25;
+
+  /// How deep panes may be nested, counting the global one.
+  static const maxDepth = 4;
 
   final String id;
   final String title;
-  final SectionMode mode;
+  final PaneMode mode;
 
-  /// How many cells wide the section is; more columns mean smaller cards.
+  /// How many cells wide the pane is; more columns mean smaller cells.
   final int columns;
   final List<LayoutItem> items;
 
-  /// How the box around the section is painted.
+  /// How the pane itself is painted. The global pane ignores it: the
+  /// wallpaper is its background.
   final BoxStyle style;
 
-  Section withItems(List<LayoutItem> items) => Section(
+  Pane withItems(List<LayoutItem> items) => Pane(
     id: id,
     title: title,
     mode: mode,
@@ -191,14 +228,37 @@ class Section {
     style: style,
   );
 
-  factory Section.fromJson(Map<Object?, Object?> json) => Section(
+  /// This pane and every pane inside it.
+  Iterable<Pane> get panes sync* {
+    yield this;
+    for (final item in items) {
+      if (item.pane case final pane?) yield* pane.panes;
+    }
+  }
+
+  /// Everything in this pane and the panes inside it, other than the panes
+  /// themselves.
+  Iterable<LayoutItem> get contents =>
+      panes.expand((pane) => pane.items).where((item) => item.pane == null);
+
+  /// A copy in which the items of every pane, innermost first, have been
+  /// replaced by what [change] returns for them.
+  Pane rebuild(
+    List<LayoutItem> Function(Pane pane, List<LayoutItem> items) change,
+  ) => withItems(
+    change(this, [
+      for (final item in items)
+        switch (item.pane) {
+          null => item,
+          final pane => item.withPane(pane.rebuild(change)),
+        },
+    ]),
+  );
+
+  factory Pane.fromJson(Map<Object?, Object?> json) => Pane(
     id: _required<String>(json, 'id'),
     title: _optional<String>(json, 'title') ?? '',
-    mode: _named(
-      SectionMode.values,
-      _optional<String>(json, 'mode'),
-      SectionMode.flow,
-    ),
+    mode: _named(PaneMode.values, _optional<String>(json, 'mode'), .flow),
     columns: _optional<num>(json, 'columns')?.toInt() ?? defaultColumns,
     items: _list(json, 'items', LayoutItem.fromJson),
     style: BoxStyle.fromJson(json['style']),
@@ -214,58 +274,86 @@ class Section {
   };
 }
 
-/// A surface holding sections: the home screen, a rail, or a popup.
+/// A surface: the home screen, a rail, or a popup. What is on it is in its
+/// global pane, [root].
 @immutable
 class Panel {
   const Panel({
     required this.id,
+    required this.root,
     this.title = '',
-    this.sections = const [],
     this.position = PopupPosition.center,
     this.size = PopupSize.medium,
   });
+
+  /// A panel with nothing on it yet.
+  Panel.empty(
+    this.id, {
+    this.title = '',
+    this.position = PopupPosition.center,
+    this.size = PopupSize.medium,
+  }) : root = _emptyRoot(id);
 
   final String id;
 
   /// Shown as the heading of a popup and as the label of cards opening it.
   final String title;
-  final List<Section> sections;
+
+  /// The pane that fills the panel, edge to edge.
+  final Pane root;
 
   /// Where a popup appears and how much of the screen it takes.
   final PopupPosition position;
   final PopupSize size;
 
-  PanelKind get kind => switch (id) {
+  PanelKind get kind => kindOf(id);
+
+  static PanelKind kindOf(String id) => switch (id) {
     Layout.homeId => PanelKind.home,
     Layout.leftId || Layout.rightId => PanelKind.sidebar,
     _ => PanelKind.popup,
   };
 
-  Iterable<LayoutItem> get items => sections.expand((s) => s.items);
+  static String rootId(String panelId) => '$panelId/root';
 
-  Panel withSections(List<Section> sections) => Panel(
-    id: id,
-    title: title,
-    sections: sections,
-    position: position,
-    size: size,
-  );
+  static Pane _emptyRoot(String panelId) => switch (kindOf(panelId)) {
+    PanelKind.home => Pane(
+      id: rootId(panelId),
+      mode: PaneMode.grid,
+      columns: Pane.globalColumns,
+    ),
+    PanelKind.sidebar => Pane(id: rootId(panelId), columns: 1),
+    PanelKind.popup => Pane(id: rootId(panelId), columns: 4),
+  };
 
-  factory Panel.fromJson(Map<Object?, Object?> json) => Panel(
-    id: _required<String>(json, 'id'),
-    title: _optional<String>(json, 'title') ?? '',
-    sections: _list(json, 'sections', Section.fromJson),
-    position: _named(
-      PopupPosition.values,
-      _optional<String>(json, 'position'),
-      PopupPosition.center,
-    ),
-    size: _named(
-      PopupSize.values,
-      _optional<String>(json, 'size'),
-      PopupSize.medium,
-    ),
-  );
+  /// Everything on the panel, other than the panes themselves.
+  Iterable<LayoutItem> get items => root.contents;
+
+  Panel withRoot(Pane root) =>
+      Panel(id: id, title: title, root: root, position: position, size: size);
+
+  factory Panel.fromJson(Map<Object?, Object?> json) {
+    final id = _required<String>(json, 'id');
+    return Panel(
+      id: id,
+      title: _optional<String>(json, 'title') ?? '',
+      root: switch (_optional<Map<Object?, Object?>>(json, 'pane')) {
+        final pane? => Pane.fromJson(pane),
+        // Layouts from before panes had a list of sections.
+        null => _fromSections(id, _list(json, 'sections', Pane.fromJson)),
+      },
+      position: _named(
+        PopupPosition.values,
+        _optional<String>(json, 'position'),
+        PopupPosition.center,
+      ),
+      size: _named(
+        PopupSize.values,
+        _optional<String>(json, 'size'),
+        PopupSize.medium,
+      ),
+    );
+  }
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -274,8 +362,75 @@ class Panel {
       'position': position.name,
       'size': size.name,
     },
-    'sections': [for (final section in sections) section.toJson()],
+    'pane': root.toJson(),
   };
+
+  // The measurements sections were drawn with, in the TV's 960-wide pixels.
+  static const _screenWidth = 960.0, _screenHeight = 540.0, _bottom = 27.0;
+  static const _margin = 48.0, _top = 79.0;
+  static const _gapX = 20.0, _gapY = 16.0, _cellRatio = 1.45;
+  static const _stylePad = 18.0, _titleHeight = 30.0, _between = 24.0;
+
+  /// The global pane for what used to be a stack of [sections], each now a
+  /// pane where it was and as big as it was.
+  static Pane _fromSections(String panelId, List<Pane> sections) {
+    final kind = kindOf(panelId);
+    if (sections.isEmpty) return _emptyRoot(panelId);
+    if (kind == PanelKind.sidebar) {
+      return _emptyRoot(panelId)
+          .withItems([for (final section in sections) ...section.items]);
+    }
+    // A popup with one plain section looks the same with its items directly
+    // in the global pane.
+    if (kind == PanelKind.popup &&
+        sections.length == 1 &&
+        sections.single.title.isEmpty &&
+        sections.single.style.isEmpty) {
+      return sections.single;
+    }
+    // A popup's width depends on its size; the common one is assumed.
+    final home = kind == PanelKind.home;
+    final width = home ? _screenWidth - 2 * _margin : 0.62 * _screenWidth - 64;
+    const columns = Pane.globalColumns;
+    final full = home ? _screenWidth : width;
+    final strideX = (full - (columns - 1) * _gapX) / columns + _gapX;
+    final strideY = (strideX - _gapX) / _cellRatio + _gapY;
+    var top = home ? _top : 0.0;
+    final items = <LayoutItem>[];
+    for (final section in sections) {
+      final pad = section.style.isEmpty ? 0.0 : _stylePad;
+      final cell =
+          (width - 2 * pad - (section.columns - 1) * _gapX) / section.columns;
+      final rows = rowCount(
+        placeItems(section.items, section.columns, section.mode),
+      );
+      final content =
+          2 * pad +
+          (section.title.isEmpty ? 0 : _titleHeight) +
+          (rows == 0 ? 0 : rows * (cell / _cellRatio + _gapY) - _gapY);
+      // A lone pane on the home screen at least reaches the bottom of it:
+      // new apps turn up in it, and it scrolls when they do not fit.
+      final height = home && sections.length == 1
+          ? max(content, _screenHeight - _top - _bottom)
+          : content;
+      items.add(
+        LayoutItem.pane(
+          section,
+          x: _hundredths((home ? _margin : 0) / strideX),
+          y: _hundredths(top / strideY),
+          w: _hundredths((width + _gapX) / strideX),
+          h: _hundredths((height + _gapY) / strideY),
+        ),
+      );
+      top += height + _between;
+    }
+    return Pane(
+      id: rootId(panelId),
+      mode: PaneMode.free,
+      columns: columns,
+      items: items,
+    );
+  }
 }
 
 /// Everything about where things are on screen.
@@ -290,18 +445,18 @@ class Layout {
   static const homeId = 'home';
   static const leftId = 'left';
   static const rightId = 'right';
-  static const _firstSection = 'main';
+  static const _firstPane = 'main';
 
-  /// The home screen with one section showing [order] first and then every
+  /// The home screen with one pane showing [order] first and then every
   /// other card.
   factory Layout.initial([List<String> order = const []]) => Layout(
-    inbox: _firstSection,
+    inbox: _firstPane,
     panels: [
       Panel(
         id: homeId,
-        sections: [
-          Section(
-            id: _firstSection,
+        root: Panel._fromSections(homeId, [
+          Pane(
+            id: _firstPane,
             items: [
               for (final id in order)
                 LayoutItem(
@@ -311,15 +466,15 @@ class Layout {
                 ),
             ],
           ),
-        ],
+        ]),
       ),
     ],
   );
 
   final List<Panel> panels;
 
-  /// The section that shows cards not placed anywhere, such as newly
-  /// installed apps.
+  /// The pane that shows cards not placed anywhere, such as newly installed
+  /// apps.
   final String inbox;
 
   /// Cards the user took off the screen altogether. They are not put back
@@ -351,40 +506,44 @@ class Layout {
     'panels': [for (final panel in panels) panel.toJson()],
   };
 
-  /// A copy with every card in [cardIds] taken off all panels and noted as
-  /// [removed].
-  Layout without(Set<String> cardIds) => Layout(
+  Layout _rebuild(
+    List<LayoutItem> Function(Pane pane, List<LayoutItem> items) change, {
+    Set<String>? removed,
+  }) => Layout(
     inbox: inbox,
-    removed: {...removed, ...cardIds},
+    removed: removed ?? this.removed,
     panels: [
-      for (final panel in panels)
-        panel.withSections([
-          for (final section in panel.sections)
-            section.withItems([
-              for (final item in section.items)
-                if (item.kind != ItemKind.card || !cardIds.contains(item.ref))
-                  item,
-            ]),
-        ]),
+      for (final panel in panels) panel.withRoot(panel.root.rebuild(change)),
     ],
   );
 
+  /// A copy with every card in [cardIds] taken off all panels and noted as
+  /// [removed].
+  Layout without(Set<String> cardIds) => _rebuild(
+    (_, items) => [
+      for (final item in items)
+        if (item.kind != ItemKind.card || !cardIds.contains(item.ref)) item,
+    ],
+    removed: {...removed, ...cardIds},
+  );
+
   /// A copy with everything the rest of the app relies on made true: a home
-  /// panel with at least one section, unique ids, sizes and positions within
-  /// their section, links only to popups that exist, and a valid [inbox].
+  /// panel, unique ids, sizes and positions that fit their pane, panes
+  /// nested no deeper than [Pane.maxDepth] and not at all in a rail, links
+  /// only to popups that exist, and a valid [inbox].
   Layout normalised() {
     final panelIds = <String>{};
     final unique = [
       for (final panel in panels)
         if (panel.id.isNotEmpty && panelIds.add(panel.id)) panel,
     ];
-    if (!panelIds.contains(homeId)) unique.insert(0, const Panel(id: homeId));
+    if (!panelIds.contains(homeId)) unique.insert(0, Panel.empty(homeId));
     final popups = {
       for (final panel in unique)
         if (panel.kind == PanelKind.popup) panel.id,
     };
 
-    final sectionIds = <String>{};
+    final paneIds = <String>{};
     final itemIds = <String>{};
     String fresh(Set<String> used, String wanted, String prefix) {
       var id = wanted;
@@ -394,59 +553,78 @@ class Layout {
       return id;
     }
 
-    LayoutItem? item(LayoutItem item, int columns, SectionMode mode) {
-      if (item.ref.isEmpty) return null;
-      if (item.kind == ItemKind.panel && !popups.contains(item.ref)) {
-        return null;
+    late Pane Function(Pane, PanelKind, int) repair;
+
+    /// The item made to fit a pane [columns] wide; several when it is a pane
+    /// that cannot stay one, and none when it points at nothing.
+    Iterable<LayoutItem> fitted(
+      LayoutItem item,
+      int columns,
+      PaneMode mode,
+      PanelKind kind,
+      int depth,
+    ) sync* {
+      final inner = item.pane;
+      if (item.kind == ItemKind.pane) {
+        if (inner == null) return;
+        // Too deep, or in a rail: what is in it moves up a level.
+        if (kind == PanelKind.sidebar || depth >= Pane.maxDepth) {
+          for (final entry in inner.items) {
+            yield* fitted(entry, columns, mode, kind, depth);
+          }
+          return;
+        }
+      } else if (item.ref.isEmpty ||
+          item.kind == ItemKind.panel && !popups.contains(item.ref)) {
+        return;
       }
-      // Only a free section keeps fractions of a cell.
-      final free = mode == SectionMode.free;
+      // Only a free pane keeps fractions of a cell.
+      final free = mode == PaneMode.free;
       double fit(double value, num low, num high) =>
           ((free ? value : value.roundToDouble()).clamp(low, high)).toDouble();
-      final smallest = free ? Section.minFreeSpan : 1;
+      final smallest = free ? Pane.minFreeSpan : 1;
       final w = fit(item.w.isFinite ? item.w : 1, smallest, columns);
       final x = item.x, y = item.y;
       // A position is only kept whole; half of one means nothing.
       final placed = x != null && y != null && x.isFinite && y.isFinite;
-      return LayoutItem(
+      final repaired = inner == null ? null : repair(inner, kind, depth + 1);
+      yield LayoutItem(
         id: fresh(itemIds, item.id, 'i'),
         kind: item.kind,
-        ref: item.ref,
+        ref: repaired?.id ?? item.ref,
         w: w,
-        h: fit(item.h.isFinite ? item.h : 1, smallest, Section.maxSpan),
+        h: fit(item.h.isFinite ? item.h : 1, smallest, Pane.maxRows),
         x: placed ? fit(x, 0, columns - w) : null,
         y: placed ? fit(y, 0, 999) : null,
         options: item.options,
         style: item.style,
+        pane: repaired,
       );
     }
 
-    Section section(Section section, PanelKind kind) {
-      // A rail is a single column whatever was asked for.
-      final columns = kind == PanelKind.sidebar
-          ? 1
-          : section.columns.clamp(1, Section.maxColumns);
-      final mode = kind == PanelKind.sidebar ? SectionMode.flow : section.mode;
-      return Section(
-        id: fresh(sectionIds, section.id, 's'),
-        title: section.title,
+    repair = (pane, kind, depth) {
+      // A rail is a single column of things in order, whatever was asked.
+      final rail = kind == PanelKind.sidebar;
+      final columns = rail ? 1 : pane.columns.clamp(1, Pane.maxColumns);
+      final mode = rail ? PaneMode.flow : pane.mode;
+      // The pane's own id first, so that nothing inside can take it.
+      final id = fresh(paneIds, pane.id, 'p');
+      return Pane(
+        id: id,
+        title: pane.title,
         mode: mode,
         columns: columns,
-        items: [for (final entry in section.items) ?item(entry, columns, mode)],
-        style: section.style,
+        items: [
+          for (final entry in pane.items)
+            ...fitted(entry, columns, mode, kind, depth),
+        ],
+        style: pane.style,
       );
-    }
+    };
 
     final result = [
       for (final panel in unique)
-        panel.withSections([
-          for (final entry in panel.sections) section(entry, panel.kind),
-          if (panel.sections.isEmpty && panel.kind != PanelKind.sidebar)
-            section(
-              Section(id: panel.id == homeId ? _firstSection : ''),
-              panel.kind,
-            ),
-        ]),
+        panel.withRoot(repair(panel.root, panel.kind, 1)),
     ];
     final home = result.firstWhere((panel) => panel.id == homeId);
     final placed = {
@@ -457,38 +635,33 @@ class Layout {
     return Layout(
       panels: result,
       removed: removed.difference(placed),
-      inbox: home.sections.any((s) => s.id == inbox)
+      inbox: home.root.panes.any((pane) => pane.id == inbox)
           ? inbox
-          : home.sections.first.id,
+          : home.root.id,
     );
   }
 
   /// A copy holding only cards in [cardIds]: items for cards that no longer
   /// exist are dropped, and cards placed nowhere are added to the end of the
-  /// [inbox] section, in the order given, unless the user [removed] them.
+  /// [inbox] pane, in the order given, unless the user [removed] them.
   Layout withCards(Iterable<String> cardIds) {
     final known = cardIds.toSet();
+    final kept = _rebuild(
+      (_, items) => [
+        for (final item in items)
+          if (item.kind != ItemKind.card || known.contains(item.ref)) item,
+      ],
+    );
     final placed = {...removed};
-    final kept = [
-      for (final panel in panels)
-        panel.withSections([
-          for (final section in panel.sections)
-            section.withItems([
-              for (final item in section.items)
-                if (item.kind != ItemKind.card || known.contains(item.ref))
-                  item,
-            ]),
-        ]),
-    ];
-    for (final panel in kept) {
-      for (final item in panel.items) {
-        if (item.kind == ItemKind.card) placed.add(item.ref);
+    final itemIds = <String>{};
+    for (final panel in kept.panels) {
+      for (final pane in panel.root.panes) {
+        for (final item in pane.items) {
+          itemIds.add(item.id);
+          if (item.kind == ItemKind.card) placed.add(item.ref);
+        }
       }
     }
-    final itemIds = {
-      for (final panel in kept)
-        for (final item in panel.items) item.id,
-    };
     final unplaced = [
       for (final id in cardIds)
         if (placed.add(id))
@@ -502,18 +675,8 @@ class Layout {
             ref: id,
           ),
     ];
-    return Layout(
-      inbox: inbox,
-      removed: removed,
-      panels: [
-        for (final panel in kept)
-          panel.withSections([
-            for (final section in panel.sections)
-              section.id == inbox
-                  ? section.withItems([...section.items, ...unplaced])
-                  : section,
-          ]),
-      ],
+    return kept._rebuild(
+      (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,
     );
   }
 }

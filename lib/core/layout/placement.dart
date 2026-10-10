@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 
 /// The cells an item covers: column and row from zero, and its size. Whole
-/// numbers except in a [SectionMode.free] section.
+/// numbers except in a [PaneMode.free] section.
 @immutable
 class Placement {
   const Placement(this.x, this.y, this.w, this.h);
@@ -29,21 +29,37 @@ class Placement {
 /// Works out where each of [items] goes on a grid [columns] wide, in the
 /// same order as [items].
 ///
-/// In [SectionMode.flow] the items follow one another the way CSS grid
-/// auto-placement puts them, so the config page can preview a section with a
-/// plain CSS grid. In [SectionMode.grid] items sit where they say; any that
+/// In [PaneMode.flow] the items follow one another the way CSS grid
+/// auto-placement puts them, the same way the config page places them. In [PaneMode.grid] items sit where they say; any that
 /// have no position, or whose position is taken, fill the first free space.
-/// In [SectionMode.free] items are simply where they say, overlapping or
-/// not.
-List<Placement> placeItems(
-  List<LayoutItem> items,
-  int columns,
-  SectionMode mode,
-) {
-  if (mode == SectionMode.free) {
+/// In [PaneMode.free] items are simply where they say, overlapping or
+/// not; any without a position line up below those.
+List<Placement> placeItems(List<LayoutItem> items, int columns, PaneMode mode) {
+  if (mode == PaneMode.free) {
+    double width(LayoutItem item) => min(item.w, columns * 1.0);
+    // What has no position yet, such as a newly installed app, goes in rows
+    // under everything that has one, rather than on top of it.
+    final below = items
+        .where((item) => item.x != null && item.y != null)
+        .fold(0.0, (rows, item) => max(rows, item.y! + item.h))
+        .ceilToDouble();
+    var x = 0.0, y = below, rowHeight = 0.0;
     return [
       for (final item in items)
-        Placement(item.x ?? 0, item.y ?? 0, min(item.w, columns * 1.0), item.h),
+        if (item.x != null && item.y != null)
+          Placement(item.x!, item.y!, width(item), item.h)
+        else
+          () {
+            if (x > 0 && x + width(item) > columns) {
+              x = 0;
+              y += rowHeight;
+              rowHeight = 0;
+            }
+            final placed = Placement(x, y, width(item), item.h);
+            x += width(item);
+            rowHeight = max(rowHeight, item.h);
+            return placed;
+          }(),
     ];
   }
   final taken = <(int, int)>{};
@@ -67,7 +83,7 @@ List<Placement> placeItems(
   }
 
   final placed = List<Placement?>.filled(items.length, null);
-  if (mode == SectionMode.grid) {
+  if (mode == PaneMode.grid) {
     for (final (index, item) in items.indexed) {
       final x = item.x?.round(), y = item.y?.round();
       final w = min(item.w.round(), columns), h = item.h.round();
@@ -82,8 +98,8 @@ List<Placement> placeItems(
   for (final (index, item) in items.indexed) {
     if (placed[index] != null) continue;
     final w = min(item.w.round(), columns), h = item.h.round();
-    var x = mode == SectionMode.flow ? cursorX : 0;
-    var y = mode == SectionMode.flow ? cursorY : 0;
+    var x = mode == PaneMode.flow ? cursorX : 0;
+    var y = mode == PaneMode.flow ? cursorY : 0;
     while (!free(x, y, w, h)) {
       x++;
       if (x + w > columns) {
@@ -99,6 +115,6 @@ List<Placement> placeItems(
 }
 
 /// How many rows [placements] reach down to; a fraction only in a
-/// [SectionMode.free] section.
+/// [PaneMode.free] section.
 double rowCount(Iterable<Placement> placements) =>
     placements.fold(0, (rows, p) => max(rows, p.y + p.h));
