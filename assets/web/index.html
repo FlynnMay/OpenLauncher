@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenLauncher</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e0f13;
+    --panel: #1a1c23;
+    --panel-hi: #252833;
+    --line: #2f3340;
+    --text: #eceef4;
+    --muted: #9399a8;
+    --accent: #8c9eff;
+    --danger: #ff8a80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 2;
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  #status { margin-left: auto; color: var(--muted); font-size: 13px; }
+  #status::before {
+    content: ""; display: inline-block; width: 8px; height: 8px;
+    margin-right: 6px; border-radius: 50%; background: var(--danger);
+  }
+  #status.live::before { background: #69f0ae; }
+  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+  p.hint { margin: 0 0 16px; color: var(--muted); }
+  h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  #wallpaper {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+    margin-bottom: 28px; padding: 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  }
+  #wp-preview {
+    width: 240px; max-width: 100%; aspect-ratio: 16 / 9; flex: none;
+    display: grid; place-items: center; overflow: hidden;
+    background: #000; border-radius: 8px; color: var(--muted); font-size: 13px;
+  }
+  #wp-preview img, #wp-preview video { width: 100%; height: 100%; object-fit: cover; }
+  #wp-side { flex: 1; min-width: 200px; }
+  #wp-side p { margin: 0 0 10px; color: var(--muted); }
+  #wp-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  #cards {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    list-style: none; margin: 0; padding: 0;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .card.hidden .art, .card.hidden .name { opacity: .35; }
+  .card.dragging { opacity: .4; }
+  .card.over { border-color: var(--accent); }
+  .art {
+    aspect-ratio: 16 / 9;
+    background: var(--panel-hi);
+    display: grid; place-items: center;
+    cursor: grab;
+    color: var(--muted); font-weight: 600; text-align: center; padding: 8px;
+  }
+  .art img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .art.wide { padding: 0; }
+  .art.wide img { object-fit: cover; }
+  .meta { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px 4px; }
+  .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kind { margin-left: auto; color: var(--muted); font-size: 12px; flex: none; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 12px; }
+  button {
+    font: inherit; font-size: 13px;
+    color: var(--text); background: var(--panel-hi);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 10px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .35; cursor: default; }
+  button.move { padding: 6px 12px; }
+  #error {
+    position: fixed; left: 16px; right: 16px; bottom: 16px;
+    max-width: 480px; margin: 0 auto; padding: 12px 14px;
+    background: #3a1f1f; border: 1px solid var(--danger); border-radius: 10px;
+  }
+  #error:empty { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OpenLauncher</h1>
+  <span id="status">Connecting…</span>
+</header>
+<main>
+  <h2>Wallpaper</h2>
+  <section id="wallpaper">
+    <div id="wp-preview"></div>
+    <div id="wp-side">
+      <p id="wp-status"></p>
+      <div id="wp-actions">
+        <button id="wp-choose">Choose…</button>
+        <button id="wp-remove">Remove</button>
+      </div>
+    </div>
+  </section>
+  <h2>Cards</h2>
+  <p class="hint">Changes appear on the TV straight away. Use the arrows to reorder, or drag a card by its picture.</p>
+  <ul id="cards"></ul>
+</main>
+<div id="error" role="alert"></div>
+<input id="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+<input id="wp-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,.mkv" hidden>
+
+<script>
+const list = document.getElementById('cards');
+const statusEl = document.getElementById('status');
+const errorEl = document.getElementById('error');
+const fileInput = document.getElementById('file');
+let cards = [];
+let uploadTarget = null;
+let dragId = null;
+
+function showError(message) {
+  errorEl.textContent = message;
+  clearTimeout(showError.timer);
+  showError.timer = setTimeout(() => (errorEl.textContent = ''), 5000);
+}
+
+async function api(method, path, body, headers) {
+  try {
+    const response = await fetch(path, { method, body, headers });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.error || `Request failed (${response.status})`);
+    }
+    return true;
+  } catch (e) {
+    showError(e.message);
+    refresh();
+    return false;
+  }
+}
+
+const json = (value) => [JSON.stringify(value), { 'content-type': 'application/json' }];
+const idQuery = (id) => '?id=' + encodeURIComponent(id);
+
+function setOrder(ids) {
+  // Show the new order immediately; the server confirms through the event stream.
+  cards = ids.map((id) => cards.find((c) => c.id === id));
+  render();
+  api('PUT', '/api/order', ...json({ order: ids }));
+}
+
+function move(id, delta) {
+  const ids = cards.map((c) => c.id);
+  const from = ids.indexOf(id);
+  const to = from + delta;
+  if (to < 0 || to >= ids.length) return;
+  ids.splice(to, 0, ...ids.splice(from, 1));
+  setOrder(ids);
+}
+
+function button(label, title, onClick, extra = {}) {
+  const el = document.createElement('button');
+  el.textContent = label;
+  el.title = title;
+  el.setAttribute('aria-label', title);
+  el.addEventListener('click', onClick);
+  Object.assign(el, extra);
+  return el;
+}
+
+function render() {
+  list.replaceChildren(...cards.map((card, index) => {
+    const li = document.createElement('li');
+    li.className = 'card' + (card.hidden ? ' hidden' : '');
+
+    const art = document.createElement('div');
+    art.className = 'art' + (card.wide ? ' wide' : '');
+    art.draggable = true;
+    if (card.icon) {
+      const img = document.createElement('img');
+      img.src = card.icon;
+      img.alt = '';
+      art.append(img);
+    } else {
+      art.textContent = card.label;
+    }
+    art.addEventListener('dragstart', (e) => {
+      dragId = card.id;
+      e.dataTransfer.effectAllowed = 'move';
+      li.classList.add('dragging');
+    });
+    art.addEventListener('dragend', () => {
+      dragId = null;
+      li.classList.remove('dragging');
+    });
+    li.addEventListener('dragover', (e) => {
+      if (!dragId || dragId === card.id) return;
+      e.preventDefault();
+      li.classList.add('over');
+    });
+    li.addEventListener('dragleave', () => li.classList.remove('over'));
+    li.addEventListener('drop', (e) => {
+      e.preventDefault();
+      li.classList.remove('over');
+      if (!dragId || dragId === card.id) return;
+      // Lands in the target's slot: after it when dragged forward, before it otherwise.
+      const ids = cards.map((c) => c.id);
+      ids.splice(index, 0, ...ids.splice(ids.indexOf(dragId), 1));
+      setOrder(ids);
+    });
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = card.label;
+    name.title = card.label;
+    const kind = document.createElement('span');
+    kind.className = 'kind';
+    kind.textContent = card.kind === 'input' ? 'Input' : 'App';
+    meta.append(name, kind);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.append(
+      button('◀', `Move ${card.label} earlier`, () => move(card.id, -1), { className: 'move', disabled: index === 0 }),
+      button('▶', `Move ${card.label} later`, () => move(card.id, 1), { className: 'move', disabled: index === cards.length - 1 }),
+      button(card.hidden ? 'Show' : 'Hide', `${card.hidden ? 'Show' : 'Hide'} ${card.label} on the TV`, () =>
+        api('PUT', '/api/hidden' + idQuery(card.id), ...json({ hidden: !card.hidden }))),
+      button('Image…', `Choose a picture for ${card.label}`, () => {
+        uploadTarget = card.id;
+        fileInput.click();
+      }),
+    );
+    if (card.customIcon) {
+      actions.append(button('Reset', `Use the automatic picture for ${card.label}`, () =>
+        api('DELETE', '/api/icon' + idQuery(card.id))));
+    }
+
+    li.append(art, meta, actions);
+    return li;
+  }));
+}
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0];
+  fileInput.value = '';
+  if (file && uploadTarget) api('PUT', '/api/icon' + idQuery(uploadTarget), file);
+});
+
+const wpPreview = document.getElementById('wp-preview');
+const wpStatus = document.getElementById('wp-status');
+const wpRemove = document.getElementById('wp-remove');
+const wpFile = document.getElementById('wp-file');
+let wallpaperUrl;
+let uploading = false;
+
+function renderWallpaper(wallpaper) {
+  wpRemove.disabled = !wallpaper || uploading;
+  document.getElementById('wp-choose').disabled = uploading;
+  if (uploading) {
+    wpStatus.textContent = 'Uploading… keep this page open.';
+  } else if (!wallpaper) {
+    wpStatus.textContent = 'Pick a picture or a short looping video (MP4, WebM or MKV). Animated GIF and WebP work too.';
+  } else {
+    wpStatus.textContent = wallpaper.kind === 'video' ? 'A video is playing behind your cards.' : 'A picture is shown behind your cards.';
+  }
+  // Leave a playing preview alone unless the wallpaper itself changed.
+  const url = wallpaper ? wallpaper.url : null;
+  if (url === wallpaperUrl) return;
+  wallpaperUrl = url;
+  if (!wallpaper) {
+    wpPreview.replaceChildren('None');
+    return;
+  }
+  const media = document.createElement(wallpaper.kind === 'video' ? 'video' : 'img');
+  if (wallpaper.kind === 'video') {
+    Object.assign(media, { muted: true, loop: true, autoplay: true, playsInline: true });
+  } else {
+    media.alt = '';
+  }
+  media.src = url;
+  wpPreview.replaceChildren(media);
+}
+
+let currentWallpaper = null;
+document.getElementById('wp-choose').addEventListener('click', () => wpFile.click());
+wpRemove.addEventListener('click', () => api('DELETE', '/api/wallpaper'));
+wpFile.addEventListener('change', async () => {
+  const file = wpFile.files[0];
+  wpFile.value = '';
+  if (!file) return;
+  uploading = true;
+  renderWallpaper(currentWallpaper);
+  await api('PUT', '/api/wallpaper', file);
+  uploading = false;
+  renderWallpaper(currentWallpaper);
+});
+
+function apply(state) {
+  cards = state.cards;
+  currentWallpaper = state.wallpaper;
+  renderWallpaper(currentWallpaper);
+  render();
+}
+
+async function refresh() {
+  try {
+    apply(await (await fetch('/api/state')).json());
+  } catch (e) { /* the event stream reports connection state */ }
+}
+
+function connect() {
+  const events = new EventSource('/api/events');
+  events.onopen = () => {
+    statusEl.textContent = 'Connected to TV';
+    statusEl.classList.add('live');
+  };
+  events.onmessage = (e) => apply(JSON.parse(e.data));
+  events.onerror = () => {
+    // EventSource reconnects by itself.
+    statusEl.textContent = 'Reconnecting…';
+    statusEl.classList.remove('live');
+  };
+}
+
+refresh();
+connect();
+</script>
+</body>
+</html>
