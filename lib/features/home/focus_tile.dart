@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 
 /// Whether [key] is one of the remote's "OK" buttons.
 bool isSelectKey(LogicalKeyboardKey key) =>
@@ -10,6 +13,89 @@ bool isSelectKey(LogicalKeyboardKey key) =>
     key == LogicalKeyboardKey.numpadEnter ||
     key == LogicalKeyboardKey.gameButtonA ||
     key == LogicalKeyboardKey.space;
+
+/// Says which panes the widgets below it are in, outermost first, so that
+/// moving the focus can prefer what is in the same pane.
+class PaneScope extends InheritedWidget {
+  const PaneScope({super.key, required this.panes, required super.child});
+
+  final List<String> panes;
+
+  static List<String> of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PaneScope>()?.panes ??
+      const [];
+
+  /// The same, for a context that is only being looked at, not built.
+  static List<String> peek(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<PaneScope>()?.panes ?? const [];
+
+  @override
+  bool updateShouldNotify(PaneScope oldWidget) =>
+      !listEquals(panes, oldWidget.panes);
+}
+
+/// Moves the focus between tiles the launcher's way.
+///
+/// Where a press of the D-pad leads is decided by [navigate]: what is in the
+/// same pane first, then in a pane inside it, then around it, then anywhere.
+///
+/// It also does not scroll to what it focuses. Flutter's own handling
+/// scrolls every scrollable around the newly focused widget, to its end when
+/// moving right or down and to its start when moving left or up; a
+/// [FocusTile] decides for itself how it comes into view, and two rules
+/// pulling in turn made panes jump.
+class TileTraversal extends StatelessWidget {
+  const TileTraversal({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      FocusTraversalGroup(policy: _PanePolicy(), child: child);
+}
+
+class _PanePolicy extends ReadingOrderTraversalPolicy {
+  _PanePolicy() : super(requestFocusCallback: _focusOnly);
+
+  static void _focusOnly(
+    FocusNode node, {
+    ScrollPositionAlignmentPolicy? alignmentPolicy,
+    double? alignment,
+    Duration? duration,
+    Curve? curve,
+  }) => node.requestFocus();
+
+  static NavSpot<FocusNode> _spot(FocusNode node) =>
+      NavSpot(node, node.rect, switch (node.context) {
+        null => const [],
+        final context => PaneScope.peek(context),
+      });
+
+  @override
+  bool inDirection(FocusNode currentNode, TraversalDirection direction) {
+    final scope = currentNode.nearestScope;
+    // Nothing has the focus yet: let Flutter pick where to start.
+    if (scope == null || currentNode == scope) {
+      return super.inDirection(currentNode, direction);
+    }
+    final target = navigate(
+      _spot(currentNode),
+      [
+        for (final node in scope.traversalDescendants)
+          if (node != currentNode && node.canRequestFocus) _spot(node),
+      ],
+      switch (direction) {
+        TraversalDirection.left => NavDirection.left,
+        TraversalDirection.right => NavDirection.right,
+        TraversalDirection.up => NavDirection.up,
+        TraversalDirection.down => NavDirection.down,
+      },
+    );
+    if (target == null) return false;
+    target.id.requestFocus();
+    return true;
+  }
+}
 
 /// Something the D-pad can land on. A press selects it; holding the button
 /// down (or pressing Menu) asks for its menu instead.
@@ -51,12 +137,69 @@ class _FocusTileState extends State<FocusTile> {
       _cancelHold();
       return;
     }
-    Scrollable.ensureVisible(
-      context,
-      alignment: 0.5,
-      duration: FocusTile.duration,
-      curve: Curves.easeOut,
-    );
+    _reveal();
+  }
+
+  /// Room left around a tile when a pane scrolls to it: enough for it to
+  /// grow and show its outline when focused.
+  static const _overhang = 12.0;
+
+  /// Scrolls whatever needs scrolling for this tile to be seen. The screen
+  /// brings it to the middle. A pane inside the screen moves only as far as
+  /// it must, so its contents do not shift about as the focus moves in it;
+  /// if the tile is taller than the pane, its top is what shows.
+  void _reveal() {
+    final object = context.findRenderObject();
+    if (object == null) return;
+    final around = <ScrollableState>[];
+    for (
+      var scrollable = Scrollable.maybeOf(context);
+      scrollable != null;
+      scrollable = Scrollable.maybeOf(scrollable.context)
+    ) {
+      around.add(scrollable);
+    }
+    // Each scrollable has one viewport, nested the same way.
+    var viewport = RenderAbstractViewport.maybeOf(object);
+    for (final (index, scrollable) in around.indexed) {
+      final position = scrollable.position;
+      if (index == around.length - 1 || viewport == null) {
+        position.ensureVisible(
+          object,
+          alignment: 0.5,
+          duration: FocusTile.duration,
+          curve: Curves.easeOut,
+        );
+        break;
+      }
+      final top = viewport.getOffsetToReveal(object, 0).offset - _overhang;
+      final bottom = viewport.getOffsetToReveal(object, 1).offset + _overhang;
+      final fits = bottom <= top;
+      // How far down the pane the tile starts, as things are.
+      final from = top + _overhang - position.pixels;
+      final target = top < position.pixels
+          ? top
+          : fits && bottom > position.pixels
+          ? bottom
+          // Too tall to fit: bring its top up, unless it is already near it.
+          : !fits && from > position.viewportDimension / 2
+          ? top
+          : position.pixels;
+      final within = target.clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      if (within != position.pixels) {
+        position.animateTo(
+          within,
+          duration: FocusTile.duration,
+          curve: Curves.easeOut,
+        );
+      }
+      viewport = RenderAbstractViewport.maybeOf(
+        (viewport as RenderObject).parent,
+      );
+    }
   }
 
   void _cancelHold() {

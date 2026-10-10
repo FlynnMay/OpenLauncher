@@ -90,13 +90,24 @@
     position: absolute; z-index: 1; pointer-events: none; color: #ffffffb3;
     top: calc(27 * var(--u)); right: calc(48 * var(--u)); font-size: calc(14 * var(--u));
   }
-  .sbox { height: 100%; display: flex; flex-direction: column; border-radius: calc(14 * var(--u)); border: 0 solid transparent; pointer-events: none; }
-  .sbox.styled { padding: calc(16 * var(--u)); border-width: calc(2 * var(--u)); }
+  /* A pane's box. Its padding (set from the pane) is the same with or without
+     a background, and its outline is drawn over it rather than around it, so
+     neither changes the size of what is inside. */
+  .sbox {
+    height: 100%; display: flex; flex-direction: column; position: relative; pointer-events: none;
+    border-radius: calc(14 * var(--u)); --edge: transparent;
+  }
+  .sbox::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    border: calc(2 * var(--u)) solid var(--edge);
+  }
+  .sbox.styled { overflow: hidden; }
   .stitle {
-    flex: none; font-size: calc(16 * var(--u)); font-weight: 500; color: #ffffffb3; padding-bottom: calc(10 * var(--u));
+    flex: none; font-size: calc(16 * var(--u)); font-weight: 500; color: #ffffffb3;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  /* What does not fit a pane scrolls, as it does on the TV. */
+  /* What does not fit a pane scrolls, as it does on the TV. The padding is
+     inside the part that scrolls, so an outline has room before it is cut. */
   .pscroll { flex: 1; min-height: 0; overflow: hidden auto; scrollbar-width: none; pointer-events: auto; }
   .tile.pane { outline: 1px dashed #ffffff30; outline-offset: -1px; border-radius: calc(14 * var(--u)); }
   .tile.pane.sel { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -164,6 +175,10 @@
     content: attr(data-name); position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; font: 12px system-ui, sans-serif; color: #ffffffa0;
   }
+  /* Where the D-pad leads from each card, drawn over the screen. */
+  #stage > svg.nav { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5; overflow: visible; }
+  .legend { display: inline-flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
   .sheet { position: absolute; background: #1a1c23fa; overflow-y: auto; }
   .sheet > h3 { margin: 0; font-weight: 400; font-size: calc(22 * var(--u)); padding-bottom: calc(16 * var(--u)); }
   #ghost { position: fixed !important; z-index: 9; pointer-events: none; opacity: .9; margin: 0; filter: drop-shadow(0 8px 16px #000a); }
@@ -296,6 +311,7 @@ let resizing = null;   // An item being resized by a handle.
 let styleOpen = new Set();  // Ids of sections and items whose colours are being edited.
 let pendingState = null;    // A state from the TV that arrived mid-drag.
 let picker = null;     // The "add apps" dialog: { section, chosen, query }.
+let navView = null;    // The navigation view: null for off, 'all', or one direction.
 
 const TABS = { layout: 'Layout', wallpaper: 'Wallpaper', options: 'Options' };
 const SIDEBARS = { left: 'Left sidebar', right: 'Right sidebar' };
@@ -306,7 +322,8 @@ const MAX_COLUMNS = 24, MAX_ROWS = 60, MAX_DEPTH = 4, MAX_SPACING = 80;
 const TV = {
   width: 960, height: 540, padY: 27, gapX: 20, gapY: 16, ratio: 1.45,
   railWidth: 98, railOut: 24, railPicW: 64, railPicH: 36, railGap: 12,
-  stylePad: 16, styleBorder: 2,
+  // A pane's padding unless it sets its own, and the gap under its title.
+  panePad: 16, underTitle: 10,
   // Share of the screen's width and height, for small, medium and large.
   popup: { center: [[0.45, 0.62, 0.86], [0.8, 0.8, 0.8]], bottom: [[1, 1, 1], [0.34, 0.5, 0.72]], side: [[0.26, 0.36, 0.5], [1, 1, 1]] },
   sheetPad: [24, 32, 28],
@@ -687,7 +704,9 @@ function fitPane(item) {
   const m = parentGrid.metrics;
   // What is in it, without the spare row the page keeps for dropping into.
   const im = scroll.firstElementChild.metrics, inside = Math.max(1, place(item.pane).rows);
-  const needed = tile.offsetHeight - scroll.clientHeight + inside * im.rowH + (inside - 1) * im.gapY;
+  const padded = getComputedStyle(scroll);
+  const needed = tile.offsetHeight - scroll.offsetHeight + parseFloat(padded.paddingTop) + parseFloat(padded.paddingBottom)
+    + inside * im.rowH + (inside - 1) * im.gapY;
   const rows = (needed + m.gapY) / (m.rowH + m.gapY);
   setSize([item], null, parent.mode === 'free' && !snapToGrid ? Math.ceil(rows * 20) / 20 : Math.ceil(rows - 0.01));
 }
@@ -707,7 +726,8 @@ function paint(node, style) {
   node.style.background = css.background;
   node.style.borderColor = css.borderColor;
   // A card's outline is drawn by its ::after.
-  if (node.classList.contains('art')) node.style.setProperty('--edge', css.borderColor || 'transparent');
+  // Cards and panes draw their outline over themselves, with ::after.
+  if (node.classList.contains('art') || node.classList.contains('sbox')) node.style.setProperty('--edge', css.borderColor || 'transparent');
   node.classList.toggle('styled', !!(css.background || css.borderColor));
 }
 
@@ -808,6 +828,8 @@ function fitFaces() {
     const scale = Math.min(box.clientWidth / face.offsetWidth, box.clientHeight / face.offsetHeight);
     if (isFinite(scale) && scale > 0) face.style.transform = `scale(${scale})`;
   }
+  // The last step of drawing the stage: everything is where it will be.
+  drawNavigation();
 }
 
 function cardArt(card) {
@@ -886,13 +908,16 @@ function cells(section, width, u, rail, minHeight = 0) {
       onpointerdown: (e) => startPress(e, item, node),
     }), p);
     node.dataset.item = item.id;
+    node.dataset.kind = item.kind;
     if (item.pane) {
       // A pane: its background and title, and its own grid inside.
       const b = box(p), pane = item.pane;
-      const edge = pane.style ? (TV.stylePad + TV.styleBorder) * u : 0;
-      const inner = el('div', { class: 'sbox' },
-        pane.title ? el('div', { class: 'stitle', textContent: pane.title }) : null,
-        el('div', { class: 'pscroll' }, cells(pane, Math.max(1, b.width - 2 * edge), u, false)));
+      const pad = (pane.padding ?? TV.panePad) * u;
+      const heading = pane.title ? el('div', { class: 'stitle', textContent: pane.title }) : null;
+      if (heading) heading.style.padding = `${px(pad)} ${px(pad)} 0`;
+      const scroll = el('div', { class: 'pscroll' }, cells(pane, Math.max(1, b.width - 2 * pad), u, false));
+      scroll.style.padding = `${px(heading ? TV.underTitle * u : pad)} ${px(pad)} ${px(pad)}`;
+      const inner = el('div', { class: 'sbox' }, heading, scroll);
       inner.dataset.sbox = pane.id;
       if (pane.style) paint(inner, pane.style);
       node.classList.add('pane');
@@ -954,7 +979,10 @@ function renderStage() {
 
   if (panel.id === 'home') {
     // The global pane is the whole screen, edge to edge; the rails lie over it.
-    const global = cells(panel.pane, width, u, false, TV.height * u);
+    // It has no padding unless it is given some.
+    const edge = (panel.pane.padding ?? 0) * u;
+    const global = el('div', {}, cells(panel.pane, width - 2 * edge, u, false, TV.height * u - 2 * edge));
+    global.style.padding = px(edge);
     const fold = el('div', { class: 'fold' });
     fold.style.top = px(TV.height * u);
     // The TV shows a Settings button for as long as its card is nowhere.
@@ -973,7 +1001,8 @@ function renderStage() {
   const [padTop, padX, padBottom] = TV.sheetPad.map((n) => n * u);
   const sheet = el('div', { class: 'sheet' },
     panel.title ? el('h3', { textContent: panel.title }) : null,
-    cells(panel.pane, sheetW - 2 * padX, u, false));
+    cells(panel.pane, sheetW - 2 * padX - 2 * (panel.pane.padding ?? 0) * u, u, false));
+  sheet.lastElementChild.style.margin = px((panel.pane.padding ?? 0) * u);
   Object.assign(sheet.style, { width: px(sheetW), padding: `${px(padTop)} ${px(padX)} ${px(padBottom)}` });
   if (panel.position === 'center') {
     Object.assign(sheet.style, { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', maxHeight: px(sheetH), borderRadius: px(18 * u) });
@@ -1004,6 +1033,121 @@ new ResizeObserver(() => {
   // Not inside the observer itself: redrawing resizes what it observes.
   requestAnimationFrame(renderStage);
 }).observe(stage);
+
+/* ---------- where the remote's D-pad leads ---------- */
+
+const NAV = {
+  left: { label: '←', name: 'Left', color: '#ffd54f' },
+  right: { label: '→', name: 'Right', color: '#69f0ae' },
+  up: { label: '↑', name: 'Up', color: '#8c9eff' },
+  down: { label: '↓', name: 'Down', color: '#ff8a80' },
+};
+
+/* How the pane of one card stands to the pane of another: the order of
+   preference when moving. 0 the same pane, 1 a pane inside it, 2 a pane
+   around it, 3 anything else. */
+function navKinship(from, to) {
+  const shared = Math.min(from.length, to.length);
+  for (let i = 0; i < shared; i++) if (from[i] !== to[i]) return 3;
+  if (!from.length || !to.length) return 3;
+  return to.length === from.length ? 0 : to.length > from.length ? 1 : 2;
+}
+
+/* Where the focus goes from `from` in a direction, or null. The TV decides
+   with the same rule (lib/core/layout/navigation.dart); change them together. */
+function navigate(from, spots, direction) {
+  const a = from.rect, slack = 0.01 * Math.min(a.width, a.height);
+  const cx = (r) => r.left + r.width / 2, cy = (r) => r.top + r.height / 2;
+  let best = null, bestKinship = 3, bestInLine = false, bestScore = Infinity;
+  for (const spot of spots) {
+    if (spot === from || spot.id === from.id) continue;
+    const c = spot.rect;
+    const across = Math.max(c.top - a.bottom, a.top - c.bottom), down = Math.max(c.left - a.right, a.left - c.right);
+    // In that direction: its middle is past ours, and it reaches further.
+    const [ahead, gap, apart, askew] = {
+      right: [cx(c) > cx(a) && c.right > a.right + slack, c.left - a.right, across, Math.abs(cy(c) - cy(a))],
+      left: [cx(c) < cx(a) && c.left < a.left - slack, a.left - c.right, across, Math.abs(cy(c) - cy(a))],
+      down: [cy(c) > cy(a) && c.bottom > a.bottom + slack, c.top - a.bottom, down, Math.abs(cx(c) - cx(a))],
+      up: [cy(c) < cy(a) && c.top < a.top - slack, a.top - c.bottom, down, Math.abs(cx(c) - cx(a))],
+    }[direction];
+    if (!ahead) continue;
+    const kinship = navKinship(from.panes, spot.panes);
+    const inLine = apart < 0;
+    const score = Math.max(0, gap) + 3 * Math.max(0, apart) + 0.25 * askew;
+    // The same pane first; then what is in line; then the kind of pane; then the nearest.
+    const better = best === null ? true
+      : (kinship === 0) !== (bestKinship === 0) ? kinship === 0
+      : inLine !== bestInLine ? inLine
+      : kinship !== bestKinship ? kinship < bestKinship
+      : score < bestScore;
+    if (better) { best = spot; bestKinship = kinship; bestInLine = inLine; bestScore = score; }
+  }
+  return best;
+}
+
+/* Everything the focus can land on, as drawn: cards and folders, each with
+   its place on the stage and the panes it is in, outermost first. */
+function navSpots() {
+  const origin = stage.getBoundingClientRect();
+  return [...stage.querySelectorAll('.tile[data-kind="card"], .tile[data-kind="panel"]')].map((tile) => {
+    const r = tile.getBoundingClientRect();
+    const panes = [];
+    for (let grid = tile.closest('.cells'); grid; grid = grid.parentElement.closest('.cells')) panes.unshift(grid.dataset.section);
+    const left = r.left - origin.left, top = r.top - origin.top;
+    return { id: tile.dataset.item, panes, rect: { left, top, right: left + r.width, bottom: top + r.height, width: r.width, height: r.height } };
+  });
+}
+
+/* Draws an arrow from every card (or just the selected ones) to wherever
+   each direction takes the focus. */
+function drawNavigation() {
+  stage.querySelector('svg.nav')?.remove();
+  if (!navView) return;
+  const spots = navSpots();
+  const from = sel.size ? spots.filter((spot) => sel.has(spot.id)) : spots;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'nav');
+  svg.setAttribute('width', stage.scrollWidth);
+  svg.setAttribute('height', stage.scrollHeight);
+  const defs = document.createElementNS(ns, 'defs');
+  svg.append(defs);
+  for (const [direction, look] of Object.entries(NAV)) {
+    if (navView !== 'all' && navView !== direction) continue;
+    const marker = document.createElementNS(ns, 'marker');
+    for (const [key, value] of Object.entries({ id: 'head-' + direction, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' })) marker.setAttribute(key, value);
+    const head = document.createElementNS(ns, 'path');
+    head.setAttribute('d', 'M0 0 10 5 0 10z');
+    head.setAttribute('fill', look.color);
+    marker.append(head);
+    defs.append(marker);
+    const sideways = direction === 'left' || direction === 'right';
+    // Kept a little off the middle, so that there and back do not overlap.
+    const shift = direction === 'right' || direction === 'down' ? 6 : -6;
+    for (const spot of from) {
+      const target = navigate(spot, spots, direction);
+      if (!target) continue;
+      const a = spot.rect, c = target.rect;
+      const mid = (r) => sideways ? r.top + r.height / 2 : r.left + r.width / 2;
+      // From the edge it leaves by to the edge it arrives at.
+      const start = sideways ? [direction === 'right' ? a.right : a.left, mid(a) + shift] : [mid(a) + shift, direction === 'down' ? a.bottom : a.top];
+      const end = sideways ? [direction === 'right' ? c.left : c.right, mid(c) + shift] : [mid(c) + shift, direction === 'down' ? c.top : c.bottom];
+      // Where the two overlap, or it would have to turn back: middle to middle.
+      const backwards = sideways ? (end[0] - start[0]) * (direction === 'right' ? 1 : -1) < 4 : (end[1] - start[1]) * (direction === 'down' ? 1 : -1) < 4;
+      if (backwards) {
+        start[0] = a.left + a.width / 2 + (sideways ? 0 : shift); start[1] = a.top + a.height / 2 + (sideways ? shift : 0);
+        end[0] = c.left + c.width / 2 + (sideways ? 0 : shift); end[1] = c.top + c.height / 2 + (sideways ? shift : 0);
+      }
+      const line = document.createElementNS(ns, 'path');
+      line.setAttribute('d', `M${start[0]} ${start[1]} L${end[0]} ${end[1]}`);
+      for (const [key, value] of Object.entries({ stroke: look.color, 'stroke-width': 2, fill: 'none', 'stroke-linecap': 'round', 'marker-end': `url(#head-${direction})`, opacity: 0.95 })) line.setAttribute(key, value);
+      // A dark edge, to stand out on any wallpaper.
+      line.style.filter = 'drop-shadow(0 0 1.5px #000)';
+      svg.append(line);
+    }
+  }
+  stage.append(svg);
+}
 
 /* ---------- dragging: one way of working for mouse, pen and finger ---------- */
 
@@ -1280,6 +1424,14 @@ function renderPanels() {
     ...chips,
     button('+ Folder', 'Make a new folder or panel, with a card on Home that opens it', () => addPopup(inboxSection())),
     el('span', { class: 'spacer' }),
+    navView ? el('span', { class: 'legend' }, ...Object.values(NAV).map((look) => {
+      const swatch = el('i');
+      swatch.style.background = look.color;
+      return el('span', {}, swatch, look.name);
+    })) : null,
+    select([['', 'Navigation: off'], ['all', 'Navigation: all'], ...Object.entries(NAV).map(([id, look]) => [id, `Navigation: ${look.label} ${look.name.toLowerCase()}`])],
+      navView || '', (value) => { navView = value || null; render(); },
+      'Show where each press of the remote takes the focus: from every card, or from the selected ones. Cards in the same pane come first; after that, what is straight ahead, preferring a pane inside, then the pane around, then others.'),
     check('Snap to grid', snapToGrid, (on) => {
       snapToGrid = on;
       try { localStorage.setItem('snapToGrid', on ? 'on' : 'off'); } catch (e) { /* not remembered, then */ }
@@ -1402,6 +1554,12 @@ function paneRows(section, host) {
       if (spacing.value === '') delete section.spacing; else section.spacing = clamp(Math.round(spacing.value) || 0, 0, MAX_SPACING);
       save();
     } });
+  const padding = el('input', { type: 'number', min: 0, max: MAX_SPACING, placeholder: host ? 'auto' : '0', value: section.padding ?? '',
+    title: 'The room between the edge and what is inside, in TV pixels. Empty for the usual: 16 in a pane, none around the screen.',
+    onchange: () => {
+      if (padding.value === '') delete section.padding; else section.padding = clamp(Math.round(padding.value) || 0, 0, MAX_SPACING);
+      save();
+    } });
   const popups = layout.panels.filter((p) => panelKind(p) === 'popup' && p.id !== panel.id);
   const rail = railSection(section);
   return [
@@ -1411,6 +1569,7 @@ function paneRows(section, host) {
         'In order: one after another. On cells: each in a cell of its own. Anywhere: overlapping allowed, and with "Snap to grid" off, any position and size.')),
       el('label', {}, 'Columns', columns),
       el('label', {}, 'Spacing', spacing),
+      el('label', {}, 'Padding', padding),
       panel.id === 'home' ? check('New apps go here', layout.inbox === section.id, () => { layout.inbox = section.id; save(); }) : null,
       host ? coloursButton(section.id, 'Background and border of this pane') : null,
       host ? button('Fit to contents', 'Make the pane just tall enough for what is in it', () => fitPane(host)) : null,

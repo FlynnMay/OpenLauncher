@@ -60,45 +60,48 @@ class _RailState extends State<Rail> {
           alignment: edge,
           minWidth: Rail._openWidth,
           maxWidth: Rail._openWidth,
-          child: Directionality(
-            textDirection: widget.onLeft
-                ? TextDirection.ltr
-                : TextDirection.rtl,
-            child: ListView.separated(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                Rail._outer,
-                27,
-                Rail._inner,
-                27,
-              ),
-              itemCount: entries.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final entry = entries[index];
-                final tile = EntryTile(
-                  entry: entry,
-                  style: TileStyle.rail,
-                  compact: !_open,
-                );
-                return SizedBox(
-                  key: ValueKey(entry.item.id),
-                  height: entry is WidgetEntry
-                      ? Rail._tileHeight * entry.item.h.clamp(1, 3)
-                      : Rail._tileHeight,
-                  // Closed, a row is only as wide as its picture: the D-pad
-                  // finds its way by where things are, and a row reaching
-                  // under the home screen would be in the way. The tile
-                  // keeps its place in the tree, and so the focus.
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: SizedBox(
-                      width: _open ? double.infinity : Rail._pictureWidth,
-                      height: double.infinity,
-                      child: tile,
+          child: PaneScope(
+            panes: [widget.view.root.pane.id],
+            child: Directionality(
+              textDirection: widget.onLeft
+                  ? TextDirection.ltr
+                  : TextDirection.rtl,
+              child: ListView.separated(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  Rail._outer,
+                  27,
+                  Rail._inner,
+                  27,
+                ),
+                itemCount: entries.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
+                  final tile = EntryTile(
+                    entry: entry,
+                    style: TileStyle.rail,
+                    compact: !_open,
+                  );
+                  return SizedBox(
+                    key: ValueKey(entry.item.id),
+                    height: entry is WidgetEntry
+                        ? Rail._tileHeight * entry.item.h.clamp(1, 3)
+                        : Rail._tileHeight,
+                    // Closed, a row is only as wide as its picture: the D-pad
+                    // finds its way by where things are, and a row reaching
+                    // under the home screen would be in the way. The tile
+                    // keeps its place in the tree, and so the focus.
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: SizedBox(
+                        width: _open ? double.infinity : Rail._pictureWidth,
+                        height: double.infinity,
+                        child: tile,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),

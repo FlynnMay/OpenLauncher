@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/rail.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
@@ -215,7 +217,11 @@ void main() {
           end = gradient.end as Alignment;
       expect((begin.x, end.x), (-1, 1));
       expect(begin.y, closeTo(0, 1e-9));
-      expect(section.border!.top.color, const Color(0x55FFFFFF));
+      // The outline is painted over the pane, by a decoration of its own.
+      expect(
+        decorations.map((d) => d.border?.top.color),
+        contains(const Color(0x55FFFFFF)),
+      );
 
       final card = tester.widget<AnimatedContainer>(
         find
@@ -287,6 +293,119 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       expect(platform.launched, ['pkg.a']);
+    });
+
+    testWidgets('a pane pads the same with or without a background', (
+      tester,
+    ) async {
+      Pane pane(String id, String package, BoxStyle style) =>
+          Pane(id: id, columns: 2, style: style, items: [card(package)]);
+      await pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'plain',
+            removed: const {'app:pkg.c', 'launcher:settings'},
+            panels: [
+              home([
+                pane('plain', 'pkg.a', BoxStyle.none),
+                pane(
+                  'painted',
+                  'pkg.b',
+                  const BoxStyle(colors: [0xFF224466], border: 0xFFFFFFFF),
+                ),
+              ]),
+            ],
+          ).normalised(),
+        ),
+      );
+      // The whole tile, which does not grow when focused as its picture does.
+      Rect tile(String name) => tester.getRect(
+        find
+            .ancestor(of: find.text(name).first, matching: find.byType(ArtTile))
+            .first,
+      );
+      Rect box(String name) => tester.getRect(
+        find
+            .ancestor(of: find.text(name).first, matching: find.byType(PaneBox))
+            .first,
+      );
+      // Beta's pane has a background and an outline; Alpha's has neither.
+      // Each card is the same size, the same distance in from its pane.
+      final alpha = tile('Alpha'), beta = tile('Beta');
+      expect(beta.width, closeTo(alpha.width, 1e-6));
+      expect(beta.height, closeTo(alpha.height, 1e-6));
+      for (final (card, pane) in [(alpha, box('Alpha')), (beta, box('Beta'))]) {
+        expect(card.left - pane.left, closeTo(Pane.defaultPadding, 1e-6));
+        expect(card.top - pane.top, closeTo(Pane.defaultPadding, 1e-6));
+      }
+    });
+
+    testWidgets('a pane too short for its cards shows their tops', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'short',
+            removed: const {'app:pkg.c', 'launcher:settings'},
+            panels: [
+              Panel(
+                id: Layout.homeId,
+                root: Pane(
+                  id: 'global',
+                  mode: PaneMode.grid,
+                  columns: 12,
+                  items: [
+                    // One row tall, but its two columns make cards far
+                    // taller than that.
+                    LayoutItem.pane(
+                      Pane(
+                        id: 'short',
+                        columns: 2,
+                        items: [card('pkg.a'), card('pkg.b')],
+                      ),
+                      x: 2,
+                      y: 1,
+                      w: 8,
+                      h: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ).normalised(),
+        ),
+      );
+      Rect of(Finder finder) => tester.getRect(finder.first);
+      final pane = of(find.byType(PaneBox));
+      Rect tile(String name) => of(
+        find.ancestor(of: find.text(name), matching: find.byType(ArtTile)),
+      );
+      expect(tile('Alpha').height, greaterThan(pane.height));
+      // Whichever has the focus, its top is inside the pane with room to
+      // spare for the outline; it is the bottom that is cut.
+      final resting = tile('Alpha').top;
+      expect(resting - pane.top, greaterThanOrEqualTo(12));
+      // Moving along the row, in either direction, the pane holds still
+      // from the first frame to the last: no jump to the bottom and back.
+      for (final key in [
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.arrowRight,
+      ]) {
+        await tester.sendKeyEvent(key);
+        for (var frame = 0; frame < 12; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(tile('Alpha').top, resting);
+          expect(tile('Beta').top, resting);
+        }
+        await tester.pumpAndSettle();
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(platform.launched, ['pkg.b']);
     });
 
     testWidgets('a rail opens while the focus is in it', (tester) async {

@@ -413,6 +413,39 @@ void main() {
     expect(layout.withCards(['app:x']).home.root.spacing, 4);
   });
 
+  test('a pane keeps the padding it is given, within reason', () {
+    final layout = Layout.fromJson(const {
+      'panels': [
+        {
+          'id': 'home',
+          'pane': {
+            'id': 'global',
+            'padding': 24,
+            'items': [
+              {
+                'id': 'i',
+                'kind': 'pane',
+                'pane': {'id': 'a', 'padding': 900},
+              },
+              {
+                'id': 'j',
+                'kind': 'pane',
+                'pane': {'id': 'b'},
+              },
+            ],
+          },
+        },
+      ],
+    }).normalised();
+    expect(layout.home.root.panes.map((p) => p.padding), [
+      24,
+      Pane.maxPadding,
+      null,
+    ]);
+    final json = layout.toJson();
+    expect(Layout.fromJson(json).toJson(), json);
+  });
+
   test('a card can be told to hide its name, and stays told', () {
     final layout = Layout.fromJson(const {
       'panels': [

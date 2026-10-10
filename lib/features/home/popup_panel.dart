@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// Opens the popup panel [panelId] over the current screen. Back closes it.
@@ -43,51 +44,56 @@ class _PanelPopup extends ConsumerWidget {
     final (width, height) = _extent(panel);
     final centred = panel.position == PopupPosition.center;
     final focus = FirstFocus();
-    return Align(
-      alignment: switch (panel.position) {
-        PopupPosition.center => Alignment.center,
-        PopupPosition.bottom => Alignment.bottomCenter,
-        PopupPosition.left => Alignment.centerLeft,
-        PopupPosition.right => Alignment.centerRight,
-      },
-      child: Material(
-        color: const Color(0xFA1A1C23),
-        borderRadius: centred ? BorderRadius.circular(18) : null,
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: screen.width * width,
-            maxWidth: screen.width * width,
-            // Only a centred popup shrinks to fit what is in it.
-            minHeight: centred ? 0 : screen.height * height,
-            maxHeight: screen.height * height,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(32, 24, 32, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (panel.title.isNotEmpty)
+    return TileTraversal(
+      child: Align(
+        alignment: switch (panel.position) {
+          PopupPosition.center => Alignment.center,
+          PopupPosition.bottom => Alignment.bottomCenter,
+          PopupPosition.left => Alignment.centerLeft,
+          PopupPosition.right => Alignment.centerRight,
+        },
+        child: Material(
+          color: const Color(0xFA1A1C23),
+          borderRadius: centred ? BorderRadius.circular(18) : null,
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: screen.width * width,
+              maxWidth: screen.width * width,
+              // Only a centred popup shrinks to fit what is in it.
+              minHeight: centred ? 0 : screen.height * height,
+              maxHeight: screen.height * height,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(32, 24, 32, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (panel.title.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        panel.title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                  if (view.isEmpty)
+                    const Text(
+                      'Nothing here yet. Add cards from the web page.',
+                      style: TextStyle(color: Colors.white60),
+                    ),
+                  // The popup's global pane fills it, inside its margins.
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      panel.title,
-                      style: Theme.of(context).textTheme.titleLarge,
+                    padding: EdgeInsets.all(view.root.pane.padding ?? 0),
+                    child: PaneGrid(
+                      view: view.root,
+                      tile: (entry) =>
+                          EntryTile(entry: entry, focus: focus, inPopup: true),
                     ),
                   ),
-                if (view.isEmpty)
-                  const Text(
-                    'Nothing here yet. Add cards from the web page.',
-                    style: TextStyle(color: Colors.white60),
-                  ),
-                // The popup's global pane fills it, inside its margins.
-                PaneGrid(
-                  view: view.root,
-                  tile: (entry) =>
-                      EntryTile(entry: entry, focus: focus, inPopup: true),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

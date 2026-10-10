@@ -23,6 +23,8 @@ by sideloading and is not on the Play Store.
   with transparency) and border colour.
 - Folders and panels: a card that opens a popup holding other cards. You choose
   where the popup opens and how big it is.
+- Moving with the remote prefers cards in the pane you are in, then what is
+  straight ahead. The config page can draw where each direction leads.
 - Sidebars: a strip on the left or right edge that opens when you move onto it.
 - Settings is a card like any other. If you remove it, a Settings button
   appears at the top right of the TV screen instead.

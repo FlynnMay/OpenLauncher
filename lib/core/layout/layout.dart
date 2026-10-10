@@ -5,4 +5,5 @@ library;
 export 'box_style.dart';
 export 'layout_model.dart';
 export 'layout_view.dart';
+export 'navigation.dart';
 export 'placement.dart';

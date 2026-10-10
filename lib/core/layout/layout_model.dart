@@ -200,9 +200,15 @@ class Pane {
     this.items = const [],
     this.style = BoxStyle.none,
     this.spacing,
+    this.padding,
   });
 
   static const defaultColumns = 5;
+
+  /// The room a pane keeps between its edge and what is in it when
+  /// [padding] is not set; a global pane keeps none.
+  static const defaultPadding = 16.0;
+  static const maxPadding = 80.0;
 
   /// The gap between cells, across and down, when [spacing] is not set.
   static const defaultSpacingX = 20.0, defaultSpacingY = 16.0;
@@ -238,6 +244,11 @@ class Pane {
   /// decides how big a cell is and how far it is from the next.
   final double? spacing;
 
+  /// The room between the pane's edge and what is in it, in the TV's
+  /// 960-wide pixels; null for the usual one. It is the same whether or not
+  /// the pane has a background or a border.
+  final double? padding;
+
   double get spacingX => spacing ?? defaultSpacingX;
   double get spacingY => spacing ?? defaultSpacingY;
 
@@ -249,6 +260,7 @@ class Pane {
     items: items,
     style: style,
     spacing: spacing,
+    padding: padding,
   );
 
   /// This pane and every pane inside it.
@@ -286,6 +298,7 @@ class Pane {
     items: _list(json, 'items', LayoutItem.fromJson),
     style: BoxStyle.fromJson(json['style']),
     spacing: _optional<num>(json, 'spacing')?.toDouble(),
+    padding: _optional<num>(json, 'padding')?.toDouble(),
   );
 
   Map<String, Object?> toJson() => {
@@ -296,6 +309,10 @@ class Pane {
     'spacing': ?switch (spacing) {
       null => null,
       final spacing => _tidy(spacing),
+    },
+    'padding': ?switch (padding) {
+      null => null,
+      final padding => _tidy(padding),
     },
     if (!style.isEmpty) 'style': style.toJson(),
     'items': [for (final item in items) item.toJson()],
@@ -397,7 +414,7 @@ class Panel {
   static const _screenWidth = 960.0, _screenHeight = 540.0, _bottom = 27.0;
   static const _margin = 48.0, _top = 79.0;
   static const _gapX = 20.0, _gapY = 16.0, _cellRatio = 1.45;
-  static const _stylePad = 18.0, _titleHeight = 30.0, _between = 24.0;
+  static const _titleHeight = 30.0, _between = 24.0;
 
   /// The global pane for what used to be a stack of [sections], each now a
   /// pane where it was and as big as it was.
@@ -426,7 +443,7 @@ class Panel {
     var top = home ? _top : 0.0;
     final items = <LayoutItem>[];
     for (final section in sections) {
-      final pad = section.style.isEmpty ? 0.0 : _stylePad;
+      const pad = Pane.defaultPadding;
       final cell =
           (width - 2 * pad - (section.columns - 1) * _gapX) / section.columns;
       final rows = rowCount(
@@ -651,6 +668,11 @@ class Layout {
         spacing: switch (pane.spacing) {
           final spacing? when spacing.isFinite && !rail =>
             spacing.clamp(0, Pane.maxSpacing).toDouble(),
+          _ => null,
+        },
+        padding: switch (pane.padding) {
+          final padding? when padding.isFinite && !rail =>
+            padding.clamp(0, Pane.maxPadding).toDouble(),
           _ => null,
         },
       );
