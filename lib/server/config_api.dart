@@ -11,6 +11,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/server/custom_icons.dart';
+import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/wallpaper_store.dart';
 import 'package:shelf/shelf.dart';
 
@@ -141,7 +142,11 @@ class ConfigApi {
 
   Future<Response> _route(Request request) async {
     final id = request.url.queryParameters['id'];
-    return switch ((request.method, request.url.path)) {
+    final path = request.url.path;
+    if (request.method == 'GET' && EditorFiles.owns(path)) {
+      return EditorFiles.serve(request);
+    }
+    return switch ((request.method, path)) {
       ('GET', '') => Response.ok(
         await _ref.read(configPageProvider.future),
         headers: {'content-type': 'text/html; charset=utf-8'},

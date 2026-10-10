@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 
 /// How a tile is drawn: as a card with its label underneath, or as a row of
@@ -151,8 +150,8 @@ class CardArt extends StatelessWidget {
         final svg => SvgPicture.string(svg, fit: BoxFit.contain),
       };
     }
-    final image = Image.file(
-      File(path),
+    final image = Image(
+      image: pictureAt(path),
       fit: card.wideIcon ? BoxFit.cover : BoxFit.contain,
       gaplessPlayback: true,
       errorBuilder: (_, _, _) => fallback,
@@ -183,8 +182,8 @@ class FolderArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entry.icon case final icon?) {
-      return Image.file(
-        File(icon),
+      return Image(
+        image: pictureAt(icon),
         fit: BoxFit.cover,
         gaplessPlayback: true,
         errorBuilder: (_, _, _) => SvgPicture.string(_outline),

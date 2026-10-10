@@ -44,3 +44,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# The built web editor (tool/build_editor.sh)
+/assets/editor/*
+!/assets/editor/.gitkeep
