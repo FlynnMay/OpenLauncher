@@ -268,6 +268,141 @@ Layout removeItem(Layout layout, String id) {
   );
 }
 
+/// An item of the layout with where it is: the pane it is in and the panel
+/// that pane is on.
+typedef Found = ({LayoutItem item, Pane parent, Panel panel});
+
+/// The items [ids] name, in the order they are in [layout]; ids of things
+/// that are no longer there are left out.
+List<Found> findItems(Layout layout, Set<String> ids) => [
+  for (final panel in layout.panels)
+    for (final pane in panel.root.panes)
+      for (final item in pane.items)
+        if (ids.contains(item.id)) (item: item, parent: pane, panel: panel),
+];
+
+/// [layout] with each of the items [ids] replaced by what [change] makes of
+/// it, given the pane it is in.
+Layout changeItems(
+  Layout layout,
+  Set<String> ids,
+  LayoutItem Function(LayoutItem item, Pane parent) change,
+) => _rebuilt(
+  layout,
+  (pane, items) => [
+    for (final item in items) ids.contains(item.id) ? change(item, pane) : item,
+  ],
+);
+
+/// [layout] with the items [ids] made [w] cells wide and [h] tall; either
+/// may be left as it is. In a pane with cells, what is then in the way of
+/// one of them moves aside.
+Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
+    _rebuilt(layout, (pane, items) {
+      final whole = pane.mode != PaneMode.free;
+      final least = whole ? 1.0 : Pane.minFreeSpan;
+      double fit(double value, double most) =>
+          (whole ? value.roundToDouble() : value).clamp(least, most);
+      var next = [
+        for (final item in items)
+          if (ids.contains(item.id))
+            () {
+              final wide = fit(w ?? item.w, pane.columns * 1.0);
+              return item.sized(
+                wide,
+                fit(h ?? item.h, Pane.maxRows * 1.0),
+                // Kept inside the pane's width.
+                x: item.x?.clamp(0, pane.columns - wide).toDouble(),
+                y: item.y,
+              );
+            }()
+          else
+            item,
+      ];
+      if (pane.mode == PaneMode.grid) {
+        for (final item in items) {
+          if (ids.contains(item.id)) {
+            next = settle(next, pane.columns, fixed: item.id);
+          }
+        }
+      }
+      return next;
+    });
+
+/// [pane] placing its items the [mode] way, each staying where it was as
+/// far as that way allows.
+Pane withMode(Pane pane, PaneMode mode) {
+  final placed = placeItems(pane.items, pane.columns, pane.mode);
+  final whole = mode != PaneMode.free;
+  double size(double value) => whole ? max(1.0, value.roundToDouble()) : value;
+  final List<LayoutItem> items;
+  if (mode == PaneMode.flow) {
+    // In reading order of where they were.
+    final order = [for (var i = 0; i < placed.length; i++) i]
+      ..sort((a, b) {
+        final rows = placed[a].y.compareTo(placed[b].y);
+        return rows != 0 ? rows : placed[a].x.compareTo(placed[b].x);
+      });
+    items = [
+      for (final index in order)
+        pane.items[index].sized(
+          size(pane.items[index].w),
+          size(pane.items[index].h),
+        ),
+    ];
+  } else {
+    double place(double value) => whole ? value.roundToDouble() : value;
+    items = [
+      for (final (index, item) in pane.items.indexed)
+        item.sized(
+          size(item.w),
+          size(item.h),
+          x: place(placed[index].x),
+          y: place(placed[index].y),
+        ),
+    ];
+  }
+  return pane.copyWith(
+    mode: mode,
+    items: mode == PaneMode.grid ? settle(items, pane.columns) : items,
+  );
+}
+
+/// [pane] with [columns] cells across; what no longer fits is made to.
+Pane withColumns(Pane pane, int columns) {
+  final items = [
+    for (final item in pane.items)
+      () {
+        final w = min(item.w, columns * 1.0);
+        return item.sized(
+          w,
+          item.h,
+          x: item.x?.clamp(0, columns - w).toDouble(),
+          y: item.y,
+        );
+      }(),
+  ];
+  return pane.copyWith(
+    columns: columns,
+    items: pane.mode == PaneMode.grid ? settle(items, columns) : items,
+  );
+}
+
+/// [layout] with the panel [id] replaced by what [change] makes of it.
+Layout changePanel(Layout layout, String id, Panel Function(Panel) change) =>
+    Layout(
+      inbox: layout.inbox,
+      removed: layout.removed,
+      panels: [
+        for (final panel in layout.panels)
+          panel.id == id ? change(panel) : panel,
+      ],
+    );
+
+/// [layout] with new apps going to the pane [paneId].
+Layout withInbox(Layout layout, String paneId) =>
+    Layout(inbox: paneId, removed: layout.removed, panels: layout.panels);
+
 /// How many times each card is somewhere in [layout], by card id.
 Map<String, int> placedCounts(Layout layout) {
   final counts = <String, int>{};

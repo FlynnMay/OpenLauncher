@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/catalogue.dart';
+import 'package:openlauncher/editor/inspector.dart';
+import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_link.dart';
 
@@ -27,17 +31,18 @@ class EditorApp extends StatelessWidget {
   );
 }
 
-class EditorScreen extends StatefulWidget {
+class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key});
 
-  /// From this width on, the catalogue is beside the screen, not under it.
-  static const _wide = 760.0;
+  /// From this width on, the catalogue and the settings of what is picked
+  /// out are either side of the screen, not under it.
+  static const _wide = 1000.0;
 
   @override
-  State<EditorScreen> createState() => _EditorScreenState();
+  ConsumerState<EditorScreen> createState() => _EditorScreenState();
 }
 
-class _EditorScreenState extends State<EditorScreen> {
+class _EditorScreenState extends ConsumerState<EditorScreen> {
   bool _editing = true;
 
   /// Keeps the launcher as it was when the page is laid out anew.
@@ -68,41 +73,67 @@ class _EditorScreenState extends State<EditorScreen> {
               ),
             ],
             selected: {_editing},
-            onSelectionChanged: (chosen) =>
-                setState(() => _editing = chosen.single),
+            onSelectionChanged: (chosen) {
+              ref.read(selectionProvider.notifier).clear();
+              setState(() => _editing = chosen.single);
+            },
           ),
           const SizedBox(width: 12),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth >= EditorScreen._wide;
-          final screen = Padding(
-            padding: const EdgeInsets.all(12),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: AspectRatio(
-                aspectRatio: TvScreen.size.aspectRatio,
-                child: FittedBox(
-                  child: Stage(key: _stage, editing: _editing),
+      // Delete takes what is picked out off the TV; Escape lets go of it.
+      body: CallbackShortcuts(
+        bindings: {
+          if (_editing) ...{
+            const SingleActivator(LogicalKeyboardKey.delete): () =>
+                removeSelected(context, ref),
+            const SingleActivator(LogicalKeyboardKey.escape): ref
+                .read(selectionProvider.notifier)
+                .clear,
+          },
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= EditorScreen._wide;
+            final picked = ref.watch(
+              selectionProvider.select((ids) => ids.isNotEmpty),
+            );
+            final screen = Padding(
+              padding: const EdgeInsets.all(12),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: AspectRatio(
+                  aspectRatio: TvScreen.size.aspectRatio,
+                  child: FittedBox(
+                    child: Stage(key: _stage, editing: _editing),
+                  ),
                 ),
               ),
-            ),
-          );
-          final catalogue = Material(
-            color: surface,
-            child: _editing ? const Catalogue() : const SizedBox.shrink(),
-          );
-          return Flex(
-            direction: wide ? Axis.horizontal : Axis.vertical,
-            children: wide
-                ? [
-                    SizedBox(width: _editing ? 316 : 0, child: catalogue),
-                    Expanded(child: screen),
-                  ]
-                : [screen, Expanded(child: catalogue)],
-          );
-        },
+            );
+            Widget side(Widget child) => Material(color: surface, child: child);
+            if (!_editing) return screen;
+            return wide
+                ? Row(
+                    children: [
+                      SizedBox(width: 316, child: side(const Catalogue())),
+                      Expanded(child: screen),
+                      SizedBox(width: 300, child: side(const Inspector())),
+                    ],
+                  )
+                // With less room they take turns under the screen: what
+                // can be added, until something is picked out.
+                : Column(
+                    children: [
+                      screen,
+                      Expanded(
+                        child: side(
+                          picked ? const Inspector() : const Catalogue(),
+                        ),
+                      ),
+                    ],
+                  );
+          },
+        ),
       ),
     );
   }

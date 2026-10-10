@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -6,6 +7,7 @@ import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
@@ -19,6 +21,17 @@ class TvScreen extends StatelessWidget {
 
   /// The TV's screen, in the units everything on it is measured in.
   static const size = Size(960, 540);
+
+  /// The launcher's own navigator, for opening something on its screen
+  /// from outside it.
+  static final navigator = GlobalKey<NavigatorState>();
+
+  /// Shows the popup [panelId] on the launcher's screen.
+  static void openPopup(String panelId) {
+    if (navigator.currentState?.overlay?.context case final context?) {
+      showPanelPopup(context, panelId);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => SizedBox.fromSize(
@@ -35,6 +48,7 @@ class TvScreen extends StatelessWidget {
         // screen instead of covering the page.
         child: ScaffoldMessenger(
           child: Navigator(
+            key: navigator,
             onGenerateRoute: (_) =>
                 MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
           ),
@@ -82,8 +96,11 @@ class _StageState extends ConsumerState<Stage> {
     Dragged dragged(String label, Widget picture) =>
         Dragged(item: entry.item, placed: true, label: label, picture: picture);
     // The tile's own taps and holds are the remote's; absorbed, not
-    // ignored, so that a drag starts where the tile is touched.
-    final still = AbsorbPointer(child: tile);
+    // ignored, so that a tap or a drag starts where the tile is touched.
+    final still = _Selectable(
+      id: entry.item.id,
+      child: AbsorbPointer(child: tile),
+    );
     switch (entry) {
       case PaneEntry(view: PaneView(:final pane)):
         return KeyedSubtree(
@@ -94,13 +111,11 @@ class _StageState extends ConsumerState<Stage> {
               const SymbolArt(Icons.dashboard_outlined),
             ),
             // Outlined, so that a pane with no background can be seen and
-            // picked up by any part of it.
-            child: DecoratedBox(
-              position: DecorationPosition.foreground,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white24),
-              ),
+            // picked up or picked out by any part of it.
+            child: _Selectable(
+              id: entry.item.id,
+              radius: 14,
+              resting: Colors.white24,
               child: tile,
             ),
           ),
@@ -110,16 +125,10 @@ class _StageState extends ConsumerState<Stage> {
           data: dragged(card.label, CardArt(card: card, padding: 4)),
           child: still,
         );
-      case PanelEntry(:final panel):
+      case PanelEntry():
         return DragHandle(
           data: dragged(entry.label, FolderArt(entry: entry)),
-          // A folder still opens, so that what is in it can be arranged.
-          child: Builder(
-            builder: (context) => GestureDetector(
-              onTap: () => showPanelPopup(context, panel.id),
-              child: still,
-            ),
-          ),
+          child: still,
         );
       case WidgetEntry(:final item):
         return DragHandle(
@@ -239,7 +248,14 @@ class _StageState extends ConsumerState<Stage> {
           builder: (context, _, _) => Stack(
             key: _screen,
             children: [
-              const TvScreen(),
+              // A tap on nothing lets go of what was picked out.
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: editing
+                    ? ref.read(selectionProvider.notifier).clear
+                    : null,
+                child: const TvScreen(),
+              ),
               if (_marker case final marker?)
                 Positioned.fromRect(
                   rect: marker,
@@ -259,6 +275,58 @@ class _StageState extends ConsumerState<Stage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Something on the screen that a tap picks out for editing: alone, or
+/// together with what already is when Ctrl or Shift is held or several are
+/// being picked. What is picked out is outlined.
+class _Selectable extends ConsumerWidget {
+  const _Selectable({
+    required this.id,
+    required this.child,
+    this.radius = 10,
+    this.resting,
+  });
+
+  final String id;
+  final Widget child;
+  final double radius;
+
+  /// The outline it has while not picked out, if any.
+  final Color? resting;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(
+      selectionProvider.select((ids) => ids.contains(id)),
+    );
+    final outline = selected ? Colors.lightBlueAccent : resting;
+    return GestureDetector(
+      onTap: () {
+        final keys = HardwareKeyboard.instance;
+        ref
+            .read(selectionProvider.notifier)
+            .tap(
+              id,
+              adding:
+                  ref.read(selectSeveralProvider) ||
+                  keys.isControlPressed ||
+                  keys.isShiftPressed ||
+                  keys.isMetaPressed,
+            );
+      },
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          border: outline == null
+              ? null
+              : Border.all(color: outline, width: selected ? 2 : 1),
+        ),
+        child: child,
       ),
     );
   }

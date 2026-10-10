@@ -247,6 +247,98 @@ void main() {
     });
   });
 
+  group('editing what is selected', () {
+    final layout = home(
+      Pane(
+        id: 'p',
+        mode: PaneMode.grid,
+        columns: 4,
+        items: [
+          card('a', x: 0, y: 0),
+          card('b', x: 1, y: 0),
+          LayoutItem.pane(
+            Pane(id: 'inner', items: [card('c'), card('d', w: 2)]),
+            w: 4,
+            h: 2,
+            x: 0,
+            y: 1,
+          ),
+        ],
+      ),
+    );
+
+    test('finds items with the pane they are in, wherever they are', () {
+      final found = findItems(layout, {'a', 'd', 'gone'});
+      expect(
+        [for (final one in found) (one.item.id, one.parent.id)],
+        [('a', 'p'), ('d', 'inner')],
+      );
+    });
+
+    test('changes only the items named', () {
+      final changed = changeItems(layout, {
+        'a',
+        'c',
+      }, (item, _) => item.copyWith(hideName: true));
+      expect(
+        [
+          for (final one in findItems(changed, {'a', 'b', 'c'}))
+            one.item.hideName,
+        ],
+        [true, false, true],
+      );
+    });
+
+    test('a resized item keeps its cell and its neighbour moves aside', () {
+      final resized = resizeItems(layout, {'a'}, w: 2);
+      final a = findItems(resized, {'a'}).single.item;
+      expect((a.w, a.x, a.y), (2, 0, 0));
+      expect(at(resized, 'b'), isNot((1, 0)));
+      // Never wider than the pane it is in.
+      expect(
+        findItems(resizeItems(layout, {'a'}, w: 9), {'a'}).single.item.w,
+        4,
+      );
+    });
+
+    test('several are resized together, each in its own pane', () {
+      final resized = resizeItems(layout, {'a', 'c'}, h: 2);
+      expect(
+        [
+          for (final one in findItems(resized, {'a', 'c', 'd'})) one.item.h,
+        ],
+        [2, 2, 1],
+      );
+    });
+
+    test('a pane keeps things where they were when its placement changes', () {
+      final inner = layout.home.root.items.last.pane!;
+      final grid = withMode(inner, PaneMode.grid);
+      expect(
+        [for (final item in grid.items) (item.id, item.x, item.y)],
+        [('c', 0, 0), ('d', 1, 0)],
+      );
+      // And back in order by where they are, not by how they were listed.
+      final swapped = grid.copyWith(
+        items: [
+          grid.items[1].sized(2, 1, x: 0, y: 0),
+          grid.items[0].sized(1, 1, x: 2, y: 0),
+        ],
+      );
+      expect(
+        [for (final item in withMode(swapped, PaneMode.flow).items) item.id],
+        ['d', 'c'],
+      );
+    });
+
+    test('fewer columns narrow and move what no longer fits', () {
+      final narrowed = withColumns(layout.home.root, 2);
+      final inner = narrowed.items.last;
+      expect((inner.w, inner.x), (2, 0));
+      expect(narrowed.columns, 2);
+    });
+  });
+
   test('counts how often each card is on the TV', () {
     final layout = home(
       Pane(

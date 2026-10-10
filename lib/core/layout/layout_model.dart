@@ -140,6 +140,25 @@ class LayoutItem {
     pane: pane,
   );
 
+  /// This item looking or set up otherwise.
+  LayoutItem copyWith({
+    BoxStyle? style,
+    bool? hideName,
+    Map<String, Object?>? options,
+  }) => LayoutItem(
+    id: id,
+    kind: kind,
+    ref: ref,
+    w: w,
+    h: h,
+    x: x,
+    y: y,
+    options: options ?? this.options,
+    style: style ?? this.style,
+    hideName: hideName ?? this.hideName,
+    pane: pane,
+  );
+
   /// This item at another size and place; with no [x] and [y], wherever
   /// its pane puts it.
   LayoutItem sized(double w, double h, {double? x, double? y}) => LayoutItem(
@@ -267,6 +286,29 @@ class Pane {
 
   double get spacingX => spacing ?? defaultSpacingX;
   double get spacingY => spacing ?? defaultSpacingY;
+
+  static const _keep = Object();
+
+  /// This pane with some of its settings changed. [spacing] and [padding]
+  /// may be given as null, for the usual ones.
+  Pane copyWith({
+    String? title,
+    PaneMode? mode,
+    int? columns,
+    List<LayoutItem>? items,
+    BoxStyle? style,
+    Object? spacing = _keep,
+    Object? padding = _keep,
+  }) => Pane(
+    id: id,
+    title: title ?? this.title,
+    mode: mode ?? this.mode,
+    columns: columns ?? this.columns,
+    items: items ?? this.items,
+    style: style ?? this.style,
+    spacing: identical(spacing, _keep) ? this.spacing : spacing as double?,
+    padding: identical(padding, _keep) ? this.padding : padding as double?,
+  );
 
   Pane withItems(List<LayoutItem> items) => Pane(
     id: id,

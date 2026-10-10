@@ -4,10 +4,11 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/selection.dart';
 
 /// Changes the layout through the launcher's own config controller, which
 /// shows the change at once and, in the browser, sends it to the TV.
-Future<void> _change(
+Future<void> changeLayout(
   BuildContext context,
   WidgetRef ref,
   Layout Function(Layout layout) change,
@@ -44,7 +45,7 @@ Future<void> placeDragged(
     if (name == null || !context.mounted) return;
     panel = Panel(id: panel.id, title: name, root: panel.root);
   }
-  await _change(
+  await changeLayout(
     context,
     ref,
     (layout) => dropItem(layout, dragged.item, drop, panel: panel),
@@ -56,7 +57,16 @@ Future<void> removeDragged(
   BuildContext context,
   WidgetRef ref,
   Dragged dragged,
-) => _change(context, ref, (layout) => removeItem(layout, dragged.item.id));
+) =>
+    changeLayout(context, ref, (layout) => removeItem(layout, dragged.item.id));
+
+/// Takes everything that is picked out off the TV.
+Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
+  final ids = ref.read(selectionProvider);
+  if (ids.isEmpty) return;
+  ref.read(selectionProvider.notifier).clear();
+  await changeLayout(context, ref, (layout) => ids.fold(layout, removeItem));
+}
 
 Future<String?> _askName(BuildContext context, String suggested) {
   final name = TextEditingController(text: suggested);
