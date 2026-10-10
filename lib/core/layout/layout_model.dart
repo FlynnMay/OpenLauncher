@@ -84,6 +84,7 @@ class LayoutItem {
     this.y,
     this.options = const {},
     this.style = BoxStyle.none,
+    this.hideName = false,
     this.pane,
   });
 
@@ -93,7 +94,8 @@ class LayoutItem {
       kind = ItemKind.pane,
       ref = pane.id,
       options = const {},
-      style = BoxStyle.none;
+      style = BoxStyle.none,
+      hideName = false;
 
   /// Unique within the layout.
   final String id;
@@ -114,6 +116,10 @@ class LayoutItem {
   /// [Pane.style].
   final BoxStyle style;
 
+  /// True to show a card or folder as its picture alone, without its name
+  /// under it.
+  final bool hideName;
+
   /// The pane this item is, for [ItemKind.pane].
   final Pane? pane;
 
@@ -130,6 +136,7 @@ class LayoutItem {
     y: y,
     options: options,
     style: style,
+    hideName: hideName,
     pane: pane,
   );
 
@@ -153,6 +160,7 @@ class LayoutItem {
       y: _optional<num>(json, 'y')?.toDouble(),
       options: {...?_optional<Map<Object?, Object?>>(json, 'options')?.cast()},
       style: BoxStyle.fromJson(json['style']),
+      hideName: _optional<bool>(json, 'hideName') ?? false,
       pane: pane,
     );
   }
@@ -173,6 +181,7 @@ class LayoutItem {
     },
     if (options.isNotEmpty) 'options': options,
     if (!style.isEmpty) 'style': style.toJson(),
+    if (hideName) 'hideName': true,
     'pane': ?pane?.toJson(),
   };
 }
@@ -190,9 +199,14 @@ class Pane {
     this.columns = defaultColumns,
     this.items = const [],
     this.style = BoxStyle.none,
+    this.spacing,
   });
 
   static const defaultColumns = 5;
+
+  /// The gap between cells, across and down, when [spacing] is not set.
+  static const defaultSpacingX = 20.0, defaultSpacingY = 16.0;
+  static const maxSpacing = 80.0;
 
   /// The columns a new global pane has: enough to place things finely.
   static const globalColumns = 12;
@@ -219,6 +233,14 @@ class Pane {
   /// wallpaper is its background.
   final BoxStyle style;
 
+  /// The gap between cells, in the TV's 960-wide pixels, the same across and
+  /// down; null for the usual one. With the column count it is all that
+  /// decides how big a cell is and how far it is from the next.
+  final double? spacing;
+
+  double get spacingX => spacing ?? defaultSpacingX;
+  double get spacingY => spacing ?? defaultSpacingY;
+
   Pane withItems(List<LayoutItem> items) => Pane(
     id: id,
     title: title,
@@ -226,6 +248,7 @@ class Pane {
     columns: columns,
     items: items,
     style: style,
+    spacing: spacing,
   );
 
   /// This pane and every pane inside it.
@@ -262,6 +285,7 @@ class Pane {
     columns: _optional<num>(json, 'columns')?.toInt() ?? defaultColumns,
     items: _list(json, 'items', LayoutItem.fromJson),
     style: BoxStyle.fromJson(json['style']),
+    spacing: _optional<num>(json, 'spacing')?.toDouble(),
   );
 
   Map<String, Object?> toJson() => {
@@ -269,6 +293,10 @@ class Pane {
     'title': title,
     'mode': mode.name,
     'columns': columns,
+    'spacing': ?switch (spacing) {
+      null => null,
+      final spacing => _tidy(spacing),
+    },
     if (!style.isEmpty) 'style': style.toJson(),
     'items': [for (final item in items) item.toJson()],
   };
@@ -598,6 +626,7 @@ class Layout {
         y: placed ? fit(y, 0, 999) : null,
         options: item.options,
         style: item.style,
+        hideName: item.hideName,
         pane: repaired,
       );
     }
@@ -619,6 +648,11 @@ class Layout {
             ...fitted(entry, columns, mode, kind, depth),
         ],
         style: pane.style,
+        spacing: switch (pane.spacing) {
+          final spacing? when spacing.isFinite && !rail =>
+            spacing.clamp(0, Pane.maxSpacing).toDouble(),
+          _ => null,
+        },
       );
     };
 

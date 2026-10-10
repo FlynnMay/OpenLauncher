@@ -384,6 +384,56 @@ void main() {
     });
   });
 
+  test('a pane keeps the spacing it is given, within reason', () {
+    Pane pane(String id, double? spacing) =>
+        Pane(id: id, spacing: spacing, items: [_item('$id-a')]);
+    final layout = Layout(
+      inbox: 'a',
+      panels: [
+        _home(
+          Pane(
+            id: 'global',
+            spacing: 4,
+            items: [
+              LayoutItem.pane(pane('a', null)),
+              LayoutItem.pane(pane('b', 0)),
+              LayoutItem.pane(pane('c', 500)),
+            ],
+          ),
+        ),
+      ],
+    ).normalised();
+    final panes = layout.home.root.panes.toList();
+    expect(panes.map((p) => p.spacing), [4, null, 0, Pane.maxSpacing]);
+    // Unset, it is the usual gap, wider across than down.
+    expect((panes[1].spacingX, panes[1].spacingY), (20, 16));
+    expect((panes[2].spacingX, panes[2].spacingY), (0, 0));
+    final json = layout.toJson();
+    expect(Layout.fromJson(json).toJson(), json);
+    expect(layout.withCards(['app:x']).home.root.spacing, 4);
+  });
+
+  test('a card can be told to hide its name, and stays told', () {
+    final layout = Layout.fromJson(const {
+      'panels': [
+        {
+          'id': 'home',
+          'pane': {
+            'id': 'global',
+            'items': [
+              {'id': 'a', 'ref': 'app:a', 'hideName': true},
+              {'id': 'b', 'ref': 'app:b'},
+            ],
+          },
+        },
+      ],
+    }).normalised();
+    expect(layout.home.items.map((i) => i.hideName), [true, false]);
+    final items = (layout.toJson()['panels'] as List).first['pane']['items'];
+    expect(items[0]['hideName'], isTrue);
+    expect((items[1] as Map).containsKey('hideName'), isFalse);
+  });
+
   group('removed cards', () {
     test('stay off until placed again', () {
       final layout = Layout.initial(['app:a', 'app:b']).without({'app:b'});

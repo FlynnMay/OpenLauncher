@@ -299,7 +299,7 @@ let picker = null;     // The "add apps" dialog: { section, chosen, query }.
 
 const TABS = { layout: 'Layout', wallpaper: 'Wallpaper', options: 'Options' };
 const SIDEBARS = { left: 'Left sidebar', right: 'Right sidebar' };
-const MAX_COLUMNS = 24, MAX_ROWS = 60, MAX_DEPTH = 4;
+const MAX_COLUMNS = 24, MAX_ROWS = 60, MAX_DEPTH = 4, MAX_SPACING = 80;
 
 /* The TV's own measurements, in its 960-wide pixels. Keep in step with the
    Flutter side: home_screen.dart, section_grid.dart, rail.dart, popup_panel.dart. */
@@ -845,7 +845,8 @@ function cells(section, width, u, rail, minHeight = 0) {
   const columns = section.columns;
   const m = rail
     ? { columns, cellW: TV.railPicW * u, rowH: TV.railPicH * u, gapX: 0, gapY: TV.railGap * u }
-    : { columns, cellW: (width - (columns - 1) * TV.gapX * u) / columns, gapX: TV.gapX * u, gapY: TV.gapY * u };
+    : { columns, gapX: (section.spacing ?? TV.gapX) * u, gapY: (section.spacing ?? TV.gapY) * u };
+  if (!rail) m.cellW = (width - (columns - 1) * m.gapX) / columns;
   if (!rail) m.rowH = m.cellW / TV.ratio;
   const box = (p) => ({
     left: p.x * (m.cellW + m.gapX), top: p.y * (m.rowH + m.gapY),
@@ -900,7 +901,8 @@ function cells(section, width, u, rail, minHeight = 0) {
       const { art, bare } = itemArt(item);
       if (bare && !item.style) node.classList.add('bare');
       // On the TV a card's name is under it; a widget has none, and a rail only shows names while open.
-      node.append(art, rail || item.kind === 'widget' ? '' : el('div', { class: 'label', textContent: label }));
+      // A hidden name still has its room: the picture stays the size it was.
+      node.append(art, rail || item.kind === 'widget' ? '' : el('div', { class: 'label', textContent: item.hideName ? '' : label }));
       if (item.kind === 'panel') node.dataset.folder = item.ref;
       if (item.style) paint(art, item.style);
     }
@@ -1394,6 +1396,12 @@ function paneRows(section, host) {
       settle(section);
       save();
     } });
+  const spacing = el('input', { type: 'number', min: 0, max: MAX_SPACING, placeholder: 'auto', value: section.spacing ?? '',
+    title: 'The gap between cells, in TV pixels. Empty for the usual gap.',
+    onchange: () => {
+      if (spacing.value === '') delete section.spacing; else section.spacing = clamp(Math.round(spacing.value) || 0, 0, MAX_SPACING);
+      save();
+    } });
   const popups = layout.panels.filter((p) => panelKind(p) === 'popup' && p.id !== panel.id);
   const rail = railSection(section);
   return [
@@ -1402,6 +1410,7 @@ function paneRows(section, host) {
       el('label', {}, 'Placement', select([['flow', 'In order'], ['grid', 'On cells'], ['free', 'Anywhere']], section.mode, (mode) => setMode(section, mode),
         'In order: one after another. On cells: each in a cell of its own. Anywhere: overlapping allowed, and with "Snap to grid" off, any position and size.')),
       el('label', {}, 'Columns', columns),
+      el('label', {}, 'Spacing', spacing),
       panel.id === 'home' ? check('New apps go here', layout.inbox === section.id, () => { layout.inbox = section.id; save(); }) : null,
       host ? coloursButton(section.id, 'Background and border of this pane') : null,
       host ? button('Fit to contents', 'Make the pane just tall enough for what is in it', () => fitPane(host)) : null,
@@ -1466,6 +1475,14 @@ function itemsBar(found) {
   const onePane = one && one.item.pane;
   const coloursId = one ? one.item.id : 'several';
   parts.push(moveToSelect(items, sameSection), onePane ? null : coloursButton(coloursId, 'Background and border'));
+  // Cards and folders can be shown as their picture alone.
+  const named = items.filter((item) => item.kind === 'card' || item.kind === 'panel');
+  if (named.length) {
+    parts.push(check('Show name', named.every((item) => !item.hideName), (on) => {
+      for (const item of named) { if (on) delete item.hideName; else item.hideName = true; }
+      save();
+    }));
+  }
   if (one && one.item.kind === 'card') {
     const card = cardsById[one.item.ref];
     parts.push(button('Picture…', `Choose a picture for ${card.label}`, () => { uploadTarget = card.id; fileInput.click(); }),

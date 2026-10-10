@@ -69,7 +69,7 @@ class EntryTile extends ConsumerWidget {
           bare: CardArt.isBare(card),
           autofocus: focus?.take() ?? false,
           style: style,
-          showLabel: !compact,
+          showLabel: !compact && !entry.item.hideName,
           boxStyle: entry.item.style,
           onSelect: () => _open(context, ref, card),
           onMenu: (held) => showCardMenu(
@@ -87,7 +87,7 @@ class EntryTile extends ConsumerWidget {
           bare: FolderArt.isBare(entry),
           autofocus: focus?.take() ?? false,
           style: style,
-          showLabel: !compact,
+          showLabel: !compact && !entry.item.hideName,
           boxStyle: entry.item.style,
           onSelect: () => showPanelPopup(context, entry.panel.id),
         );

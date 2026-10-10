@@ -19,7 +19,6 @@ class PaneGrid extends StatelessWidget {
   final Widget Function(Entry entry) tile;
 
   // The config page draws the same grid; see `TV` in assets/web/index.html.
-  static const gapX = 20.0, gapY = 16.0;
 
   /// Width over height of one cell, label included.
   static const cellRatio = 1.45;
@@ -29,6 +28,7 @@ class PaneGrid extends StatelessWidget {
     final pane = view.pane;
     return LayoutBuilder(
       builder: (context, constraints) {
+        final gapX = pane.spacingX, gapY = pane.spacingY;
         final cellWidth =
             (constraints.maxWidth - (pane.columns - 1) * gapX) / pane.columns;
         final cellHeight = cellWidth / cellRatio;

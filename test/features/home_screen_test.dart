@@ -235,6 +235,60 @@ void main() {
       expect(platform.launched, ['pkg.a']);
     });
 
+    testWidgets('a card can be shown without its name', (tester) async {
+      await pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'main',
+            panels: [
+              home([
+                const Pane(
+                  id: 'main',
+                  items: [
+                    LayoutItem(
+                      id: 'a',
+                      kind: ItemKind.card,
+                      ref: 'app:pkg.a',
+                      hideName: true,
+                    ),
+                  ],
+                ),
+              ]),
+            ],
+          ).normalised(),
+        ),
+      );
+      // Alpha has no icon here, so its name is still what its picture
+      // shows; the label under it is not painted. Beta has both.
+      expect(find.text('Alpha'), findsNWidgets(2));
+      bool nameShown(String name) => tester
+          .widget<Visibility>(
+            find
+                .ancestor(
+                  of: find.text(name).last,
+                  matching: find.byType(Visibility),
+                )
+                .first,
+          )
+          .visible;
+      expect((nameShown('Alpha'), nameShown('Beta')), (false, true));
+      expect(find.text('Beta'), findsNWidgets(2));
+      // The picture is the size it would be with its name showing.
+      Size picture(String name) => tester.getSize(
+        find
+            .ancestor(
+              of: find.text(name).first,
+              matching: find.byType(AnimatedContainer),
+            )
+            .first,
+      );
+      expect(picture('Alpha'), picture('Beta'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(platform.launched, ['pkg.a']);
+    });
+
     testWidgets('a rail opens while the focus is in it', (tester) async {
       await pumpApp(
         tester,

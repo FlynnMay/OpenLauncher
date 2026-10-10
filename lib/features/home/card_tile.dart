@@ -32,7 +32,9 @@ class ArtTile extends StatelessWidget {
   /// The fill and outline the user gave it, if any.
   final BoxStyle boxStyle;
 
-  /// False in a closed rail, where there is only room for the picture.
+  /// False where the name is not shown: in a closed rail, and for a card
+  /// whose name the user chose to hide. A card keeps the room for it either
+  /// way, so hiding a name never changes the size of the picture.
   final bool showLabel;
 
   /// True for line art, which sits straight on the wallpaper with only a
@@ -99,7 +101,7 @@ class ArtTile extends StatelessWidget {
             children: [
               Expanded(child: picture),
               const SizedBox(height: 6),
-              text,
+              Visibility.maintain(visible: showLabel, child: text),
             ],
           ),
           TileStyle.rail => Row(
