@@ -10,6 +10,7 @@ import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_link.dart';
+import 'package:openlauncher/editor/tv_screen.dart';
 
 // The config page: a Flutter web app, served by the TV. It
 // runs the launcher itself, fed by the TV over the network (tv_link.dart),

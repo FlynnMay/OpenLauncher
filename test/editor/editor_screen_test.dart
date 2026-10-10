@@ -8,9 +8,9 @@ import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/object_tree.dart';
 import 'package:openlauncher/editor/selection.dart';
-import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_link.dart';
+import 'package:openlauncher/editor/tv_screen.dart';
 
 class _Tv extends TvApi {
   @override

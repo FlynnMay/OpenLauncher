@@ -11,61 +11,13 @@ import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/resize_handles.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/snapping.dart';
+import 'package:openlauncher/editor/stage_geometry.dart';
+import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/popup_panel.dart';
 import 'package:openlauncher/features/home/sidebar.dart';
-
-/// The launcher itself, running in a box the size of the TV's screen: the
-/// same home screen, popups, menus and settings, each kept inside the box.
-class TvScreen extends StatelessWidget {
-  const TvScreen({super.key});
-
-  /// The TV's screen, in the units everything on it is measured in.
-  static const size = Size(960, 540);
-
-  /// The launcher's own navigator, for opening something on its screen
-  /// from outside it.
-  static final navigator = GlobalKey<NavigatorState>();
-
-  /// Closes whatever the launcher has open over its home screen.
-  static void closePopups() =>
-      navigator.currentState?.popUntil((route) => route.isFirst);
-
-  /// Shows the popup [panelId] on the launcher's screen.
-  static void openPopup(String panelId) {
-    if (navigator.currentState?.overlay?.context case final context?) {
-      showPanelPopup(context, panelId);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => SizedBox.fromSize(
-    size: size,
-    child: MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        size: size,
-        padding: EdgeInsets.zero,
-        viewInsets: EdgeInsets.zero,
-        viewPadding: EdgeInsets.zero,
-      ),
-      child: ClipRect(
-        // Its own, so that what the launcher opens and says stays on its
-        // screen instead of covering the page.
-        child: ScaffoldMessenger(
-          child: Navigator(
-            key: navigator,
-            onGenerateRoute: (_) =>
-                MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
 /// The TV's screen with, while [editing], everything on it something to
 /// pick up and move rather than to open, and the screen itself somewhere to
@@ -174,7 +126,7 @@ class _StageState extends ConsumerState<Stage> {
         freeEdges(layout),
       );
       if (edge == null) return null;
-      return (drop: null, bar: edge, marker: _barRect(layout, edge));
+      return (drop: null, bar: edge, marker: barRect(layout, edge));
     }
     final item = dragged.item;
     // An open popup is all there is to drop on; otherwise a sidebar, over
@@ -218,44 +170,13 @@ class _StageState extends ConsumerState<Stage> {
     if (refusal(layout, item, pane.id) != null) return null;
 
     final metrics = PaneMetrics(pane, grid.size.width);
-    final at = grid.globalToLocal(pointer);
-    final Drop drop;
-    if (pane.mode == PaneMode.flow) {
-      // In front of the first thing that comes after the pointer, reading
-      // across and then down.
-      final placed = placeItems(pane.shown, pane.columns, pane.mode);
-      String? before;
-      for (final (index, other) in pane.items.indexed) {
-        if (other.id == item.id) continue;
-        final rect = metrics.rectOf(placed[index]);
-        if (at.dy < rect.top - metrics.gapY / 2 ||
-            at.dy < rect.bottom + metrics.gapY / 2 && at.dx < rect.center.dx) {
-          before = other.id;
-          break;
-        }
-      }
-      drop = Drop(pane.id, before: before);
-    } else {
-      // Held by its middle, and set down on whole cells; or, where things
-      // can be anywhere and are not being kept to cells, just about where
-      // it is let go. Only there does it keep a size that is not whole.
-      final free = pane.mode == PaneMode.free;
-      final step = stepIn(pane, snap: ref.read(snapProvider));
-      final w = (free ? item.w : item.w.roundToDouble())
-          .clamp(free ? Pane.minFreeSpan : 1, pane.columns)
-          .toDouble();
-      final h = (free ? item.h : item.h.roundToDouble())
-          .clamp(free ? Pane.minFreeSpan : 1, Pane.maxRows)
-          .toDouble();
-      final cell = metrics.cellAt(
-        at - Offset(metrics.across(w) / 2, metrics.down(h) / 2),
-      );
-      drop = Drop(
-        pane.id,
-        x: snapTo(cell.dx, step).clamp(0, pane.columns - w).toDouble(),
-        y: snapTo(cell.dy, step).clamp(0, 999).toDouble(),
-      );
-    }
+    final drop = dropAt(
+      pane,
+      metrics,
+      grid.globalToLocal(pointer),
+      item,
+      stepIn(pane, snap: ref.read(snapProvider)),
+    );
 
     // Where that puts it is asked of the layout itself, so the marker and
     // the result cannot disagree.
@@ -263,35 +184,12 @@ class _StageState extends ConsumerState<Stage> {
       dropItem(layout, item, drop, panel: dragged.panel),
       pane.id,
     )!.pane;
-    final index = after.items.indexWhere((other) => other.id == item.id);
-    final rect = metrics.rectOf(
-      placeItems(after.shown, after.columns, after.mode)[index],
-    );
+    final rect = metrics.rectOf(placementIn(after, item.id));
     return (
       drop: drop,
       bar: null,
       marker: MatrixUtils.transformRect(grid.getTransformTo(screen), rect),
     );
-  }
-
-  /// Where on the screen a sidebar on the edge [id] is when open, or with
-  /// [thickness], a strip that thick along that edge.
-  static Rect _barRect(Layout layout, String id, {double? thickness}) {
-    final panel = layout.panel(id) ?? Panel.empty(id);
-    final Size(:width, :height) = TvScreen.size;
-    final across = panel.opensAcross;
-    final w = across && thickness != null
-        ? thickness
-        : panel.openWidth.clamp(0.0, width);
-    final h = !across && thickness != null
-        ? thickness
-        : panel.openHeight.clamp(0.0, height);
-    return switch (panel.edge) {
-      BarEdge.right => Rect.fromLTWH(width - w, (height - h) / 2, w, h),
-      BarEdge.bottom => Rect.fromLTWH((width - w) / 2, height - h, w, h),
-      BarEdge.top => Rect.fromLTWH((width - w) / 2, 0, w, h),
-      _ => Rect.fromLTWH(0, (height - h) / 2, w, h),
-    };
   }
 
   /// The one thing picked out, if it is somewhere its cells can be found:
@@ -305,12 +203,7 @@ class _StageState extends ConsumerState<Stage> {
     final grid = _box(_grids[found?.parent.id]), screen = _box(_screen);
     if (found == null || grid == null || screen == null) return null;
     final pane = found.parent;
-    // Where it is drawn, which is as its pane would have it.
-    final placed = placeItems(
-      pane.shown,
-      pane.columns,
-      pane.mode,
-    )[pane.items.indexOf(found.item)];
+    final placed = placementIn(pane, found.item.id);
     final metrics = PaneMetrics(pane, grid.size.width);
     return (
       found: found,
@@ -321,38 +214,6 @@ class _StageState extends ConsumerState<Stage> {
         metrics.rectOf(placed),
       ),
     );
-  }
-
-  /// The smallest a thing can be made, in cells, when sizes go by [step].
-  static double _least(double step) => step < 1 ? Pane.minFreeSpan : 1;
-
-  /// The handles that can do something for a thing placed at [placed] in
-  /// [pane]: an edge has one if it can go outwards, there being room in the
-  /// pane, or inwards, the thing being more than a cell across; a corner
-  /// has one if both its edges do.
-  static Set<ResizeHandle> _handles(
-    LayoutItem item,
-    Placement placed,
-    Pane pane,
-    double least,
-  ) {
-    // A card whose size its pane decides has none to change.
-    final decided =
-        (pane.itemW != null || pane.itemH != null) &&
-        (item.kind == ItemKind.card || item.kind == ItemKind.panel);
-    if (decided) return const {};
-    bool across(int side) =>
-        side == 0 ||
-        placed.w > least ||
-        (side < 0 ? placed.x > 0 : placed.x + placed.w < pane.columns);
-    bool down(int side) =>
-        side == 0 ||
-        placed.h > least ||
-        (side < 0 ? placed.y > 0 : placed.h < Pane.maxRows);
-    return {
-      for (final handle in ResizeHandle.values)
-        if (across(handle.dx) && down(handle.dy)) handle,
-    };
   }
 
   /// What the layout would be with the handle let go where it is, shown
@@ -367,45 +228,21 @@ class _StageState extends ConsumerState<Stage> {
     if (picked == null || layout == null) return;
     final (:found, :placed, :metrics, rect: _) = picked;
     final pane = found.parent;
-    final by = metrics.cellAt(moved);
-    final columns = by.dx.round(), rows = by.dy.round();
-    // The edge that is held goes to the nearest line: of the cells, or
-    // where things are not kept to cells, of small parts of one. It can go
-    // no further than leaves the least there can be, or than the pane.
-    final step = stepIn(pane, snap: ref.read(snapProvider));
-    final least = _least(step);
-    final left = handle.dx < 0
-        ? snapTo(placed.x + by.dx, step).clamp(0, placed.x + placed.w - least)
-        : placed.x;
-    final top = handle.dy < 0
-        ? snapTo(placed.y + by.dy, step).clamp(0, placed.y + placed.h - least)
-        : placed.y;
-    final right = handle.dx > 0
-        ? snapTo(
-            placed.x + placed.w + by.dx,
-            step,
-          ).clamp(left + least, pane.columns)
-        : placed.x + placed.w;
-    final bottom = handle.dy > 0
-        ? snapTo(
-            placed.y + placed.h + by.dy,
-            step,
-          ).clamp(top + least, top + Pane.maxRows)
-        : placed.y + placed.h;
-    // Where things flow there is no place to keep or change, only a size:
-    // any handle pulled outwards makes it bigger by that much.
-    final flows = pane.mode == PaneMode.flow;
+    final to = resizedTo(
+      pane,
+      placed,
+      metrics,
+      handle,
+      moved,
+      stepIn(pane, snap: ref.read(snapProvider)),
+    );
     final next = reshapeItem(
       layout,
       found.item.id,
-      x: left * 1.0,
-      y: top * 1.0,
-      w: flows
-          ? (placed.w + handle.dx * columns).clamp(1, pane.columns) * 1.0
-          : (right - left) * 1.0,
-      h: flows
-          ? (placed.h + handle.dy * rows).clamp(1, Pane.maxRows) * 1.0
-          : (bottom - top) * 1.0,
+      x: to.x,
+      y: to.y,
+      w: to.w,
+      h: to.h,
     );
     final grid = _box(_grids[pane.id]), screen = _box(_screen);
     final after = findItems(next, {found.item.id}).single;
@@ -416,13 +253,7 @@ class _StageState extends ConsumerState<Stage> {
       // letting go gives.
       _marker = MatrixUtils.transformRect(
         grid.getTransformTo(screen),
-        metrics.rectOf(
-          placeItems(
-            after.parent.shown,
-            after.parent.columns,
-            after.parent.mode,
-          )[after.parent.items.indexOf(after.item)],
-        ),
+        metrics.rectOf(placementIn(after.parent, after.item.id)),
       );
     });
   }
@@ -498,11 +329,11 @@ class _StageState extends ConsumerState<Stage> {
                             rect: _resized == null
                                 ? picked.rect
                                 : _marker ?? picked.rect,
-                            handles: _handles(
+                            handles: resizeHandles(
                               picked.found.item,
                               picked.placed,
                               picked.found.parent,
-                              _least(
+                              leastSpan(
                                 stepIn(
                                   picked.found.parent,
                                   snap: ref.watch(snapProvider),
@@ -522,7 +353,7 @@ class _StageState extends ConsumerState<Stage> {
                   when held.any((dragged) => dragged?.sidebar ?? false))
                 for (final id in freeEdges(layout))
                   Positioned.fromRect(
-                    rect: _barRect(layout, id, thickness: 8),
+                    rect: barRect(layout, id, thickness: 8),
                     child: const IgnorePointer(
                       child: ColoredBox(color: Color(0x9940C4FF)),
                     ),

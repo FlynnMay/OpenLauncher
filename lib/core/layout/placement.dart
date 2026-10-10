@@ -1,7 +1,8 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/layout/layout_model.dart';
+import 'package:openlauncher/core/layout/layout_enums.dart';
+import 'package:openlauncher/core/layout/layout_item.dart';
 
 /// The cells an item covers: column and row from zero, and its size. Whole
 /// numbers except in a [PaneMode.free] section.

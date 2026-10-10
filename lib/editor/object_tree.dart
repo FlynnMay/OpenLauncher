@@ -6,8 +6,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
-import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tree_view.dart';
+import 'package:openlauncher/editor/tv_screen.dart';
 
 /// What the thing [item] places is called: a card by its name, a pane by
 /// its title, a folder card by the folder it opens.
