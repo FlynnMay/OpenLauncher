@@ -6,6 +6,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/dragging.dart';
+import 'package:openlauncher/editor/layer_stack.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
@@ -256,6 +257,10 @@ class _StageState extends ConsumerState<Stage> {
                     : null,
                 child: const TvScreen(),
               ),
+              if (editing)
+                Positioned.fill(
+                  child: LayerStack(navigator: TvScreen.navigator),
+                ),
               if (_marker case final marker?)
                 Positioned.fromRect(
                   rect: marker,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/catalogue.dart';
 import 'package:openlauncher/editor/inspector.dart';
+import 'package:openlauncher/editor/layers.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_link.dart';
@@ -56,6 +57,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       appBar: AppBar(
         title: const Text('OpenLauncher'),
         actions: [
+          if (_editing) const LayersButton(),
+          const SizedBox(width: 8),
           SegmentedButton<bool>(
             showSelectedIcon: false,
             segments: const [
