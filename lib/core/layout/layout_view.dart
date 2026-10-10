@@ -95,11 +95,8 @@ class LayoutView {
 
   PanelView get home => panels[Layout.homeId]!;
 
-  /// The rail on one edge, or null if there is nothing in it.
-  PanelView? sidebar(String id) => switch (panels[id]) {
-    final view? when !view.isEmpty => view,
-    _ => null,
-  };
+  /// The sidebars there are, whether or not anything is in them.
+  Iterable<PanelView> get bars => [for (final id in Layout.barIds) ?panels[id]];
 }
 
 const _previewCount = 4;
@@ -130,7 +127,11 @@ LayoutView resolveLayout(List<LauncherCard> cards, LauncherConfig config) {
       );
     }(),
   };
-  view = (pane) => PaneView(pane, pane.items.map(entry).toList());
+  // Drawn as the pane would have them: see [Pane.shown].
+  view = (pane) {
+    final shown = pane.withItems(pane.shown);
+    return PaneView(shown, shown.items.map(entry).toList());
+  };
 
   return LayoutView({
     for (final panel in layout.panels)

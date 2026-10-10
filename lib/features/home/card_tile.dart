@@ -6,10 +6,6 @@ import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 
-/// How a tile is drawn: as a card with its label underneath, or as a row of
-/// a rail, with its label beside it.
-enum TileStyle { card, rail }
-
 /// A focusable picture with a label: the look shared by cards and folders.
 class ArtTile extends StatelessWidget {
   const ArtTile({
@@ -20,7 +16,7 @@ class ArtTile extends StatelessWidget {
     this.onMenu,
     this.bare = false,
     this.autofocus = false,
-    this.style = TileStyle.card,
+    this.style = TileLook.card,
     this.showLabel = true,
     this.boxStyle = BoxStyle.none,
   });
@@ -31,8 +27,7 @@ class ArtTile extends StatelessWidget {
   /// The fill and outline the user gave it, if any.
   final BoxStyle boxStyle;
 
-  /// False where the name is not shown: in a closed rail, and for a card
-  /// whose name the user chose to hide. A card keeps the room for it either
+  /// False for a card whose name the user chose to hide. A card keeps the room for it either
   /// way, so hiding a name never changes the size of the picture.
   final bool showLabel;
 
@@ -42,7 +37,7 @@ class ArtTile extends StatelessWidget {
   final VoidCallback onSelect;
   final void Function(bool held)? onMenu;
   final bool autofocus;
-  final TileStyle style;
+  final TileLook style;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +46,7 @@ class ArtTile extends StatelessWidget {
       autofocus: autofocus,
       onSelect: onSelect,
       onMenu: onMenu,
-      focusedScale: style == TileStyle.card ? 1.08 : 1.04,
+      focusedScale: style == TileLook.card ? 1.08 : 1.04,
       builder: (context, focused) {
         final fill = styleFill(boxStyle);
         final outline = boxStyle.border;
@@ -89,13 +84,13 @@ class ArtTile extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          textAlign: style == TileStyle.card ? TextAlign.center : null,
+          textAlign: style == TileLook.card ? TextAlign.center : null,
           style: theme.textTheme.labelMedium?.copyWith(
             color: focused ? Colors.white : Colors.white60,
           ),
         );
         return switch (style) {
-          TileStyle.card => Column(
+          TileLook.card => Column(
             crossAxisAlignment: .stretch,
             children: [
               Expanded(child: picture),
@@ -103,7 +98,7 @@ class ArtTile extends StatelessWidget {
               Visibility.maintain(visible: showLabel, child: text),
             ],
           ),
-          TileStyle.rail => Row(
+          TileLook.row => Row(
             spacing: 12,
             children: [
               AspectRatio(aspectRatio: 16 / 9, child: picture),

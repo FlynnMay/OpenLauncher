@@ -50,6 +50,17 @@ final selectedProvider = Provider<List<Found>>((ref) {
   return layout == null || ids.isEmpty ? const [] : findItems(layout, ids);
 });
 
+/// The sidebar being arranged, by panel id: held open on the screen, with
+/// its settings in the panel while nothing in it is picked out.
+final barProvider = NotifierProvider<EditedBar, String?>(EditedBar.new);
+
+class EditedBar extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? id) => state = id;
+}
+
 /// The popups the selected folder cards open, by panel id.
 final selectedPanelsProvider = Provider<Map<String, Panel>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;

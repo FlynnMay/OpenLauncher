@@ -108,13 +108,31 @@ class SelectedProperties extends ConsumerWidget {
             onChanged: (h) =>
                 change((layout) => resizeItems(layout, ids, h: h * 1.0)),
           ),
-          if (allNamed)
+          if (allNamed) ...[
             TickBox(
               label: 'Show the name',
               value: shared(items.map((item) => !item.hideName)),
               onChanged: (shown) =>
                   each((item) => item.copyWith(hideName: !shown)),
             ),
+            LabelledRow(
+              'Drawn',
+              ChoiceBox<TileLook>(
+                value: shared(items.map((item) => item.look)),
+                choices: const {
+                  TileLook.card: 'Name under the picture',
+                  TileLook.row: 'Name beside the picture',
+                },
+                onChanged: (look) => each((item) => item.copyWith(look: look)),
+              ),
+            ),
+            if (found.any((one) => one.parent.decides))
+              Text(
+                'The pane this is in decides some of this for all its '
+                'cards. What is set here counts again when it stops.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+          ],
         ]),
         StyleSettings(
           styles: [for (final item in items) _styleOf(item)],

@@ -8,7 +8,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/rail.dart';
+import 'package:openlauncher/features/home/sidebar.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
@@ -408,7 +408,7 @@ void main() {
       expect(platform.launched, ['pkg.b']);
     });
 
-    testWidgets('a rail opens while the focus is in it', (tester) async {
+    testWidgets('a sidebar opens while the focus is in it', (tester) async {
       await pumpApp(
         tester,
         LauncherConfig(
@@ -416,9 +416,8 @@ void main() {
             inbox: 'main',
             panels: [
               home([const Pane(id: 'main')]),
-              Panel(
-                id: Layout.leftId,
-                root: Pane(id: 'rail', columns: 1, items: [card('pkg.c')]),
+              Panel.empty(Layout.leftId).withRoot(
+                Panel.empty(Layout.leftId).root.withItems([card('pkg.c')]),
               ),
             ],
           ).normalised(),
@@ -428,25 +427,67 @@ void main() {
           .getSize(
             find
                 .descendant(
-                  of: find.byType(Rail),
+                  of: find.byType(Sidebar),
                   matching: find.byType(AnimatedContainer),
                 )
                 .first,
           )
           .width;
-      expect(find.byType(Rail), findsOneWidget);
-      expect(railWidth(), Rail.closedWidth);
+      expect(find.byType(Sidebar), findsOneWidget);
+      // Closed, a strip of its pictures.
+      expect(railWidth(), 96);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
-      expect(railWidth(), greaterThan(Rail.closedWidth));
+      expect(railWidth(), 260);
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       expect(platform.launched, ['pkg.c']);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      expect(railWidth(), Rail.closedWidth);
+      expect(railWidth(), 96);
+    });
+
+    testWidgets('a sidebar out of sight is reached at its edge', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'main',
+            panels: [
+              home([const Pane(id: 'main')]),
+              Panel.empty(Layout.topId).withRoot(
+                Panel.empty(Layout.topId).root.withItems([card('pkg.c')]),
+              ),
+            ],
+          ).normalised(),
+        ),
+      );
+      double barHeight() => tester
+          .getSize(
+            find
+                .descendant(
+                  of: find.byType(Sidebar),
+                  matching: find.byType(AnimatedContainer),
+                )
+                .first,
+          )
+          .height;
+      expect(barHeight(), 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(barHeight(), 120);
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(platform.launched, ['pkg.c']);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(barHeight(), 0);
     });
 
     testWidgets('notifications pop up, unless switched off', (tester) async {

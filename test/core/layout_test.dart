@@ -226,13 +226,15 @@ void main() {
       expect(layout.inbox, layout.home.root.id);
       expect(layout.home.root.mode, PaneMode.grid);
 
-      // A rail is one column of things in order: no panes, no widths.
+      // A sidebar is a pane like any other: it keeps its columns, its
+      // widths and the pane inside it.
       final rail = layout.panel('left')!.root;
-      expect(rail.columns, 1);
+      expect(rail.columns, 4);
       expect(rail.items.map((i) => (i.id, i.kind, i.w)), [
-        ('a', ItemKind.card, 1),
-        ('b', ItemKind.card, 1),
+        ('a', ItemKind.card, 3),
+        ('pane:in-rail', ItemKind.pane, 1),
       ]);
+      expect(rail.items.last.pane!.items.single.id, 'b');
 
       final games = layout.panel('games')!;
       expect(games.title, 'Games');
@@ -559,7 +561,7 @@ void main() {
       final inside = (pane as PaneEntry).view.entries.single as CardEntry;
       expect(inside.card.id, 'app:a');
       expect(view.home.root.contents, hasLength(3));
-      expect(view.sidebar(Layout.leftId), isNull);
+      expect(view.bars, isEmpty);
     });
 
     test('the same card can be in several places', () {
@@ -586,6 +588,173 @@ void main() {
         'app:b',
         'app:c',
       ]);
+    });
+  });
+
+  group('sidebars and what panes decide', () {
+    test('there is one for each edge, each with its usual size', () {
+      final left = Panel.empty(Layout.leftId);
+      final top = Panel.empty(Layout.topId);
+      expect(left.kind, PanelKind.sidebar);
+      expect(
+        (left.edge, left.openWidth, left.openHeight, left.closedSize),
+        (BarEdge.left, 260, Panel.fill, 96),
+      );
+      // Along a side it starts as a line of small rows.
+      expect(left.root.rowHeight, Pane.barRowHeight);
+      expect(left.root.itemLook, TileLook.row);
+      expect(
+        (top.edge, top.openWidth, top.openHeight, top.closedSize),
+        (BarEdge.top, Panel.fill, 120, 0),
+      );
+      expect(Panel.kindOf('bottom'), PanelKind.sidebar);
+      expect(Panel.kindOf('elsewhere'), PanelKind.popup);
+    });
+
+    test('sizes are written, read back and kept within bounds', () {
+      final layout = Layout(
+        inbox: 'main',
+        panels: [
+          Panel.empty(Layout.homeId),
+          Panel.empty(
+            Layout.rightId,
+            width: Panel.fill,
+            height: 300,
+            closed: 0,
+          ),
+          Panel.empty(Layout.bottomId, height: 5000, closed: -3),
+        ],
+      ).normalised();
+      final copy = Layout.fromJson(layout.toJson());
+      final right = copy.panel(Layout.rightId)!;
+      expect((right.width, right.height, right.closed), (Panel.fill, 300, 0));
+      final bottom = copy.panel(Layout.bottomId)!;
+      expect((bottom.height, bottom.closed), (Panel.maxExtent, 0));
+      expect(bottom.width, isNull);
+    });
+
+    test('a sidebar saved before they were panes still looks like one', () {
+      final old = Layout.fromJson(const {
+        'inbox': 'home/root',
+        'panels': [
+          {
+            'id': 'left',
+            'pane': {
+              'id': 'left/root',
+              'columns': 1,
+              'items': [
+                {'id': 'a', 'ref': 'app:a'},
+              ],
+            },
+          },
+        ],
+      });
+      final root = old.panel('left')!.root;
+      expect(
+        (root.rowHeight, root.itemLook, root.itemW),
+        (36, TileLook.row, 1),
+      );
+      // Once written by this version it is taken as it is.
+      final plain = Layout(
+        inbox: 'x',
+        panels: [
+          Panel(
+            id: 'left',
+            root: const Pane(id: 'left/root'),
+          ),
+        ],
+      );
+      expect(
+        Layout.fromJson(plain.toJson()).panel('left')!.root.itemLook,
+        isNull,
+      );
+    });
+
+    test('a pane decides for its cards without changing what they say', () {
+      final pane = Pane(
+        id: 'p',
+        itemLook: TileLook.row,
+        itemW: 2,
+        itemNames: false,
+        items: [
+          _item('a', w: 3, h: 2),
+          _item('clock', kind: ItemKind.widget, ref: 'clock', w: 4),
+          LayoutItem.pane(const Pane(id: 'inner'), w: 5),
+        ],
+      );
+      final [card, widget, inner] = pane.shown;
+      expect(
+        (card.look, card.w, card.h, card.hideName),
+        (TileLook.row, 2, 2, true),
+      );
+      // Only cards and folders are decided for.
+      expect((widget.w, inner.w), (4, 5));
+      // What the card says is still there for when the pane stops.
+      expect((pane.items.first.w, pane.items.first.look), (3, TileLook.card));
+      expect(
+        pane.copyWith(itemLook: null, itemW: null, itemNames: null).decides,
+        isFalse,
+      );
+      // And all of it survives being written and read.
+      final copy = Pane.fromJson(pane.copyWith(rowHeight: 40.0).toJson());
+      expect(
+        (copy.itemLook, copy.itemW, copy.itemNames, copy.rowHeight),
+        (TileLook.row, 2, false, 40),
+      );
+    });
+
+    test('a pane keeps how round each of its corners is', () {
+      final pane = Pane(id: 'p', corners: const [0, 8, 500, -2]);
+      final layout = Layout(
+        inbox: 'p',
+        panels: [Panel(id: Layout.homeId, root: pane)],
+      ).normalised();
+      // Each within what a corner can be.
+      expect(layout.home.root.corners, [0, 8, Pane.maxCorner, 0]);
+      expect(Pane.fromJson(layout.home.root.toJson()).corners, [
+        0,
+        8,
+        Pane.maxCorner,
+        0,
+      ]);
+      // Anything but four numbers is the usual.
+      expect(
+        Pane.fromJson(const {
+          'id': 'p',
+          'corners': [1, 2],
+        }).corners,
+        isNull,
+      );
+      expect(pane.copyWith(corners: null).corners, isNull);
+    });
+
+    test('what is drawn is what the pane decides', () {
+      final view = resolveLayout(
+        const [
+          LauncherCard(
+            id: 'app:a',
+            kind: CardKind.app,
+            target: 'a',
+            label: 'A',
+          ),
+        ],
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'main',
+            panels: [
+              Panel(
+                id: Layout.homeId,
+                root: Pane(
+                  id: 'main',
+                  itemLook: TileLook.row,
+                  items: [_item('a', ref: 'app:a')],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(view.home.root.entries.single.item.look, TileLook.row);
     });
   });
 

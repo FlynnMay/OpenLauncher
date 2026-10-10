@@ -17,11 +17,14 @@ class PaneMetrics {
   PaneMetrics(Pane pane, double width)
     : gapX = pane.spacingX,
       gapY = pane.spacingY,
-      cellWidth = (width - (pane.columns - 1) * pane.spacingX) / pane.columns;
+      cellWidth = (width - (pane.columns - 1) * pane.spacingX) / pane.columns,
+      _rowHeight = pane.rowHeight;
 
   final double gapX, gapY, cellWidth;
+  final double? _rowHeight;
 
-  double get cellHeight => cellWidth / PaneGrid.cellRatio;
+  /// As tall as the pane says, or else in keeping with how wide it is.
+  double get cellHeight => _rowHeight ?? cellWidth / PaneGrid.cellRatio;
 
   /// How far [cells] cells reach across, the gaps between them included.
   double across(double cells) => cells * cellWidth + (cells - 1) * gapX;
@@ -112,7 +115,17 @@ class PaneBox extends StatelessWidget {
   final PaneView view;
   final Widget Function(Entry entry) tile;
 
-  static const _radius = 14.0;
+  /// The outline of [pane]: each corner as round as the pane says.
+  static BorderRadius shapeOf(Pane pane) => switch (pane.corners) {
+    [final topLeft, final topRight, final bottomRight, final bottomLeft] =>
+      BorderRadius.only(
+        topLeft: Radius.circular(topLeft),
+        topRight: Radius.circular(topRight),
+        bottomRight: Radius.circular(bottomRight),
+        bottomLeft: Radius.circular(bottomLeft),
+      ),
+    _ => BorderRadius.circular(Pane.defaultCorner),
+  };
 
   /// The gap between a title and what is under it.
   static const _underTitle = 10.0;
@@ -128,7 +141,7 @@ class PaneBox extends StatelessWidget {
     final titled = pane.title.isNotEmpty;
     final fill = styleFill(pane.style);
     final border = pane.style.border;
-    final shape = BorderRadius.circular(_radius);
+    final shape = shapeOf(pane);
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

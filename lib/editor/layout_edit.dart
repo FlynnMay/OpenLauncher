@@ -70,9 +70,6 @@ String? refusal(Layout layout, LayoutItem item, String paneId) {
   if (found == null) return 'That pane is gone.';
   final inner = item.pane;
   if (inner == null) return null;
-  if (found.panel.kind == PanelKind.sidebar) {
-    return 'A sidebar holds cards and widgets, not panes.';
-  }
   if (inner.panes.any((pane) => pane.id == paneId)) {
     return 'A pane cannot go inside itself.';
   }
@@ -179,10 +176,7 @@ Layout dropItem(Layout layout, LayoutItem item, Drop drop, {Panel? panel}) {
   final whole = target.mode != PaneMode.free;
   final columns = target.columns * 1.0;
   final w = min(whole ? max(1.0, item.w.roundToDouble()) : item.w, columns);
-  final h =
-      found.panel.kind == PanelKind.sidebar && item.kind != ItemKind.widget
-      ? 1.0
-      : whole
+  final h = whole
       ? item.h.roundToDouble().clamp(1.0, Pane.maxRows * 1.0)
       : item.h;
 
@@ -460,6 +454,15 @@ Layout removePanel(Layout layout, String id) {
     },
   );
 }
+
+/// [layout] with a sidebar on the edge [id] names, empty if there was none.
+Layout withBar(Layout layout, String id) => layout.panel(id) != null
+    ? layout
+    : Layout(
+        inbox: layout.inbox,
+        removed: layout.removed,
+        panels: [...layout.panels, Panel.empty(id)],
+      );
 
 /// [layout] with new apps going to the pane [paneId].
 Layout withInbox(Layout layout, String paneId) =>

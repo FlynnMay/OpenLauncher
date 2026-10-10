@@ -5,7 +5,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/rail.dart';
+import 'package:openlauncher/features/home/sidebar.dart';
 import 'package:openlauncher/features/home_button/home_button.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/wallpaper/wallpaper_background.dart';
@@ -43,8 +43,6 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ],
                 data: (layout) {
-                  final left = layout.sidebar(Layout.leftId);
-                  final right = layout.sidebar(Layout.rightId);
                   final focus = FirstFocus();
                   return [
                     if (layout.home.isEmpty)
@@ -62,16 +60,8 @@ class HomeScreen extends ConsumerWidget {
                               EntryTile(entry: entry, focus: focus),
                         ),
                       ),
-                    if (left != null)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Rail(view: left, onLeft: true),
-                      ),
-                    if (right != null)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Rail(view: right, onLeft: false),
-                      ),
+                    // Over the home screen, each from its own edge.
+                    for (final bar in layout.bars) Sidebar(view: bar),
                     Positioned(
                       top: _padding.top,
                       right: _padding.right,

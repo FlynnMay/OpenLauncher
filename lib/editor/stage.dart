@@ -14,9 +14,11 @@ import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/popup_panel.dart';
+import 'package:openlauncher/features/home/sidebar.dart';
 
 /// The launcher itself, running in a box the size of the TV's screen: the
 /// same home screen, popups, menus and settings, each kept inside the box.
@@ -83,6 +85,9 @@ class _StageState extends ConsumerState<Stage> {
   /// Where what is being dragged would land, on the screen.
   Rect? _marker;
 
+  /// The sidebar something is being dragged over, if any.
+  String? _over;
+
   static RenderBox? _box(GlobalKey? key) =>
       switch (key?.currentContext?.findRenderObject()) {
         final RenderBox box when box.attached && box.hasSize => box,
@@ -118,7 +123,7 @@ class _StageState extends ConsumerState<Stage> {
             // picked up or picked out by any part of it.
             child: _Selectable(
               id: entry.item.id,
-              radius: 14,
+              shape: PaneBox.shapeOf(pane),
               resting: Colors.white24,
               child: tile,
             ),
@@ -151,14 +156,29 @@ class _StageState extends ConsumerState<Stage> {
     final layout = ref.read(configProvider).value?.layout;
     if (layout == null) return null;
     final item = dragged.item;
-    // An open popup is all there is to drop on; otherwise the home screen.
+    // An open popup is all there is to drop on; otherwise a sidebar, over
+    // as much of it as shows, and failing that the home screen.
     var pane = layout.home.root;
+    String? bar;
     for (final panel in layout.panels) {
-      if (panel.kind == PanelKind.popup &&
-          _box(_grids[panel.root.id]) != null) {
+      final grid = _grids[panel.root.id];
+      if (_box(grid) == null) continue;
+      if (panel.kind == PanelKind.popup) {
         pane = panel.root;
+        bar = null;
+        break;
+      }
+      final showing = grid?.currentContext
+          ?.getInheritedWidgetOfExactType<FocusBounds>()
+          ?.visible();
+      if (panel.kind == PanelKind.sidebar &&
+          (showing?.contains(pointer) ?? false)) {
+        pane = panel.root;
+        bar = panel.id;
       }
     }
+    // A sidebar something is held over opens, to show where it would go.
+    if (bar != _over) setState(() => _over = bar);
     // The innermost pane under the pointer, other than the one dragged.
     for (Pane? inner = pane; inner != null;) {
       pane = inner;
@@ -182,7 +202,7 @@ class _StageState extends ConsumerState<Stage> {
     if (pane.mode == PaneMode.flow) {
       // In front of the first thing that comes after the pointer, reading
       // across and then down.
-      final placed = placeItems(pane.items, pane.columns, pane.mode);
+      final placed = placeItems(pane.shown, pane.columns, pane.mode);
       String? before;
       for (final (index, other) in pane.items.indexed) {
         if (other.id == item.id) continue;
@@ -224,7 +244,7 @@ class _StageState extends ConsumerState<Stage> {
     )!.pane;
     final index = after.items.indexWhere((other) => other.id == item.id);
     final rect = metrics.rectOf(
-      placeItems(after.items, after.columns, after.mode)[index],
+      placeItems(after.shown, after.columns, after.mode)[index],
     );
     return (
       drop: drop,
@@ -243,8 +263,9 @@ class _StageState extends ConsumerState<Stage> {
     final grid = _box(_grids[found?.parent.id]), screen = _box(_screen);
     if (found == null || grid == null || screen == null) return null;
     final pane = found.parent;
+    // Where it is drawn, which is as its pane would have it.
     final placed = placeItems(
-      pane.items,
+      pane.shown,
       pane.columns,
       pane.mode,
     )[pane.items.indexOf(found.item)];
@@ -267,7 +288,17 @@ class _StageState extends ConsumerState<Stage> {
   /// [pane]: an edge has one if it can go outwards, there being room in the
   /// pane, or inwards, the thing being more than a cell across; a corner
   /// has one if both its edges do.
-  static Set<ResizeHandle> _handles(Placement placed, Pane pane, double least) {
+  static Set<ResizeHandle> _handles(
+    LayoutItem item,
+    Placement placed,
+    Pane pane,
+    double least,
+  ) {
+    // A card whose size its pane decides has none to change.
+    final decided =
+        (pane.itemW != null || pane.itemH != null) &&
+        (item.kind == ItemKind.card || item.kind == ItemKind.panel);
+    if (decided) return const {};
     bool across(int side) =>
         side == 0 ||
         placed.w > least ||
@@ -345,7 +376,7 @@ class _StageState extends ConsumerState<Stage> {
         grid.getTransformTo(screen),
         metrics.rectOf(
           placeItems(
-            after.parent.items,
+            after.parent.shown,
             after.parent.columns,
             after.parent.mode,
           )[after.parent.items.indexOf(after.item)],
@@ -372,7 +403,7 @@ class _StageState extends ConsumerState<Stage> {
     final editing = widget.editing;
     // The frames are always there, so that going in and out of editing
     // leaves the launcher as it was: the same screen, the same popup open.
-    return PaneFrame(
+    final screen = PaneFrame(
       wrap: _grid,
       child: TileFrame(
         wrap: editing ? _editTile : _plainTile,
@@ -380,10 +411,14 @@ class _StageState extends ConsumerState<Stage> {
           onWillAcceptWithDetails: (_) => editing,
           onMove: (details) =>
               _mark(_target(details.offset, details.data)?.marker),
-          onLeave: (_) => _mark(null),
+          onLeave: (_) {
+            _mark(null);
+            if (_over != null) setState(() => _over = null);
+          },
           onAcceptWithDetails: (details) {
             final target = _target(details.offset, details.data);
             _mark(null);
+            if (_over != null) setState(() => _over = null);
             if (target != null) {
               placeDragged(context, ref, details.data, target.drop);
             }
@@ -420,6 +455,7 @@ class _StageState extends ConsumerState<Stage> {
                                 ? picked.rect
                                 : _marker ?? picked.rect,
                             handles: _handles(
+                              picked.found.item,
                               picked.placed,
                               picked.found.parent,
                               _least(
@@ -457,6 +493,19 @@ class _StageState extends ConsumerState<Stage> {
         ),
       ),
     );
+    return SidebarHold(
+      // Open while it is being arranged, has something picked out in it,
+      // or has something held over it.
+      ids: {
+        if (editing) ...{
+          ?ref.watch(barProvider),
+          ?_over,
+          for (final one in ref.watch(selectedProvider))
+            if (one.panel.kind == PanelKind.sidebar) one.panel.id,
+        },
+      },
+      child: screen,
+    );
   }
 }
 
@@ -467,13 +516,13 @@ class _Selectable extends ConsumerWidget {
   const _Selectable({
     required this.id,
     required this.child,
-    this.radius = 10,
+    this.shape = const BorderRadius.all(Radius.circular(10)),
     this.resting,
   });
 
   final String id;
   final Widget child;
-  final double radius;
+  final BorderRadius shape;
 
   /// The outline it has while not picked out, if any.
   final Color? resting;
@@ -501,7 +550,7 @@ class _Selectable extends ConsumerWidget {
       child: DecoratedBox(
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
+          borderRadius: shape,
           border: outline == null
               ? null
               : Border.all(color: outline, width: selected ? 2 : 1),

@@ -192,7 +192,7 @@ void main() {
       );
     });
 
-    test('a sidebar takes no panes', () {
+    test('a sidebar takes panes like anywhere else', () {
       final layout = Layout(
         inbox: 'p',
         panels: [
@@ -209,7 +209,7 @@ void main() {
           LayoutItem.pane(const Pane(id: 'new')),
           Panel.rootId(Layout.leftId),
         ),
-        contains('sidebar'),
+        isNull,
       );
     });
   });

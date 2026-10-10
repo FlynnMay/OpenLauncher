@@ -34,6 +34,36 @@ class PaneScope extends InheritedWidget {
       !listEquals(panes, oldWidget.panes);
 }
 
+/// Says how much of the widgets below it can be seen, when that is less
+/// than where they are laid out: a sidebar that is closed to a strip, or
+/// out of sight. Moving the focus goes by what can be seen.
+class FocusBounds extends InheritedWidget {
+  const FocusBounds({super.key, required this.visible, required super.child});
+
+  /// What is in view, in the coordinates of the whole display.
+  final Rect? Function() visible;
+
+  @override
+  bool updateShouldNotify(FocusBounds oldWidget) => false;
+}
+
+/// Where on the display [node] can be seen: where it is, cut down to what
+/// its [FocusBounds] let through. Wholly out of view, it is a point on the
+/// edge it is behind, which is where the focus has to go to reach it.
+Rect focusRect(FocusNode node) {
+  final rect = node.rect;
+  final bounds = node.context
+      ?.getInheritedWidgetOfExactType<FocusBounds>()
+      ?.visible();
+  if (bounds == null) return rect;
+  return Rect.fromLTRB(
+    rect.left.clamp(bounds.left, bounds.right),
+    rect.top.clamp(bounds.top, bounds.bottom),
+    rect.right.clamp(bounds.left, bounds.right),
+    rect.bottom.clamp(bounds.top, bounds.bottom),
+  );
+}
+
 /// Moves the focus between tiles the launcher's way.
 ///
 /// Where a press of the D-pad leads is decided by [navigate]: what is in the
@@ -66,7 +96,7 @@ class _PanePolicy extends ReadingOrderTraversalPolicy {
   }) => node.requestFocus();
 
   static NavSpot<FocusNode> _spot(FocusNode node) =>
-      NavSpot(node, node.rect, switch (node.context) {
+      NavSpot(node, focusRect(node), switch (node.context) {
         null => const [],
         final context => PaneScope.peek(context),
       });

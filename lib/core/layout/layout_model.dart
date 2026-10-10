@@ -37,6 +37,13 @@ enum ItemKind {
   pane,
 }
 
+/// How a card or a folder is drawn: its picture with its name under it, or
+/// as a row, its picture with its name beside it.
+enum TileLook { card, row }
+
+/// The edge of the screen a sidebar is on.
+enum BarEdge { left, right, top, bottom }
+
 enum PopupPosition { center, bottom, left, right }
 
 enum PopupSize { small, medium, large }
@@ -85,6 +92,7 @@ class LayoutItem {
     this.options = const {},
     this.style = BoxStyle.none,
     this.hideName = false,
+    this.look = TileLook.card,
     this.pane,
   });
 
@@ -95,7 +103,8 @@ class LayoutItem {
       ref = pane.id,
       options = const {},
       style = BoxStyle.none,
-      hideName = false;
+      hideName = false,
+      look = TileLook.card;
 
   /// Unique within the layout.
   final String id;
@@ -120,6 +129,10 @@ class LayoutItem {
   /// under it.
   final bool hideName;
 
+  /// How a card or folder is drawn; the pane it is in may say otherwise
+  /// for everything in it ([Pane.itemLook]).
+  final TileLook look;
+
   /// The pane this item is, for [ItemKind.pane].
   final Pane? pane;
 
@@ -137,6 +150,7 @@ class LayoutItem {
     options: options,
     style: style,
     hideName: hideName,
+    look: look,
     pane: pane,
   );
 
@@ -144,18 +158,22 @@ class LayoutItem {
   LayoutItem copyWith({
     BoxStyle? style,
     bool? hideName,
+    TileLook? look,
     Map<String, Object?>? options,
+    double? w,
+    double? h,
   }) => LayoutItem(
     id: id,
     kind: kind,
     ref: ref,
-    w: w,
-    h: h,
+    w: w ?? this.w,
+    h: h ?? this.h,
     x: x,
     y: y,
     options: options ?? this.options,
     style: style ?? this.style,
     hideName: hideName ?? this.hideName,
+    look: look ?? this.look,
     pane: pane,
   );
 
@@ -172,6 +190,7 @@ class LayoutItem {
     options: options,
     style: style,
     hideName: hideName,
+    look: look,
     pane: pane,
   );
 
@@ -196,6 +215,7 @@ class LayoutItem {
       options: {...?_optional<Map<Object?, Object?>>(json, 'options')?.cast()},
       style: BoxStyle.fromJson(json['style']),
       hideName: _optional<bool>(json, 'hideName') ?? false,
+      look: _named(TileLook.values, _optional<String>(json, 'look'), .card),
       pane: pane,
     );
   }
@@ -217,6 +237,7 @@ class LayoutItem {
     if (options.isNotEmpty) 'options': options,
     if (!style.isEmpty) 'style': style.toJson(),
     if (hideName) 'hideName': true,
+    if (look != TileLook.card) 'look': look.name,
     'pane': ?pane?.toJson(),
   };
 }
@@ -236,9 +257,25 @@ class Pane {
     this.style = BoxStyle.none,
     this.spacing,
     this.padding,
+    this.rowHeight,
+    this.corners,
+    this.itemLook,
+    this.itemW,
+    this.itemH,
+    this.itemNames,
   });
 
   static const defaultColumns = 5;
+
+  /// How round a pane's corners are when [corners] is not set, and the
+  /// roundest one can be made, in the TV's pixels.
+  static const defaultCorner = 14.0, maxCorner = 120.0;
+
+  /// The lowest and the tallest a row can be made, in the TV's pixels.
+  static const minRowHeight = 16.0, maxRowHeight = 400.0;
+
+  /// The row height a sidebar starts with: a line of small pictures.
+  static const barRowHeight = 36.0;
 
   /// The room a pane keeps between its edge and what is in it when
   /// [padding] is not set; a global pane keeps none.
@@ -284,6 +321,46 @@ class Pane {
   /// the pane has a background or a border.
   final double? padding;
 
+  /// How tall a row of cells is, in the TV's 960-wide pixels; null for a
+  /// height that follows from how wide a cell is.
+  final double? rowHeight;
+
+  /// How round each corner is, in the TV's 960-wide pixels: top left, top
+  /// right, bottom right, bottom left. Null for the usual, all round alike.
+  final List<double>? corners;
+
+  /// What the pane makes of every card and folder directly in it, whatever
+  /// each says for itself: how it is drawn, how many cells it takes, and
+  /// whether its name shows. Null leaves that to each of them. What a card
+  /// says for itself is kept, and counts again once the pane stops saying.
+  final TileLook? itemLook;
+  final double? itemW, itemH;
+  final bool? itemNames;
+
+  /// Whether the pane decides something for the cards in it.
+  bool get decides =>
+      itemLook != null || itemW != null || itemH != null || itemNames != null;
+
+  /// The items as they are to be placed and drawn: cards and folders as the
+  /// pane would have them.
+  List<LayoutItem> get shown => !decides
+      ? items
+      : [
+          for (final item in items)
+            if (item.kind == ItemKind.card || item.kind == ItemKind.panel)
+              item.copyWith(
+                look: itemLook,
+                w: itemW,
+                h: itemH,
+                hideName: switch (itemNames) {
+                  null => null,
+                  final names => !names,
+                },
+              )
+            else
+              item,
+        ];
+
   double get spacingX => spacing ?? defaultSpacingX;
   double get spacingY => spacing ?? defaultSpacingY;
 
@@ -299,6 +376,12 @@ class Pane {
     BoxStyle? style,
     Object? spacing = _keep,
     Object? padding = _keep,
+    Object? rowHeight = _keep,
+    Object? corners = _keep,
+    Object? itemLook = _keep,
+    Object? itemW = _keep,
+    Object? itemH = _keep,
+    Object? itemNames = _keep,
   }) => Pane(
     id: id,
     title: title ?? this.title,
@@ -308,17 +391,31 @@ class Pane {
     style: style ?? this.style,
     spacing: identical(spacing, _keep) ? this.spacing : spacing as double?,
     padding: identical(padding, _keep) ? this.padding : padding as double?,
+    rowHeight: identical(rowHeight, _keep)
+        ? this.rowHeight
+        : rowHeight as double?,
+    corners: identical(corners, _keep)
+        ? this.corners
+        : corners as List<double>?,
+    itemLook: identical(itemLook, _keep)
+        ? this.itemLook
+        : itemLook as TileLook?,
+    itemW: identical(itemW, _keep) ? this.itemW : itemW as double?,
+    itemH: identical(itemH, _keep) ? this.itemH : itemH as double?,
+    itemNames: identical(itemNames, _keep)
+        ? this.itemNames
+        : itemNames as bool?,
   );
 
-  Pane withItems(List<LayoutItem> items) => Pane(
-    id: id,
-    title: title,
-    mode: mode,
-    columns: columns,
-    items: items,
-    style: style,
-    spacing: spacing,
-    padding: padding,
+  Pane withItems(List<LayoutItem> items) => copyWith(items: items);
+
+  /// This pane set up the way a sidebar starts out: a line of small rows,
+  /// each a picture with its name beside it, one cell each.
+  Pane asBar() => copyWith(
+    rowHeight: barRowHeight,
+    itemLook: TileLook.row,
+    itemW: 1.0,
+    itemH: 1.0,
   );
 
   /// This pane and every pane inside it.
@@ -357,6 +454,17 @@ class Pane {
     style: BoxStyle.fromJson(json['style']),
     spacing: _optional<num>(json, 'spacing')?.toDouble(),
     padding: _optional<num>(json, 'padding')?.toDouble(),
+    rowHeight: _optional<num>(json, 'rowHeight')?.toDouble(),
+    corners: switch (_optional<List<Object?>>(json, 'corners')) {
+      final List<Object?> corners
+          when corners.length == 4 && corners.every((c) => c is num) =>
+        [for (final corner in corners) (corner as num).toDouble()],
+      _ => null,
+    },
+    itemLook: TileLook.values.asNameMap()[_optional<String>(json, 'itemLook')],
+    itemW: _optional<num>(json, 'itemW')?.toDouble(),
+    itemH: _optional<num>(json, 'itemH')?.toDouble(),
+    itemNames: _optional<bool>(json, 'itemNames'),
   );
 
   Map<String, Object?> toJson() => {
@@ -372,13 +480,28 @@ class Pane {
       null => null,
       final padding => _tidy(padding),
     },
+    'rowHeight': ?switch (rowHeight) {
+      null => null,
+      final rowHeight => _tidy(rowHeight),
+    },
+    'corners': ?corners?.map(_tidy).toList(),
+    'itemLook': ?itemLook?.name,
+    'itemW': ?switch (itemW) {
+      null => null,
+      final itemW => _tidy(itemW),
+    },
+    'itemH': ?switch (itemH) {
+      null => null,
+      final itemH => _tidy(itemH),
+    },
+    'itemNames': ?itemNames,
     if (!style.isEmpty) 'style': style.toJson(),
     'items': [for (final item in items) item.toJson()],
   };
 }
 
-/// A surface: the home screen, a rail, or a popup. What is on it is in its
-/// global pane, [root].
+/// A surface: the home screen, a sidebar on one of its edges, or a popup.
+/// What is on it is in its global pane, [root].
 @immutable
 class Panel {
   const Panel({
@@ -387,6 +510,9 @@ class Panel {
     this.title = '',
     this.position = PopupPosition.center,
     this.size = PopupSize.medium,
+    this.width,
+    this.height,
+    this.closed,
   });
 
   /// A panel with nothing on it yet.
@@ -395,7 +521,16 @@ class Panel {
     this.title = '',
     this.position = PopupPosition.center,
     this.size = PopupSize.medium,
+    this.width,
+    this.height,
+    this.closed,
   }) : root = _emptyRoot(id);
+
+  /// The width or height of a sidebar that takes all the screen has.
+  static const fill = double.infinity;
+
+  /// The most a sidebar's size can be set to, in the TV's pixels.
+  static const maxExtent = 960.0;
 
   final String id;
 
@@ -409,11 +544,42 @@ class Panel {
   final PopupPosition position;
   final PopupSize size;
 
+  /// How big a sidebar is when open, in the TV's 960-wide pixels: [fill]
+  /// for all there is, null for what its edge usually has.
+  final double? width, height;
+
+  /// How much of a sidebar shows while the focus is elsewhere, measured
+  /// out from its edge; 0 hides it. Null for what its edge usually has.
+  final double? closed;
+
+  /// The edge a sidebar is on; null for a panel that is not one.
+  BarEdge? get edge => edgeOf(id);
+
+  static BarEdge? edgeOf(String id) => switch (id) {
+    Layout.leftId => BarEdge.left,
+    Layout.rightId => BarEdge.right,
+    Layout.topId => BarEdge.top,
+    Layout.bottomId => BarEdge.bottom,
+    _ => null,
+  };
+
+  /// Whether the sidebar opens across the screen (from the left or right
+  /// edge) rather than down or up it.
+  bool get opensAcross => edge == BarEdge.left || edge == BarEdge.right;
+
+  /// The sizes a sidebar on this edge has unless told otherwise: along a
+  /// side it is as tall as the screen and a few cards wide, closed to a
+  /// strip of their pictures; along the top or bottom it is as wide as the
+  /// screen and out of sight until the focus goes there.
+  double get openWidth => width ?? (opensAcross ? 260 : fill);
+  double get openHeight => height ?? (opensAcross ? fill : 120);
+  double get closedSize => closed ?? (opensAcross ? 96 : 0);
+
   PanelKind get kind => kindOf(id);
 
   static PanelKind kindOf(String id) => switch (id) {
     Layout.homeId => PanelKind.home,
-    Layout.leftId || Layout.rightId => PanelKind.sidebar,
+    _ when edgeOf(id) != null => PanelKind.sidebar,
     _ => PanelKind.popup,
   };
 
@@ -425,26 +591,69 @@ class Panel {
       mode: PaneMode.grid,
       columns: Pane.globalColumns,
     ),
-    PanelKind.sidebar => Pane(id: rootId(panelId), columns: 1),
+    // A side bar is one column of rows; one along the top or bottom is a
+    // row of cards.
+    PanelKind.sidebar => switch (edgeOf(panelId)) {
+      BarEdge.top || BarEdge.bottom => Pane(id: rootId(panelId), columns: 8),
+      _ => Pane(id: rootId(panelId), columns: 1).asBar(),
+    },
     PanelKind.popup => Pane(id: rootId(panelId), columns: 4),
   };
 
   /// Everything on the panel, other than the panes themselves.
   Iterable<LayoutItem> get items => root.contents;
 
-  Panel withRoot(Pane root) =>
-      Panel(id: id, title: title, root: root, position: position, size: size);
+  Panel withRoot(Pane root) => copyWith(root: root);
 
-  factory Panel.fromJson(Map<Object?, Object?> json) {
+  static const _keep = Object();
+
+  /// This panel with some of its settings changed. [width], [height] and
+  /// [closed] may be given as null, for the usual ones.
+  Panel copyWith({
+    Pane? root,
+    String? title,
+    PopupPosition? position,
+    PopupSize? size,
+    Object? width = _keep,
+    Object? height = _keep,
+    Object? closed = _keep,
+  }) => Panel(
+    id: id,
+    root: root ?? this.root,
+    title: title ?? this.title,
+    position: position ?? this.position,
+    size: size ?? this.size,
+    width: identical(width, _keep) ? this.width : width as double?,
+    height: identical(height, _keep) ? this.height : height as double?,
+    closed: identical(closed, _keep) ? this.closed : closed as double?,
+  );
+
+  /// A sidebar's size as written: a number, or the word for all there is.
+  static double? _extent(Map<Object?, Object?> json, String key) =>
+      switch (json[key]) {
+        'fill' => fill,
+        final num size when size.isFinite => size.toDouble(),
+        _ => null,
+      };
+
+  /// [barsFromBefore] is true for a layout saved when a sidebar was always
+  /// a list of small rows: its pane is set up to look that way still.
+  factory Panel.fromJson(
+    Map<Object?, Object?> json, {
+    bool barsFromBefore = false,
+  }) {
     final id = _required<String>(json, 'id');
+    final root = switch (_optional<Map<Object?, Object?>>(json, 'pane')) {
+      final pane? => Pane.fromJson(pane),
+      // Layouts from before panes had a list of sections.
+      null => _fromSections(id, _list(json, 'sections', Pane.fromJson)),
+    };
     return Panel(
       id: id,
       title: _optional<String>(json, 'title') ?? '',
-      root: switch (_optional<Map<Object?, Object?>>(json, 'pane')) {
-        final pane? => Pane.fromJson(pane),
-        // Layouts from before panes had a list of sections.
-        null => _fromSections(id, _list(json, 'sections', Pane.fromJson)),
-      },
+      root: barsFromBefore && kindOf(id) == PanelKind.sidebar
+          ? root.asBar()
+          : root,
       position: _named(
         PopupPosition.values,
         _optional<String>(json, 'position'),
@@ -455,8 +664,17 @@ class Panel {
         _optional<String>(json, 'size'),
         PopupSize.medium,
       ),
+      width: _extent(json, 'width'),
+      height: _extent(json, 'height'),
+      closed: _optional<num>(json, 'closed')?.toDouble(),
     );
   }
+
+  static Object? _written(double? extent) => switch (extent) {
+    null => null,
+    fill => 'fill',
+    final size => _tidy(size),
+  };
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -464,6 +682,11 @@ class Panel {
     if (kind == PanelKind.popup) ...{
       'position': position.name,
       'size': size.name,
+    },
+    if (kind == PanelKind.sidebar) ...{
+      'width': ?_written(width),
+      'height': ?_written(height),
+      'closed': ?_written(closed),
     },
     'pane': root.toJson(),
   };
@@ -548,6 +771,15 @@ class Layout {
   static const homeId = 'home';
   static const leftId = 'left';
   static const rightId = 'right';
+  static const topId = 'top';
+  static const bottomId = 'bottom';
+
+  /// The ids of the sidebars there can be, one for each edge.
+  static const barIds = [leftId, rightId, topId, bottomId];
+
+  /// What a layout written now says it is; one that says less was saved
+  /// when sidebars were not yet panes like any other.
+  static const _version = 2;
   static const _firstPane = 'main';
 
   /// The home screen with one pane showing [order] first and then every
@@ -596,7 +828,14 @@ class Layout {
   /// Throws a [FormatException] if [json] is not shaped like a layout. The
   /// result still needs [normalised].
   factory Layout.fromJson(Map<Object?, Object?> json) => Layout(
-    panels: _list(json, 'panels', Panel.fromJson),
+    panels: _list(
+      json,
+      'panels',
+      (panel) => Panel.fromJson(
+        panel,
+        barsFromBefore: (_optional<num>(json, 'v') ?? 1) < _version,
+      ),
+    ),
     inbox: _optional<String>(json, 'inbox') ?? '',
     removed: {
       ...?_optional<List<Object?>>(json, 'removed')?.whereType<String>(),
@@ -604,6 +843,7 @@ class Layout {
   );
 
   Map<String, Object?> toJson() => {
+    'v': _version,
     'inbox': inbox,
     'removed': removed.toList(),
     'panels': [for (final panel in panels) panel.toJson()],
@@ -632,7 +872,7 @@ class Layout {
 
   /// A copy with everything the rest of the app relies on made true: a home
   /// panel, unique ids, sizes and positions that fit their pane, panes
-  /// nested no deeper than [Pane.maxDepth] and not at all in a rail, links
+  /// nested no deeper than [Pane.maxDepth], links
   /// only to popups that exist, and a valid [inbox].
   Layout normalised() {
     final panelIds = <String>{};
@@ -670,8 +910,8 @@ class Layout {
       final inner = item.pane;
       if (item.kind == ItemKind.pane) {
         if (inner == null) return;
-        // Too deep, or in a rail: what is in it moves up a level.
-        if (kind == PanelKind.sidebar || depth >= Pane.maxDepth) {
+        // Too deep: what is in it moves up a level.
+        if (depth >= Pane.maxDepth) {
           for (final entry in inner.items) {
             yield* fitted(entry, columns, mode, kind, depth);
           }
@@ -702,43 +942,73 @@ class Layout {
         options: item.options,
         style: item.style,
         hideName: item.hideName,
+        look: item.look,
         pane: repaired,
       );
     }
 
     repair = (pane, kind, depth) {
-      // A rail is a single column of things in order, whatever was asked.
-      final rail = kind == PanelKind.sidebar;
-      final columns = rail ? 1 : pane.columns.clamp(1, Pane.maxColumns);
-      final mode = rail ? PaneMode.flow : pane.mode;
+      final columns = pane.columns.clamp(1, Pane.maxColumns);
       // The pane's own id first, so that nothing inside can take it.
       final id = fresh(paneIds, pane.id, 'p');
+      // A measure that means something, kept within what is allowed.
+      double? within(double? value, num low, num high) =>
+          value != null && value.isFinite
+          ? value.clamp(low, high).toDouble()
+          : null;
+      final free = pane.mode == PaneMode.free;
+      double? cells(double? value, num most) =>
+          switch (within(value, free ? Pane.minFreeSpan : 1, most)) {
+            final span? when !free => span.roundToDouble(),
+            final span => span,
+          };
       return Pane(
         id: id,
         title: pane.title,
-        mode: mode,
+        mode: pane.mode,
         columns: columns,
         items: [
           for (final entry in pane.items)
-            ...fitted(entry, columns, mode, kind, depth),
+            ...fitted(entry, columns, pane.mode, kind, depth),
         ],
         style: pane.style,
-        spacing: switch (pane.spacing) {
-          final spacing? when spacing.isFinite && !rail =>
-            spacing.clamp(0, Pane.maxSpacing).toDouble(),
+        spacing: within(pane.spacing, 0, Pane.maxSpacing),
+        padding: within(pane.padding, 0, Pane.maxPadding),
+        rowHeight: within(pane.rowHeight, Pane.minRowHeight, Pane.maxRowHeight),
+        corners: switch (pane.corners) {
+          final corners?
+              when corners.length == 4 &&
+                  corners.every((corner) => corner.isFinite) =>
+            [
+              for (final corner in corners)
+                corner.clamp(0, Pane.maxCorner).toDouble(),
+            ],
           _ => null,
         },
-        padding: switch (pane.padding) {
-          final padding? when padding.isFinite && !rail =>
-            padding.clamp(0, Pane.maxPadding).toDouble(),
-          _ => null,
-        },
+        itemLook: pane.itemLook,
+        itemW: cells(pane.itemW, columns),
+        itemH: cells(pane.itemH, Pane.maxRows),
+        itemNames: pane.itemNames,
       );
     };
 
+    double? extent(double? size) => size == null || size == Panel.fill
+        ? size
+        : size.isFinite
+        ? size.clamp(40, Panel.maxExtent).toDouble()
+        : null;
     final result = [
       for (final panel in unique)
-        panel.withRoot(repair(panel.root, panel.kind, 1)),
+        panel.copyWith(
+          root: repair(panel.root, panel.kind, 1),
+          width: extent(panel.width),
+          height: extent(panel.height),
+          closed: switch (panel.closed) {
+            final closed? when closed.isFinite =>
+              closed.clamp(0, Panel.maxExtent).toDouble(),
+            _ => null,
+          },
+        ),
     ];
     final home = result.firstWhere((panel) => panel.id == homeId);
     final placed = {

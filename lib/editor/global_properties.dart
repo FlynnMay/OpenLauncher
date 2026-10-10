@@ -8,6 +8,8 @@ import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/order_list.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
+import 'package:openlauncher/editor/selection.dart';
+import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/wallpaper_settings.dart';
 
@@ -40,6 +42,7 @@ class GlobalProperties extends ConsumerWidget {
         PaneSettings(
           title: 'Screen',
           named: false,
+          shaped: false,
           panes: [config.layout.home.root],
           onChanged: (how) => changeLayout(
             context,
@@ -51,6 +54,40 @@ class GlobalProperties extends ConsumerWidget {
             ),
           ),
         ),
+        Section('Sidebars', [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'One for each edge. It opens over the home screen when the '
+              'focus goes into it.',
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final id in Layout.barIds)
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    // There to be arranged, even with nothing in it yet.
+                    await changeLayout(
+                      context,
+                      ref,
+                      (layout) => withBar(layout, id),
+                    );
+                    ref.read(barProvider.notifier).set(id);
+                  },
+                  icon: Icon(
+                    config.layout.panel(id)?.items.isEmpty ?? true
+                        ? Icons.add
+                        : Icons.edit_outlined,
+                    size: 18,
+                  ),
+                  label: Text(barName(id)),
+                ),
+            ],
+          ),
+        ]),
         Section('Menu on holding OK', [
           OrderList<CardAction>(
             all: CardAction.values,

@@ -30,22 +30,16 @@ class EntryTile extends ConsumerWidget {
     super.key,
     required this.entry,
     this.focus,
-    this.style = TileStyle.card,
     this.inPopup = false,
-    this.compact = false,
   });
 
   final Entry entry;
 
   /// Gives the starting focus to the first card on screen.
   final FirstFocus? focus;
-  final TileStyle style;
 
   /// True inside a popup, which closes when one of its cards is opened.
   final bool inPopup;
-
-  /// True in a closed rail, where there is only room for a picture.
-  final bool compact;
 
   Future<void> _open(
     BuildContext context,
@@ -83,11 +77,14 @@ class EntryTile extends ConsumerWidget {
       case CardEntry(:final card):
         return ArtTile(
           label: card.label,
-          art: CardArt(card: card, padding: style == TileStyle.card ? 14 : 4),
+          art: CardArt(
+            card: card,
+            padding: entry.item.look == TileLook.card ? 14 : 4,
+          ),
           bare: CardArt.isBare(card),
           autofocus: focus?.take() ?? false,
-          style: style,
-          showLabel: !compact && !entry.item.hideName,
+          style: entry.item.look,
+          showLabel: !entry.item.hideName,
           boxStyle: entry.item.style,
           onSelect: () => _open(context, ref, card),
           onMenu: (held) => showCardMenu(
@@ -104,8 +101,8 @@ class EntryTile extends ConsumerWidget {
           art: FolderArt(entry: entry),
           bare: FolderArt.isBare(entry),
           autofocus: focus?.take() ?? false,
-          style: style,
-          showLabel: !compact && !entry.item.hideName,
+          style: entry.item.look,
+          showLabel: !entry.item.hideName,
           boxStyle: entry.item.style,
           onSelect: () => showPanelPopup(context, entry.panel.id),
         );
@@ -114,7 +111,7 @@ class EntryTile extends ConsumerWidget {
           style: item.style,
           radius: 10,
           padding: const EdgeInsets.all(8),
-          child: WidgetTile(item: item, compact: compact),
+          child: WidgetTile(item: item),
         );
       case PaneEntry(:final view):
         return PaneBox(
