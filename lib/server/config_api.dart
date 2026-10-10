@@ -9,6 +9,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/custom_icons.dart';
 import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/wallpaper_store.dart';
@@ -176,6 +177,7 @@ class ConfigApi {
       ('PUT', 'api/layout') => _setLayout(await _body(request)),
       ('PUT', 'api/options') => _setOptions(await _body(request)),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
+      ('POST', 'api/remote') => _remote(id, await _body(request)),
       ('PUT', 'api/card') => _withCard(
         id,
         (id) async => _setCard(id, await _body(request)),
@@ -305,6 +307,88 @@ class ConfigApi {
       await config.setToasts(ToastOptions.fromJson(toasts));
     }
     return _ok();
+  }
+
+  /// Does on the TV what a press on the remote would (`do`): `open`, `info`,
+  /// `uninstall` or `forceStop` the card [id], `media` (`command`), `setup`,
+  /// `tvSettings`, or `homeButton`, which switches it if `enabled` is given
+  /// and says how it stands.
+  Future<Response> _remote(String? id, Map<String, Object?> body) async {
+    final platform = _ref.read(launcherPlatformProvider);
+    Response reply([Map<String, Object?> said = const {}]) =>
+        Response.ok(jsonEncode(said), headers: _json);
+    Future<Response> onCard(
+      Future<Map<String, Object?>?> Function(LauncherCard card) action, {
+      bool appOnly = true,
+    }) => _withCard(id, (id) async {
+      final cards = await _ref.read(allCardsProvider.future);
+      final card = cards.firstWhere((card) => card.id == id);
+      if (appOnly && card.kind != CardKind.app) {
+        throw const FormatException('That card is not an app');
+      }
+      return reply(await action(card) ?? const {});
+    });
+    try {
+      switch (body['do']) {
+        case 'open':
+          return await onCard(appOnly: false, (card) async {
+            if (card.kind == CardKind.action) {
+              throw const FormatException('That card opens nothing on the TV');
+            }
+            await _ref.read(cardActionsProvider).launch(card);
+            return null;
+          });
+        case 'info':
+          return await onCard((card) async {
+            await platform.openAppInfo(card.target);
+            return null;
+          });
+        case 'uninstall':
+          return await onCard((card) async {
+            await platform.uninstallApp(card.target);
+            return null;
+          });
+        case 'forceStop':
+          return await onCard(
+            (card) async => {'done': await platform.forceStopApp(card.target)},
+          );
+        case 'media':
+          final command = MediaCommand.values
+              .where((command) => command.name == body['command'])
+              .firstOrNull;
+          if (command == null) {
+            throw const FormatException('"command" must name a media command');
+          }
+          await platform.sendMediaCommand(command);
+          return reply();
+        case 'setup':
+          final result = await platform.runAutomaticSetup();
+          return reply({
+            'outcome': result.outcome.name,
+            'detail': result.detail,
+          });
+        case 'tvSettings':
+          await platform.openHomeButtonSettings();
+          return reply();
+        case 'homeButton':
+          if (body['enabled'] case final enabled?) {
+            if (enabled is! bool) {
+              throw const FormatException('"enabled" must be true or false');
+            }
+            await platform.setHomeButtonEnabled(enabled);
+          }
+          return reply({
+            'enabled': await platform.isHomeButtonEnabled(),
+            'canManage': await platform.canManageHomeButton(),
+          });
+        default:
+          throw const FormatException('"do" must name something to do');
+      }
+    } on FormatException {
+      rethrow;
+    } on Exception catch (e) {
+      return _error(502, 'The TV could not do that: $e');
+    }
   }
 
   /// Finds places by name for the weather widget. Done here rather than by

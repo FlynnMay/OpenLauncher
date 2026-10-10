@@ -272,6 +272,18 @@ class TvApi {
   Future<void> arrangeWallpapers({List<String>? order, int? every}) =>
       _ask('PUT', '/api/wallpapers', {'order': ?order, 'every': ?every});
 
+  /// Has the TV do [what], as a press on its remote would; [card] is the id
+  /// of the card pressed, if it was one. Returns what the TV said of it.
+  Future<Map<Object?, Object?>> press(
+    String what, {
+    String? card,
+    Map<String, Object?> more = const {},
+  }) async => await _ask(
+    'POST',
+    '/api/remote${card == null ? '' : _id(card)}',
+    {'do': what, ...more},
+  ) as Map;
+
   /// Finds places by name, for the weather widget.
   Future<List<Place>> findPlaces(String name) async {
     final reply = await _ask(

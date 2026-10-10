@@ -20,6 +20,19 @@ class _Tv extends TvApi {
 
   @override
   Future<void> setOptions(LauncherConfig config) async => sent.add('options');
+
+  /// What the TV answers a press with, by what was pressed.
+  final answers = <String, Map<String, Object?>>{};
+
+  @override
+  Future<Map<Object?, Object?>> press(
+    String what, {
+    String? card,
+    Map<String, Object?> more = const {},
+  }) async {
+    sent.add([what, ?card, if (more.isNotEmpty) more].join(' '));
+    return answers[what] ?? const {};
+  }
 }
 
 const _card = LauncherCard(
@@ -88,8 +101,28 @@ void main() {
         .read(configProvider.notifier)
         .setLayout(layout.without({'app:a'}));
     await tester.pumpAndSettle();
-    expect(tv.sent, ['layout']);
+    // Besides the screen asking how the Home button stands.
+    expect(tv.sent.where((sent) => sent != 'homeButton'), ['layout']);
     expect(find.text('Alpha'), findsNothing);
+  });
+
+  testWidgets('a card pressed here is opened on the TV', (tester) async {
+    final tv = _Tv()..answers['homeButton'] = {'enabled': true};
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...tvOverrides,
+          tvApiProvider.overrideWithValue(tv),
+          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+        ],
+        child: const MaterialApp(home: FittedBox(child: Stage(editing: false))),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Alpha').last);
+    await tester.pumpAndSettle();
+    expect(tv.sent, contains('open app:a'));
   });
 
   test(
@@ -127,4 +160,38 @@ void main() {
       expect(container.read(nowPlayingProvider).value?.title, 'Song');
     },
   );
+
+  test('what is asked of the device is asked of the TV', () async {
+    final tv = _Tv();
+    final platform = BrowserPlatform(tv);
+
+    await platform.launchApp('app:a');
+    await platform.switchToInput('input:tv/HW1');
+    await platform.openAppInfo('app:a');
+    await platform.uninstallApp('app:a');
+    await platform.sendMediaCommand(MediaCommand.playPause);
+    await platform.openHomeButtonSettings();
+    expect(tv.sent, [
+      'open app:a',
+      'open input:tv/HW1',
+      'info app:a',
+      'uninstall app:a',
+      'media {command: playPause}',
+      'tvSettings',
+    ]);
+
+    expect(await platform.forceStopApp('app:a'), isFalse);
+    tv.answers['forceStop'] = {'done': true};
+    expect(await platform.forceStopApp('app:a'), isTrue);
+
+    tv.answers['homeButton'] = {'enabled': true, 'canManage': false};
+    expect(await platform.isHomeButtonEnabled(), isTrue);
+    expect(await platform.canManageHomeButton(), isFalse);
+    await platform.setHomeButtonEnabled(false);
+    expect(tv.sent.last, 'homeButton {enabled: false}');
+
+    tv.answers['setup'] = {'outcome': 'notAuthorised', 'detail': null};
+    final result = await platform.runAutomaticSetup();
+    expect(result.outcome, SetupOutcome.notAuthorised);
+  });
 }

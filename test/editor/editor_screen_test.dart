@@ -18,6 +18,13 @@ class _Tv extends TvApi {
 
   @override
   Future<void> setOptions(LauncherConfig config) async {}
+
+  @override
+  Future<Map<Object?, Object?>> press(
+    String what, {
+    String? card,
+    Map<String, Object?> more = const {},
+  }) async => const {'enabled': true};
 }
 
 const _card = LauncherCard(

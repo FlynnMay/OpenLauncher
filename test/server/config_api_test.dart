@@ -165,6 +165,59 @@ void main() {
     expect(page['notificationAccess'], isTrue);
   });
 
+  test('a press from the page is done on the TV', () async {
+    final platform =
+        container.read(launcherPlatformProvider) as FakeLauncherPlatform;
+    Future<Response> press(String what, {String? id, Map? more}) => call(
+      'POST',
+      '/api/remote${id == null ? '' : '?id=${Uri.encodeQueryComponent(id)}'}',
+      body: {'do': what, ...?more},
+    );
+    Future<Object?> said(Response response) async {
+      expect(response.statusCode, 200);
+      return jsonDecode(await response.readAsString());
+    }
+
+    await said(await press('open', id: 'app:a'));
+    await said(await press('open', id: 'input:tv/HW1'));
+    expect(platform.launched, ['a', 'tv/HW1']);
+    // Settings is the launcher's own screen, and the page has its own.
+    expect((await press('open', id: 'launcher:settings')).statusCode, 400);
+    expect((await press('open', id: 'app:gone')).statusCode, 404);
+    expect((await press('open')).statusCode, 404);
+
+    await said(await press('info', id: 'app:a'));
+    await said(await press('uninstall', id: 'app:b'));
+    expect(await said(await press('forceStop', id: 'app:a')), {'done': true});
+    platform.canForceStop = false;
+    expect(await said(await press('forceStop', id: 'app:a')), {'done': false});
+    expect(platform.appActions, ['info a', 'uninstall b', 'stop a']);
+    // Only apps have these.
+    expect((await press('info', id: 'input:tv/HW1')).statusCode, 400);
+
+    await said(await press('media', more: {'command': 'playPause'}));
+    expect(platform.mediaCommands, [MediaCommand.playPause]);
+    expect((await press('media', more: {'command': 'louder'})).statusCode, 400);
+
+    platform.homeButtonEnabled = false;
+    expect(await said(await press('homeButton')), {
+      'enabled': false,
+      'canManage': false,
+    });
+    expect(await said(await press('setup')), {
+      'outcome': 'done',
+      'detail': null,
+    });
+    expect(await said(await press('homeButton', more: {'enabled': false})), {
+      'enabled': false,
+      'canManage': true,
+    });
+    await said(await press('tvSettings'));
+    expect(platform.settingsOpened, 1);
+
+    expect((await press('dance')).statusCode, 400);
+  });
+
   test('what is playing is told, with its cover', () async {
     expect((await state())['nowPlaying'], isNull);
 

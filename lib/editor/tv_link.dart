@@ -36,8 +36,8 @@ final List<Override> tvOverrides = [
     (ref) => ref.watch(tvStateProvider).value?.wallpaperEvery ?? 0,
   ),
   launcherPlatformProvider.overrideWith((ref) {
-    final platform = BrowserPlatform();
-    // What plays is the one thing of the device's the TV passes on.
+    final platform = BrowserPlatform(ref.watch(tvApiProvider));
+    // What plays comes with the rest of what the TV sends.
     ref.listen(tvStateProvider, (_, next) {
       if (next.value case final state?) platform.hear(state.nowPlaying);
     }, fireImmediately: true);
@@ -76,19 +76,14 @@ class TvConfigStore implements ConfigStore {
   }
 }
 
-/// Said when the page is asked to do something only the TV can do.
-class NotFromHere implements Exception {
-  const NotFromHere();
-
-  @override
-  String toString() => 'this page cannot do that on the TV yet';
-}
-
-/// The device as a browser has it: there is none. What the launcher asks of
-/// the device is answered with nothing, and what it asks the device to do
-/// is refused, until the TV offers a way to pass such things on.
+/// The device as a browser has it: the TV, at the other end of [TvApi]. What
+/// the launcher here asks the device to do is done there, as if the press
+/// had come from the TV's remote. What apps and inputs there are is not
+/// asked of it: the TV sends its cards ready made.
 class BrowserPlatform extends FakeLauncherPlatform {
-  BrowserPlatform() : super(const [], const []);
+  BrowserPlatform(this._api) : super(const [], const []);
+
+  final TvApi _api;
 
   /// Takes [now] as what is playing on the TV.
   void hear(NowPlaying? now) {
@@ -96,27 +91,52 @@ class BrowserPlatform extends FakeLauncherPlatform {
     notifyNowPlayingChanged();
   }
 
+  // Here a card's target is its id, which is what the TV knows it by.
   @override
-  Future<void> launchApp(String packageName) => throw const NotFromHere();
+  Future<void> launchApp(String packageName) =>
+      _api.press('open', card: packageName);
 
   @override
-  Future<void> switchToInput(String inputId) => throw const NotFromHere();
+  Future<void> switchToInput(String inputId) =>
+      _api.press('open', card: inputId);
 
   @override
-  Future<void> openAppInfo(String packageName) => throw const NotFromHere();
+  Future<void> openAppInfo(String packageName) =>
+      _api.press('info', card: packageName);
 
   @override
-  Future<void> uninstallApp(String packageName) => throw const NotFromHere();
+  Future<void> uninstallApp(String packageName) =>
+      _api.press('uninstall', card: packageName);
 
   @override
-  Future<bool> forceStopApp(String packageName) => throw const NotFromHere();
+  Future<bool> forceStopApp(String packageName) async =>
+      (await _api.press('forceStop', card: packageName))['done'] == true;
 
   @override
-  Future<void> openHomeButtonSettings() => throw const NotFromHere();
+  Future<void> sendMediaCommand(MediaCommand command) =>
+      _api.press('media', more: {'command': command.name});
 
   @override
-  Future<void> setHomeButtonEnabled(bool enabled) => throw const NotFromHere();
+  Future<bool> isHomeButtonEnabled() async =>
+      (await _api.press('homeButton'))['enabled'] == true;
 
   @override
-  Future<SetupResult> runAutomaticSetup() => throw const NotFromHere();
+  Future<bool> canManageHomeButton() async =>
+      (await _api.press('homeButton'))['canManage'] == true;
+
+  @override
+  Future<void> setHomeButtonEnabled(bool enabled) =>
+      _api.press('homeButton', more: {'enabled': enabled});
+
+  @override
+  Future<void> openHomeButtonSettings() => _api.press('tvSettings');
+
+  @override
+  Future<SetupResult> runAutomaticSetup() async {
+    final said = await _api.press('setup');
+    return SetupResult(
+      outcome: SetupOutcome.values.byName(said['outcome'] as String),
+      detail: said['detail'] as String?,
+    );
+  }
 }
