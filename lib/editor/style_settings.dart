@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/colour_picker.dart';
 import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/gradient_bar.dart';
 
-/// The look of one or more boxes: background colours, the direction of a
-/// gradient, and a border. Each part is changed by itself, so that giving
+/// The look of one or more boxes: background colours, where along a
+/// gradient each one sits and which way it runs, and a border. Each part is changed by itself, so that giving
 /// several things the same border leaves each its own background.
 class StyleSettings extends StatelessWidget {
   const StyleSettings({
@@ -24,28 +25,30 @@ class StyleSettings extends StatelessWidget {
   bool _same(Object? Function(BoxStyle style) part) =>
       styles.map((style) => jsonEncode(part(style))).toSet().length == 1;
 
-  void _fill(List<int> colors) => onChanged(
-    (own) => BoxStyle(colors: colors, angle: own.angle, border: own.border),
+  void _fill(List<int> colors, [List<double> stops = const []]) => onChanged(
+    (own) => BoxStyle(
+      colors: colors,
+      stops: stops,
+      angle: own.angle,
+      border: own.border,
+    ),
   );
+
+  static Object? _background(BoxStyle style) => [style.colors, style.stops];
 
   @override
   Widget build(BuildContext context) {
     final style = styles.first;
     return Section('Colours', [
-      LabelledRow(
-        _same((style) => style.colors) ? 'Background' : 'Background\n(mixed)',
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final (index, colour) in style.colors.indexed)
-              ColourChip(
-                colour: colour,
-                onChanged: (next) => _fill(
-                  [...style.colors]..replaceRange(index, index + 1, [?next]),
-                ),
-              ),
-            if (style.colors.length < BoxStyle.maxColors)
+      if (style.colors.length < 2)
+        LabelledRow(
+          _same(_background) ? 'Background' : 'Background\n(mixed)',
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final colour in style.colors)
+                ColourChip(colour: colour, onChanged: (next) => _fill([?next])),
               ColourChip(
                 colour: null,
                 tooltip: style.colors.isEmpty
@@ -53,9 +56,29 @@ class StyleSettings extends StatelessWidget {
                     : 'Add a colour, for a gradient',
                 onChanged: (next) => _fill([...style.colors, ?next]),
               ),
-          ],
+            ],
+          ),
+        )
+      else ...[
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(_same(_background) ? 'Background' : 'Background (mixed)'),
         ),
-      ),
+        GradientBar(
+          stops: [
+            for (final (index, at) in style.positions.indexed)
+              (colour: style.colors[index], at: at),
+          ],
+          max: BoxStyle.maxColors,
+          onChanged: (stops) => _fill(
+            [for (final stop in stops) stop.colour],
+            [
+              if (stops.length > 1)
+                for (final stop in stops) stop.at,
+            ],
+          ),
+        ),
+      ],
       if (style.colors.length > 1)
         LabelledRow(
           'Direction',
@@ -67,6 +90,7 @@ class StyleSettings extends StatelessWidget {
             onChanged: (angle) => onChanged(
               (own) => BoxStyle(
                 colors: own.colors,
+                stops: own.stops,
                 angle: angle.round(),
                 border: own.border,
               ),
@@ -81,8 +105,12 @@ class StyleSettings extends StatelessWidget {
             colour: style.border,
             tooltip: 'Give it a border',
             onChanged: (next) => onChanged(
-              (own) =>
-                  BoxStyle(colors: own.colors, angle: own.angle, border: next),
+              (own) => BoxStyle(
+                colors: own.colors,
+                stops: own.stops,
+                angle: own.angle,
+                border: next,
+              ),
             ),
           ),
         ),

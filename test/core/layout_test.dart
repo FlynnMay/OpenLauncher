@@ -520,6 +520,39 @@ void main() {
     });
   });
 
+  group('BoxStyle stops', () {
+    test('spreads the colours evenly until told where they go', () {
+      const style = BoxStyle(colors: [1, 2, 3]);
+      expect(style.positions, [0, 0.5, 1]);
+      expect(style.toJson().containsKey('stops'), isFalse);
+    });
+
+    test('keeps where each colour was put', () {
+      final style = BoxStyle.fromJson(const {
+        'colors': ['#000000', '#ff0000', '#ffffff'],
+        'stops': [0, 0.8, 1],
+      });
+      expect(style.positions, [0, 0.8, 1]);
+      expect(style.toJson()['stops'], [0, 0.8, 1]);
+    });
+
+    test('drops stops that do not fit the colours', () {
+      for (final stops in [
+        [0, 1],
+        [0, 0.6, 0.4],
+        [0, 0.5, 1.5],
+        [0, 'half', 1],
+      ]) {
+        final style = BoxStyle.fromJson({
+          'colors': ['#000000', '#ff0000', '#ffffff'],
+          'stops': stops,
+        });
+        expect(style.stops, isEmpty, reason: '$stops');
+        expect(style.positions, [0, 0.5, 1]);
+      }
+    });
+  });
+
   group('resolveLayout', () {
     final cards = [_card('a'), _card('b'), _card('c')];
 

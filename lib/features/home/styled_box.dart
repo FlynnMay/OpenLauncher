@@ -12,7 +12,12 @@ import 'package:openlauncher/core/layout/layout.dart';
   final towards = Alignment(sin(radians), -cos(radians));
   return (
     color: null,
-    gradient: LinearGradient(begin: -towards, end: towards, colors: colors),
+    gradient: LinearGradient(
+      begin: -towards,
+      end: towards,
+      colors: colors,
+      stops: style.positions,
+    ),
   );
 }
 

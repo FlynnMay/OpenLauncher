@@ -48,7 +48,7 @@ class ColourChip extends StatelessWidget {
               ? Icon(Icons.add, size: 18, color: outline)
               // Over a pattern, so that how see-through it is shows.
               : CustomPaint(
-                  painter: const _Checks(),
+                  painter: const Checks(),
                   child: ColoredBox(color: Color(colour)),
                 ),
         ),
@@ -57,8 +57,9 @@ class ColourChip extends StatelessWidget {
   }
 }
 
-class _Checks extends CustomPainter {
-  const _Checks();
+/// The pattern put behind a colour, so that how see-through it is shows.
+class Checks extends CustomPainter {
+  const Checks();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -76,7 +77,7 @@ class _Checks extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_Checks oldDelegate) => false;
+  bool shouldRepaint(Checks oldDelegate) => false;
 }
 
 class _ColourDialog extends StatefulWidget {
@@ -162,7 +163,7 @@ class _ColourDialogState extends State<_ColourDialog> {
                     border: Border.all(color: outline),
                   ),
                   child: CustomPaint(
-                    painter: const _Checks(),
+                    painter: const Checks(),
                     child: ColoredBox(color: Color(_colour)),
                   ),
                 ),
