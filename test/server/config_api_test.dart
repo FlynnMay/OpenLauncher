@@ -172,6 +172,39 @@ void main() {
     expect(page['notificationAccess'], isTrue);
   });
 
+  test('what is playing is told, with its cover', () async {
+    expect((await state())['nowPlaying'], isNull);
+
+    final cover = File('${tmp.path}/art-1.png')..writeAsBytesSync(_png);
+    final platform =
+        container.read(launcherPlatformProvider) as FakeLauncherPlatform;
+    platform.playing = NowPlaying(
+      packageName: 'a',
+      appLabel: 'A',
+      title: 'Song',
+      artist: 'Singer',
+      artPath: cover.path,
+      playing: true,
+    );
+    platform.notifyNowPlayingChanged();
+    await pumpEventQueue();
+
+    final playing = (await state())['nowPlaying'];
+    expect(playing, {
+      'package': 'a',
+      'app': 'A',
+      'title': 'Song',
+      'artist': 'Singer',
+      'playing': true,
+      'art': '/api/media/art?id=art-1.png',
+    });
+    final art = await call('GET', playing['art']);
+    expect(art.statusCode, 200);
+    expect(art.headers['content-type'], 'image/png');
+    // A cover that has since been replaced is not passed off as the old one.
+    expect((await call('GET', '/api/media/art?id=art-0.png')).statusCode, 404);
+  });
+
   test('a new layout is saved, repaired and shown on the TV', () async {
     final response = await call(
       'PUT',

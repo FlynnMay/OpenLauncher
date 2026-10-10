@@ -91,9 +91,7 @@ class MediaSource(
             appLabel = appLabel(controller.packageName),
             title = title,
             artist = artist,
-            artPath = art?.let {
-                runCatching { cacheArt(it, "${controller.packageName}|$title|$artist") }.getOrNull()
-            },
+            artPath = art?.let { runCatching { cacheArt(it) }.getOrNull() },
             playing = controller.playbackState?.state == PlaybackState.STATE_PLAYING,
         )
     }
@@ -112,11 +110,15 @@ class MediaSource(
         }
     }
 
-    /** One file per track, named by what is playing so an unchanged track is not rewritten. */
+    /**
+     * One file per cover, named by what the cover looks like. The track's
+     * name will not do: apps announce the next track first and its cover a
+     * moment later, so for a while the new name comes with the old cover.
+     */
     @Synchronized
-    private fun cacheArt(art: Bitmap, key: String): String {
+    private fun cacheArt(art: Bitmap): String {
         artDir.mkdirs()
-        val file = File(artDir, "art-${key.hashCode().toUInt().toString(36)}.png")
+        val file = File(artDir, "art-${fingerprint(art).toUInt().toString(36)}.png")
         if (!file.exists()) {
             val tmp = File(artDir, file.name + ".tmp")
             tmp.outputStream().use { art.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -124,6 +126,22 @@ class MediaSource(
         }
         artDir.listFiles()?.filter { it.name != file.name }?.forEach { it.delete() }
         return file.absolutePath
+    }
+
+    /** Tells one cover from another: its size and a small copy of its pixels. */
+    private fun fingerprint(art: Bitmap): Int {
+        // The pixels of a hardware bitmap cannot be read where they are.
+        val readable = if (art.config == Bitmap.Config.HARDWARE) {
+            art.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            art
+        }
+        val small = Bitmap.createScaledBitmap(readable, 32, 32, true)
+        val pixels = IntArray(32 * 32)
+        small.getPixels(pixels, 0, 32, 0, 0, 32, 32)
+        if (small !== art) small.recycle()
+        if (readable !== art) readable.recycle()
+        return 31 * (31 * art.width + art.height) + pixels.contentHashCode()
     }
 
     private fun post(sbn: StatusBarNotification) {

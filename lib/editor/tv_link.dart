@@ -35,7 +35,14 @@ final List<Override> tvOverrides = [
   wallpaperEveryProvider.overrideWith(
     (ref) => ref.watch(tvStateProvider).value?.wallpaperEvery ?? 0,
   ),
-  launcherPlatformProvider.overrideWithValue(BrowserPlatform()),
+  launcherPlatformProvider.overrideWith((ref) {
+    final platform = BrowserPlatform();
+    // What plays is the one thing of the device's the TV passes on.
+    ref.listen(tvStateProvider, (_, next) {
+      if (next.value case final state?) platform.hear(state.nowPlaying);
+    }, fireImmediately: true);
+    return platform;
+  }),
   // The page is the config server's guest; it does not run one.
   configServerProvider.overrideWith((ref) async => null),
 ];
@@ -82,6 +89,12 @@ class NotFromHere implements Exception {
 /// is refused, until the TV offers a way to pass such things on.
 class BrowserPlatform extends FakeLauncherPlatform {
   BrowserPlatform() : super(const [], const []);
+
+  /// Takes [now] as what is playing on the TV.
+  void hear(NowPlaying? now) {
+    playing = now;
+    notifyNowPlayingChanged();
+  }
 
   @override
   Future<void> launchApp(String packageName) => throw const NotFromHere();

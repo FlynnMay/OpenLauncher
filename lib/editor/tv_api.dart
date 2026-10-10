@@ -8,6 +8,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/file_pick.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// A widget the TV can show, as the catalogue offers it.
 typedef WidgetOffer = ({
@@ -36,6 +37,7 @@ class TvState {
     this.wallpaperEvery = 0,
     this.widgetProviders = const {},
     this.notificationAccess = true,
+    this.nowPlaying,
   });
 
   /// Every card, with the user's names and pictures already applied.
@@ -59,6 +61,9 @@ class TvState {
 
   /// Whether the TV lets the launcher see notifications and what plays.
   final bool notificationAccess;
+
+  /// What is playing on the TV, if anything.
+  final NowPlaying? nowPlaying;
 }
 
 final tvApiProvider = Provider<TvApi>((ref) => TvApi());
@@ -163,6 +168,20 @@ class TvApi {
           provider['id'] as String: '${provider['app']}: ${provider['label']}',
       },
       notificationAccess: json['notificationAccess'] != false,
+      nowPlaying: switch (json['nowPlaying']) {
+        final Map playing => NowPlaying(
+          packageName: playing['package'] as String,
+          appLabel: playing['app'] as String,
+          title: playing['title'] as String?,
+          artist: playing['artist'] as String?,
+          artPath: switch (playing['art']) {
+            final String art => _at(art).toString(),
+            _ => null,
+          },
+          playing: playing['playing'] == true,
+        ),
+        _ => null,
+      },
     );
   }
 

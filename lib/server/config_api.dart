@@ -13,6 +13,7 @@ import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/server/custom_icons.dart';
 import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/wallpaper_store.dart';
+import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 
 /// The HTML of the config page.
@@ -34,6 +35,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   final cards = await ref.watch(allCardsProvider.future);
   final config = await ref.watch(configProvider.future);
   final providers = await ref.watch(widgetProvidersProvider.future);
+  // Not waited for: the page is worth showing before this is known.
+  final playing = ref.watch(nowPlayingProvider).value;
   final wallpapers = [
     for (final path in config.wallpapers)
       if (Wallpaper.fromPath(path) case final wallpaper?)
@@ -107,6 +110,22 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'toasts': config.toasts.toJson(),
     // Toasts and the now-playing widget stay empty without it.
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
+    // What the now-playing widget shows, or null.
+    'nowPlaying': playing == null
+        ? null
+        : {
+            'package': playing.packageName,
+            'app': playing.appLabel,
+            'title': playing.title,
+            'artist': playing.artist,
+            'playing': playing.playing,
+            // A cover never changes under its name, so this caches for good.
+            'art': switch (playing.artPath) {
+              null => null,
+              final path =>
+                '/api/media/art?id=${Uri.encodeQueryComponent(p.basename(path))}',
+            },
+          },
   };
 });
 
@@ -179,6 +198,7 @@ class ConfigApi {
         await _ref.read(customIconsProvider).clear(id);
         return _ok();
       }),
+      ('GET', 'api/media/art') => _cover(id),
       ('GET', 'api/wallpaper') => _wallpaper(request, id),
       // The only wallpaper, as the first page sets it.
       ('PUT', 'api/wallpaper') => _uploadWallpaper(request, replace: true),
@@ -354,6 +374,21 @@ class ConfigApi {
       bytes,
       headers: {
         ...cache,
+        'content-type': imageContentType(sniffImageExtension(bytes) ?? ''),
+      },
+    );
+  }
+
+  /// Serves the cover of what is playing, if [id] still names it.
+  Future<Response> _cover(String? id) async {
+    final path = (await _ref.read(nowPlayingProvider.future))?.artPath;
+    final file = path == null || p.basename(path) != id ? null : File(path);
+    if (file == null || !await file.exists()) return _error(404, 'No cover');
+    final bytes = await file.readAsBytes();
+    return Response.ok(
+      bytes,
+      headers: {
+        'cache-control': 'public, max-age=31536000, immutable',
         'content-type': imageContentType(sniffImageExtension(bytes) ?? ''),
       },
     );

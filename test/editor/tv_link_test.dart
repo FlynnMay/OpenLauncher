@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_link.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 class _Tv extends TvApi {
   final sent = <String>[];
@@ -87,4 +91,40 @@ void main() {
     expect(tv.sent, ['layout']);
     expect(find.text('Alpha'), findsNothing);
   });
+
+  test(
+    'what plays on the TV is what the launcher here says is playing',
+    () async {
+      final states = StreamController<TvState>();
+      final container = ProviderContainer(
+        overrides: [
+          ...tvOverrides,
+          tvApiProvider.overrideWithValue(_Tv()),
+          tvStateProvider.overrideWith((ref) => states.stream),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(nowPlayingProvider, (_, _) {});
+
+      states.add(_state());
+      await pumpEventQueue();
+      expect(container.read(nowPlayingProvider).value, isNull);
+
+      states.add(
+        TvState(
+          cards: const [_card],
+          config: LauncherConfig(layout: Layout.initial(['app:a'])),
+          widgets: const [],
+          nowPlaying: NowPlaying(
+            packageName: 'a',
+            appLabel: 'A',
+            title: 'Song',
+            playing: true,
+          ),
+        ),
+      );
+      await pumpEventQueue();
+      expect(container.read(nowPlayingProvider).value?.title, 'Song');
+    },
+  );
 }
