@@ -35,14 +35,6 @@ String? sniffImageExtension(Uint8List bytes) {
   return null;
 }
 
-String imageContentType(String extension) => switch (extension) {
-  'png' => 'image/png',
-  'jpg' => 'image/jpeg',
-  'gif' => 'image/gif',
-  'webp' => 'image/webp',
-  _ => 'application/octet-stream',
-};
-
 /// Stores uploaded entity images and points the config at them.
 class CustomIcons {
   CustomIcons(this._ref);

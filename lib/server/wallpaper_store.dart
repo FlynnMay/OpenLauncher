@@ -40,14 +40,6 @@ String? sniffVideoExtension(Uint8List header) {
   return null;
 }
 
-String wallpaperContentType(String path) =>
-    switch (p.extension(path).toLowerCase()) {
-      '.mp4' => 'video/mp4',
-      '.webm' => 'video/webm',
-      '.mkv' => 'video/x-matroska',
-      final extension => imageContentType(extension.replaceFirst('.', '')),
-    };
-
 /// Stores uploaded wallpapers and keeps the config's list of them. Each is
 /// known to the page by its file name, which no other upload ever has.
 class WallpaperStore {

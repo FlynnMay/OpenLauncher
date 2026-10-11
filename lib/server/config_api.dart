@@ -16,6 +16,7 @@ import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/wallpaper_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
+import 'package:shelf_static/shelf_static.dart';
 
 final configApiProvider = Provider<ConfigApi>((ref) {
   final api = ConfigApi(ref);
@@ -78,13 +79,13 @@ class ConfigApi {
         id,
         (id) async => _setEntity(id, await _body(request)),
       ),
-      ('GET', 'api/icon') => _withPicture(id, _icon),
+      ('GET', 'api/icon') => _withPicture(id, (id) => _icon(request, id)),
       ('PUT', 'api/icon') => _withPicture(id, (id) => _uploadIcon(id, request)),
       ('DELETE', 'api/icon') => _withPicture(id, (id) async {
         await _ref.read(customIconsProvider).clear(id);
         return _ok();
       }),
-      ('GET', 'api/media/art') => _cover(id),
+      ('GET', 'api/media/art') => _cover(request, id),
       ('GET', 'api/wallpaper') => _wallpaper(request, id),
       // One more, after those there are.
       ('POST', 'api/wallpapers') => _uploadWallpaper(request),
@@ -280,47 +281,45 @@ class ConfigApi {
     }
   }
 
-  Future<Response> _icon(String id) async {
+  /// Serves the file at [path]: one whose address carries a version, so
+  /// that what is behind it never changes. Its type goes by the ending of
+  /// its name, which is what it was found to be when it was saved. Byte
+  /// ranges are honoured, because browsers will not play a video without
+  /// them.
+  Future<Response> _file(Request request, String? path, String none) async {
+    if (path == null || !await File(path).exists()) return _error(404, none);
+    final response = await createFileHandler(path, url: request.url.path)(
+      request,
+    );
+    return response.change(headers: _forGood);
+  }
+
+  static const _forGood = {
+    'cache-control': 'public, max-age=31536000, immutable',
+  };
+
+  Future<Response> _icon(Request request, String id) async {
     final entities = await _ref.read(entitiesProvider.future);
     final config = await _ref.read(configProvider.future);
     // Null for the entity of a popup, which only has a picture if given one.
     final entity = entities.where((entity) => entity.id == id).firstOrNull;
-    // The URL carries a version, so the image behind it never changes.
-    const cache = {'cache-control': 'public, max-age=31536000, immutable'};
     final path = entity == null ? config.iconOverrides[id] : entity.iconPath;
-    if (path == null) {
-      return switch (entity?.svg) {
-        null => _error(404, 'No icon'),
-        final svg => Response.ok(
-          svg,
-          headers: {...cache, 'content-type': 'image/svg+xml'},
-        ),
-      };
+    if (entity?.svg case final svg? when path == null) {
+      return Response.ok(
+        svg,
+        headers: {..._forGood, 'content-type': 'image/svg+xml'},
+      );
     }
-    final file = File(path);
-    if (!await file.exists()) return _error(404, 'No icon');
-    final bytes = await file.readAsBytes();
-    return Response.ok(
-      bytes,
-      headers: {
-        ...cache,
-        'content-type': imageContentType(sniffImageExtension(bytes) ?? ''),
-      },
-    );
+    return _file(request, path, 'No icon');
   }
 
   /// Serves the cover of what is playing, if [id] still names it.
-  Future<Response> _cover(String? id) async {
+  Future<Response> _cover(Request request, String? id) async {
     final path = (await _ref.read(nowPlayingProvider.future))?.artPath;
-    final file = path == null || p.basename(path) != id ? null : File(path);
-    if (file == null || !await file.exists()) return _error(404, 'No cover');
-    final bytes = await file.readAsBytes();
-    return Response.ok(
-      bytes,
-      headers: {
-        'cache-control': 'public, max-age=31536000, immutable',
-        'content-type': imageContentType(sniffImageExtension(bytes) ?? ''),
-      },
+    return _file(
+      request,
+      path == null || p.basename(path) != id ? null : path,
+      'No cover',
     );
   }
 
@@ -371,51 +370,15 @@ class ConfigApi {
         ),
       };
 
-  /// Serves the wallpaper [id], or the first if none is named. Byte ranges
-  /// are honoured because browsers will not play a video without them.
+  /// Serves the wallpaper [id], or the first if none is named.
   Future<Response> _wallpaper(Request request, String? id) async {
     final paths = (await _ref.read(configProvider.future)).wallpapers;
-    final path = id == null
-        ? paths.firstOrNull
-        : paths.where((path) => WallpaperStore.idOf(path) == id).firstOrNull;
-    final file = path == null ? null : File(path);
-    if (file == null || !await file.exists()) {
-      return _error(404, 'No wallpaper');
-    }
-    final length = await file.length();
-    final headers = {
-      'content-type': wallpaperContentType(file.path),
-      'accept-ranges': 'bytes',
-      // The URL carries a version, so the file behind it never changes.
-      'cache-control': 'public, max-age=31536000, immutable',
-    };
-    final range = RegExp(r'^bytes=(\d*)-(\d*)$')
-        .firstMatch(request.headers['range'] ?? '');
-    if (range == null) {
-      return Response.ok(
-        file.openRead(),
-        headers: {...headers, 'content-length': '$length'},
-      );
-    }
-    final first = int.tryParse(range[1]!);
-    final last = int.tryParse(range[2]!);
-    // "bytes=-N" asks for the final N bytes.
-    final start =
-        first ?? (last == null ? 0 : (length - last).clamp(0, length));
-    final end = first == null || last == null || last >= length
-        ? length - 1
-        : last;
-    if (start > end) {
-      return Response(416, headers: {'content-range': 'bytes */$length'});
-    }
-    return Response(
-      206,
-      body: file.openRead(start, end + 1),
-      headers: {
-        ...headers,
-        'content-range': 'bytes $start-$end/$length',
-        'content-length': '${end - start + 1}',
-      },
+    return _file(
+      request,
+      id == null
+          ? paths.firstOrNull
+          : paths.where((path) => WallpaperStore.idOf(path) == id).firstOrNull,
+      'No wallpaper',
     );
   }
 
