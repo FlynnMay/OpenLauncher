@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/component_tile.dart';
 import 'package:openlauncher/features/components/primitives.dart';
+import 'package:openlauncher/features/home/dock_host.dart';
+import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/popup_host.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
@@ -212,17 +213,18 @@ class ComponentView extends ConsumerWidget {
       );
     }
 
-    // A folder set to open in place is drawn here while `open` is set.
-    if (ref.watch(layoutViewProvider).value?.panel(handed ?? '')
+    // A folder docked in place is drawn here while `open` is set, unless
+    // its own chain moved it to a layer.
+    if (ref.watch(layoutViewProvider).value?.pane(handed ?? '')
         case final folder?
-        when folder.kind == PanelKind.popup &&
-            folder.rule('position') == 'inline' &&
+        when folder.dock == Component.inline &&
+            layerOf(ref.watch(layersProvider), folder.id) == null &&
             ref.watch(
               runtimeVarsProvider.select(
                 (all) => all[folder.id]?[openVar] == true,
               ),
             )) {
-      return _InPlace(panel: folder);
+      return DockedPane(pane: folder, inPlace: true);
     }
     final line = TemplateScope(
       values: scope.inner,
@@ -292,7 +294,7 @@ class LinePane extends StatelessWidget {
   final String? popup;
 
   Widget? _place(Component child) {
-    if (child.hidden && !child.keep) return null;
+    if (child.isDocked || child.hidden && !child.keep) return null;
     // Nothing is shared out when the pane is fitted.
     final sized = !pane.fit && (child.flex != null || child.aspect != null);
     Widget placed = ComponentView(
@@ -339,45 +341,5 @@ class LinePane extends StatelessWidget {
     );
     // Scaled to the box once, at the top level.
     return pane.fit && !inner ? FittedBox(child: flex) : flex;
-  }
-}
-
-/// A folder's contents drawn in place. Back closes it.
-class _InPlace extends ConsumerWidget {
-  const _InPlace({required this.panel});
-
-  final Panel panel;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final focus = FirstFocus();
-    return Focus(
-      canRequestFocus: false,
-      skipTraversal: true,
-      onKeyEvent: (_, event) {
-        final key = event.logicalKey;
-        if (key != LogicalKeyboardKey.goBack &&
-            key != LogicalKeyboardKey.escape &&
-            key != LogicalKeyboardKey.browserBack) {
-          return KeyEventResult.ignored;
-        }
-        if (event is KeyDownEvent) {
-          ref.read(runtimeVarsProvider.notifier).set(panel.id, openVar, false);
-        }
-        return KeyEventResult.handled;
-      },
-      child: Material(
-        color: const Color(0xFA1A1C23),
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(panel.root.box.padding ?? 12),
-          child: PaneGrid(
-            pane: panel.root,
-            tile: (inner) => ComponentView(component: inner, focus: focus),
-          ),
-        ),
-      ),
-    );
   }
 }

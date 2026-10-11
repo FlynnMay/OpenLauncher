@@ -5,32 +5,62 @@ import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
-/// Default reveal/hide chains: a sidebar or folder moves to a new layer when
-/// shown and the layer closes when hidden.
-Triggers usualPanelTriggers(Panel panel) => switch (panel.kind) {
-  PanelKind.sidebar => const {
-    Trigger.reveal: [Act('newLayer', _layers), Act('toLayer', _layers)],
-    Trigger.hide: [Act('closeLayer', _layers)],
-  },
-  // A hovering folder dims what is below and takes the focus. An in-place one
-  // needs no layer.
-  PanelKind.popup when panel.rule('position') != 'inline' => const {
-    Trigger.reveal: [
-      Act('newLayer', {..._layers, 'dim': 0.54, 'modal': true}),
-      Act('toLayer', _layers),
-    ],
-    Trigger.hide: [Act('closeLayer', _layers)],
-  },
-  _ => const {},
-};
+// What a new sidebar, folder or quick-actions menu is made with. All of it is
+// ordinary data on the pane; nothing here is implied for a pane without it.
 
 const _layers = {entityArg: 'layers'};
 
-/// The pane's own chains over the defaults.
-Triggers panelTriggersOf(Panel panel) => {
-  ...usualPanelTriggers(panel),
-  ...panel.root.on,
+Act _open(bool open) =>
+    Act('set', {entityArg: 'variables', 'var': 'open', 'value': open});
+
+/// A sidebar's chains: open while it has the focus, on a layer of its own.
+Triggers barTriggers() => {
+  Trigger.focus: [_open(true)],
+  Trigger.blur: [_open(false)],
+  Trigger.reveal: const [Act('newLayer', _layers), Act('toLayer', _layers)],
+  Trigger.hide: const [Act('closeLayer', _layers)],
 };
+
+/// A hovering folder's chains: a layer that dims what is below and takes the
+/// focus. One opened in place needs no layer.
+Triggers folderTriggers({bool inPlace = false}) => inPlace
+    ? const {}
+    : const {
+        Trigger.reveal: [
+          Act('newLayer', {..._layers, 'dim': 0.54, 'modal': true}),
+          Act('toLayer', _layers),
+        ],
+        Trigger.hide: [Act('closeLayer', _layers)],
+      };
+
+/// The look of a new folder.
+const folderStyle = {'background': '#1a1c23fa', 'radius': 18, 'padding': 28};
+
+/// [pane] docked to [edge] as a sidebar: on a side it closes to a strip, on
+/// top or bottom it hides; it opens while it has the focus.
+Component asSidebar(Component pane, String edge) => pane
+    .withOption('dock', edge)
+    .withOption('closed', edge == 'top' || edge == 'bottom' ? 0 : 96)
+    .copyWith(on: {...barTriggers(), ...pane.on});
+
+/// A new sidebar on [edge]: one column of rows on a side, one row on top or
+/// bottom.
+Component sidebarPane(String id, String edge) => asSidebar(
+  edge == 'top' || edge == 'bottom'
+      ? Component.pane(id: id, columns: 8)
+      : Component.pane(id: id, columns: 1).asBar(),
+  edge,
+);
+
+/// A new folder, hovering in the middle.
+Component folderPane(String id, {String title = ''}) => Component.pane(
+  id: id,
+  title: title,
+  columns: 4,
+  rules: const {'dock': 'center', 'opening': 'instant'},
+  style: folderStyle,
+  on: folderTriggers(),
+);
 
 /// A button that has [entity] do [action].
 Component actionButton(
@@ -55,28 +85,34 @@ const usualMenu = {
   'info': sourceEntity,
   'forceStop': sourceEntity,
   'uninstall': sourceEntity,
-  'remove': 'layout',
+  'remove': Layout.homeId,
 };
 
-/// The default quick-actions popup.
-Panel usualMenuPanel() => Panel(
+/// The default quick-actions pane: a small folder titled after what it was
+/// opened for.
+Component usualMenuPane() => Component.pane(
   id: Layout.menuId,
-  rules: const {'size': 'small'},
-  root: Component.pane(
-    id: Panel.rootId(Layout.menuId),
-    columns: 1,
-    rules: const {'rowHeight': 40, 'spacing': 4},
-    // Set to the entity the menu was opened for.
-    vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
-    children: [
-      for (final MapEntry(key: name, value: entity) in usualMenu.entries)
-        if (actionRegistry(name) case final action?)
-          actionButton(
-            '${Layout.menuId}-${name.toLowerCase()}',
-            action,
-            entity: entity,
-            args: {if (name == 'remove') 'what': sourceEntity},
-          ),
-    ],
-  ),
+  title: '{{source.label}}',
+  columns: 1,
+  rules: const {
+    'dock': 'center',
+    'width': 432,
+    'opening': 'instant',
+    'rowHeight': 40,
+    'spacing': 4,
+  },
+  style: folderStyle,
+  on: folderTriggers(),
+  // Set to the entity the menu was opened for.
+  vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
+  children: [
+    for (final MapEntry(key: name, value: entity) in usualMenu.entries)
+      if (actionRegistry(name) case final action?)
+        actionButton(
+          '${Layout.menuId}-${name.toLowerCase()}',
+          action,
+          entity: entity,
+          args: {if (name == 'remove') 'what': sourceEntity},
+        ),
+  ],
 );

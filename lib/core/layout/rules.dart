@@ -4,8 +4,7 @@ import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 
-// Pane and panel settings described as data; editor forms are generated from
-// these.
+// Pane settings described as data; editor forms are generated from these.
 
 /// The transform fields for components whose parents are [parents]; only what
 /// applies in all of them.
@@ -137,18 +136,42 @@ bool _inLine(Map<String, Object?> options) =>
     options['mode'] == 'row' || options['mode'] == 'column';
 bool _onCells(Map<String, Object?> options) => !_inLine(options);
 
-/// Settings of a sidebar or a folder.
-List<ComponentOption> panelRules(PanelKind kind) => switch (kind) {
-  PanelKind.sidebar => const [
-    // 0 hides it until the focus reaches its edge.
-    ComponentOption(
+const _edges = {
+  'left': 'Left edge',
+  'right': 'Right edge',
+  'top': 'Top edge',
+  'bottom': 'Bottom edge',
+};
+
+/// Where a pane is docked and, once it is, how it opens. Any pane can be
+/// docked to an edge; one hidden while closed (a folder) can also sit in the
+/// middle or in what opens it, and cannot be undocked, since its cards name
+/// it.
+List<ComponentOption> dockRules(Component pane) => [
+  ComponentOption(
+    'dock',
+    'Docked',
+    OptionKind.choice,
+    unset: pane.hovers ? null : 'No',
+    choices: {
+      ..._edges,
+      if (pane.hovers) ...const {
+        'center': 'In the middle',
+        Component.inline: 'In what opens it',
+      },
+    },
+  ),
+  // 0 leaves it at its edge with nothing showing.
+  if (pane.isDocked && !pane.hovers)
+    const ComponentOption(
       'closed',
-      'Closed',
+      'Shows while closed',
       OptionKind.number,
       max: 400,
       step: 8,
-      unset: 'Usual',
+      usual: 0,
     ),
+  if (pane.isDocked && pane.dock != Component.inline) ...const [
     ComponentOption(
       'opening',
       'Opens by',
@@ -174,27 +197,12 @@ List<ComponentOption> panelRules(PanelKind kind) => switch (kind) {
       },
     ),
   ],
-  PanelKind.popup => const [
-    ComponentOption(
-      'position',
-      'Opens',
-      OptionKind.choice,
-      usual: 'center',
-      choices: {
-        'center': 'Centre',
-        'bottom': 'Bottom',
-        'left': 'Left',
-        'right': 'Right',
-        'inline': 'In place',
-      },
-    ),
-    ComponentOption(
-      'size',
-      'Size',
-      OptionKind.choice,
-      usual: 'medium',
-      choices: {'small': 'Small', 'medium': 'Medium', 'large': 'Large'},
-    ),
-  ],
-  PanelKind.home => const [],
-};
+];
+
+/// The options only a docked pane has.
+const dockKeys = ['dock', 'closed', 'width', 'height', 'opening', 'reveal'];
+
+/// A docked pane's rule, or its default.
+Object? dockRule(Component pane, String key) =>
+    pane.options[key] ??
+    dockRules(pane).where((rule) => rule.key == key).firstOrNull?.usual;

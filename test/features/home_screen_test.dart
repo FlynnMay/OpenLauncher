@@ -5,13 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/component_view.dart';
+import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/sidebar.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
@@ -70,19 +71,26 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// A home screen of [panes] one under another, each five rows tall,
-    /// with room on the left for a rail.
-    Panel home(List<Component> panes) => Panel(
-      id: Layout.homeId,
-      root: Component.pane(
-        id: 'global',
-        mode: PaneMode.grid,
-        columns: 12,
-        children: [
-          for (final (index, pane) in panes.indexed)
-            pane.sized(10, 5, x: 2, y: index * 5.0),
-        ],
-      ),
+    /// A home layer of [panes] one under another, each five rows tall, with
+    /// room on the left for a sidebar, and [docked] on it.
+    Layer home(List<Component> panes, [List<Component> docked = const []]) =>
+        Layer(
+          id: Layout.homeId,
+          root: Component.pane(
+            id: 'global',
+            mode: PaneMode.grid,
+            columns: 12,
+            children: [
+              for (final (index, pane) in panes.indexed)
+                pane.sized(10, 5, x: 2, y: index * 5.0),
+              ...docked,
+            ],
+          ),
+        );
+
+    /// The docked pane [id] as drawn.
+    Finder dock(String id) => find.byWidgetPredicate(
+      (widget) => widget is DockedPane && widget.pane.id == id,
     );
 
     Component entity(String package) => Component(
@@ -145,41 +153,43 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            panels: [
-              home([
-                Component.pane(
-                  id: 'top',
-                  title: 'Favourites',
-                  mode: PaneMode.grid,
-                  columns: 4,
-                  children: [
-                    Component.of(
-                      'games',
-                      id: 'folder',
-                      prefab: folderPrefabId,
-                      x: 1,
-                      y: 0,
-                    ),
-                    Component.of(
-                      'clock',
-                      id: 'clock',
-                      prefab: 'clock',
-                      w: 2,
-                      x: 2,
-                      y: 1,
-                      overrides: const {
-                        'date': {'hidden': true},
-                      },
-                    ),
-                  ],
-                ),
-                Component.pane(id: 'main'),
-              ]),
-              Panel(
-                id: 'games',
-                title: 'Games',
-                rules: const {'position': 'bottom'},
-                root: Component.pane(id: 'in', children: [entity('pkg.b')]),
+            layers: [
+              home(
+                [
+                  Component.pane(
+                    id: 'top',
+                    title: 'Favourites',
+                    mode: PaneMode.grid,
+                    columns: 4,
+                    children: [
+                      Component.of(
+                        'games',
+                        id: 'folder',
+                        prefab: folderPrefabId,
+                        x: 1,
+                        y: 0,
+                      ),
+                      Component.of(
+                        'clock',
+                        id: 'clock',
+                        prefab: 'clock',
+                        w: 2,
+                        x: 2,
+                        y: 1,
+                        overrides: const {
+                          'date': {'hidden': true},
+                        },
+                      ),
+                    ],
+                  ),
+                  Component.pane(id: 'main'),
+                ],
+                [
+                  folderPane('games', title: 'Games')
+                      .withOption('dock', 'bottom')
+                      .withOption('height', 270)
+                      .copyWith(children: [entity('pkg.b')]),
+                ],
               ),
             ],
           ).normalised(),
@@ -210,7 +220,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            panels: [
+            layers: [
               home([
                 Component.pane(
                   id: 'main',
@@ -280,7 +290,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            panels: [
+            layers: [
               home([
                 Component.pane(
                   id: 'main',
@@ -347,7 +357,7 @@ void main() {
           layout: Layout(
             inbox: 'plain',
             removed: const {'app:pkg.c', 'launcher:settings'},
-            panels: [
+            layers: [
               home([
                 pane('plain', 'pkg.a', const {}),
                 pane('painted', 'pkg.b', const {
@@ -402,8 +412,8 @@ void main() {
           layout: Layout(
             inbox: 'short',
             removed: const {'app:pkg.c', 'launcher:settings'},
-            panels: [
-              Panel(
+            layers: [
+              Layer(
                 id: Layout.homeId,
                 root: Component.pane(
                   id: 'global',
@@ -469,11 +479,15 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            panels: [
-              home([Component.pane(id: 'main')]),
-              Panel.empty(Layout.leftId).withRoot(
-                Panel.empty(Layout.leftId).root
-                    .copyWith(children: [entity('pkg.c')]),
+            layers: [
+              home(
+                [Component.pane(id: 'main')],
+                [
+                  sidebarPane(
+                    'left',
+                    'left',
+                  ).copyWith(children: [entity('pkg.c')]),
+                ],
               ),
             ],
           ).normalised(),
@@ -482,14 +496,11 @@ void main() {
       double railWidth() => tester
           .getSize(
             find
-                .descendant(
-                  of: find.byType(Sidebar),
-                  matching: find.byType(Container),
-                )
+                .descendant(of: dock('left'), matching: find.byType(Container))
                 .first,
           )
           .width;
-      expect(find.byType(Sidebar), findsOneWidget);
+      expect(dock('left'), findsOneWidget);
       // Closed, a strip of its pictures.
       expect(railWidth(), 96);
 
@@ -507,7 +518,7 @@ void main() {
 
     testWidgets('a sidebar opens the way it is set to', (tester) async {
       List<String> choices(String rule) => [
-        ...panelRules(PanelKind.sidebar)
+        ...dockRules(sidebarPane('left', 'left'))
             .firstWhere((option) => option.key == rule)
             .choices
             .keys,
@@ -519,24 +530,22 @@ void main() {
             LauncherConfig(
               layout: Layout(
                 inbox: 'main',
-                panels: [
-                  home([Component.pane(id: 'main')]),
-                  Panel.empty(
-                    Layout.leftId,
-                    rules: {'opening': opening, 'reveal': reveal},
-                  ).withRoot(
-                    Panel.empty(Layout.leftId).root
-                        .copyWith(children: [entity('pkg.c')]),
+                layers: [
+                  home(
+                    [Component.pane(id: 'main')],
+                    [
+                      sidebarPane('left', 'left')
+                          .withOption('opening', opening)
+                          .withOption('reveal', reveal)
+                          .copyWith(children: [entity('pkg.c')]),
+                    ],
                   ),
                 ],
               ).normalised(),
             ),
           );
           final box = find
-              .descendant(
-                of: find.byType(Sidebar),
-                matching: find.byType(Container),
-              )
+              .descendant(of: dock('left'), matching: find.byType(Container))
               .first;
           // How solid what is in it is drawn; 1 with nothing fading it.
           double solid() => tester
@@ -569,11 +578,15 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            panels: [
-              home([Component.pane(id: 'main')]),
-              Panel.empty(Layout.topId).withRoot(
-                Panel.empty(Layout.topId).root
-                    .copyWith(children: [entity('pkg.c')]),
+            layers: [
+              home(
+                [Component.pane(id: 'main')],
+                [
+                  sidebarPane(
+                    'top',
+                    'top',
+                  ).copyWith(children: [entity('pkg.c')]),
+                ],
               ),
             ],
           ).normalised(),
@@ -582,10 +595,7 @@ void main() {
       double barHeight() => tester
           .getSize(
             find
-                .descendant(
-                  of: find.byType(Sidebar),
-                  matching: find.byType(Container),
-                )
+                .descendant(of: dock('top'), matching: find.byType(Container))
                 .first,
           )
           .height;

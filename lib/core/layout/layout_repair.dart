@@ -2,10 +2,10 @@ import 'package:openlauncher/core/actions/defaults.dart';
 import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
+import 'package:openlauncher/core/layout/layer.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
-import 'package:openlauncher/core/layout/panel.dart';
 import 'package:openlauncher/core/layout/rules.dart';
 
 /// [rules] with [sound] merged in; nulls dropped, whole doubles as ints.
@@ -18,52 +18,63 @@ Map<String, Object?> _kept(
 };
 
 extension LayoutRepair on Layout {
-  /// Enforces what the app relies on: a home panel, unique ids, sizes and
-  /// positions that fit, bounded nesting, no links to missing folders, a
+  /// Enforces what the app relies on: the home layer first, unique ids, sizes
+  /// and positions that fit, bounded nesting, no links to missing folders, a
   /// valid [inbox].
   Layout normalised() {
-    final panelIds = <String>{};
+    final layerIds = <String>{};
     final unique = [
-      for (final panel in panels)
-        if (panel.id.isNotEmpty && panelIds.add(panel.id)) panel,
+      for (final layer in layers)
+        if (layer.id.isNotEmpty && layerIds.add(layer.id)) layer,
     ];
-    if (!panelIds.contains(Layout.homeId)) {
-      unique.insert(0, Panel.empty(Layout.homeId));
-    }
+    final ordered = [
+      unique.where((layer) => layer.id == Layout.homeId).firstOrNull ??
+          Layer.empty(Layout.homeId),
+      for (final layer in unique)
+        if (layer.id != Layout.homeId) layer,
+    ];
 
+    // Folder cards name a docked pane by its id, so those keep theirs.
+    final docked = {for (final pane in this.docked) pane.id};
+    final reserved = {...docked};
     // Panes and other components share one id space.
     final ids = <String>{};
-    String fresh(String wanted, String fallback) {
-      final id = freeId(wanted.isEmpty ? fallback : wanted, ids);
+    String fresh(String wanted, String fallback, {bool docked = false}) {
+      final id = docked && reserved.remove(wanted)
+          ? wanted
+          : freeId(wanted.isEmpty ? fallback : wanted, {...ids, ...reserved});
       ids.add(id);
       return id;
     }
 
-    late Component Function(Component, PanelKind, int) repair;
+    late Component Function(Component, int) repair;
 
     /// [item] fitted to [parent]: flattened if nested too deep, dropped if
     /// invalid.
     Iterable<Component> fitted(
       Component item,
       Component parent,
-      PanelKind kind,
       int depth,
     ) sync* {
       if (item.isPane) {
         // Too deep: children move up a level.
-        if (depth >= Component.maxDepth) {
+        if (!item.isDocked && depth >= Component.maxDepth) {
           for (final child in item.children) {
-            yield* fitted(child, parent, kind, depth);
+            yield* fitted(child, parent, depth);
           }
           return;
         }
       } else if (item.kind.isEmpty && !item.isInstance ||
           // A folder card whose folder is gone.
-          item.prefab == folderPrefabId &&
-              !item.handed.any(panelIds.contains)) {
+          item.prefab == folderPrefabId && !item.handed.any(docked.contains)) {
         return;
       }
-      final repaired = item.isPane ? repair(item, kind, depth + 1) : item;
+      // A docked pane starts the count again and takes no cells.
+      if (item.isDocked) {
+        yield repair(item, 1);
+        return;
+      }
+      final repaired = item.isPane ? repair(item, depth + 1) : item;
       // No cells in a row or column.
       if (parent.mode.inLine) {
         yield repaired.isPane
@@ -91,10 +102,16 @@ extension LayoutRepair on Layout {
           .copyWith(id: repaired.isPane ? null : fresh(item.id, 'item'));
     }
 
-    repair = (pane, kind, depth) {
+    Object? extent(double? size, num least) => size == Component.fill
+        ? 'fill'
+        : size != null && size.isFinite
+        ? size.clamp(least, Component.maxExtent).toDouble()
+        : null;
+
+    repair = (pane, depth) {
       final columns = pane.columns.clamp(1, Component.maxColumns);
       // Claim the pane's id before its children's.
-      final id = fresh(pane.id, 'pane');
+      final id = fresh(pane.id, 'pane', docked: pane.isDocked);
       // Clamps a measure; null if invalid.
       double? within(double? value, num low, num high) =>
           value != null && value.isFinite
@@ -119,47 +136,40 @@ extension LayoutRepair on Layout {
           ),
           'itemW': cells(pane.itemW, columns),
           'itemH': cells(pane.itemH, Component.maxRows),
+          if (pane.isDocked) ...{
+            'width': extent(pane.dockWidth, 40),
+            'height': extent(pane.dockHeight, 40),
+            // Only one on an edge has a closed strip.
+            'closed': pane.edge == null ? null : extent(pane.closed, 0),
+            // Drop unknown choice values.
+            for (final rule in dockRules(pane))
+              if (rule.kind == OptionKind.choice &&
+                  rule.key != 'dock' &&
+                  !rule.choices.containsKey(pane.options[rule.key]))
+                rule.key: null,
+          },
         }),
       );
       return sound.copyWith(
         children: [
-          for (final child in pane.children)
-            ...fitted(child, sound, kind, depth),
+          for (final child in pane.children) ...fitted(child, sound, depth),
         ],
       );
     };
 
-    Object? extent(double? size, num least) => size == Panel.fill
-        ? 'fill'
-        : size != null && size.isFinite
-        ? size.clamp(least, Panel.maxExtent).toDouble()
-        : null;
     final result = [
-      for (final panel in unique)
-        panel.copyWith(
-          root: repair(panel.root, panel.kind, 1),
-          rules: _kept(panel.rules, {
-            'width': extent(panel.width, 40),
-            'height': extent(panel.height, 40),
-            'closed': extent(panel.closed, 0),
-            // Drop unknown choice values.
-            for (final rule in panelRules(panel.kind))
-              if (rule.kind == OptionKind.choice &&
-                  !rule.choices.containsKey(panel.rules[rule.key]))
-                rule.key: null,
-          }),
-        ),
+      for (final layer in ordered) layer.withRoot(repair(layer.root, 1)),
     ];
-    final home = result.firstWhere((panel) => panel.id == Layout.homeId);
+    final home = result.first;
     final placed = {
-      for (final panel in result)
-        for (final item in panel.items)
+      for (final layer in result)
+        for (final item in layer.root.contents)
           if (item.isInstance) ...item.handed,
     };
     return Layout(
-      panels: result,
+      layers: result,
       removed: removed.difference(placed),
-      inbox: home.root.panes.any((pane) => pane.id == inbox)
+      inbox: home.root.cellPanes.any((pane) => pane.id == inbox)
           ? inbox
           : home.root.id,
     );
@@ -175,7 +185,7 @@ extension LayoutRepair on Layout {
     Set<String>? known,
   }) {
     // Folders count as known.
-    final there = {...known ?? entityIds, for (final panel in panels) panel.id};
+    final there = {...known ?? entityIds, for (final pane in docked) pane.id};
     final kept = rebuild(
       (_, items) => [
         for (final item in items)
@@ -184,11 +194,9 @@ extension LayoutRepair on Layout {
     );
     final placed = {...removed};
     final itemIds = <String>{};
-    for (final panel in kept.panels) {
-      for (final item in panel.root.all) {
-        itemIds.add(item.id);
-        if (item.isInstance) placed.addAll(item.handed);
-      }
+    for (final item in kept.all) {
+      itemIds.add(item.id);
+      if (item.isInstance) placed.addAll(item.handed);
     }
     String autoId(String entityId) {
       final id = freeId(Component.autoId(entityId, names[entityId]), itemIds);
@@ -204,11 +212,10 @@ extension LayoutRepair on Layout {
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,
     );
     // The quick actions exist before they are first saved.
-    if (filled.panel(Layout.menuId) != null) return filled;
-    return Layout(
-      panels: [...filled.panels, usualMenuPanel()],
-      inbox: filled.inbox,
-      removed: filled.removed,
+    if (filled.pane(Layout.menuId) != null) return filled;
+    return filled.withPane(
+      filled.home.root.id,
+      (root) => root.copyWith(children: [...root.children, usualMenuPane()]),
     );
   }
 }

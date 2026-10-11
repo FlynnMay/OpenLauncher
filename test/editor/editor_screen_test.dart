@@ -112,11 +112,31 @@ void main() {
 
     // In the middle of the screen it goes nowhere.
     await drag(screen.center);
-    expect(freeEdges(layout()), Layout.barIds);
-    expect(ref.read(barProvider), isNull);
+    expect(freeEdges(layout()), barEdges);
+    expect(ref.read(selectionProvider), isEmpty);
 
     await drag(screen.centerLeft + const Offset(10, 0));
-    expect(ref.read(barProvider), 'left');
-    expect(layout().panel('left'), isNotNull);
+    // Selected, so it is held open and its settings show.
+    expect(ref.read(selectionProvider), {'left'});
+    final left = layout().pane('left')!;
+    expect((left.dock, left.hovers), ('left', false));
+
+    // It is an object like any other: let go of, the launcher's settings
+    // show, which have no section for sidebars; picked out of the list, its
+    // own do, as a pane's with where it is docked.
+    await tester.tap(find.text('Objects'));
+    await tester.pumpAndSettle();
+    await tester.tap(inTree('Home screen'));
+    await tester.pumpAndSettle();
+    expect(ref.read(selectionProvider), isEmpty);
+    expect(find.text('Sidebars'), findsNothing);
+    await tester.tap(inTree('Left sidebar'));
+    await tester.pumpAndSettle();
+    expect(ref.read(selectionProvider), {'left'});
+    expect(find.text('Dock'), findsOneWidget);
+    expect(find.text('Docked'), findsOneWidget);
+    expect(find.text('Shows while closed'), findsOneWidget);
+    expect(find.text('Transform'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }

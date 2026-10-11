@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
@@ -59,18 +60,9 @@ class PaneFrame extends InheritedWidget {
 
 /// Lays a pane's children out on its cell grid.
 class PaneGrid extends StatelessWidget {
-  const PaneGrid({
-    super.key,
-    required this.pane,
-    required this.tile,
-    this.owner,
-  });
+  const PaneGrid({super.key, required this.pane, required this.tile});
 
   final Component pane;
-
-  /// The id its runtime variables are stored under, if not its own: a
-  /// folder's pane uses the folder's.
-  final String? owner;
   final Widget Function(Component component) tile;
 
   /// Cell width over height.
@@ -94,7 +86,8 @@ class PaneGrid extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 for (final (index, child) in shown.indexed)
-                  if (!child.hidden)
+                  // A docked pane is drawn by its layer.
+                  if (!child.hidden && !child.isDocked)
                     Positioned.fromRect(
                       key: ValueKey(child.id),
                       rect: metrics.rectOf(placements[index]),
@@ -113,7 +106,7 @@ class PaneGrid extends StatelessWidget {
             builder: (context, ref, child) => TemplateScope(
               values: scopeOf(
                 ref.watch,
-                owner ?? pane.id,
+                pane.id,
                 pane.vars,
                 TemplateScope.of(context),
               ).inner,
@@ -127,13 +120,25 @@ class PaneGrid extends StatelessWidget {
   }
 }
 
-/// A nested pane: background, title and a scrolling grid. Padding is inside
-/// the scroll area, so a focused tile can grow into it.
+/// A pane in its box: background, title and a scrolling grid. Padding is
+/// inside the scroll area, so a focused tile can grow into it.
 class PaneBox extends ConsumerWidget {
-  const PaneBox({super.key, required this.pane, required this.tile});
+  const PaneBox({
+    super.key,
+    required this.pane,
+    required this.tile,
+    this.shrink = false,
+    this.placeholder,
+  });
 
   final Component pane;
   final Widget Function(Component component) tile;
+
+  /// As tall as what is in it, where it has the room to be.
+  final bool shrink;
+
+  /// Shown while there is nothing in it.
+  final String? placeholder;
 
   static BorderRadius shapeOf(Component pane) =>
       styleShape(pane.box, Component.defaultCorner);
@@ -146,34 +151,55 @@ class PaneBox extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pane = this.pane;
-    final box = BoxStyle.of(
-      readStyle(ref.watch, pane.style, TemplateScope.of(context)),
-    );
+    final outer = TemplateScope.of(context);
+    final box = BoxStyle.of(readStyle(ref.watch, pane.style, outer));
     final padding = box.padding ?? Component.defaultPadding;
-    final titled = pane.title.isNotEmpty;
+    // The title may read the pane's own variables.
+    final title = !pane.title.contains('{{')
+        ? pane.title
+        : valueText(
+            readTemplate(
+              ref.watch,
+              pane.title,
+              scopeOf(ref.watch, pane.id, pane.vars, outer).own,
+            ),
+          );
+    final titled = title.isNotEmpty;
     final fill = styleFill(box);
     final border = box.border;
     final shape = styleShape(box, Component.defaultCorner);
+    final grid = PaneGrid(pane: pane, tile: tile);
+    final scroll = SingleChildScrollView(
+      clipBehavior: Clip.none,
+      padding: EdgeInsets.fromLTRB(
+        padding,
+        titled ? _underTitle : padding,
+        padding,
+        padding,
+      ),
+      child: placeholder != null && pane.isEmpty
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  placeholder!,
+                  style: const TextStyle(color: Colors.white60),
+                ),
+                grid,
+              ],
+            )
+          : grid,
+    );
     final content = Column(
+      mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (titled)
           Padding(
             padding: EdgeInsets.fromLTRB(padding, padding, padding, 0),
-            child: PaneTitle(pane.title),
+            child: PaneTitle(title),
           ),
-        Expanded(
-          child: SingleChildScrollView(
-            clipBehavior: Clip.none,
-            padding: EdgeInsets.fromLTRB(
-              padding,
-              titled ? _underTitle : padding,
-              padding,
-              padding,
-            ),
-            child: PaneGrid(pane: pane, tile: tile),
-          ),
-        ),
+        shrink ? Flexible(child: scroll) : Expanded(child: scroll),
       ],
     );
     if (box.isEmpty) {

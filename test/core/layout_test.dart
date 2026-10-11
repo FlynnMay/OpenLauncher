@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -20,7 +21,7 @@ Component _item(
 Entity _entity(String name) =>
     Entity(id: 'app:$name', category: appCategory, label: name);
 
-Panel _home(Component root) => Panel(id: 'home', root: root);
+Layer _home(Component root) => Layer(id: 'home', root: root);
 
 void main() {
   group('placeItems', () {
@@ -162,7 +163,7 @@ void main() {
         'app:c',
       ]);
 
-      final layout = Layout(inbox: 'inner', panels: [_home(root)]).normalised();
+      final layout = Layout(inbox: 'inner', layers: [_home(root)]).normalised();
       expect(layout.inbox, 'inner');
       final outer = layout.home.root.children.last;
       expect((outer.x, outer.y, outer.w, outer.h), (0.5, 1, 3, 2.5));
@@ -171,7 +172,7 @@ void main() {
 
       // New entities turn up in the inbox, however deep it is.
       final shown = layout.withEntities(['app:a', 'app:b', 'app:c', 'app:new']);
-      final inner = shown.home.root.panes.last;
+      final inner = shown.pane('inner')!;
       expect(inner.children.map((i) => i.handed.firstOrNull), [
         'app:c',
         'app:new',
@@ -180,8 +181,8 @@ void main() {
       expect(
         shown
             .without({'app:b', 'app:c'})
-            .home
             .items
+            .where((i) => i.isInstance)
             .map((i) => i.handed.firstOrNull),
         ['app:a', 'app:new'],
       );
@@ -197,71 +198,71 @@ void main() {
       );
       final layout = Layout(
         inbox: 'nowhere',
-        panels: [
-          Panel(
-            id: 'left',
+        layers: [
+          Layer(
+            id: 'over',
             root: Component.pane(
               id: 'rail',
               columns: 4,
               children: [
                 _item('a', w: 3),
+                // Something with a folder's id gives way to the folder.
+                _item('games', ref: 'app:x'),
                 pane('in-rail', children: [_item('b')]),
+                // A folder: docked, so off the cells of the pane it is in.
+                folderPane('games', title: 'Games')
+                    .withOption('mode', 'grid')
+                    .copyWith(
+                      children: [
+                        _item('a', x: 9, y: 2, w: 2, h: 99),
+                        _item('half', x: 1),
+                        Component.of(
+                          'missing',
+                          id: 'gone',
+                          prefab: folderPrefabId,
+                        ),
+                        Component.of(
+                          'games',
+                          id: 'open',
+                          prefab: folderPrefabId,
+                        ),
+                        const Component(id: 'empty'),
+                        nest(2),
+                      ],
+                    ),
               ],
             ),
           ),
-          Panel(
-            id: 'games',
-            title: 'Games',
-            root: pane(
-              'rail',
-              mode: PaneMode.grid,
-              children: [
-                _item('a', x: 9, y: 2, w: 2, h: 99),
-                _item('half', x: 1),
-                Component.of('missing', id: 'gone', prefab: folderPrefabId),
-                Component.of('games', id: 'open', prefab: folderPrefabId),
-                const Component(id: 'empty'),
-                nest(2),
-              ],
-            ),
-          ),
-          Panel.empty('games', title: 'Duplicate'),
+          Layer.empty('over'),
         ],
       ).normalised();
 
-      expect(layout.panels.map((p) => p.id), ['home', 'left', 'games']);
-      // Home was missing: it gets a global pane, which becomes the inbox.
+      // Home was missing: it comes first, with a root pane that becomes the
+      // inbox.
+      expect(layout.layers.map((l) => l.id), ['home', 'over']);
       expect(layout.inbox, layout.home.root.id);
       expect(layout.home.root.mode, PaneMode.grid);
 
-      // A sidebar is a pane like any other: it keeps its columns, its
-      // widths and the pane inside it.
-      final rail = layout.panel('left')!.root;
+      final rail = layout.layer('over')!.root;
       expect(rail.columns, 4);
-      expect(rail.children.map((i) => (i.id, i.isPane, i.w)), [
-        ('a', false, 3),
-        ('in-rail', true, 1),
-      ]);
-      expect(rail.children.last.children.single.id, 'b');
+      final [first, other, inRail, games] = rail.children;
+      expect((first.id, first.w), ('a', 3));
+      expect(other.id, isNot('games'));
+      expect(inRail.children.single.id, 'b');
 
-      final games = layout.panel('games')!;
-      expect(games.title, 'Games');
-      expect(games.root.id, isNot(rail.id));
-      final [a, half, open, nested] = games.root.children;
+      expect((games.id, games.title, games.isDocked), ('games', 'Games', true));
+      final [a, half, open, nested] = games.children;
       expect(a.id, isNot('a'));
       expect((a.x, a.y, a.w, a.h), (2, 2, 2, Component.maxRows));
       expect((half.x, half.y), (null, null));
       expect(open.handed.firstOrNull, 'games');
       // Panes deeper than allowed give their contents to the last that is.
-      final depths = games.root.panes.map((p) => p.id).toList();
-      expect(depths, hasLength(Component.maxDepth));
+      // A docked pane starts the count again.
+      expect(games.panes, hasLength(Component.maxDepth));
       expect(nested.contents.map((i) => i.handed.firstOrNull), [
         for (var depth = 2; depth <= 6; depth++) 'app:$depth',
       ]);
-      final ids = [
-        for (final panel in layout.panels)
-          for (final p in panel.root.panes) ...p.children.map((i) => i.id),
-      ];
+      final ids = layout.all.map((c) => c.id).toList();
       expect(ids.toSet(), hasLength(ids.length));
     });
 
@@ -274,7 +275,7 @@ void main() {
       );
       final layout = Layout(
         inbox: 'f',
-        panels: [
+        layers: [
           _home(
             pane(
               'global',
@@ -283,7 +284,7 @@ void main() {
           ),
         ],
       ).normalised();
-      final [free, grid] = layout.home.items.toList();
+      final [free, grid] = layout.home.root.contents.toList();
       // Kept inside the pane, and no smaller than a quarter cell.
       expect((free.x, free.y, free.w, free.h), (2.5, 0.3, 1.5, 0.25));
       expect((grid.x, grid.y, grid.w, grid.h), (2, 0, 2, 1));
@@ -291,12 +292,12 @@ void main() {
 
     test('rejects what is not a layout', () {
       expect(
-        () => Layout.fromJson(const {'panels': 'no'}),
+        () => Layout.fromJson(const {'layers': 'no'}),
         throwsFormatException,
       );
       expect(
         () => Layout.fromJson(const {
-          'panels': [
+          'layers': [
             {
               'id': 'home',
               'root': {
@@ -318,7 +319,9 @@ void main() {
     test('a new home screen is one pane as tall as the screen', () {
       final layout = Layout.initial(['app:b', 'app:gone'])
           .withEntities(['app:a', 'app:b']);
-      final item = layout.home.root.children.single;
+      // The quick actions come after it.
+      final [item, menu] = layout.home.root.children;
+      expect(menu.id, Layout.menuId);
       expect(item.children.map((i) => i.handed.firstOrNull), [
         'app:b',
         'app:a',
@@ -337,7 +340,7 @@ void main() {
     );
     final layout = Layout(
       inbox: 'a',
-      panels: [
+      layers: [
         _home(
           Component.pane(
             id: 'global',
@@ -360,7 +363,7 @@ void main() {
   test('a pane keeps the padding it is given, within reason', () {
     final layout = Layout.fromJson(const {
       'v': saveVersion,
-      'panels': [
+      'layers': [
         {
           'id': 'home',
           'root': {
@@ -389,11 +392,11 @@ void main() {
 
     test('matches items to entities, folders, widgets and panes', () {
       final config = LauncherConfig(
-        iconOverrides: {'panel:games': '/games.png'},
+        iconOverrides: {'folder:games': '/games.png'},
         layout: Layout(
           inbox: 'main',
           removed: const {'app:c'},
-          panels: [
+          layers: [
             _home(
               Component.pane(
                 id: 'global',
@@ -401,19 +404,18 @@ void main() {
                   Component.of('games', id: 'folder', prefab: folderPrefabId),
                   _item('clock', kind: 'clock'),
                   Component.pane(id: 'main'),
+                  folderPane(
+                    'games',
+                    title: 'Games',
+                  ).copyWith(children: [_item('app:b')]),
                 ],
               ),
-            ),
-            Panel(
-              id: 'games',
-              title: 'Games',
-              root: Component.pane(id: 'inside', children: [_item('app:b')]),
             ),
           ],
         ),
       );
       final view = resolveLayout(entities, config);
-      final [folder, clock, pane] = view.home.root.children;
+      final [folder, clock, pane, games, menu] = view.home.root.children;
 
       // Handed a folder, not an entity.
       expect(config.layout.folderOf(folder), 'games');
@@ -421,15 +423,22 @@ void main() {
       // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.
       expect(pane.children.single.handed.firstOrNull, 'app:a');
-      expect(view.home.root.contents, hasLength(3));
-      expect(view.bars, isEmpty);
+      expect(games.children.single.handed.firstOrNull, 'app:b');
+      // The folder and the quick actions are docked: on the layer, off its
+      // cells.
+      expect(view.docked.map((p) => p.id), ['games', Layout.menuId]);
+      expect(menu.hovers, isTrue);
+      expect(placeItems(view.home.root.children, 5, PaneMode.flow).skip(3), [
+        const Placement(0, 0, 0, 0),
+        const Placement(0, 0, 0, 0),
+      ]);
     });
 
     test('the same entity can be in several places', () {
       final config = LauncherConfig(
         layout: Layout(
           inbox: 'global',
-          panels: [
+          layers: [
             _home(
               Component.pane(
                 id: 'global',
@@ -442,7 +451,10 @@ void main() {
           ],
         ).normalised(),
       );
-      final entries = resolveLayout(entities, config).home.root.children;
+      final entries = resolveLayout(
+        entities,
+        config,
+      ).home.root.children.where((e) => e.isInstance);
       expect(entries.map((e) => e.handed.firstOrNull), [
         'app:a',
         'app:a',
@@ -453,75 +465,88 @@ void main() {
   });
 
   group('sidebars and what panes decide', () {
-    test('there is one for each edge, each with its usual size', () {
-      final left = Panel.empty(Layout.leftId);
-      final top = Panel.empty(Layout.topId);
-      expect(left.kind, PanelKind.sidebar);
+    test('a sidebar is a pane docked to an edge, with its usual size', () {
+      final left = sidebarPane('left', 'left');
+      final top = sidebarPane('top', 'top');
+      expect((left.isDocked, left.hovers), (true, false));
       expect(
-        (left.edge, left.openWidth, left.openHeight, left.closedSize),
-        (BarEdge.left, 260, Panel.fill, 96),
+        (left.edge, left.openWidth, left.openHeight, left.closed),
+        (BarEdge.left, 260, Component.fill, 96),
       );
       // Along a side it starts as a line of small rows.
-      expect(left.root.rowHeight, Component.barRowHeight);
-      expect(left.root.prefabRules[cardPrefabId], {'variant': 'row'});
+      expect(left.rowHeight, Component.barRowHeight);
+      expect(left.prefabRules[cardPrefabId], {'variant': 'row'});
       expect(
-        (top.edge, top.openWidth, top.openHeight, top.closedSize),
-        (BarEdge.top, Panel.fill, 120, 0),
+        (top.edge, top.openWidth, top.openHeight, top.closed),
+        (BarEdge.top, Component.fill, 120, 0),
       );
-      expect(Panel.kindOf('bottom'), PanelKind.sidebar);
-      expect(Panel.kindOf('elsewhere'), PanelKind.popup);
+      // It opens while it has the focus, by what is written on it.
+      expect(left.on.keys, Trigger.values.skip(2));
+      // A folder is hidden while closed; in the middle it is as tall as what
+      // is in it.
+      final folder = folderPane('games');
+      expect(
+        (folder.hovers, folder.edge, folder.openWidth, folder.openHeight),
+        (true, null, 595, null),
+      );
+      // A word that is no dock leaves a pane on its parent's cells.
+      const odd = {'dock': 'sky'};
+      expect(Component.pane(id: 'p', rules: odd).isDocked, isFalse);
     });
 
+    Layout holding(List<Component> docked) => Layout(
+      inbox: 'main',
+      layers: [_home(Component.pane(id: 'root', children: docked))],
+    ).normalised();
+
     test('sizes are written, read back and kept within bounds', () {
-      final layout = Layout(
-        inbox: 'main',
-        panels: [
-          Panel.empty(Layout.homeId),
-          Panel.empty(Layout.rightId)
-              .withRule('width', Panel.fill)
-              .withRule('height', 300)
-              .withRule('closed', 0),
-          Panel.empty(
-            Layout.bottomId,
-            rules: const {'height': 5000, 'closed': -3},
-          ),
-        ],
-      ).normalised();
+      final layout = holding([
+        sidebarPane('right', 'right')
+            .withOption('width', 'fill')
+            .withOption('height', 300)
+            .withOption('closed', 0),
+        sidebarPane(
+          'bottom',
+          'bottom',
+        ).withOption('height', 5000).withOption('closed', -3),
+        // One off an edge has no strip to show.
+        folderPane('games').withOption('closed', 40),
+      ]);
       final copy = Layout.fromJson(layout.toJson());
-      final right = copy.panel(Layout.rightId)!;
-      expect((right.width, right.height, right.closed), (Panel.fill, 300, 0));
-      final bottom = copy.panel(Layout.bottomId)!;
-      expect((bottom.height, bottom.closed), (Panel.maxExtent, 0));
-      expect(bottom.width, isNull);
+      final right = copy.pane('right')!;
+      expect(
+        (right.dockWidth, right.dockHeight, right.closed),
+        (Component.fill, 300, 0),
+      );
+      final bottom = copy.pane('bottom')!;
+      expect((bottom.dockHeight, bottom.closed), (Component.maxExtent, 0));
+      expect(bottom.dockWidth, isNull);
+      expect(copy.pane('games')!.hovers, isTrue);
     });
 
     test('how one opens is written and read back, the usual left out', () {
-      final usual = Panel.empty(Layout.leftId);
+      final usual = sidebarPane('left', 'left');
       expect(
-        (usual.rule('opening'), usual.rule('reveal')),
+        (dockRule(usual, 'opening'), dockRule(usual, 'reveal')),
         ('expand', 'always'),
       );
-      expect(usual.toJson().keys, isNot(contains('rules')));
+      expect(usual.options.keys, isNot(contains('opening')));
 
-      final layout = Layout(
-        inbox: 'main',
-        panels: [
-          Panel.empty(Layout.homeId),
-          Panel.empty(
-            Layout.leftId,
-            rules: const {'opening': 'slide', 'reveal': 'late'},
-          ),
-        ],
-      ).normalised();
-      final left = Layout.fromJson(layout.toJson()).panel(Layout.leftId)!;
-      expect((left.rule('opening'), left.rule('reveal')), ('slide', 'late'));
+      final layout = holding([
+        usual.withOption('opening', 'slide').withOption('reveal', 'late'),
+      ]);
+      final left = Layout.fromJson(layout.toJson()).pane('left')!;
+      expect(
+        (dockRule(left, 'opening'), dockRule(left, 'reveal')),
+        ('slide', 'late'),
+      );
 
       // A word it does not know is taken as the usual.
-      final odd = Layout(
-        inbox: 'main',
-        panels: [left.withRule('opening', 'spin')],
-      ).normalised().panel(Layout.leftId)!;
-      expect((odd.rule('opening'), odd.rule('reveal')), ('expand', 'late'));
+      final odd = holding([left.withOption('opening', 'spin')]).pane('left')!;
+      expect(
+        (dockRule(odd, 'opening'), dockRule(odd, 'reveal')),
+        ('expand', 'late'),
+      );
     });
 
     test('a pane decides for its entities without changing what they say', () {
@@ -572,12 +597,7 @@ void main() {
       };
       final layout = Layout(
         inbox: 'p',
-        panels: [
-          Panel(
-            id: Layout.homeId,
-            root: Component.pane(id: 'p', style: style),
-          ),
-        ],
+        layers: [_home(Component.pane(id: 'p', style: style))],
       ).normalised();
       expect(layout.home.root.style, style);
       final read = Component.fromJson(layout.home.root.toJson());
@@ -591,10 +611,9 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            panels: [
-              Panel(
-                id: Layout.homeId,
-                root: Component.pane(
+            layers: [
+              _home(
+                Component.pane(
                   id: 'main',
                   prefabRules: const {
                     cardPrefabId: {'variant': 'row'},
@@ -606,7 +625,7 @@ void main() {
           ),
         ),
       );
-      expect(view.home.root.shown.single.variant, 'row');
+      expect(view.home.root.shown.first.variant, 'row');
     });
   });
 
@@ -633,7 +652,7 @@ void main() {
 
     test('a broken layout does not lose the rest', () {
       final config = LauncherConfig.fromJson(const {
-        'layout': {'panels': 7},
+        'layout': {'layers': 7},
         'wallpapers': ['/w.png'],
       });
       expect(config.wallpapers, ['/w.png']);

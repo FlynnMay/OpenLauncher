@@ -3,6 +3,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/dock_settings.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/trigger_settings.dart';
@@ -18,7 +19,7 @@ class PaneSettings extends StatelessWidget {
     this.named = true,
     this.children = const [],
     this.prefabs = const {},
-    this.usualOn,
+    this.dockable = true,
   });
 
   final String title;
@@ -33,9 +34,16 @@ class PaneSettings extends StatelessWidget {
   /// Prefabs for the rules section; empty hides it.
   final Map<String, Prefab> prefabs;
 
-  /// Default reveal/hide chains, for a sidebar or folder; null hides that
-  /// section.
-  final Triggers? usualOn;
+  /// Whether it can be docked; a layer's root cannot.
+  final bool dockable;
+
+  /// The chains a docked pane runs: when it is shown and hidden, and for one
+  /// with a closed strip, when the focus comes and goes.
+  static List<Trigger> _chains(Component pane) => [
+    if (!pane.hovers) ...[Trigger.focus, Trigger.blur],
+    Trigger.reveal,
+    Trigger.hide,
+  ];
 
   /// Extra widgets after the settings.
   final List<Widget> children;
@@ -47,15 +55,21 @@ class PaneSettings extends StatelessWidget {
       _arrangement,
       _entities,
       if (prefabs.isNotEmpty) _rules,
-      if (usualOn case final usual? when panes.length == 1)
+      // One pane at a time.
+      if (dockable && panes.length == 1)
+        Section(
+          'Dock',
+          open: panes.single.isDocked,
+          dockFields(panes.single, onChanged),
+        ),
+      if (panes.length == 1 && panes.single.isDocked)
         TriggerSettings(
           title: 'When it is shown and hidden',
-          triggers: const [Trigger.reveal, Trigger.hide],
+          triggers: _chains(panes.single),
           set: panes.single.on,
-          usual: usual,
+          usual: const {},
           onChanged: (on) => onChanged((pane) => pane.copyWith(on: on)),
         ),
-      // One pane at a time.
       if (panes.length == 1)
         VariablesSettings(
           variables: panes.single.vars,

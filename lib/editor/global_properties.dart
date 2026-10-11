@@ -5,11 +5,9 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/prefab_settings.dart';
-import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
@@ -34,15 +32,12 @@ class GlobalProperties extends ConsumerWidget {
           title: 'Screen',
           prefabs: ref.watch(prefabsProvider),
           named: false,
+          dockable: false,
           panes: [config.layout.home.root],
           onChanged: (how) => changeLayout(
             context,
             ref,
-            (layout) => changePanel(
-              layout,
-              Layout.homeId,
-              (panel) => panel.withRoot(how(panel.root)),
-            ),
+            (layout) => layout.withPane(layout.home.root.id, how),
           ),
         ),
         StyleSettings(
@@ -51,43 +46,13 @@ class GlobalProperties extends ConsumerWidget {
           onChanged: (key, value) => changeLayout(
             context,
             ref,
-            (layout) => changePanel(
-              layout,
-              Layout.homeId,
-              (panel) => panel.withRoot(
-                panel.root.copyWith(
-                  style: withStyle(panel.root.style, {key: value}),
-                ),
-              ),
+            (layout) => layout.withPane(
+              layout.home.root.id,
+              (root) =>
+                  root.copyWith(style: withStyle(root.style, {key: value})),
             ),
           ),
         ),
-        Section('Sidebars', [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text(
-              'One for each edge. It opens over the home screen when the '
-              'focus goes into it.',
-            ),
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final id in Layout.barIds)
-                OutlinedButton.icon(
-                  onPressed: () => addBar(context, ref, id),
-                  icon: Icon(
-                    config.layout.panel(id)?.items.isEmpty ?? true
-                        ? Icons.add
-                        : Icons.edit_outlined,
-                    size: 18,
-                  ),
-                  label: Text(barName(id)),
-                ),
-            ],
-          ),
-        ]),
         ValuesSettings(
           sources: config.sources,
           place: config.place,

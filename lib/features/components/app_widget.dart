@@ -22,9 +22,8 @@ final widgetCleanupProvider = Provider<void>((ref) {
     final layout = next.value?.layout;
     if (layout == null) return;
     ref.read(launcherPlatformProvider).pruneWidgets([
-      for (final panel in layout.panels)
-        for (final item in panel.items)
-          if (item.kind == ComponentRegistry.android.name) item.id,
+      for (final item in layout.items)
+        if (item.kind == ComponentRegistry.android.name) item.id,
     ]);
   }, fireImmediately: true);
 });

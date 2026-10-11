@@ -124,16 +124,14 @@ class ConfigApi {
     return action(id);
   }
 
-  /// Like [_withEntity], but also accepts a folder's `panel:<id>`.
+  /// Like [_withEntity], but also accepts a folder's `folder:<id>`.
   Future<Response> _withPicture(
     String? id,
     Future<Response> Function(String id) action,
   ) async {
     final layout = (await _ref.read(configProvider.future)).layout;
-    final isPanel = layout.panels.any(
-      (panel) => panel.kind == PanelKind.popup && Panel.iconKey(panel.id) == id,
-    );
-    return isPanel ? action(id!) : _withEntity(id, action);
+    final isFolder = layout.docked.any((pane) => Layout.iconKey(pane.id) == id);
+    return isFolder ? action(id!) : _withEntity(id, action);
   }
 
   Future<Response> _setLayout(Map<String, Object?> body) async {
@@ -142,10 +140,10 @@ class ConfigApi {
     // Drop pictures of folders that no longer exist.
     final config = await _ref.read(configProvider.future);
     final kept = {
-      for (final panel in config.layout.panels) Panel.iconKey(panel.id),
+      for (final pane in config.layout.docked) Layout.iconKey(pane.id),
     };
     for (final key in config.iconOverrides.keys.toList()) {
-      if (key.startsWith(Panel.iconKey('')) && !kept.contains(key)) {
+      if (key.startsWith(Layout.iconKey('')) && !kept.contains(key)) {
         await _ref.read(customIconsProvider).clear(key);
       }
     }

@@ -113,7 +113,7 @@ void main() {
     return [
       for (final item in (await container.read(
         layoutViewProvider.future,
-      )).home.root.contents)
+      )).home.root.ownContents)
         if (all.byId(item.handed.firstOrNull) case final entity?
             when entity.category == appCategory ||
                 entity.category == inputCategory)
@@ -156,7 +156,7 @@ void main() {
     final page = await state();
     // Nothing has been arranged yet, so every entity is in the one section.
     // It sits in the screen's global pane.
-    final section = page['layout']['panels'][0]['root']['children'].single;
+    final section = page['layout']['layers'][0]['root']['children'].first;
     expect(page['layout']['inbox'], section['id']);
     expect(
       (section['children'] as List).map((i) => i['vars']?['source']?['value']),
@@ -171,11 +171,18 @@ void main() {
       'folder',
       'button',
     ]);
-    // The quick actions are a popup in the layout like any folder.
-    final menu = (page['layout']['panels'] as List).firstWhere(
-      (panel) => panel['id'] == Layout.menuId,
+    // The quick actions are a pane docked on the home layer, like any
+    // folder.
+    final menu = (page['layout']['layers'][0]['root']['children'] as List)
+        .firstWhere((pane) => pane['id'] == Layout.menuId);
+    expect(menu['options']['dock'], 'center');
+    expect(menu['children'], hasLength(usualMenu.length));
+    // And the home layer's layout is an entity that can be told to add and
+    // remove.
+    final home = (page['entities'] as List).firstWhere(
+      (entity) => entity['id'] == Layout.homeId,
     );
-    expect(menu['root']['children'], hasLength(usualMenu.length));
+    expect(home['category'], 'layout');
     expect(page['config']['toasts'], const ToastOptions().toJson());
     expect(page['notificationAccess'], isTrue);
   });
@@ -297,7 +304,7 @@ void main() {
       '/api/layout',
       body: {
         'inbox': 'rest',
-        'panels': [
+        'layers': [
           {
             'id': 'home',
             'root': {
@@ -346,23 +353,19 @@ void main() {
                   ],
                 },
                 {'id': 'rest', 'kind': 'pane'},
-              ],
-            },
-          },
-          {
-            'id': 'games',
-            'title': 'Games',
-            'rules': {'position': 'bottom'},
-            'root': {
-              'id': 'in',
-              'kind': 'pane',
-              'children': [
                 {
-                  'id': 'i5',
-                  'prefab': 'app-card',
-                  'vars': {
-                    'source': {'value': 'app:a', 'type': 'entity'},
-                  },
+                  'id': 'games',
+                  'kind': 'pane',
+                  'options': {'title': 'Games', 'dock': 'bottom'},
+                  'children': [
+                    {
+                      'id': 'i5',
+                      'prefab': 'app-card',
+                      'vars': {
+                        'source': {'value': 'app:a', 'type': 'entity'},
+                      },
+                    },
+                  ],
                 },
               ],
             },
@@ -373,7 +376,7 @@ void main() {
     expect(response.statusCode, 200);
 
     final saved = store.config.layout;
-    final [top, rest] = saved.home.root.children;
+    final [top, rest, games] = saved.home.root.children;
     expect((top.mode, top.columns), (PaneMode.grid, 4));
     expect((top.title, saved.inbox), ('Favourites', rest.id));
     // Too wide for the pane, and a link to a panel that does not exist.
@@ -383,7 +386,7 @@ void main() {
       (top.children.last.prefab, top.children.last.handed.firstOrNull),
       ('weather', 'weather'),
     );
-    expect(saved.panel('games')!.rule('position'), 'bottom');
+    expect((games.dock, games.hovers), ('bottom', true));
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
     // which was placed nowhere, in the pane for new entities.
@@ -393,13 +396,12 @@ void main() {
     expect(folder.prefab, folderPrefabId);
     expect(
       view
-          .panel(folder.handed.firstOrNull!)!
-          .root
+          .pane(folder.handed.firstOrNull!)!
           .contents
           .map((entry) => entry.handed.firstOrNull),
       ['app:a'],
     );
-    final shown = (await state())['layout']['panels'][0]['root']['children'][1];
+    final shown = (await state())['layout']['layers'][0]['root']['children'][1];
     expect(
       (shown['children'] as List).map((i) => i['vars']?['source']?['value']),
       ['input:tv/HW1', 'launcher:settings'],
@@ -407,38 +409,43 @@ void main() {
   });
 
   test('a folder entity can have a picture, removed with the folder', () async {
-    Map<String, Object?> layout(List<Object?> popups) => {
-      'panels': [
+    Map<String, Object?> layout(List<Object?> folders) => {
+      'layers': [
         {
           'id': 'home',
-          'sections': [
-            {'id': 's'},
-          ],
+          'root': {'id': 'home/root', 'kind': 'pane', 'children': folders},
         },
-        ...popups,
       ],
     };
     await call(
       'PUT',
       '/api/layout',
       body: layout([
-        {'id': 'games', 'title': 'Games'},
+        {
+          'id': 'games',
+          'kind': 'pane',
+          'options': {'title': 'Games', 'dock': 'center'},
+        },
       ]),
     );
     expect(
-      (await call('PUT', '/api/icon?id=panel:nope', body: _png)).statusCode,
+      (await call('PUT', '/api/icon?id=folder:nope', body: _png)).statusCode,
       404,
     );
     expect(
-      (await call('PUT', '/api/icon?id=panel:home', body: _png)).statusCode,
+      (await call(
+        'PUT',
+        '/api/icon?id=folder:home/root',
+        body: _png,
+      )).statusCode,
       404,
     );
     expect(
-      (await call('PUT', '/api/icon?id=panel:games', body: _png)).statusCode,
+      (await call('PUT', '/api/icon?id=folder:games', body: _png)).statusCode,
       200,
     );
 
-    final url = (await state())['panelIcons']['games'] as String;
+    final url = (await state())['folderIcons']['games'] as String;
     final response = await call('GET', url);
     expect(response.headers['content-type'], 'image/png');
     expect(tmp.listSync(), hasLength(1));
@@ -446,7 +453,7 @@ void main() {
     await call('PUT', '/api/layout', body: layout([]));
     expect(store.config.iconOverrides, isEmpty);
     expect(tmp.listSync(), isEmpty);
-    expect((await state())['panelIcons'], isEmpty);
+    expect((await state())['folderIcons'], isEmpty);
   });
 
   test('plain settings are set as they are saved', () async {
@@ -576,7 +583,7 @@ void main() {
   test('entities left out of the layout are removed, not put back', () async {
     final page = await state();
     final layout = page['layout'] as Map<String, dynamic>;
-    final section = layout['panels'][0]['root']['children'][0];
+    final section = layout['layers'][0]['root']['children'][0];
     // What the page does to remove an entity: drop its item and say so.
     (section['children'] as List).removeWhere(
       (i) => i['vars']?['source']?['value'] == 'input:tv/HW1',
@@ -595,7 +602,7 @@ void main() {
 
     // Adding it again, twice: an entity can be in more than one place.
     final again = after['layout'] as Map<String, dynamic>;
-    (again['panels'][0]['root']['children'][0]['children'] as List).addAll([
+    (again['layers'][0]['root']['children'][0]['children'] as List).addAll([
       for (final id in ['x1', 'x2'])
         {
           'id': id,
@@ -857,7 +864,7 @@ void main() {
         'PUT',
         '/api/layout',
         body: {
-          'panels': [1],
+          'layers': [1],
         },
       ),
       400,

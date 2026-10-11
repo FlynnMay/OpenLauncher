@@ -8,7 +8,7 @@ import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
-import 'package:openlauncher/features/home/popup_panel.dart';
+import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 void main() {
@@ -60,8 +60,8 @@ void main() {
                   layout: Layout(
                     inbox: 'main',
                     removed: const {'launcher:settings'},
-                    panels: [
-                      Panel(
+                    layers: [
+                      Layer(
                         id: Layout.homeId,
                         root: Component.pane(
                           id: 'main',
@@ -71,17 +71,14 @@ void main() {
                           mode: PaneMode.grid,
                           children: [
                             Component.of('app:a', id: 'a', x: 3, y: 0),
-                          ],
-                        ),
-                      ),
-                      Panel(
-                        id: Layout.leftId,
-                        root: Component.pane(id: 'left/root', columns: 1)
-                            .asBar()
-                            .copyWith(
-                              on: on,
+                            // What it does when shown is written on it:
+                            // [on] over what a new sidebar comes with.
+                            sidebarPane('left', 'left').copyWith(
+                              on: {...barTriggers(), ...on},
                               children: [Component.of('app:b', id: 'b')],
                             ),
+                          ],
+                        ),
                       ),
                     ],
                   ).normalised(),
@@ -161,8 +158,8 @@ void main() {
                 layout: Layout(
                   inbox: 'main',
                   removed: const {'launcher:settings', 'app:a'},
-                  panels: [
-                    Panel(
+                  layers: [
+                    Layer(
                       id: Layout.homeId,
                       root: Component.pane(
                         id: 'main',
@@ -172,15 +169,10 @@ void main() {
                             id: 'f',
                             prefab: folderPrefabId,
                           ),
+                          folderPane('games', title: 'Games').copyWith(
+                            children: [Component.of('app:b', id: 'b')],
+                          ),
                         ],
-                      ),
-                    ),
-                    Panel(
-                      id: 'games',
-                      title: 'Games',
-                      root: Component.pane(
-                        id: 'games/root',
-                        children: [Component.of('app:b', id: 'b')],
                       ),
                     ),
                   ],
@@ -200,7 +192,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final held = find.byType(PanelPopup);
+    // What is in the folder, laid out only while it shows.
+    final held = find.byWidgetPredicate(
+      (widget) => widget is PaneGrid && widget.pane.id == 'games',
+    );
     expect(held, findsNothing);
 
     // Pressed, the folder is revealed: on a layer of its own, which

@@ -172,8 +172,19 @@ class Component {
   /// Smallest size in a [PaneMode.free] pane, in cells.
   static const minFreeSpan = 0.25;
 
-  /// Maximum pane nesting, counting the root.
+  /// Maximum pane nesting, counting the root. A docked pane counts as one.
   static const maxDepth = 4;
+
+  /// A docked pane's size that fills the screen.
+  static const fill = double.infinity;
+
+  /// Largest docked size, in TV pixels.
+  static const maxExtent = 960.0;
+
+  /// Where a pane can be docked: the edges, the middle, or in the box of what
+  /// opens it.
+  static const docks = ['left', 'right', 'top', 'bottom', 'center', inline];
+  static const inline = 'inline';
 
   /// The variable name the built-in prefabs use for their entity. Nothing
   /// else gives this name special meaning.
@@ -285,6 +296,57 @@ class Component {
   Map<String, Map<String, Object?>> get prefabRules =>
       overridesFromJson(options['prefabRules']);
 
+  // A docked pane is off its parent's cells: a sidebar or a folder.
+
+  /// One of [docks], or null for a pane on its parent's cells.
+  String? get dock => switch (options['dock']) {
+    final String dock when isPane && docks.contains(dock) => dock,
+    _ => null,
+  };
+
+  bool get isDocked => dock != null;
+
+  /// The screen edge it is docked to, if any.
+  BarEdge? get edge => BarEdge.values.asNameMap()[dock];
+
+  /// True for the left and right edges.
+  bool get opensAcross => edge == BarEdge.left || edge == BarEdge.right;
+
+  double? _extent(String key) => switch (options[key]) {
+    'fill' => fill,
+    final num size => size.toDouble(),
+    _ => null,
+  };
+
+  /// Open size in TV pixels, [fill] for all of the screen; null for the
+  /// dock's default.
+  double? get dockWidth => _extent('width');
+  double? get dockHeight => _extent('height');
+
+  /// How much shows while closed; 0 leaves it at its edge with nothing
+  /// showing. Null hides it: see [hovers].
+  double? get closed => _extent('closed');
+
+  /// Whether it is hidden while closed, and so cannot take the focus then.
+  bool get hovers => isDocked && closed == null;
+
+  /// Defaults per dock: side bars are full height, top and bottom bars full
+  /// width, one in the middle as tall as what is in it (null).
+  double get openWidth =>
+      dockWidth ??
+      switch (edge) {
+        BarEdge.left || BarEdge.right => 260,
+        BarEdge.top || BarEdge.bottom => fill,
+        null => 595,
+      };
+  double? get openHeight =>
+      dockHeight ??
+      switch (edge) {
+        BarEdge.left || BarEdge.right => fill,
+        BarEdge.top || BarEdge.bottom => 120,
+        null => null,
+      };
+
   BoxStyle get box => BoxStyle.of(style);
 
   /// Style properties that apply to this component.
@@ -392,9 +454,22 @@ class Component {
     }
   }
 
+  /// This pane and the panes on its cells, skipping docked ones.
+  Iterable<Component> get cellPanes sync* {
+    if (!isPane) return;
+    yield this;
+    for (final child in children) {
+      if (!child.isDocked) yield* child.cellPanes;
+    }
+  }
+
   /// Every non-pane component in this pane and the panes inside it.
   Iterable<Component> get contents =>
       panes.expand((pane) => pane.children).where((child) => !child.isPane);
+
+  /// The same, skipping what is in docked panes.
+  Iterable<Component> get ownContents =>
+      cellPanes.expand((pane) => pane.children).where((child) => !child.isPane);
 
   /// This component and all its descendants.
   Iterable<Component> get all sync* {

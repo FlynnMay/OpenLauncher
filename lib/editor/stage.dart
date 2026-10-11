@@ -15,10 +15,10 @@ import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/editor/stage_geometry.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/features/home/component_view.dart';
+import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/sidebar.dart';
 
 /// The TV's screen. While [editing], components are selectable and draggable
 /// and the screen is a drop target; otherwise it is the plain launcher.
@@ -128,25 +128,24 @@ class _StageState extends ConsumerState<Stage> {
       return (drop: null, bar: edge, marker: barRect(layout, edge));
     }
     final item = dragged.item;
-    // An open popup is the only target; else a visible sidebar; else the home
-    // screen.
+    // An open folder is the only target; else a visible sidebar; else the
+    // home screen.
     var pane = layout.home.root;
     String? bar;
-    for (final panel in layout.panels) {
-      final grid = _grids[panel.root.id];
+    for (final dock in layout.docked) {
+      final grid = _grids[dock.id];
       if (_box(grid) == null) continue;
-      if (panel.kind == PanelKind.popup) {
-        pane = panel.root;
+      if (dock.hovers) {
+        pane = dock;
         bar = null;
         break;
       }
       final showing = grid?.currentContext
           ?.getInheritedWidgetOfExactType<FocusBounds>()
           ?.visible();
-      if (panel.kind == PanelKind.sidebar &&
-          (showing?.contains(pointer) ?? false)) {
-        pane = panel.root;
-        bar = panel.id;
+      if (showing?.contains(pointer) ?? false) {
+        pane = dock;
+        bar = dock.id;
       }
     }
     // A sidebar dragged over opens.
@@ -180,7 +179,7 @@ class _StageState extends ConsumerState<Stage> {
     // The marker is computed from the resulting layout so it cannot disagree
     // with it.
     final after = findPane(
-      dropItem(layout, item, drop, panel: dragged.panel),
+      dropItem(layout, item, drop, folder: dragged.folder),
       pane.id,
     )!.pane;
     final rect = metrics.rectOf(placementIn(after, item.id));
@@ -372,16 +371,17 @@ class _StageState extends ConsumerState<Stage> {
         ),
       ),
     );
-    return SidebarHold(
+    return DockHold(
       // Open while edited, while something in it is selected or dragged over
       // it.
       ids: {
         // Released while previewing its opening.
         if (editing && !ref.watch(barReplayProvider)) ...{
-          ?ref.watch(barProvider),
           ?_over,
-          for (final one in ref.watch(selectedProvider))
-            if (one.panel.kind == PanelKind.sidebar) one.panel.id,
+          for (final one in ref.watch(selectedProvider)) ...[
+            if (one.item.isDocked) one.item.id,
+            ?one.dock?.id,
+          ],
         },
       },
       child: screen,

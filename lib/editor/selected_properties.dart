@@ -41,15 +41,13 @@ class SelectedProperties extends ConsumerWidget {
         change((layout) => changeItems(layout, ids, (item, _) => how(item)));
 
     final allPanes = items.every((item) => item.isPane);
-    final folders = ref.watch(selectedPanelsProvider);
+    final folders = ref.watch(selectedFoldersProvider);
     final allFolders =
         items.every((item) => item.isInstance) &&
         folders.length == items.length;
-    void eachFolder(Panel Function(Panel panel) how) => change(
-      (layout) => folders.keys.fold(
-        layout,
-        (layout, id) => changePanel(layout, id, how),
-      ),
+    void eachFolder(Component Function(Component pane) how) => change(
+      (layout) =>
+          folders.keys.fold(layout, (layout, id) => layout.withPane(id, how)),
     );
 
     final transform = {
@@ -73,9 +71,9 @@ class SelectedProperties extends ConsumerWidget {
           _EntityDetails(entityId: single.handed.firstOrNull ?? ''),
         if (single != null && allFolders)
           _FolderDetails(
-            panel: folders.values.single,
+            folder: folders.values.single,
             onRenamed: (title) =>
-                eachFolder((panel) => withPanelRule(panel, 'title', title)),
+                eachFolder((pane) => withRule(pane, 'title', title)),
           ),
         if (single != null && !single.isInstance && !single.isPane)
           ComponentSettings(
@@ -115,24 +113,30 @@ class SelectedProperties extends ConsumerWidget {
             usual: {...?ref.watch(prefabsProvider)[single.prefab]?.on},
             onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
-        Section(
-          'Transform',
-          ruleFields(
-            options: transformOptions([for (final one in found) one.parent]),
-            json: {
-              for (final MapEntry(:key, :value) in transform.entries)
-                key: ?shared<double?>(value),
-            },
-            mixed: {
-              for (final MapEntry(:key, :value) in transform.entries)
-                if (value.toSet().length > 1) key,
-            },
-            onChanged: (key, value) => change(
-              (layout) =>
-                  transformItems(layout, ids, key, (value as num?)?.toDouble()),
+        // A docked pane has no cells.
+        if (!items.any((item) => item.isDocked))
+          Section(
+            'Transform',
+            ruleFields(
+              options: transformOptions([for (final one in found) one.parent]),
+              json: {
+                for (final MapEntry(:key, :value) in transform.entries)
+                  key: ?shared<double?>(value),
+              },
+              mixed: {
+                for (final MapEntry(:key, :value) in transform.entries)
+                  if (value.toSet().length > 1) key,
+              },
+              onChanged: (key, value) => change(
+                (layout) => transformItems(
+                  layout,
+                  ids,
+                  key,
+                  (value as num?)?.toDouble(),
+                ),
+              ),
             ),
           ),
-        ),
         // Only style keys common to all.
         StyleSettings(
           keys: items
@@ -151,7 +155,10 @@ class SelectedProperties extends ConsumerWidget {
             panes: items,
             onChanged: each,
             children: [
-              if (single != null && found.single.panel.kind == PanelKind.home)
+              // Not in a sidebar or folder.
+              if (single != null &&
+                  found.single.dock == null &&
+                  !single.isDocked)
                 TickBox(
                   label: 'New apps go here',
                   value: ref.watch(inboxProvider) == single.id,
@@ -165,12 +172,6 @@ class SelectedProperties extends ConsumerWidget {
           ),
         if (allFolders)
           Section('Folder', [
-            ...ruleFields(
-              options: panelRules(folders.values.first.kind),
-              json: folders.values.first.rules,
-              onChanged: (key, value) =>
-                  eachFolder((panel) => withPanelRule(panel, key, value)),
-            ),
             if (single != null)
               Wrap(
                 spacing: 8,
@@ -190,7 +191,7 @@ class SelectedProperties extends ConsumerWidget {
                           context.mounted) {
                         ref.read(selectionProvider.notifier).clear();
                         change(
-                          (layout) => removePanel(layout, folders.keys.single),
+                          (layout) => removeItem(layout, folders.keys.single),
                         );
                       }
                     },
@@ -200,6 +201,29 @@ class SelectedProperties extends ConsumerWidget {
                 ],
               ),
           ]),
+        // The folder itself is a pane like any other.
+        if (allFolders && single != null) ...[
+          PaneSettings(
+            title: 'Folder pane',
+            prefabs: ref.watch(prefabsProvider),
+            named: false,
+            panes: [folders.values.single],
+            onChanged: eachFolder,
+          ),
+          Section(
+            'Folder look',
+            open: false,
+            styleFields(
+              keys: const [...boxStyle, ...textStyle],
+              style: folders.values.single.style,
+              corner: Component.defaultCorner,
+              onChanged: (key, value) => eachFolder(
+                (pane) =>
+                    pane.copyWith(style: withStyle(pane.style, {key: value})),
+              ),
+            ),
+          ),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
           child: FilledButton.tonalIcon(
@@ -298,18 +322,18 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
 
 /// A folder's name and picture.
 class _FolderDetails extends ConsumerWidget {
-  const _FolderDetails({required this.panel, required this.onRenamed});
+  const _FolderDetails({required this.folder, required this.onRenamed});
 
-  final Panel panel;
+  final Component folder;
   final void Function(String title) onRenamed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(tvApiProvider);
-    final key = Panel.iconKey(panel.id);
+    final key = Layout.iconKey(folder.id);
     final picture = ref.watch(configProvider).value?.iconOverrides[key];
     return Section('Folder card', [
-      CommitField(label: 'Name', value: panel.title, onChanged: onRenamed),
+      CommitField(label: 'Name', value: folder.title, onChanged: onRenamed),
       PictureSettings(
         picture: picture == null
             ? null

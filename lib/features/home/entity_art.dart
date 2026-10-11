@@ -70,7 +70,7 @@ class FolderArt extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final icon = ref.watch(
       configProvider.select(
-        (config) => config.value?.iconOverrides[Panel.iconKey(folder)],
+        (config) => config.value?.iconOverrides[Layout.iconKey(folder)],
       ),
     );
     if (icon != null) {
@@ -84,7 +84,7 @@ class FolderArt extends ConsumerWidget {
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final preview = [
       for (final item
-          in ref.watch(layoutViewProvider).value?.panel(folder)?.items ??
+          in ref.watch(layoutViewProvider).value?.pane(folder)?.contents ??
               const <Component>[])
         ?entities.byId(item.handed.firstOrNull),
     ].take(_shown).toList();

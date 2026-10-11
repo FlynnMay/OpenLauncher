@@ -114,7 +114,7 @@ void main() {
       return [
         for (final item in (await container.read(
           layoutViewProvider.future,
-        )).home.root.contents)
+        )).home.root.ownContents)
           if (all.byId(item.handed.firstOrNull) case final entity?
               when entity.category != launcherCategory)
             entity,
@@ -130,7 +130,7 @@ void main() {
       final config = container.read(configProvider.notifier);
       await config.setLayout(Layout.initial(['app:b', 'app:a']));
       expect(await ids(), ['app:b', 'app:a']);
-      expect(store.config.layout.home.items.map((i) => i.handed.firstOrNull), [
+      expect(store.config.layout.items.map((i) => i.handed.firstOrNull), [
         'app:b',
         'app:a',
       ]);
@@ -200,8 +200,7 @@ void main() {
               .set(Layout.menuId, Component.sourceVar, entity.id);
           return [
             for (final item in offeredFor(
-              view.panel(Layout.menuId)!.root,
-              Layout.menuId,
+              view.pane(Layout.menuId)!,
               container.read,
               await container.read(entitiesProvider.future),
             ))
@@ -249,10 +248,35 @@ void main() {
         expect(platform.launched.last, 'a');
 
         // Taking it off the screen is the layout's to do, told what.
+        // The layout that does it is the home layer's.
         await actions.run(
-          const Act('remove', {'entity': 'layout', 'what': 'app:a'}),
+          const Act('remove', {'entity': 'home', 'what': 'app:a'}),
         );
         expect(await ids(), ['input:tv/HW15', 'app:b']);
+        expect(
+          actions.run(const Act('remove', {'entity': 'layout', 'what': 'x'})),
+          improper,
+        );
+        // And putting it back: in the inbox, as what its category is drawn
+        // as.
+        expect(
+          await actions.run(
+            const Act('add', {'entity': 'home', 'what': 'app:a'}),
+          ),
+          contains('A'),
+        );
+        // It is saved where it was put; what is placed nowhere comes after.
+        expect(await ids(), ['app:a', 'input:tv/HW15', 'app:b']);
+        final layout = container.read(configProvider).value!.layout;
+        final added = layout.pane(layout.inbox)!.children.last;
+        expect(added.prefab, cardPrefabId);
+        expect(added.handed, ['app:a']);
+        expect(
+          await actions.run(
+            const Act('add', {'entity': 'home', 'what': 'app:b', 'to': 'no'}),
+          ),
+          contains('no'),
+        );
       },
     );
 
@@ -350,9 +374,13 @@ void main() {
         'setup': 'system',
         'newLayer': 'layers',
         'set': 'variables',
+        // A layer's layout: there is one for each layer, with its id.
+        'add': 'layout',
         'remove': 'layout',
       }.entries) {
-        final entity = entityRegistry(owner)!.one!;
+        final entity =
+            entityRegistry(owner)!.one ??
+            Entity(id: Layout.homeId, category: owner, label: '');
         expect(actionFor(action, entity), isNotNull, reason: action);
         expect(actionFor(action, app), isNull, reason: action);
       }
@@ -403,7 +431,7 @@ void main() {
       expect(all.last.id, 'lamp:desk');
       final view = await container.read(layoutViewProvider.future);
       expect(
-        view.home.root.contents.map((entry) => entry.handed.firstOrNull),
+        view.home.root.ownContents.map((entry) => entry.handed.firstOrNull),
         contains('lamp:desk'),
       );
       // What it provides is read like anything else's.
@@ -472,14 +500,15 @@ void main() {
         'system',
         'layers',
         'variables',
-        'layout',
+        // The home layer's layout.
+        'home',
       ]);
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);
-      expect(view.home.root.contents.map((entry) => entry.handed.firstOrNull), [
-        'app:a',
-        'launcher:settings',
-      ]);
+      expect(
+        view.home.root.ownContents.map((entry) => entry.handed.firstOrNull),
+        ['app:a', 'launcher:settings'],
+      );
       expect((await data(c, 'clock'))['time'], '15:04');
       expect((await data(c, 'clock'))['weekday'], 'Sunday');
     });

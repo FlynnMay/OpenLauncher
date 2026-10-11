@@ -8,11 +8,10 @@ import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/component_view.dart';
+import 'package:openlauncher/features/home/dock_host.dart';
+import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/popup_host.dart';
-import 'package:openlauncher/features/home/popup_panel.dart';
-import 'package:openlauncher/features/home/sidebar.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/wallpaper/wallpaper_background.dart';
 
@@ -24,9 +23,11 @@ final _homeFocusProvider = Provider((ref) {
   return node;
 });
 
-/// One key per sidebar so its state survives moving between layers.
-final _sidebarKeysProvider = Provider((ref) => <String, GlobalKey>{});
+/// One key per docked pane so its state survives moving between layers.
+final _dockKeysProvider = Provider((ref) => <String, GlobalKey>{});
 
+/// Draws the layers: the saved ones, the home screen first, then those made
+/// since.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -36,10 +37,10 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = ref.watch(layoutViewProvider);
-    final layers = ref.watch(layersProvider);
-    final keys = ref.watch(_sidebarKeysProvider);
+    final above = ref.watch(layersProvider);
+    final keys = ref.watch(_dockKeysProvider);
     // Hides everything on [layer], which closes it.
-    void shut(ScreenLayer layer) {
+    void shut(Layer layer) {
       for (final id in layer.holds) {
         ref.read(runtimeVarsProvider.notifier).set(id, openVar, false);
       }
@@ -48,7 +49,7 @@ class HomeScreen extends ConsumerWidget {
     // When the last modal layer closes, focus returns to the home screen.
     final home = ref.watch(_homeFocusProvider);
     ref.listen(layersProvider, (before, now) {
-      bool keeps(List<ScreenLayer>? layers) =>
+      bool keeps(List<Layer>? layers) =>
           layers?.any((layer) => layer.modal) ?? false;
       if (keeps(before) && !keeps(now)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -56,25 +57,21 @@ class HomeScreen extends ConsumerWidget {
         });
       }
     });
-    Widget sidebar(Panel panel) => KeyedSubtree(
-      key: keys.putIfAbsent(panel.id, GlobalKey.new),
-      child: Sidebar(
-        panel: panel,
-        onOpen: (open) =>
-            ref.read(runtimeVarsProvider.notifier).set(panel.id, openVar, open),
-      ),
+    Widget docked(Component pane) => KeyedSubtree(
+      key: keys.putIfAbsent(pane.id, GlobalKey.new),
+      child: DockedPane(pane: pane),
     );
     return PopScope(
       // Back only closes the top modal layer.
       canPop: false,
       onPopInvokedWithResult: (_, _) {
-        if (layers.where((layer) => layer.modal).lastOrNull case final top?) {
+        if (above.where((layer) => layer.modal).lastOrNull case final top?) {
           shut(top);
         }
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: PopupHost(
+        body: DockHost(
           child: TileTraversal(
             child: Stack(
               fit: StackFit.expand,
@@ -95,92 +92,106 @@ class HomeScreen extends ConsumerWidget {
                   ],
                   data: (layout) {
                     final focus = FirstFocus();
-                    // A layer's backdrop and contents.
-                    List<Widget> shown(ScreenLayer layer) => [
-                      if (layer.blur > 0 || layer.dim > 0)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: ClipRect(
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(
-                                  sigmaX: layer.blur,
-                                  sigmaY: layer.blur,
-                                ),
-                                child: ColoredBox(
-                                  color: Colors.black.withValues(
-                                    alpha: layer.dim,
+                    // A layer's backdrop, its own pane, and the docked panes
+                    // on it: its own that have not been moved, and those
+                    // moved to it.
+                    List<Widget> shown(Layer layer) {
+                      final root = layer.root;
+                      final first = layer.id == Layout.homeId;
+                      final empty = root.children.every(
+                        (child) =>
+                            child.isDocked || child.isPane && child.isEmpty,
+                      );
+                      return [
+                        if (layer.blur > 0 || layer.dim > 0)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: ClipRect(
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(
+                                    sigmaX: layer.blur,
+                                    sigmaY: layer.blur,
+                                  ),
+                                  child: ColoredBox(
+                                    color: Colors.black.withValues(
+                                      alpha: layer.dim,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      // Tapping outside a modal layer closes it.
-                      if (layer.modal)
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => shut(layer),
-                          ),
-                        ),
-                      for (final bar in layout.bars)
-                        if (layer.holds.contains(bar.id)) sidebar(bar),
-                      for (final id in layer.holds)
-                        if (layout.panel(id)?.kind == PanelKind.popup)
+                        // Tapping outside a modal layer closes it.
+                        if (layer.modal)
                           Positioned.fill(
-                            key: ValueKey('folder $id'),
-                            child: PanelPopup(
-                              panelId: id,
-                              subject: subjectOf(ref, id),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => shut(layer),
                             ),
                           ),
-                    ];
+                        if (!empty)
+                          // The root pane fills the screen; margins are the
+                          // user's.
+                          SingleChildScrollView(
+                            padding: EdgeInsets.all(root.box.padding ?? 0),
+                            child: PaneGrid(
+                              pane: root,
+                              tile: (entry) =>
+                                  ComponentView(component: entry, focus: focus),
+                            ),
+                          )
+                        else if (first)
+                          const Center(child: Text('Nothing here yet')),
+                        // One opened in place is drawn by what opens it.
+                        for (final pane in root.all)
+                          if (pane.isDocked &&
+                              pane.dock != Component.inline &&
+                              layerOf(above, pane.id) == null)
+                            docked(pane),
+                        for (final id in layer.holds)
+                          if (layout.pane(id) case final pane?
+                              when pane.isDocked)
+                            docked(pane),
+                        if (first)
+                          Positioned(
+                            top: _padding.top,
+                            right: _padding.right,
+                            child: _Header(
+                              settingsPlaced: _hasSettings(layout),
+                            ),
+                          ),
+                      ];
+                    }
+
+                    final layers = [...layout.layers, ...above];
                     return [
-                      // The home screen and non-modal layers share one focus
-                      // scope, so the D-pad moves between them.
+                      // Layers that are not modal share one focus scope, so
+                      // the D-pad moves between them.
                       Positioned.fill(
                         child: FocusScope(
                           node: home,
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (layout.home.isEmpty)
-                                const Center(child: Text('Nothing here yet'))
-                              else
-                                // The root pane fills the screen; margins are
-                                // the user's.
-                                SingleChildScrollView(
-                                  padding: EdgeInsets.all(
-                                    layout.home.root.box.padding ?? 0,
-                                  ),
-                                  child: PaneGrid(
-                                    pane: layout.home.root,
-                                    tile: (entry) => ComponentView(
-                                      component: entry,
-                                      focus: focus,
-                                    ),
-                                  ),
-                                ),
-                              // Sidebars not on a layer.
-                              for (final bar in layout.bars)
-                                if (layerOf(layers, bar.id) == null)
-                                  sidebar(bar),
-                              Positioned(
-                                top: _padding.top,
-                                right: _padding.right,
-                                child: _Header(
-                                  settingsPlaced: _hasSettings(layout),
-                                ),
-                              ),
                               for (final layer in layers)
                                 if (!layer.modal) ...shown(layer),
                             ],
                           ),
                         ),
                       ),
-                      // Modal layers on top, lowest first.
+                      // Modal layers on top, lowest first, each with the
+                      // focus to itself.
                       for (final layer in layers)
-                        if (layer.modal) ...shown(layer),
+                        if (layer.modal)
+                          Positioned.fill(
+                            key: ValueKey('layer ${layer.id}'),
+                            child: _Held(
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: shown(layer),
+                              ),
+                            ),
+                          ),
                     ];
                   },
                 ),
@@ -193,10 +204,40 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// Whether the Settings card is placed anywhere.
-  static bool _hasSettings(Layout layout) => layout.panels.any(
-    (panel) =>
-        panel.items.any((item) => item.handed.contains(Entity.settings.id)),
-  );
+  static bool _hasSettings(Layout layout) =>
+      layout.items.any((item) => item.handed.contains(Entity.settings.id));
+}
+
+/// Traps the focus and takes it on appearing.
+class _Held extends StatefulWidget {
+  const _Held({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_Held> createState() => _HeldState();
+}
+
+class _HeldState extends State<_Held> {
+  final _scope = FocusScopeNode(debugLabel: 'modal layer');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_scope.hasFocus) _scope.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scope.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FocusScope(node: _scope, autofocus: true, child: widget.child);
 }
 
 /// Buttons shown only when needed.

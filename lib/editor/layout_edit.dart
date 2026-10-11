@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
 /// A drop target: [pane], and either before child [before] (flow) or at cell
@@ -23,21 +24,25 @@ class Drop {
   int get hashCode => Object.hash(pane, before, x, y);
 }
 
-/// A pane with its panel and depth (a panel's root is 1).
-typedef FoundPane = ({Panel panel, Component pane, int depth});
+/// A pane with its layer, the docked pane it is or is in (if any), and its
+/// depth counted from that, or from the layer's root (1).
+typedef FoundPane = ({Layer layer, Component pane, Component? dock, int depth});
 
 FoundPane? findPane(Layout layout, String id) {
-  FoundPane? inside(Panel panel, Component pane, int depth) {
-    if (pane.id == id) return (panel: panel, pane: pane, depth: depth);
+  FoundPane? inside(Layer layer, Component pane, Component? dock, int depth) {
+    if (pane.isDocked) (dock, depth) = (pane, 1);
+    if (pane.id == id) {
+      return (layer: layer, pane: pane, dock: dock, depth: depth);
+    }
     for (final inner in pane.children) {
       if (!inner.isPane) continue;
-      if (inside(panel, inner, depth + 1) case final found?) return found;
+      if (inside(layer, inner, dock, depth + 1) case final found?) return found;
     }
     return null;
   }
 
-  for (final panel in layout.panels) {
-    if (inside(panel, panel.root, 1) case final found?) return found;
+  for (final layer in layout.layers) {
+    if (inside(layer, layer.root, null, 1) case final found?) return found;
   }
   return null;
 }
@@ -46,7 +51,8 @@ int _deepest(Component pane) =>
     1 +
     pane.children.fold(
       0,
-      (most, inner) => inner.isPane ? max(most, _deepest(inner)) : most,
+      (most, inner) =>
+          inner.isPane && !inner.isDocked ? max(most, _deepest(inner)) : most,
     );
 
 /// Why [item] cannot go into [paneId], or null. Only panes are ever refused.
@@ -65,7 +71,23 @@ String? refusal(Layout layout, Component item, String paneId) {
 
 /// Gives each of [items] its own cell in a grid pane. [fixed] gets exactly
 /// the cell it asks for; the rest keep theirs or take the nearest free one.
+///
+/// Docked panes take no cells and are left as they are.
 List<Component> settle(List<Component> items, int columns, {String? fixed}) {
+  if (items.any((item) => item.isDocked)) {
+    final rest = settle(
+      [
+        for (final item in items)
+          if (!item.isDocked) item,
+      ],
+      columns,
+      fixed: fixed,
+    ).iterator;
+    return [
+      for (final item in items)
+        item.isDocked ? item : (rest..moveNext()).current,
+    ];
+  }
   final taken = <(int, int)>{};
   final settled = <String, Component>{};
   int wide(Component item) => item.w.round().clamp(1, columns);
@@ -134,23 +156,26 @@ List<Component> settle(List<Component> items, int columns, {String? fixed}) {
   return [for (final item in items) settled[item.id]!];
 }
 
+/// [layout] with every pane's children changed, and [added] (a new folder)
+/// put on the home layer.
 Layout _rebuilt(
   Layout layout,
   List<Component> Function(Component pane, List<Component> items) change, {
   Set<String>? removed,
-  Panel? added,
-}) => Layout(
-  inbox: layout.inbox,
-  removed: removed ?? layout.removed,
-  panels: [
-    for (final panel in [...layout.panels, ?added])
-      panel.withRoot(panel.root.rebuild(change)),
-  ],
-);
+  Component? added,
+}) {
+  final next = layout.rebuild(change, removed: removed);
+  return added == null
+      ? next
+      : next.withPane(
+          next.home.root.id,
+          (root) => root.copyWith(children: [...root.children, added]),
+        );
+}
 
-/// Moves or adds [item] at [drop]. [panel] is the new folder that comes with
+/// Moves or adds [item] at [drop]. [folder] is the new folder that comes with
 /// it. The caller has checked [refusal].
-Layout dropItem(Layout layout, Component item, Drop drop, {Panel? panel}) {
+Layout dropItem(Layout layout, Component item, Drop drop, {Component? folder}) {
   final found = findPane(layout, drop.pane)!;
   final target = found.pane;
   final whole = target.mode != PaneMode.free;
@@ -201,56 +226,72 @@ Layout dropItem(Layout layout, Component item, Drop drop, {Panel? panel}) {
       ];
       return pane.id == target.id ? into(rest) : rest;
     },
-    added: panel,
+    added: folder,
     // Placing an entity un-removes it.
     removed: {...layout.removed}..removeAll(item.handed),
   );
 }
 
-/// Removes [id] and its contents. Entities left unplaced are marked removed
-/// so the TV does not re-add them.
+/// Removes [id] and its contents, and with a folder the cards that open it.
+/// Entities left unplaced are marked removed so the TV does not re-add them.
 Layout removeItem(Layout layout, String id) {
-  final gone = <Component>[];
+  final gone = [
+    for (final item in layout.all)
+      if (item.id == id) ...item.isPane ? item.contents : [item],
+  ];
+  final docked = layout.pane(id)?.isDocked ?? false;
   final rest = _rebuilt(
     layout,
     (_, items) => [
       for (final item in items)
-        if (item.id == id) ...[] else item,
+        if (item.id != id &&
+            !(docked && item.isInstance && item.handed.contains(id)))
+          item,
     ],
   );
-  for (final panel in layout.panels) {
-    for (final item in panel.root.all) {
-      if (item.id == id) gone.addAll(item.isPane ? item.contents : [item]);
-    }
-  }
-  final placed = {
-    for (final panel in rest.panels)
-      for (final item in panel.items)
-        if (item.isInstance) ...item.handed,
-  };
-  return Layout(
-    inbox: rest.inbox,
-    panels: rest.panels,
+  final placed = placedCounts(rest);
+  return rest.copyWith(
     removed: {
       ...rest.removed,
       for (final item in gone)
         if (item.isInstance)
           for (final source in item.handed)
-            if (!placed.contains(source) && rest.panel(source) == null) source,
+            // A folder is not an entity to put back.
+            if (!placed.containsKey(source) && rest.pane(source) == null)
+              source,
     },
   );
 }
 
-/// A component with its parent pane and panel.
-typedef Found = ({Component item, Component parent, Panel panel});
+/// A component with its parent pane, its layer and the docked pane it is in,
+/// if any.
+typedef Found = ({
+  Component item,
+  Component parent,
+  Layer layer,
+  Component? dock,
+});
 
 /// The components [ids], in layout order; missing ids are skipped.
-List<Found> findItems(Layout layout, Set<String> ids) => [
-  for (final panel in layout.panels)
-    for (final pane in panel.root.panes)
-      for (final item in pane.children)
-        if (ids.contains(item.id)) (item: item, parent: pane, panel: panel),
-];
+List<Found> findItems(Layout layout, Set<String> ids) {
+  final found = <Found>[];
+  void under(Layer layer, Component pane, Component? dock) {
+    final inside = pane.isDocked ? pane : dock;
+    for (final item in pane.children) {
+      if (ids.contains(item.id)) {
+        found.add((item: item, parent: pane, layer: layer, dock: inside));
+      }
+    }
+    for (final item in pane.children) {
+      if (item.isPane) under(layer, item, inside);
+    }
+  }
+
+  for (final layer in layout.layers) {
+    under(layer, layer.root, null);
+  }
+  return found;
+}
 
 /// Replaces each of [ids] with what [change] returns.
 Layout changeItems(
@@ -369,12 +410,44 @@ Component withRule(Component pane, String key, Object? value) => switch (key) {
     pane,
     value is num ? value.toInt() : Component.defaultColumns,
   ),
+  'dock' => withDock(pane, value is String ? value : null),
+  'width' ||
+  'height' when value == Component.fill => pane.withOption(key, 'fill'),
   _ => pane.withOption(key, value == '' ? null : value),
 };
 
-Panel withPanelRule(Panel panel, String key, Object? value) => key == 'title'
-    ? panel.copyWith(title: value is String ? value : '')
-    : panel.withRule(key, value);
+/// Docks [pane] at [dock], or with null puts it back on its parent's cells.
+Component withDock(Component pane, String? dock) {
+  // What only a docked pane has goes with the dock.
+  if (dock == null) {
+    return pane.copyWith(
+      options: {
+        for (final MapEntry(:key, :value) in pane.options.entries)
+          if (!dockKeys.contains(key)) key: value,
+      },
+      on: {
+        for (final MapEntry(:key, :value) in pane.on.entries)
+          if (key == Trigger.press || key == Trigger.hold) key: value,
+      },
+    );
+  }
+  // Newly docked, it is a sidebar.
+  if (!pane.isDocked) return asSidebar(pane, dock);
+  // A folder moved into what opens it needs no layer; moved out, it does.
+  if (pane.hovers &&
+      (dock == Component.inline) != (pane.dock == Component.inline)) {
+    return pane
+        .withOption('dock', dock)
+        .copyWith(
+          on: {
+            for (final MapEntry(:key, :value) in pane.on.entries)
+              if (key != Trigger.reveal && key != Trigger.hide) key: value,
+            ...folderTriggers(inPlace: dock == Component.inline),
+          },
+        );
+  }
+  return pane.withOption('dock', dock);
+}
 
 /// Changes [pane]'s mode, keeping children where they were as far as
 /// possible.
@@ -439,64 +512,31 @@ Component withColumns(Component pane, int columns) {
       );
 }
 
-Layout changePanel(Layout layout, String id, Panel Function(Panel) change) =>
-    Layout(
-      inbox: layout.inbox,
-      removed: layout.removed,
-      panels: [
-        for (final panel in layout.panels)
-          panel.id == id ? change(panel) : panel,
-      ],
-    );
+/// The screen edges a sidebar can be on.
+const barEdges = ['left', 'right', 'top', 'bottom'];
 
-/// Removes folder [id], its cards and its contents; entities left unplaced
-/// are marked removed.
-Layout removePanel(Layout layout, String id) {
-  final panel = layout.panel(id);
-  if (panel == null) return layout;
-  final rest = _rebuilt(
-    Layout(
-      inbox: layout.inbox,
-      removed: layout.removed,
-      panels: [
-        for (final other in layout.panels)
-          if (other.id != id) other,
-      ],
-    ),
-    (_, items) => [
-      for (final item in items)
-        // Its folder cards go with it.
-        if (!item.isInstance || !item.handed.contains(id)) item,
-    ],
-  );
-  final placed = placedCounts(rest);
-  return Layout(
-    inbox: rest.inbox,
-    panels: rest.panels,
-    removed: {
-      ...rest.removed,
-      for (final item in panel.items)
-        if (item.isInstance)
-          for (final source in item.handed)
-            if (!placed.containsKey(source) && rest.panel(source) == null)
-              source,
-    },
-  );
-}
+/// The sidebar on [edge], if any.
+Component? barOn(Layout layout, String edge) => layout.docked
+    .where((pane) => pane.dock == edge && !pane.hovers)
+    .firstOrNull;
 
-/// Adds an empty sidebar on edge [id] if there is none.
-Layout withBar(Layout layout, String id) => layout.panel(id) != null
+/// Adds an empty sidebar on [edge] if there is none.
+Layout withBar(Layout layout, String edge) => barOn(layout, edge) != null
     ? layout
-    : Layout(
-        inbox: layout.inbox,
-        removed: layout.removed,
-        panels: [...layout.panels, Panel.empty(id)],
+    : layout.withPane(
+        layout.home.root.id,
+        (root) => root.copyWith(
+          children: [
+            ...root.children,
+            sidebarPane(layout.paneIdFor(edge), edge),
+          ],
+        ),
       );
 
 /// Edges with no sidebar, or an empty one.
 List<String> freeEdges(Layout layout) => [
-  for (final id in Layout.barIds)
-    if (layout.panel(id)?.root.children.isEmpty ?? true) id,
+  for (final edge in barEdges)
+    if (barOn(layout, edge)?.children.isEmpty ?? true) edge,
 ];
 
 /// The edge of [among] nearest to ([x], [y]), if within [reach].
@@ -510,16 +550,16 @@ String? edgeNear(
 }) {
   String? nearest;
   var least = reach;
-  for (final id in among) {
-    final away = switch (Panel.edgeOf(id)) {
-      BarEdge.left => x,
-      BarEdge.right => width - x,
-      BarEdge.top => y,
-      BarEdge.bottom => height - y,
-      null => double.infinity,
+  for (final edge in among) {
+    final away = switch (edge) {
+      'left' => x,
+      'right' => width - x,
+      'top' => y,
+      'bottom' => height - y,
+      _ => double.infinity,
     };
     if (away <= least) {
-      nearest = id;
+      nearest = edge;
       least = away;
     }
   }
@@ -527,17 +567,15 @@ String? edgeNear(
 }
 
 Layout withInbox(Layout layout, String paneId) =>
-    Layout(inbox: paneId, removed: layout.removed, panels: layout.panels);
+    layout.copyWith(inbox: paneId);
 
 /// How many times each entity is placed.
 Map<String, int> placedCounts(Layout layout) {
   final counts = <String, int>{};
-  for (final panel in layout.panels) {
-    for (final item in panel.items) {
-      if (!item.isInstance) continue;
-      for (final source in item.handed) {
-        counts[source] = (counts[source] ?? 0) + 1;
-      }
+  for (final item in layout.items) {
+    if (!item.isInstance) continue;
+    for (final source in item.handed) {
+      counts[source] = (counts[source] ?? 0) + 1;
     }
   }
   return counts;

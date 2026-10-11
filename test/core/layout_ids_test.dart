@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
 Component _entity(String id, String ref) => Component.of(ref, id: id);
@@ -15,28 +16,30 @@ void main() {
   test('new things are named after what they are, without repeating', () {
     final layout = Layout(
       inbox: 'home/root',
-      panels: [
-        Panel(
+      layers: [
+        Layer(
           id: 'home',
           root: Component.pane(
             id: 'home/root',
             children: [
               _entity('youtube', 'app:yt'),
               Component.pane(id: 'pane'),
+              folderPane('games', title: 'Games'),
             ],
           ),
         ),
-        Panel.empty('games', title: 'Games'),
       ],
     );
     expect(layout.itemIdFor('YouTube'), 'youtube-2');
     expect(layout.itemIdFor('Netflix'), 'netflix');
     expect(layout.paneIdFor(), 'pane-2');
-    expect(layout.panelIdFor('Games'), 'games-2');
-    // A folder cannot take the id of the home screen or of a sidebar,
+    // A folder is a pane: one id space for everything.
+    expect(layout.paneIdFor('Games', 'folder'), 'games-2');
+    expect(layout.paneIdFor('', 'folder'), 'folder');
+    // Nothing can take the id of the home layer or of the quick actions,
     // there or not.
-    expect(layout.panelIdFor('Home'), 'home-2');
-    expect(layout.panelIdFor('Left'), 'left-2');
+    expect(layout.paneIdFor('Home'), 'home-2');
+    expect(layout.itemIdFor('Quick actions'), 'quick-actions-2');
   });
 
   test('an app is named after its package, whatever it is called', () {
@@ -58,7 +61,7 @@ void main() {
         'input:x/HW15': 'HDMI 1',
       },
     );
-    expect(shown.home.items.map((i) => i.id), [
+    expect(shown.items.where((i) => i.isInstance).map((i) => i.id), [
       'tizentube-cobalt',
       'hdmi-1',
       'hw16',

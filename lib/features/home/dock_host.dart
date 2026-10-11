@@ -14,43 +14,27 @@ Entity? subjectOf(WidgetRef ref, String id) => switch (ref.watch(
   _ => null,
 };
 
-/// Watches each panel's `open` variable and runs its reveal or hide chain
-/// when it changes.
-class PopupHost extends ConsumerStatefulWidget {
-  const PopupHost({super.key, required this.child});
+/// Watches each docked pane's `open` variable and runs its reveal or hide
+/// chain when it changes.
+class DockHost extends ConsumerStatefulWidget {
+  const DockHost({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<PopupHost> createState() => _PopupHostState();
+  ConsumerState<DockHost> createState() => _DockHostState();
 }
 
-class _PopupHostState extends ConsumerState<PopupHost> {
-  /// Last seen `open` per panel.
+class _DockHostState extends ConsumerState<DockHost> {
+  /// Last seen `open` per pane.
   final _was = <String, bool>{};
 
-  Future<void> _fire(Panel panel, bool open) async {
-    final acts =
-        panelTriggersOf(panel)[open ? Trigger.reveal : Trigger.hide] ??
-        const <Act>[];
-    final actions = ref.read(actionRunnerProvider);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    for (final act in acts) {
-      if (!mounted) return;
-      try {
-        await actions.run(act, component: panel.id);
-      } on ImproperAct catch (error) {
-        messenger?.showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    }
-  }
-
   void _sync(Map<String, Map<String, Object?>> all) {
-    final panels = ref.read(layoutViewProvider).value?.panels;
-    if (panels == null || !mounted) return;
+    final panes = ref.read(layoutViewProvider).value?.docked;
+    if (panes == null || !mounted) return;
     final vars = ref.read(runtimeVarsProvider.notifier);
-    for (final panel in panels) {
-      final id = panel.id;
+    for (final pane in panes) {
+      final id = pane.id;
       final open = all[id]?[openVar] == true;
       if (open == (_was[id] ?? false)) continue;
       // A menu with no applicable actions is not shown.
@@ -59,13 +43,18 @@ class _PopupHostState extends ConsumerState<PopupHost> {
         final source = all[id]?[Component.sourceVar];
         if (source is String &&
             entities.byId(source) != null &&
-            offeredFor(panel.root, id, ref.read, entities).isEmpty) {
+            offeredFor(pane, ref.read, entities).isEmpty) {
           Future.microtask(() => vars.set(id, openVar, false));
           continue;
         }
       }
       _was[id] = open;
-      _fire(panel, open);
+      runChain(
+        context,
+        ref,
+        pane.on[open ? Trigger.reveal : Trigger.hide] ?? const [],
+        id,
+      );
     }
   }
 

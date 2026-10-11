@@ -40,7 +40,10 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           entity,
     ];
     // Named and given its final id when placed.
-    final folder = Panel.empty(layout.panelIdFor('Folder'), title: 'Folder');
+    final folder = folderPane(
+      layout.paneIdFor('Folder', 'folder'),
+      title: 'Folder',
+    );
     _Offer entity(Entity entity) => _Offer(
       Dragged(
         // As its category's prefab, at that prefab's size.
@@ -85,7 +88,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
               prefab: folderPrefabId,
               id: layout.itemIdFor(folder.title),
             ),
-            panel: folder,
+            folder: folder,
             label: 'New folder',
             picture: const SymbolArt(Icons.create_new_folder_outlined),
           ),
@@ -149,18 +152,18 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
       ],
       'Folders': [
-        for (final panel in layout.panels)
-          if (panel.kind == PanelKind.popup && panel.id != Layout.menuId)
+        for (final pane in layout.docked)
+          if (pane.hovers && pane.id != Layout.menuId)
             _Offer(
               Dragged(
                 item: Component.of(
-                  panel.id,
+                  pane.id,
                   prefab: folderPrefabId,
                   id: layout.itemIdFor(
-                    panel.title.isEmpty ? 'folder' : panel.title,
+                    pane.title.isEmpty ? 'folder' : pane.title,
                   ),
                 ),
-                label: panel.title.isEmpty ? 'Folder' : panel.title,
+                label: pane.title.isEmpty ? 'Folder' : pane.title,
                 picture: const SymbolArt(Icons.folder_outlined),
               ),
             ),

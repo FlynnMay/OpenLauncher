@@ -62,18 +62,7 @@ final selectedProvider = Provider<List<Found>>((ref) {
   return layout == null || ids.isEmpty ? const [] : findItems(layout, ids);
 });
 
-/// The sidebar being edited: held open, its settings shown when nothing in it
-/// is selected.
-final barProvider = NotifierProvider<EditedBar, String?>(EditedBar.new);
-
-class EditedBar extends Notifier<String?> {
-  @override
-  String? build() => null;
-
-  void set(String? id) => state = id;
-}
-
-/// Briefly releases the edited sidebar to preview its opening.
+/// Briefly lets go of the selected docked pane to preview its opening.
 final barReplayProvider = NotifierProvider<BarReplay, bool>(BarReplay.new);
 
 class BarReplay extends Notifier<bool> {
@@ -88,17 +77,17 @@ class BarReplay extends Notifier<bool> {
   }
 }
 
-/// The folders the selected folder cards open, by panel id.
-final selectedPanelsProvider = Provider<Map<String, Panel>>((ref) {
+/// The folders the selected folder cards open, by id.
+final selectedFoldersProvider = Provider<Map<String, Component>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
-  final panels = <String, Panel>{};
+  final folders = <String, Component>{};
   for (final one in ref.watch(selectedProvider)) {
     final folder = layout?.folderOf(one.item);
-    if (layout?.panel(folder ?? '') case final panel?) {
-      panels[panel.id] = panel;
+    if (layout?.pane(folder ?? '') case final pane?) {
+      folders[pane.id] = pane;
     }
   }
-  return panels;
+  return folders;
 });
 
 final inboxProvider = Provider<String?>(

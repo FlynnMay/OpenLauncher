@@ -424,7 +424,7 @@ void main() {
         ('home/root', PaneMode.free, 13),
       );
       // What said where a pane was is gone: the pane says so itself.
-      final pane = root.children.single;
+      final [pane, left] = root.children;
       expect((pane.id, pane.isPane, pane.title), ('pane', true, 'Inputs'));
       expect((pane.x, pane.y, pane.w, pane.h), (0.5, 1, 6.5, 3));
       expect((pane.spacing, pane.columns), (14, 5));
@@ -459,8 +459,10 @@ void main() {
       expect((label.kind, label.w), ('text', 2));
       expect(label.options, {'text': '{{clock.time}}'});
       expect(label.style, {'fontSize': 30});
-      expect(layout.panel('left')!.closed, 64);
-      expect(layout.panel('left')!.root.id, 'left/root');
+      // The sidebar is a pane docked on the home layer, what it does when
+      // shown written on it.
+      expect((left.id, left.dock, left.closed), ('left', 'left', 64));
+      expect(left.on.keys, Trigger.values.skip(2));
 
       // And it is written as it now is, to be read as that from here on.
       final written = config.toJson();
@@ -535,7 +537,7 @@ void main() {
           ],
         },
       }).layout;
-      final button = layout.home.root.children.single;
+      final button = layout.home.root.children.first;
       expect(button.on[Trigger.press], [
         const Act('set', {
           'of': 'quick-actions',
@@ -552,12 +554,10 @@ void main() {
         const Act('forceStop', {'entity': 'app:a'}),
       ]);
       expect(button.on[Trigger.hold], [
-        const Act('remove', {'what': '{{source.id}}', 'entity': 'layout'}),
+        const Act('remove', {'what': '{{source.id}}', 'entity': 'home'}),
       ]);
       // The quick actions say what they are about, for what is in them.
-      expect(layout.panel(Layout.menuId)!.root.vars.keys, [
-        Component.sourceVar,
-      ]);
+      expect(layout.pane(Layout.menuId)!.vars.keys, [Component.sourceVar]);
     });
 
     test('a variable that stood for an entity says it holds one', () {
@@ -671,12 +671,209 @@ void main() {
         ('info', 'app:b'),
         ('playPause', 'media'),
         ('set', 'variables'),
-        ('remove', 'layout'),
+        // The one layout entity became the home layer's.
+        ('remove', 'home'),
         ('homeButton', 'system'),
       ]);
       expect(said(config.prefabs.single.on[Trigger.press]!), [
         ('forceStop', '{{source.id}}'),
       ]);
+    });
+
+    test('panels become layers: a sidebar or folder is a docked pane', () {
+      Map<String, Object?> card(String id, String source) => {
+        'id': id,
+        'prefab': 'app-card',
+        'vars': {
+          'source': {'value': source, 'type': 'entity'},
+        },
+      };
+      Map<String, Object?> remove(String id) => {
+        'id': id,
+        'kind': 'button',
+        'on': {
+          'press': [
+            {'do': 'remove', 'entity': 'layout', 'what': 'app:a'},
+          ],
+        },
+      };
+      final config = LauncherConfig.fromJson({
+        'v': 18,
+        'iconOverrides': {'panel:games': '/g.png', 'app:a': '/a.png'},
+        'layout': {
+          'v': 18,
+          'inbox': 'main',
+          'removed': <Object?>[],
+          'panels': [
+            {
+              'id': 'home',
+              'title': '',
+              'root': {
+                'id': 'home/root',
+                'kind': 'pane',
+                'options': {'mode': 'free', 'columns': 12},
+                'children': [
+                  {
+                    'id': 'main',
+                    'kind': 'pane',
+                    'children': [
+                      // A card could have its folder's id.
+                      {
+                        'id': 'games',
+                        'prefab': 'folder-card',
+                        'vars': {
+                          'source': {'value': 'games', 'type': 'entity'},
+                        },
+                      },
+                      remove('b'),
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              'id': 'left',
+              'title': '',
+              'root': {
+                'id': 'left/root',
+                'kind': 'pane',
+                'options': {'columns': 1, 'rowHeight': 36},
+                'children': [card('a', 'app:a')],
+              },
+            },
+            {
+              'id': 'right',
+              'title': '',
+              'rules': {
+                'width': 110,
+                'height': 'fill',
+                'closed': 64,
+                'opening': 'slide',
+                'reveal': 'fade',
+              },
+              'root': {
+                'id': 'right/root',
+                'kind': 'pane',
+                // It said to stay where it is when revealed.
+                'on': {'reveal': <Object?>[]},
+                'children': [card('a2', 'app:a')],
+              },
+            },
+            // Never used.
+            {
+              'id': 'top',
+              'title': '',
+              'root': {'id': 'top/root', 'kind': 'pane'},
+            },
+            {
+              'id': 'games',
+              'title': 'Games',
+              'rules': {'position': 'bottom', 'size': 'large'},
+              'root': {
+                'id': 'games/root',
+                'kind': 'pane',
+                'style': {'padding': 4},
+                'children': [card('a3', 'app:a')],
+              },
+            },
+            {
+              'id': 'inputs',
+              'title': 'Inputs',
+              'rules': {'position': 'inline'},
+              'root': {'id': 'inputs/root', 'kind': 'pane'},
+            },
+            {
+              'id': 'quick-actions',
+              'title': '',
+              'rules': {'size': 'small'},
+              'root': {
+                'id': 'quick-actions/root',
+                'kind': 'pane',
+                'vars': {
+                  'source': {'value': null, 'type': 'entity'},
+                },
+                'children': [remove('quick-actions-remove')],
+              },
+            },
+          ],
+        },
+      });
+      final layout = config.layout;
+      // One layer, the home screen, with the rest docked in it.
+      final root = layout.layers.single.root;
+      expect((layout.layers.single.id, root.id), ('home', 'home/root'));
+      expect(root.children.map((c) => c.id), [
+        'main',
+        'left',
+        'right',
+        'games',
+        'inputs',
+        'quick-actions',
+      ]);
+      expect(layout.inbox, 'main');
+      // The folder keeps its id, which its card names; the card gives way.
+      final [folderCard, button] = layout.pane('main')!.children;
+      expect(folderCard.id, 'games-2');
+      expect(layout.folderOf(folderCard), 'games');
+      // What was the one layout entity is the home layer's.
+      Object? does(Component b) => b.on[Trigger.press]!.single.arg(entityArg);
+      expect(does(button), 'home');
+
+      // A sidebar: its edge, its closed strip, and what it did of itself.
+      final left = layout.pane('left')!;
+      expect((left.dock, left.closed, left.hovers), ('left', 96, false));
+      expect((left.columns, left.rowHeight), (1, 36));
+      expect(left.on.keys, Trigger.values.skip(2));
+      expect(left.children.single.handed, ['app:a']);
+      final right = layout.pane('right')!;
+      expect(
+        (right.dockWidth, right.dockHeight, right.closed),
+        (110, Component.fill, 64),
+      );
+      expect(
+        (dockRule(right, 'opening'), dockRule(right, 'reveal')),
+        ('slide', 'fade'),
+      );
+      // Its own emptied chain still counts over the usual one.
+      expect(right.on[Trigger.reveal], isEmpty);
+      expect(right.on[Trigger.hide], [
+        const Act('closeLayer', {'entity': 'layers'}),
+      ]);
+      expect(layout.pane('top'), isNull);
+
+      // A folder: hidden while closed, with the size and look it was drawn
+      // with.
+      final games = layout.pane('games')!;
+      expect(
+        (games.title, games.dock, games.hovers, games.dockHeight),
+        ('Games', 'bottom', true, 389),
+      );
+      expect(games.style, {
+        'padding': 32,
+        'background': '#1a1c23fa',
+        'radius': 0,
+      });
+      expect(games.on[Trigger.reveal]!.first.args, {
+        'entity': 'layers',
+        'dim': 0.54,
+        'modal': true,
+      });
+      final inputs = layout.pane('inputs')!;
+      expect(inputs.dock, Component.inline);
+      expect(inputs.on, isEmpty);
+      expect((inputs.style['radius'], inputs.style['padding']), (14, 12));
+      final menu = layout.pane(Layout.menuId)!;
+      expect((menu.dock, menu.dockWidth), ('center', 432));
+      expect(menu.title, '{{source.label}}');
+      expect(menu.vars.keys, [Component.sourceVar]);
+      expect(does(menu.children.single), 'home');
+
+      expect(config.iconOverrides, {
+        'folder:games': '/g.png',
+        'app:a': '/a.png',
+      });
+      final written = config.toJson();
+      expect(LauncherConfig.fromJson(written).toJson(), written);
     });
 
     test('from before the oldest step there is, it is not read', () {

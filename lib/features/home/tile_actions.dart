@@ -14,22 +14,40 @@ Act actIn(Act act, Watch watch, Map<String, Object?> scope) => Act(act.name, {
         : value,
 });
 
-/// The children of the pane [root] of [owner] whose press can be done as
-/// its variables stand.
+/// The children of [pane] whose press can be done as its variables stand.
 List<Component> offeredFor(
-  Component root,
-  String owner,
+  Component pane,
   Watch watch,
   Iterable<Entity> entities,
 ) {
-  final scope = scopeOf(watch, owner, root.vars, const {}).inner;
+  final scope = scopeOf(watch, pane.id, pane.vars, const {}).inner;
   return [
-    for (final item in root.children)
+    for (final item in pane.children)
       if ((item.on[Trigger.press] ?? const []).every(
         (act) => isProper(actIn(act, watch, scope), entities),
       ))
         item,
   ];
+}
+
+/// Runs a pane's chain [acts] in order; a declined one is reported.
+Future<void> runChain(
+  BuildContext context,
+  WidgetRef ref,
+  List<Act> acts,
+  String component,
+) async {
+  if (acts.isEmpty) return;
+  final actions = ref.read(actionRunnerProvider);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  for (final act in acts) {
+    if (!context.mounted) return;
+    try {
+      await actions.run(act, component: component);
+    } on ImproperAct catch (error) {
+      messenger?.showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
 }
 
 /// Runs a tile's triggers.

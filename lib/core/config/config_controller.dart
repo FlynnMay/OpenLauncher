@@ -30,9 +30,17 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   Future<void> patch(Map<String, Object?> json) =>
       _update((c) => c.patched(json));
 
-  /// Removes an entity from every panel until it is placed again.
-  Future<void> removeEntity(String id) =>
-      _update((c) => c.copyWith(layout: c.layout.without({id}).normalised()));
+  /// Removes an entity from [layer], or from every layer, until it is placed
+  /// again.
+  Future<void> removeEntity(String id, {String? layer}) => _update(
+    (c) =>
+        c.copyWith(layout: c.layout.without({id}, layer: layer).normalised()),
+  );
+
+  /// Adds [item] to pane [pane].
+  Future<void> addItem(Component item, String pane) => _update(
+    (c) => c.copyWith(layout: c.layout.withAdded(item, pane).normalised()),
+  );
 
   Future<void> setWallpapers(List<String> paths) =>
       _update((c) => c.copyWith(wallpapers: List.unmodifiable(paths)));

@@ -1,12 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/action_registry.dart';
-import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/input_artwork.dart';
 import 'package:openlauncher/core/layers/layers.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/data_source.dart';
 import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
@@ -364,7 +365,16 @@ final List<EntityRegistry> entityRegistries = [
   EntityRegistry.single(
     name: 'layers',
     label: 'Layers',
-    data: (ref, entity) => {'count': ref.watch(layersProvider).length},
+    // The saved ones and those made since.
+    data: (ref, entity) => {
+      'count':
+          ref.watch(layersProvider).length +
+          ref.watch(
+            configProvider.select(
+              (config) => config.value?.layout.layers.length ?? 1,
+            ),
+          ),
+    },
     actions: [
       ActionRegistry(
         name: 'newLayer',
@@ -461,10 +471,62 @@ final List<EntityRegistry> entityRegistries = [
       ),
     ],
   ),
-  EntityRegistry.single(
+  // One per saved layer, with the layer's id: it adds to and removes from
+  // what is on that layer.
+  EntityRegistry(
     name: 'layout',
-    label: 'Layout',
+    label: 'Layouts',
+    list: (ref) async => [
+      // Joined, so the list is only made again when the ids change.
+      for (final id in (await ref.watch(
+        configProvider.selectAsync(
+          (config) => config.layout.layers.map((layer) => layer.id).join('\n'),
+        ),
+      )).split('\n'))
+        Entity(
+          id: id,
+          category: 'layout',
+          label: id == Layout.homeId ? 'Home screen' : id,
+        ),
+    ],
     actions: [
+      ActionRegistry(
+        name: 'add',
+        label: 'Add',
+        icon: 'add',
+        args: const {'what': [], 'to': []},
+        run: (run) async {
+          // `what` is an entity id; `to` a pane on the layer, else the inbox.
+          final entities = await run.ref.read(entitiesProvider.future);
+          final entity = entities.byId(run.act.arg('what'));
+          final layout = (await run.ref.read(configProvider.future)).layout;
+          final layer = layout.layer(run.entity.id);
+          if (entity == null || layer == null) return null;
+          bool holds(String? id) => layer.root.panes.any((p) => p.id == id);
+          final to =
+              run.act.arg('to') ??
+              (holds(layout.inbox) ? layout.inbox : layer.root.id);
+          if (!holds(to)) return 'There is no pane "$to" there.';
+          final prefab = run.ref.read(
+            prefabsProvider,
+          )[entityRegistry(entity.category)?.prefab];
+          await run.ref
+              .read(configProvider.notifier)
+              .addItem(
+                Component.of(
+                  entity.id,
+                  prefab: prefab?.id ?? cardPrefabId,
+                  w: prefab?.root.w ?? 1,
+                  h: prefab?.root.h ?? 1,
+                  id: layout.itemIdFor(
+                    Component.autoId(entity.id, entity.name),
+                  ),
+                ),
+                to,
+              );
+          return '${entity.label} was added.';
+        },
+      ),
       ActionRegistry(
         name: 'remove',
         label: 'Remove',
@@ -475,7 +537,9 @@ final List<EntityRegistry> entityRegistries = [
           final id = run.act.arg('what');
           if (id == null) return null;
           final entities = await run.ref.read(entitiesProvider.future);
-          await run.ref.read(configProvider.notifier).removeEntity(id);
+          await run.ref
+              .read(configProvider.notifier)
+              .removeEntity(id, layer: run.entity.id);
           final label = entities.byId(id)?.label ?? id;
           return '$label was removed. Add it again from the web page.';
         },

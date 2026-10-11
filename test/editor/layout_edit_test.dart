@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
@@ -22,7 +23,7 @@ Component entity(
 Layout home(Component root, {Set<String> removed = const {}}) => Layout(
   inbox: root.id,
   removed: removed,
-  panels: [Panel(id: Layout.homeId, root: root)],
+  layers: [Layer(id: Layout.homeId, root: root)],
 );
 
 List<String> ids(Layout layout, String pane) => [
@@ -153,20 +154,17 @@ void main() {
       expect(dropItem(layout, entity('n'), const Drop('p')).removed, {'app:z'});
     });
 
-    test('a new folder brings its popup with it', () {
-      final folder = Panel(
-        id: 'f',
-        title: 'Games',
-        root: Component.pane(id: 'f/root'),
-      );
+    test('a new folder brings its pane with it, docked on the home layer', () {
       final dropped = dropItem(
         flow,
         Component.of('f', id: 'i', prefab: folderPrefabId),
         const Drop('p'),
-        panel: folder,
+        folder: folderPane('f', title: 'Games'),
       );
-      expect(dropped.panel('f')?.title, 'Games');
-      // The TV keeps the entity because the popup it opens exists.
+      final folder = dropped.pane('f')!;
+      expect((folder.title, folder.hovers), ('Games', true));
+      expect(dropped.home.root.children.last, same(folder));
+      // The TV keeps the card because the folder it opens exists.
       expect(ids(dropped.normalised(), 'p'), contains('i'));
     });
   });
@@ -193,21 +191,41 @@ void main() {
       expect(refusal(layout, Component.pane(id: 'new'), 'p++'), isNull);
     });
 
-    test('a sidebar takes panes like anywhere else', () {
-      final layout = Layout(
-        inbox: 'p',
-        panels: [
-          Panel(
-            id: Layout.homeId,
-            root: Component.pane(id: 'p'),
-          ),
-          Panel.empty(Layout.leftId),
+    test('a sidebar takes panes like anywhere else, however deep it is', () {
+      // Docked at the bottom of the deepest nest, it still counts from one.
+      Component deep(int levels) => Component.pane(
+        id: 'p$levels',
+        children: [
+          if (levels > 1) deep(levels - 1) else sidebarPane('left', 'left'),
         ],
       );
-      expect(
-        refusal(layout, Component.pane(id: 'new'), Panel.rootId(Layout.leftId)),
-        isNull,
+      final layout = home(deep(Component.maxDepth));
+      final found = findPane(layout, 'left')!;
+      expect((found.depth, found.dock?.id), (1, 'left'));
+      expect(refusal(layout, Component.pane(id: 'new'), 'left'), isNull);
+      expect(refusal(layout, Component.pane(id: 'new'), 'p1'), isNotNull);
+    });
+
+    test('a docked pane takes no cell and is told what it is in', () {
+      final layout = home(
+        Component.pane(
+          id: 'p',
+          mode: PaneMode.grid,
+          columns: 2,
+          children: [
+            entity('a', x: 0, y: 0),
+            sidebarPane('left', 'left').copyWith(children: [entity('b')]),
+            entity('c', x: 0, y: 0),
+          ],
+        ),
       );
+      // Settling moves what collides, and leaves the sidebar alone.
+      final [a, bar, c] = settle(layout.home.root.children, 2);
+      expect((a.x, a.y, c.x, c.y), (0, 0, 1, 0));
+      expect((bar.id, bar.x), ('left', null));
+      final [inRoot, inBar] = findItems(layout, {'a', 'b'});
+      expect((inRoot.dock, inBar.dock?.id), (null, 'left'));
+      expect(inBar.layer.id, Layout.homeId);
     });
   });
 
@@ -378,23 +396,13 @@ void main() {
   });
 
   test('deleting a folder takes its entities and what was in it', () {
-    final layout = Layout(
-      inbox: 'p',
-      panels: [
-        Panel(
-          id: Layout.homeId,
-          root: Component.pane(
-            id: 'p',
-            children: [
-              entity('a'),
-              Component.of('f', id: 'opens', prefab: folderPrefabId),
-            ],
-          ),
-        ),
-        Panel(
-          id: 'f',
-          root: Component.pane(
-            id: 'f/root',
+    final layout = home(
+      Component.pane(
+        id: 'p',
+        children: [
+          entity('a'),
+          Component.of('f', id: 'opens', prefab: folderPrefabId),
+          folderPane('f').copyWith(
             children: [
               entity('b'),
               const Component(
@@ -404,15 +412,15 @@ void main() {
               ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
-    final deleted = removePanel(layout, 'f');
-    expect(deleted.panel('f'), isNull);
+    final deleted = removeItem(layout, 'f');
+    expect(deleted.pane('f'), isNull);
     expect(ids(deleted, 'p'), ['a']);
     // Only what is now nowhere counts as removed.
     expect(deleted.removed, {'app:b'});
-    expect(removePanel(layout, 'nothing'), same(layout));
+    expect(removeItem(layout, 'nothing').toJson(), layout.toJson());
   });
 
   test('counts how often each entity is on the TV', () {
@@ -436,27 +444,67 @@ void main() {
   group('sidebars from the catalogue', () {
     test('an edge is free with no sidebar, or with an empty one', () {
       final layout = withBar(Layout.fromJson(const {}).normalised(), 'top');
-      final full = changePanel(
-        withBar(layout, 'left'),
+      final top = barOn(layout, 'top')!;
+      expect((top.id, top.dock, top.closed), ('top', 'top', 0));
+      // Asked for again, it is the one there is.
+      expect(withBar(layout, 'top'), same(layout));
+      final full = withBar(layout, 'left').withPane(
         'left',
-        (panel) => panel.withRoot(
-          panel.root.copyWith(
-            children: const [
-              Component(
-                id: 'a',
-                prefab: cardPrefabId,
-                vars: {'source': Variable('x', type: VarType.entity)},
-              ),
-            ],
-          ),
+        (pane) => pane.copyWith(
+          children: const [
+            Component(
+              id: 'a',
+              prefab: cardPrefabId,
+              vars: {'source': Variable('x', type: VarType.entity)},
+            ),
+          ],
         ),
       );
-      expect(freeEdges(layout), Layout.barIds);
+      expect(freeEdges(layout), barEdges);
       expect(freeEdges(full), ['right', 'top', 'bottom']);
+      // A folder that opens at an edge is not a sidebar there.
+      final folder = folderPane('f').withOption('dock', 'right');
+      expect(
+        freeEdges(
+          full.withPane(
+            full.home.root.id,
+            (root) => root.copyWith(children: [...root.children, folder]),
+          ),
+        ),
+        ['right', 'top', 'bottom'],
+      );
+
+      // Any pane can be docked: it becomes a sidebar there, and undocked it
+      // is as it was, back on the cells.
+      final plain = Component.pane(id: 'p', columns: 3, w: 4, x: 1, y: 2);
+      final docked = withRule(plain, 'dock', 'top');
+      expect(
+        (docked.edge, docked.closed, docked.hovers),
+        (BarEdge.top, 0, false),
+      );
+      expect(docked.on, barTriggers());
+      expect((docked.columns, docked.w, docked.x), (3, 4, 1));
+      expect(withRule(docked, 'dock', 'left').closed, 0);
+      final back = withRule(withRule(docked, 'width', 300), 'dock', null);
+      expect(back.toJson(), plain.toJson());
+      // Only a pane with a strip can be undocked; a folder's cards name it.
+      expect(dockRules(docked).first.unset, 'No');
+      expect(dockRules(folder).first.unset, isNull);
+      expect(dockRules(plain).map((rule) => rule.key), ['dock']);
+
+      // A folder moved into what opens it needs no layer; moved out, it
+      // has one again.
+      final inPlace = withRule(folder, 'dock', Component.inline);
+      expect(inPlace.on, isEmpty);
+      expect(withRule(inPlace, 'dock', 'center').on, folderTriggers());
+      expect(
+        withRule(folder, 'width', Component.fill).dockWidth,
+        Component.fill,
+      );
     });
 
     test('only an edge within reach takes it, the nearest free one', () {
-      const all = Layout.barIds;
+      const all = barEdges;
       expect(edgeNear(480, 270, 960, 540, all), isNull);
       expect(edgeNear(20, 270, 960, 540, all), 'left');
       expect(edgeNear(950, 270, 960, 540, all), 'right');

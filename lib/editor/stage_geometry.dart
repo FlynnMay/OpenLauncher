@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/resize_handles.dart';
@@ -56,18 +57,18 @@ Drop dropAt(
   );
 }
 
-/// The open rect of the sidebar on edge [id], or a strip [thickness] thick.
-Rect barRect(Layout layout, String id, {double? thickness}) {
-  final panel = layout.panel(id) ?? Panel.empty(id);
+/// The open rect of the sidebar on [edge], or a strip [thickness] thick.
+Rect barRect(Layout layout, String edge, {double? thickness}) {
+  final pane = barOn(layout, edge) ?? sidebarPane(edge, edge);
   final Size(:width, :height) = TvScreen.size;
-  final across = panel.opensAcross;
+  final across = pane.opensAcross;
   final w = across && thickness != null
       ? thickness
-      : panel.openWidth.clamp(0.0, width);
+      : pane.openWidth.clamp(0.0, width);
   final h = !across && thickness != null
       ? thickness
-      : panel.openHeight.clamp(0.0, height);
-  return switch (panel.edge) {
+      : (pane.openHeight ?? height).clamp(0.0, height);
+  return switch (pane.edge) {
     BarEdge.right => Rect.fromLTWH(width - w, (height - h) / 2, w, h),
     BarEdge.bottom => Rect.fromLTWH((width - w) / 2, height - h, w, h),
     BarEdge.top => Rect.fromLTWH((width - w) / 2, 0, w, h),

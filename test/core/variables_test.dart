@@ -120,8 +120,8 @@ void main() {
 
     Layout layout(List<Component> items) => Layout(
       inbox: 'main',
-      panels: [
-        Panel(
+      layers: [
+        Layer(
           id: Layout.homeId,
           root: Component.pane(id: 'main', children: items),
         ),
@@ -302,8 +302,8 @@ void main() {
       final c = container(
         Layout(
           inbox: 'main',
-          panels: [
-            Panel(
+          layers: [
+            Layer(
               id: Layout.homeId,
               root: Component.pane(
                 id: 'main',
@@ -312,15 +312,14 @@ void main() {
                   'tint': Variable('red', access: VarAccess.public),
                   'kept': Variable('x'),
                 },
-                children: [Component.of('app:a', id: 'a')],
-              ),
-            ),
-            Panel(
-              id: 'games',
-              title: 'Games',
-              root: Component.pane(
-                id: 'games/root',
-                children: [Component.of('app:a', id: 'g')],
+                children: [
+                  Component.of('app:a', id: 'a'),
+                  // Docked: in the pane's tree, not among what it counts.
+                  folderPane(
+                    'games',
+                    title: 'Games',
+                  ).copyWith(children: [Component.of('app:a', id: 'g')]),
+                ],
               ),
             ),
           ],
@@ -369,8 +368,8 @@ void main() {
       final config = LauncherConfig(
         layout: Layout(
           inbox: 'main',
-          panels: [
-            Panel(
+          layers: [
+            Layer(
               id: Layout.homeId,
               root: Component.pane(
                 id: 'main',
@@ -385,18 +384,14 @@ void main() {
                     style: {'fontSize': 14},
                   ),
                   Component.of('games', id: 'f', prefab: folderPrefabId),
+                  Component.pane(
+                    id: 'games',
+                    title: 'Games',
+                    columns: 1,
+                    rules: const {'dock': Component.inline, 'rowHeight': 60},
+                    children: [Component.of('app:a', id: 'g')],
+                  ),
                 ],
-              ),
-            ),
-            Panel(
-              id: 'games',
-              title: 'Games',
-              rules: const {'position': 'inline'},
-              root: Component.pane(
-                id: 'games/root',
-                columns: 1,
-                rules: const {'rowHeight': 60},
-                children: [Component.of('app:a', id: 'g')],
               ),
             ),
           ],
@@ -422,7 +417,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Hello there'), findsOneWidget);
       final held = find.byWidgetPredicate(
-        (widget) => widget is PaneGrid && widget.pane.id == 'games/root',
+        (widget) => widget is PaneGrid && widget.pane.id == 'games',
       );
       // Shut, the folder is its name; what it holds is not laid out.
       expect(find.text('Games'), findsOneWidget);

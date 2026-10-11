@@ -1,54 +1,24 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/layout/layer.dart';
 
-/// A layer above the home screen. What is moved to it is drawn over the
-/// layers below.
-@immutable
-class ScreenLayer {
-  const ScreenLayer({
-    required this.id,
-    this.blur = 0,
-    this.dim = 0,
-    this.modal = false,
-    this.holds = const {},
-  });
-
-  final int id;
-
-  /// Blur of what is below; 0 for none.
-  final double blur;
-
-  /// Dimming of what is below, 0 to 1.
-  final double dim;
-
-  /// Takes the focus; Back closes the layer.
-  final bool modal;
-
-  /// Ids of the components on it.
-  final Set<String> holds;
-
-  ScreenLayer holding(Set<String> holds) =>
-      ScreenLayer(id: id, blur: blur, dim: dim, modal: modal, holds: holds);
-}
-
-/// The current layers, lowest first. Runtime only; created and closed by
-/// actions.
-final layersProvider = NotifierProvider<ScreenLayers, List<ScreenLayer>>(
+/// The layers made while running, lowest first, above the saved ones.
+/// Created and closed by actions.
+final layersProvider = NotifierProvider<ScreenLayers, List<Layer>>(
   ScreenLayers.new,
 );
 
-class ScreenLayers extends Notifier<List<ScreenLayer>> {
+class ScreenLayers extends Notifier<List<Layer>> {
   var _next = 1;
 
   @override
-  List<ScreenLayer> build() => const [];
+  List<Layer> build() => const [];
 
   /// Adds a layer on top.
   void create({double blur = 0, double dim = 0, bool modal = false}) =>
       state = [
         ...state,
-        ScreenLayer(
-          id: _next++,
+        Layer.empty(
+          'layer-${_next++}',
           blur: blur.clamp(0, 40).toDouble(),
           dim: dim.clamp(0, 1).toDouble(),
           modal: modal,
@@ -81,6 +51,6 @@ class ScreenLayers extends Notifier<List<ScreenLayer>> {
   }
 }
 
-/// The layer holding [component], or null.
-int? layerOf(List<ScreenLayer> layers, String component) =>
+/// The layer [component] was moved to, or null.
+String? layerOf(List<Layer> layers, String component) =>
     layers.where((layer) => layer.holds.contains(component)).firstOrNull?.id;

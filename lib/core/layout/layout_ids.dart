@@ -44,24 +44,17 @@ String freeId(String wanted, Set<String> used) {
 }
 
 extension LayoutIds on Layout {
-  /// Ids in use by components and by panels. Home and sidebar ids are always
-  /// reserved.
+  /// Ids in use. Panes and other components share one id space; the quick
+  /// actions' id is always reserved.
   Set<String> get itemIds => {
-    for (final panel in panels)
-      for (final component in panel.root.all) component.id,
-  };
-  Set<String> get panelIds => {
     Layout.homeId,
     Layout.menuId,
-    ...Layout.barIds,
-    for (final panel in panels) panel.id,
+    for (final component in all) component.id,
   };
 
   /// A new component id from [name].
   String itemIdFor(String name) => freeId(slugOf(name), itemIds);
 
-  String paneIdFor([String title = '']) =>
-      freeId(slugOf(title, 'pane'), itemIds);
-
-  String panelIdFor(String title) => freeId(slugOf(title, 'folder'), panelIds);
+  String paneIdFor([String title = '', String fallback = 'pane']) =>
+      freeId(slugOf(title, fallback), itemIds);
 }

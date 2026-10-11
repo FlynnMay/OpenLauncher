@@ -65,11 +65,11 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     // As the TV draws it: unplaced entities in the inbox, missing ones
     // dropped.
     'layout': layoutWith(config.layout, entities).toJson(),
-    // Folder pictures by panel id.
-    'panelIcons': {
-      for (final panel in config.layout.panels)
-        if (config.iconOverrides[Panel.iconKey(panel.id)] case final path?)
-          panel.id: _iconUrl(Panel.iconKey(panel.id), path),
+    // Folder pictures by the folder's id.
+    'folderIcons': {
+      for (final pane in config.layout.docked)
+        if (config.iconOverrides[Layout.iconKey(pane.id)] case final path?)
+          pane.id: _iconUrl(Layout.iconKey(pane.id), path),
     },
     'components': [
       for (final kind in ComponentRegistry.values)

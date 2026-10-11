@@ -31,7 +31,25 @@ class Placement {
 /// Flow follows CSS grid auto-placement. Grid uses explicit positions;
 /// unplaced or colliding items take the first free space. Free uses positions
 /// as given; unplaced items line up below the rest.
+///
+/// A docked pane takes no cells: it gets an empty placement.
 List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
+  if (items.any((item) => item.isDocked)) {
+    final rest = placeItems(
+      [
+        for (final item in items)
+          if (!item.isDocked) item,
+      ],
+      columns,
+      mode,
+    ).iterator;
+    return [
+      for (final item in items)
+        item.isDocked
+            ? const Placement(0, 0, 0, 0)
+            : (rest..moveNext()).current,
+    ];
+  }
   if (mode == PaneMode.free) {
     double width(Component item) => min(item.w, columns * 1.0);
     // Unplaced items go below everything that has a position.

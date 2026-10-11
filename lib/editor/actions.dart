@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
@@ -40,41 +41,47 @@ Future<void> placeDragged(
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
     return;
   }
-  var panel = dragged.panel, item = dragged.item;
-  if (panel != null) {
-    final name = await askName(context, panel.title);
+  var folder = dragged.folder, item = dragged.item;
+  if (folder != null) {
+    final name = await askName(context, folder.title);
     if (name == null || !context.mounted) return;
-    panel = Panel.empty(layout.panelIdFor(name), title: name);
+    folder = folderPane(layout.paneIdFor(name, 'folder'), title: name);
     // Point the card at the folder's final id.
     item = item.copyWith(
-      id: layout.itemIdFor(name),
+      id: freeId(slugOf(name), {...layout.itemIds, folder.id}),
       vars: {
         ...item.vars,
-        Component.sourceVar: Variable(panel.id, type: VarType.entity),
+        Component.sourceVar: Variable(folder.id, type: VarType.entity),
       },
     );
   }
   await changeLayout(
     context,
     ref,
-    (layout) => dropItem(layout, item, drop, panel: panel),
+    (layout) => dropItem(layout, item, drop, folder: folder),
   );
 }
 
-/// Adds a sidebar on edge [id] if missing and opens it for editing.
-Future<void> addBar(BuildContext context, WidgetRef ref, String id) async {
-  await changeLayout(context, ref, (layout) => withBar(layout, id));
+/// Adds a sidebar on [edge] if missing and selects it, which holds it open.
+Future<void> addBar(BuildContext context, WidgetRef ref, String edge) async {
+  await changeLayout(context, ref, (layout) => withBar(layout, edge));
   if (!context.mounted) return;
-  ref.read(selectionProvider.notifier).clear();
-  ref.read(barProvider.notifier).set(id);
+  final layout = ref.read(configProvider).value?.layout;
+  final selection = ref.read(selectionProvider.notifier);
+  switch (layout == null ? null : barOn(layout, edge)) {
+    case final bar?:
+      selection.tap(bar.id, adding: false);
+    case null:
+      selection.clear();
+  }
 }
 
 /// Adds a sidebar on the first free edge.
 Future<void> addBarSomewhere(BuildContext context, WidgetRef ref) async {
   final layout = ref.read(configProvider).value?.layout;
   if (layout == null) return;
-  if (freeEdges(layout).firstOrNull case final id?) {
-    await addBar(context, ref, id);
+  if (freeEdges(layout).firstOrNull case final edge?) {
+    await addBar(context, ref, edge);
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Every edge has a sidebar already.')),

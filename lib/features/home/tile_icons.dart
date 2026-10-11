@@ -9,6 +9,7 @@ const tileIcons = <String, IconData>{
   'info': Icons.info_outline,
   'stop': Icons.cancel_outlined,
   'delete': Icons.delete_outline,
+  'add': Icons.add_circle_outline,
   'remove': Icons.remove_circle_outline,
   'menu': Icons.more_horiz,
   'folder': Icons.folder_outlined,

@@ -92,61 +92,54 @@ Variables variablesOf(Component item, Map<String, Prefab> prefabs) =>
 const openVar = 'open';
 
 /// What `{{<id>...}}` reads for a component: its public variables. A pane
-/// adds `label`, `title` and `count`; a folder or sidebar adds `open`. Null
-/// if there is nothing to read.
+/// adds `label`, `title` and `count`; a docked one (a folder or sidebar) adds
+/// `open`. Null if there is nothing to read.
 final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   ref,
   id,
 ) {
   final found = ref.watch(
-    configProvider.select((config) {
-      for (final panel in config.value?.layout.panels ?? const <Panel>[]) {
-        if (panel.id == id) return (panel: panel, pane: panel.root, item: null);
-        for (final component in panel.root.all) {
-          if (component.id != id) continue;
-          return component.isPane
-              ? (panel: null, pane: component, item: null)
-              : (panel: null, pane: null, item: component);
-        }
-      }
-      return null;
-    }),
+    configProvider.select(
+      (config) => config.value?.layout.all
+          .where((component) => component.id == id)
+          .firstOrNull,
+    ),
   );
   if (found == null) return null;
-  final item = found.item, pane = found.pane, panel = found.panel;
-  if (item != null) {
-    final variables = variablesOf(item, ref.watch(prefabsProvider));
+  if (!found.isPane) {
+    final variables = variablesOf(found, ref.watch(prefabsProvider));
     if (!variables.values.any((v) => v.access == VarAccess.public)) {
       return null;
     }
     // From outside it has no inherited scope.
     return scopeOf(ref.watch, id, variables, const {}).public;
   }
-  final label = switch (panel?.title ?? pane!.title) {
-    '' => panel == null ? 'Pane' : 'Folder',
+  final docked = found.isDocked;
+  final label = switch (found.title) {
+    '' => docked ? 'Folder' : 'Pane',
     final title => title,
   };
   return {
     'text': label,
     'id': id,
     'label': label,
-    'title': panel?.title ?? pane!.title,
-    'count': pane!.contents.length,
+    'title': found.title,
+    'count': found.ownContents.length,
     // An empty folder with no picture is drawn as an outline.
-    if (panel != null)
+    if (docked)
       'bare':
-          pane.contents.isEmpty &&
+          found.ownContents.isEmpty &&
           !ref.watch(
             configProvider.select(
               (config) =>
-                  config.value?.iconOverrides.containsKey(Panel.iconKey(id)) ??
+                  config.value?.iconOverrides.containsKey(Layout.iconKey(id)) ??
                   false,
             ),
           ),
-    if (panel != null)
+    if (docked)
       openVar:
           ref.watch(runtimeVarsProvider.select((all) => all[id]?[openVar])) ==
           true,
-    ...scopeOf(ref.watch, id, pane.vars, const {}).public,
+    ...scopeOf(ref.watch, id, found.vars, const {}).public,
   };
 });

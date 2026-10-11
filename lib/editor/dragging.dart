@@ -9,21 +9,21 @@ class Dragged {
     required this.item,
     required this.label,
     required this.picture,
-    this.panel,
+    this.folder,
     this.placed = false,
   }) : sidebar = false;
 
   /// A new sidebar. It can only go to a free screen edge.
   Dragged.sidebar({required this.label, required this.picture})
     : item = const Component(id: 'sidebar'),
-      panel = null,
+      folder = null,
       placed = false,
       sidebar = true;
 
   final Component item;
 
-  /// The new folder panel that comes with [item], if any.
-  final Panel? panel;
+  /// The new folder that comes with [item], if any.
+  final Component? folder;
 
   /// Whether [item] is already in the layout.
   final bool placed;

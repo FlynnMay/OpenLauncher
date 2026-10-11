@@ -1,7 +1,3 @@
-/// Where a panel is shown, decided by its id: home, a sidebar id, or anything
-/// else (a popup).
-enum PanelKind { home, sidebar, popup }
-
 /// How a pane arranges its children.
 enum PaneMode {
   /// In order, wrapping at the last column.
@@ -22,4 +18,5 @@ enum PaneMode {
   bool get inLine => this == row || this == column;
 }
 
+/// A screen edge a pane can be docked to.
 enum BarEdge { left, right, top, bottom }

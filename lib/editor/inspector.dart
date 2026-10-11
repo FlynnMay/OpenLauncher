@@ -7,7 +7,6 @@ import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/object_tree.dart';
 import 'package:openlauncher/editor/selected_properties.dart';
 import 'package:openlauncher/editor/selection.dart';
-import 'package:openlauncher/editor/sidebar_settings.dart';
 
 /// The settings panel: the selection's, or the launcher's when nothing is
 /// selected.
@@ -18,7 +17,6 @@ class Inspector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final found = ref.watch(selectedProvider);
-    final bar = ref.watch(barProvider);
 
     String name(Found one) => objectName(
       one.item,
@@ -36,7 +34,7 @@ class Inspector extends ConsumerWidget {
               Expanded(
                 child: Text(
                   switch (found.length) {
-                    0 => bar == null ? 'Launcher' : '${barName(bar)} sidebar',
+                    0 => 'Launcher',
                     1 => name(found.single),
                     final count => '$count selected',
                   },
@@ -62,10 +60,7 @@ class Inspector extends ConsumerWidget {
           onChanged: ref.read(selectSeveralProvider.notifier).set,
         ),
         if (found.isEmpty)
-          switch (bar) {
-            null => const GlobalProperties(),
-            final bar => SidebarSettings(key: ValueKey(bar), id: bar),
-          }
+          const GlobalProperties()
         else
           // Keyed by selection so no field state carries over.
           SelectedProperties(

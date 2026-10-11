@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 
@@ -24,17 +24,18 @@ class TvScreen extends StatelessWidget {
     final launcher = _launcher;
     if (launcher == null) return;
     final vars = launcher.read(runtimeVarsProvider.notifier);
+    final layout = launcher.read(configProvider).value?.layout;
     for (final MapEntry(key: id, value: set)
         in launcher.read(runtimeVarsProvider).entries) {
-      if (set[openVar] == true && Panel.kindOf(id) == PanelKind.popup) {
+      if (set[openVar] == true && (layout?.pane(id)?.hovers ?? false)) {
         vars.set(id, openVar, false);
       }
     }
   }
 
-  /// Opens folder [panelId] by setting its `open` variable.
-  static void openPopup(String panelId) =>
-      _launcher?.read(runtimeVarsProvider.notifier).set(panelId, openVar, true);
+  /// Opens folder [id] by setting its `open` variable.
+  static void openPopup(String id) =>
+      _launcher?.read(runtimeVarsProvider.notifier).set(id, openVar, true);
 
   @override
   Widget build(BuildContext context) => SizedBox.fromSize(

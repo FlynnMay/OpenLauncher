@@ -123,8 +123,8 @@ class TvApi {
           }).copyWith(
             iconOverrides: {
               for (final MapEntry(:key, :value)
-                  in (json['panelIcons'] as Map).entries)
-                Panel.iconKey(key as String): _at(value as String).toString(),
+                  in (json['folderIcons'] as Map).entries)
+                Layout.iconKey(key as String): _at(value as String).toString(),
             },
           ),
       components: [
@@ -256,7 +256,7 @@ class TvApi {
   Future<Object?> sourceValue(String id) async =>
       (await _ask('GET', '/api/source${_id(id)}') as Map)['value'];
 
-  /// [id] may also be a folder's `panel:<id>`.
+  /// [id] may also be a folder's `Layout.iconKey`.
   Future<void> setPicture(String id, PickedFile file) =>
       _upload('PUT', '/api/icon${_id(id)}', file);
 

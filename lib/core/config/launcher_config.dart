@@ -89,7 +89,7 @@ class LauncherConfig {
 
   final Layout layout;
 
-  /// Entity id -> image path. Folder pictures are keyed `panel:<panel id>`.
+  /// Entity id -> image path. A folder's picture is under `Layout.iconKey`.
   final Map<String, String> iconOverrides;
 
   /// Entity id -> the entity whose picture it shows.
