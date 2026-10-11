@@ -66,12 +66,6 @@ class TvConfigStore implements ConfigStore {
   @override
   Future<LauncherConfig> load() async => _known = (await _state).config;
 
-  static String _options(LauncherConfig config) => jsonEncode([
-    config.toasts,
-    config.sources,
-    LauncherConfig.placeToJson(config.place),
-  ]);
-
   @override
   Future<void> save(LauncherConfig config) async {
     final known = _known ?? await load();
@@ -79,7 +73,13 @@ class TvConfigStore implements ConfigStore {
     if (jsonEncode(config.layout) != jsonEncode(known.layout)) {
       await _api.setLayout(config.layout);
     }
-    if (_options(config) != _options(known)) await _api.setOptions(config);
+    // Whatever plain settings there are, without knowing any by name.
+    final was = known.open, now = config.open;
+    final changed = {
+      for (final key in LauncherConfig.openKeys)
+        if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
+    };
+    if (changed.isNotEmpty) await _api.setConfig(changed);
   }
 }
 

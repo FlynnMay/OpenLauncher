@@ -70,7 +70,7 @@ class ConfigApi {
       ),
       ('GET', 'api/events') => _events(),
       ('PUT', 'api/layout') => _setLayout(await _body(request)),
-      ('PUT', 'api/options') => _setOptions(await _body(request)),
+      ('PUT', 'api/config') => _setConfig(await _body(request)),
       ('GET', 'api/source') => _sourceValue(id),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
       ('POST', 'api/remote') => _remote(id, await _body(request)),
@@ -182,39 +182,18 @@ class ConfigApi {
     return _ok();
   }
 
-  /// Sets how notifications pop up (`toasts`), the values the user defined (`sources`) and where the TV
-  /// is (`place`, or null for nowhere); whichever the body leaves out stays
-  /// as it is.
-  Future<Response> _setOptions(Map<String, Object?> body) async {
-    final config = _ref.read(configProvider.notifier);
-    if (body['toasts'] case final toasts?) {
-      if (toasts is! Map<String, Object?>) {
-        throw const FormatException('"toasts" must be an object');
-      }
-      await config.setToasts(ToastOptions.fromJson(toasts));
+  /// Sets the parts of the config the body names, each as it is saved and
+  /// as the state tells it under `config`; whatever is left out stays as it
+  /// is. What cannot be read is put right rather than refused, as with a
+  /// layout.
+  Future<Response> _setConfig(Map<String, Object?> body) async {
+    final unknown = body.keys.where(
+      (key) => !LauncherConfig.openKeys.contains(key),
+    );
+    if (unknown.isNotEmpty) {
+      throw FormatException('Not a setting: ${unknown.join(', ')}');
     }
-    if (body['sources'] case final sources?) {
-      if (sources is! List || sources.length > DataSource.maxCount) {
-        throw const FormatException('"sources" must list the values');
-      }
-      final read = DataSource.listFromJson(sources, taken: builtInRoots);
-      if (read.length != sources.length) {
-        throw const FormatException(
-          'Each value needs an id of its own, in small letters, that is '
-          'not one of the launcher\'s',
-        );
-      }
-      await config.setSources(read);
-    }
-    if (body.containsKey('place')) {
-      final place = LauncherConfig.placeFromJson(body['place']);
-      if (place == null && body['place'] != null) {
-        throw const FormatException(
-          '"place" needs a name, a latitude and a longitude',
-        );
-      }
-      await config.setPlace(place);
-    }
+    await _ref.read(configProvider.notifier).patch(body);
     return _ok();
   }
 

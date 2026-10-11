@@ -19,7 +19,8 @@ class _Tv extends TvApi {
   Future<void> setLayout(Layout layout) async => sent.add('layout');
 
   @override
-  Future<void> setOptions(LauncherConfig config) async => sent.add('options');
+  Future<void> setConfig(Map<String, Object?> changed) async =>
+      sent.add('config ${changed.keys.join(' ')}');
 
   /// What the TV answers a press with, by what was pressed.
   final answers = <String, Map<String, Object?>>{};
@@ -63,7 +64,7 @@ void main() {
 
     // What was sent is what the TV now has.
     await store.save(emptied.copyWith(toasts: const ToastOptions(seconds: 9)));
-    expect(tv.sent, ['layout', 'options']);
+    expect(tv.sent, ['layout', 'config toasts']);
   });
 
   testWidgets('the launcher runs on what the TV sends, and edits go back', (

@@ -83,8 +83,10 @@ class GlobalProperties extends ConsumerWidget {
         ValuesSettings(
           sources: config.sources,
           place: config.place,
-          onSources: controller.setSources,
-          onPlace: controller.setPlace,
+          onSources: (sources) =>
+              controller.change((c) => c.copyWith(sources: sources)),
+          onPlace: (place) =>
+              controller.change((c) => c.copyWith(place: () => place)),
         ),
         Section('Quick actions', open: false, [
           const Padding(
@@ -118,7 +120,9 @@ class GlobalProperties extends ConsumerWidget {
           TickBox(
             label: 'Pop up over the home screen',
             value: toasts.enabled,
-            onChanged: (on) => controller.setToasts(toast(enabled: on)),
+            onChanged: (on) => controller.change(
+              (c) => c.copyWith(toasts: toast(enabled: on)),
+            ),
           ),
           LabelledRow(
             'Corner',
@@ -130,8 +134,9 @@ class GlobalProperties extends ConsumerWidget {
                 ToastPosition.bottomLeft: 'Bottom left',
                 ToastPosition.bottomRight: 'Bottom right',
               },
-              onChanged: (position) =>
-                  controller.setToasts(toast(position: position)),
+              onChanged: (position) => controller.change(
+                (c) => c.copyWith(toasts: toast(position: position)),
+              ),
             ),
           ),
           NumberStepper(
@@ -139,8 +144,9 @@ class GlobalProperties extends ConsumerWidget {
             value: toasts.seconds * 1.0,
             min: 2,
             max: 30,
-            onChanged: (seconds) =>
-                controller.setToasts(toast(seconds: seconds)),
+            onChanged: (seconds) => controller.change(
+              (c) => c.copyWith(toasts: toast(seconds: seconds)),
+            ),
           ),
         ]),
       ],

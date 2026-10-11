@@ -2,9 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config_store.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/values/built_in_values.dart';
-import 'package:openlauncher/core/values/data_source.dart';
-import 'package:openlauncher/core/widgets/weather.dart';
 
 final configProvider = AsyncNotifierProvider<ConfigController, LauncherConfig>(
   ConfigController.new,
@@ -27,23 +24,16 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   Future<void> setLayout(Layout layout) =>
       _update((c) => c.copyWith(layout: layout.normalised()));
 
-  Future<void> setToasts(ToastOptions toasts) =>
-      _update((c) => c.copyWith(toasts: toasts));
+  /// Changes the config in whatever way [how] says. For a setting that is
+  /// plain data this is all there is to changing it:
+  /// `change((c) => c.copyWith(toasts: ...))`.
+  Future<void> change(LauncherConfig Function(LauncherConfig config) how) =>
+      _update(how);
 
-  /// Sets the values the user defined. One that cannot be kept, for having
-  /// the id of another or of one of the launcher's own values, is left out.
-  Future<void> setSources(List<DataSource> sources) => _update(
-    (c) => c.copyWith(
-      sources: DataSource.listFromJson([
-        for (final source in sources) source.toJson(),
-      ], taken: builtInRoots),
-    ),
-  );
-
-  /// Says where the TV is, for the `location` and `weather` values; null
-  /// for nowhere.
-  Future<void> setPlace(Place? place) =>
-      _update((c) => c.copyWith(place: () => place));
+  /// Sets the parts of the config [json] names, as they are saved; see
+  /// [LauncherConfig.openKeys] for which there are.
+  Future<void> patch(Map<String, Object?> json) =>
+      _update((c) => c.patched(json));
 
   /// Takes a card off every panel. It stays off until it is placed again.
   Future<void> removeCard(String id) =>

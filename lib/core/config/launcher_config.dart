@@ -93,6 +93,30 @@ class LauncherConfig {
   /// the `weather` value is the weather of.
   final Place? place;
 
+  /// The parts of the config that are carried whole between the TV and
+  /// whatever edits it: told in the state, set through `PUT /api/config`,
+  /// sent back by the editor when they change. **A new setting that is
+  /// plain data is a field here and its name in this list, and nothing
+  /// anywhere else.** What is not here needs more than carrying: the layout
+  /// (repaired, and its pictures tidied), and whatever holds the paths of
+  /// files on the TV, which no page may choose.
+  static const openKeys = ['toasts', 'sources', 'place'];
+
+  /// The [openKeys] parts as they are saved; one that is not set is null.
+  Map<String, Object?> get open {
+    final json = toJson();
+    return {for (final key in openKeys) key: json[key]};
+  }
+
+  /// This config with the [openKeys] parts that [json] has set to what it
+  /// says. Like anything read from a save, what cannot be read falls back
+  /// to how it is when nothing was chosen.
+  LauncherConfig patched(Map<String, Object?> json) => LauncherConfig.fromJson({
+    ...toJson(),
+    for (final key in openKeys)
+      if (json.containsKey(key)) key: json[key],
+  });
+
   LauncherConfig copyWith({
     Layout? layout,
     Map<String, String>? iconOverrides,

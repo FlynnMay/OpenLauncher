@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/file_pick.dart';
@@ -115,17 +114,20 @@ class TvApi {
       cards: await Future.wait([
         for (final Map card in json['cards'] as List) _card(card),
       ]),
-      config: LauncherConfig(
-        layout: Layout.fromJson(json['layout'] as Map),
-        iconOverrides: {
-          for (final MapEntry(:key, :value)
-              in (json['panelIcons'] as Map).entries)
-            PanelEntry.iconKey(key as String): _at(value as String).toString(),
-        },
-        toasts: ToastOptions.fromJson(json['toasts'] as Map),
-        sources: DataSource.listFromJson(json['sources']),
-        place: LauncherConfig.placeFromJson(json['place']),
-      ),
+      // Every plain setting comes as it is saved, whatever there are.
+      config:
+          LauncherConfig.fromJson({
+            'v': saveVersion,
+            ...(json['config'] as Map).cast<String, Object?>(),
+            'layout': json['layout'],
+          }).copyWith(
+            iconOverrides: {
+              for (final MapEntry(:key, :value)
+                  in (json['panelIcons'] as Map).entries)
+                PanelEntry.iconKey(key as String): _at(value as String)
+                    .toString(),
+            },
+          ),
       widgets: [
         for (final Map widget in json['widgets'] as List)
           // An app widget is offered once for each one an app provides.
@@ -239,12 +241,9 @@ class TvApi {
   Future<void> setLayout(Layout layout) =>
       _ask('PUT', '/api/layout', layout.toJson());
 
-  Future<void> setOptions(LauncherConfig config) =>
-      _ask('PUT', '/api/options', {
-        'toasts': config.toasts.toJson(),
-        'sources': [for (final source in config.sources) source.toJson()],
-        'place': LauncherConfig.placeToJson(config.place),
-      });
+  /// Sets the plain settings [changed] names, each as it is saved.
+  Future<void> setConfig(Map<String, Object?> changed) =>
+      _ask('PUT', '/api/config', changed);
 
   /// What the user's value [id] is now, asked of the TV, which asks its
   /// source.

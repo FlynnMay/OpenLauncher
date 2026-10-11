@@ -93,10 +93,9 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
       for (final provider in providers)
         {'id': provider.id, 'label': provider.label, 'app': provider.appLabel},
     ],
-    'toasts': config.toasts.toJson(),
-    // The values the user defined, and where the TV is said to be.
-    'sources': [for (final source in config.sources) source.toJson()],
-    'place': LauncherConfig.placeToJson(config.place),
+    // Every setting that is plain data, as it is saved; set the same way
+    // with `PUT /api/config`.
+    'config': config.open,
     // Toasts and the now-playing widget stay empty without it.
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
     // What the now-playing widget shows, or null.

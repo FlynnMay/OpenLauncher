@@ -158,19 +158,21 @@ void main() {
       );
       addTearDown(container.dispose);
       final config = container.read(configProvider.notifier);
-      await config.setSources(const [
-        DataSource(id: 'motto', kind: SourceKind.text, text: 'Hi'),
-        DataSource(id: 'weather', url: 'http://x.test'),
-      ]);
-      await config.setPlace((
-        name: 'Perth',
-        latitude: -31.95,
-        longitude: 115.86,
-      ));
+      await config.patch({
+        'sources': [
+          {'id': 'motto', 'kind': 'text', 'text': 'Hi'},
+          // Not a name of its own: the launcher's.
+          {'id': 'weather', 'url': 'http://x.test'},
+        ],
+        'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
+        // Not one of the plain settings: left alone.
+        'wallpapers': ['/etc/passwd'],
+      });
+      expect(store.config.wallpapers, isEmpty);
       final read = LauncherConfig.fromJson(store.config.toJson());
       expect(read.sources.map((source) => source.id), ['motto']);
       expect(read.place?.name, 'Perth');
-      await config.setPlace(null);
+      await config.patch({'place': null});
       expect(store.config.place, isNull);
       expect(store.config.sources, hasLength(1));
     });

@@ -4,3 +4,4 @@ library;
 export 'device_sources.dart';
 export 'weather.dart';
 export 'widget_kind.dart';
+export 'widget_option.dart';

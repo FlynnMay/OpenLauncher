@@ -172,7 +172,7 @@ void main() {
       (panel) => panel['id'] == Layout.menuId,
     );
     expect(menu['pane']['items'], hasLength(usualMenu.length));
-    expect(page['toasts'], const ToastOptions().toJson());
+    expect(page['config']['toasts'], const ToastOptions().toJson());
     expect(page['notificationAccess'], isTrue);
   });
 
@@ -377,10 +377,10 @@ void main() {
     expect((await state())['panelIcons'], isEmpty);
   });
 
-  test('options set the notification pop-ups', () async {
+  test('plain settings are set as they are saved', () async {
     var response = await call(
       'PUT',
-      '/api/options',
+      '/api/config',
       body: {
         'toasts': {'enabled': false, 'position': 'bottomLeft', 'seconds': 99},
       },
@@ -392,16 +392,28 @@ void main() {
       'seconds': 30,
     });
 
-    response = await call('PUT', '/api/options', body: {'toasts': 'loud'});
+    // What cannot be read is put right, not refused.
+    response = await call('PUT', '/api/config', body: {'toasts': 'loud'});
+    expect(response.statusCode, 200);
+    expect(store.config.toasts.enabled, isTrue);
+    // Only the plain settings are set this way: never the paths of files.
+    response = await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'wallpapers': ['/etc/passwd'],
+      },
+    );
     expect(response.statusCode, 400);
+    expect(store.config.wallpapers, isEmpty);
   });
 
   test(
-    'options set the values and the place, and values are asked for',
+    'the values and the place are settings, and values are asked for',
     () async {
       var response = await call(
         'PUT',
-        '/api/options',
+        '/api/config',
         body: {
           'sources': [
             {
@@ -424,14 +436,14 @@ void main() {
       ]);
       expect(store.config.place?.name, 'Perth');
       final told = await state();
-      expect(told['sources'][0], {
+      expect(told['config']['sources'][0], {
         'id': 'lamp',
         'name': 'Lamp',
         'kind': 'http',
         'url': 'http://ha/x',
         'every': 60,
       });
-      expect(told['place']['latitude'], -31.95);
+      expect(told['config']['place']['latitude'], -31.95);
       // The three of the user's own are offered like any other widget.
       expect([
         for (final widget in told['widgets']) widget['type'],
@@ -451,32 +463,25 @@ void main() {
       expect((await value('nobody')).$1, 404);
 
       // Only what is named is touched; a place is taken away with null.
-      response = await call('PUT', '/api/options', body: {'place': null});
+      response = await call('PUT', '/api/config', body: {'place': null});
       expect(response.statusCode, 200);
       expect(store.config.place, isNull);
       expect(store.config.sources, hasLength(3));
 
-      for (final bad in [
-        {
+      // A value that cannot be kept is left out; the rest are.
+      response = await call(
+        'PUT',
+        '/api/config',
+        body: {
           'sources': [
             {'id': 'time', 'kind': 'text'},
-          ],
-        },
-        {
-          'sources': [
             {'id': 'a'},
             {'id': 'a'},
           ],
         },
-        {'sources': 'lamp'},
-        {
-          'place': {'name': 'Nowhere'},
-        },
-      ]) {
-        response = await call('PUT', '/api/options', body: bad);
-        expect(response.statusCode, 400, reason: '$bad');
-      }
-      expect(store.config.sources, hasLength(3));
+      );
+      expect(response.statusCode, 200);
+      expect(store.config.sources.map((source) => source.id), ['a']);
     },
   );
 
@@ -791,14 +796,14 @@ void main() {
 
     await call(
       'PUT',
-      '/api/options',
+      '/api/config',
       body: {
         'toasts': {'seconds': 9},
       },
     );
     await pumpEventQueue();
     expect(events, hasLength(2));
-    expect(events.last['toasts']['seconds'], 9);
+    expect(events.last['config']['toasts']['seconds'], 9);
   });
 
   test('the real server answers over HTTP', () async {

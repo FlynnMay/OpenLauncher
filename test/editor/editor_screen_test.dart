@@ -17,7 +17,7 @@ class _Tv extends TvApi {
   Future<void> setLayout(Layout layout) async {}
 
   @override
-  Future<void> setOptions(LauncherConfig config) async {}
+  Future<void> setConfig(Map<String, Object?> changed) async {}
 
   @override
   Future<Map<Object?, Object?>> press(
