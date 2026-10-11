@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/editor/catalogue.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/object_tree.dart';
@@ -23,7 +25,11 @@ class _Tv extends TvApi {
 const _entity = Entity(id: 'app:a', category: appCategory, label: 'Alpha');
 
 void main() {
-  Future<WidgetRef> pump(WidgetTester tester, Size size) async {
+  Future<WidgetRef> pump(
+    WidgetTester tester,
+    Size size, {
+    TvState? state,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -35,11 +41,12 @@ void main() {
           tvApiProvider.overrideWithValue(_Tv()),
           tvStateProvider.overrideWith(
             (ref) => Stream.value(
-              TvState(
-                entities: const [_entity],
-                config: LauncherConfig(layout: Layout.initial(['app:a'])),
-                components: const [],
-              ),
+              state ??
+                  TvState(
+                    entities: const [_entity],
+                    config: LauncherConfig(layout: Layout.initial(['app:a'])),
+                    components: const [],
+                  ),
             ),
           ),
         ],
@@ -137,6 +144,113 @@ void main() {
     expect(find.text('Docked'), findsOneWidget);
     expect(find.text('Shows while closed'), findsOneWidget);
     expect(find.text('Transform'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('what can be added is under headings that close', (tester) async {
+    const mine = Entity(
+      id: 'mine',
+      category: 'mine',
+      label: 'Mine',
+      prefab: cardPrefabId,
+    );
+    await pump(
+      tester,
+      const Size(1600, 1400),
+      state: TvState(
+        entities: const [
+          Entity(
+            id: 'app:a',
+            category: appCategory,
+            label: 'Alpha',
+            prefab: cardPrefabId,
+          ),
+          Entity(
+            id: 'app:b',
+            category: appCategory,
+            label: 'Beta',
+            prefab: cardPrefabId,
+          ),
+          Entity(
+            id: 'clock',
+            category: 'clock',
+            label: 'Clock',
+            prefab: 'clock',
+          ),
+          mine,
+        ],
+        config: LauncherConfig(
+          layout: Layout.initial(['app:a']),
+          entities: const [mine],
+          prefabs: [
+            Prefab(
+              id: 'own',
+              name: 'My prefab',
+              root: Component.pane(id: 'root'),
+            ),
+            // A built-in, edited: still the system's.
+            Prefab(
+              id: 'clock',
+              name: 'Edited clock',
+              root: Component.pane(id: 'root'),
+            ),
+          ],
+        ),
+        components: const [
+          (type: 'button', label: 'Button', w: 2, h: 1, options: {}),
+        ],
+      ),
+    );
+    Finder offered(String label) =>
+        find.descendant(of: find.byType(Catalogue), matching: find.text(label));
+    const headings = [
+      'Primitives',
+      'Layout',
+      'System prefabs',
+      'User prefabs',
+      'Apps',
+    ];
+    // The heading [label] is under.
+    String over(String label) {
+      // A card with no picture says its name twice.
+      final top = tester.getTopLeft(offered(label).last).dy;
+      return headings.lastWhere(
+        (heading) => tester.getTopLeft(offered(heading)).dy < top,
+      );
+    }
+
+    final tops = [
+      for (final heading in headings) tester.getTopLeft(offered(heading)).dy,
+    ];
+    expect(tops, [...tops]..sort());
+    for (final gone in ['Components', 'Buttons', 'Folders', 'Edited clock']) {
+      expect(offered(gone), findsNothing);
+    }
+    expect(over('Button'), 'Primitives');
+    expect(over('Sidebar'), 'Layout');
+    // The only one of its category.
+    expect(over('Clock'), 'System prefabs');
+    expect(over('My prefab'), 'User prefabs');
+    expect(over('Mine'), 'User prefabs');
+    expect(over('Beta'), 'Apps');
+
+    await tester.tap(offered('Apps'));
+    await tester.pumpAndSettle();
+    expect(offered('Beta'), findsNothing);
+    expect(offered('Clock'), findsWidgets);
+
+    // A search shows what matches, closed or not.
+    final search = find.descendant(
+      of: find.byType(Catalogue),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(search, 'bet');
+    await tester.pumpAndSettle();
+    expect(offered('Beta'), findsWidgets);
+    expect(offered('Primitives'), findsNothing);
+    await tester.enterText(search, '');
+    await tester.pumpAndSettle();
+    expect(offered('Beta'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

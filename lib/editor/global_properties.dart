@@ -72,7 +72,7 @@ class GlobalProperties extends ConsumerWidget {
             padding: EdgeInsets.only(bottom: 8),
             child: Text(
               'What holding OK on something offers: a popup of buttons, arranged like '
-              'any folder. Buttons for it are under Add.',
+              'any folder. Add a Button from Primitives and give it an action.',
             ),
           ),
           Align(

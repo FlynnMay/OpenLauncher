@@ -64,7 +64,7 @@ Component folderPane(String id, {String title = ''}) => Component.pane(
 
 /// A button that has [entity] do its action called [name], labelled as
 /// [action] is.
-Component actionButton(
+Component _actionButton(
   String id,
   String name,
   EntityAction action, {
@@ -116,7 +116,7 @@ Component usualMenuPane() {
     children: [
       for (final MapEntry(key: name, value: entity) in usualMenu.entries)
         if (known[name] case final action?)
-          actionButton(
+          _actionButton(
             '${Layout.menuId}-${name.toLowerCase()}',
             name,
             action,
