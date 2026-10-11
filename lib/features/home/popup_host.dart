@@ -6,8 +6,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
-/// The entity the folder [id] is about, where its `source` variable says
-/// one: what makes it that entity's menu.
+/// The entity the menu [id] was opened for, from its `source` variable.
 Entity? subjectOf(WidgetRef ref, String id) => switch (ref.watch(
   runtimeVarsProvider.select((all) => all[id]?[Component.sourceVar]),
 )) {
@@ -15,11 +14,8 @@ Entity? subjectOf(WidgetRef ref, String id) => switch (ref.watch(
   _ => null,
 };
 
-/// Follows the `open` variable of everything that is shown and hidden: a
-/// sidebar, a folder. As one changes, what that pane does on being
-/// revealed or hidden is done, one action after another. That is all that
-/// shows a folder: revealed, it makes a layer and moves to it, unless it
-/// is set to do otherwise.
+/// Watches each panel's `open` variable and runs its reveal or hide chain
+/// when it changes.
 class PopupHost extends ConsumerStatefulWidget {
   const PopupHost({super.key, required this.child});
 
@@ -30,7 +26,7 @@ class PopupHost extends ConsumerStatefulWidget {
 }
 
 class _PopupHostState extends ConsumerState<PopupHost> {
-  /// Whether each panel was open when last looked at, by id.
+  /// Last seen `open` per panel.
   final _was = <String, bool>{};
 
   Future<void> _fire(Panel panel, bool open) async {
@@ -52,7 +48,7 @@ class _PopupHostState extends ConsumerState<PopupHost> {
       final id = panel.id;
       final open = all[id]?[openVar] == true;
       if (open == (_was[id] ?? false)) continue;
-      // A menu with nothing in it for what it is about is not shown at all.
+      // A menu with no applicable actions is not shown.
       if (open) {
         final subject = switch (all[id]?[Component.sourceVar]) {
           final String source => ref.read(entitiesProvider).value?.byId(source),

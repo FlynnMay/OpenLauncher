@@ -8,10 +8,10 @@ import 'package:openlauncher/core/values/data_source.dart';
 import 'package:openlauncher/core/values/template.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
-/// What time it is. Replaced in tests.
+/// The current time. Overridden in tests.
 final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
-/// The time, told again as each second (true) or each minute begins.
+/// The time, updated each second (true) or each minute.
 final tickProvider = Provider.autoDispose.family<DateTime, bool>((
   ref,
   seconds,
@@ -25,8 +25,8 @@ final tickProvider = Provider.autoDispose.family<DateTime, bool>((
   return now;
 });
 
-/// Asks a source's web address for its value: what it answers as JSON, or
-/// as plain text where it is not JSON. In a browser the TV is asked to ask.
+/// Fetches a source's URL as JSON, or text if it is not JSON. In a browser
+/// the TV fetches it.
 final sourceFetcherProvider = Provider<Future<Object?> Function(DataSource)>(
   (ref) => (source) async {
     final address = source.address;
@@ -51,15 +51,14 @@ final sourceFetcherProvider = Provider<Future<Object?> Function(DataSource)>(
   },
 );
 
-/// The most a source may answer with.
+/// Largest accepted response.
 const maxSourceBytes = 512 * 1024;
 
-/// What a source of the user's last answered, asked again every so often
-/// for as long as something shows it.
+/// A source's latest value, re-fetched on its interval while watched.
 final sourceValueProvider = FutureProvider.autoDispose
     .family<Object?, DataSource>(
       (ref, source) async {
-        // Also asks again after a failure.
+        // Also retries after a failure.
         final again = Timer(
           Duration(seconds: source.every),
           ref.invalidateSelf,
@@ -67,22 +66,19 @@ final sourceValueProvider = FutureProvider.autoDispose
         ref.onDispose(again.cancel);
         return ref.watch(sourceFetcherProvider)(source);
       },
-      // Once each time it is due, and no more.
+      // No extra retries.
       retry: (_, _) => null,
     );
 
-/// What can be read by the id [root]: the data of the entity with that
-/// id, or of the component with it that has variables anyone may read.
-/// Null while there is neither.
+/// What `{{root...}}` reads: an entity's data, or a component's public
+/// variables.
 final valueProvider = Provider.autoDispose.family<Object?, String>(
   (ref, root) =>
       ref.watch(entityDataProvider(root)) ??
       ref.watch(componentDataProvider(root)),
 );
 
-/// How the template [source] reads now, with nothing in reach but what
-/// can be read by its id. Whatever watches it is told only when that
-/// changes, however often the values under it do.
+/// The rendered text of [source]; notifies only when it changes.
 final templateProvider = Provider.autoDispose.family<String, String>(
   (ref, source) => valueText(readTemplate(ref.watch, source, const {})),
 );

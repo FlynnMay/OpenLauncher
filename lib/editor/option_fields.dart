@@ -9,11 +9,8 @@ import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/template_field.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 
-/// The settings [options] describes, each drawn by the kind it is, showing
-/// what [values] has for it. A change is told as the whole of the values
-/// as they are to be; one set back to its usual is no longer among them.
-/// [corner] is how round the corners of what is being set usually are.
-/// [mixed] names the numbers that differ among the things being set.
+/// Generated fields for [options] showing [values]. Reports the whole value
+/// map; a value reset to its default is removed. [mixed] keys show as mixed.
 List<Widget> optionFields({
   required List<ComponentOption> options,
   required Map<String, Object?> values,
@@ -128,7 +125,7 @@ List<Widget> optionFields({
           corners: BoxStyle.of({option.key: value}).corners,
           usual: corner,
           max: option.max * 1.0,
-          // All alike, they are said once.
+          // Collapsed to one value when all four match.
           onChanged: (corners) => set(
             option,
             corners?.toSet().length == 1 ? corners!.first : corners,
@@ -143,9 +140,8 @@ List<Widget> optionFields({
   ];
 }
 
-/// The same for a thing that is saved as [json], such as a pane with its
-/// rules: each setting shows what the thing has under its name, and a
-/// change is told as that name and what it is to be, null for the usual.
+/// The same for a thing saved as [json]: reports one key and its new value,
+/// null for the default.
 List<Widget> ruleFields({
   required List<ComponentOption> options,
   required Map<String, Object?> json,
@@ -166,9 +162,8 @@ List<Widget> ruleFields({
   },
 );
 
-/// The things of a list [option], each with the settings its fields
-/// describe, a button to take it away and one to add another. A change is
-/// told as the whole list as it is to be.
+/// A list option: each entry's fields, a remove button and an add button.
+/// Reports the whole list.
 class ListField extends StatelessWidget {
   const ListField({
     super.key,
@@ -182,7 +177,7 @@ class ListField extends StatelessWidget {
   final List<Map<String, Object?>> records;
   final void Function(List<Map<String, Object?>> records) onChanged;
 
-  /// What is shown under one of them, beyond its settings.
+  /// Extra widgets under an entry.
   final List<Widget> Function(Map<String, Object?> one)? after;
 
   void _put(int index, Map<String, Object?>? changed) => onChanged([
@@ -221,7 +216,7 @@ class ListField extends StatelessWidget {
               values: one,
               onChanged: (changed) => _put(index, changed),
             );
-            // With no heading, the first of its settings stands for it.
+            // Without a heading field, the first field is the heading.
             final headed = heading != null || fields.isEmpty;
             return [
               Row(

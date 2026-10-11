@@ -13,9 +13,8 @@ import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 
-/// Everything that can be put on the TV: dragged from here onto the screen,
-/// or tapped to go where new apps go. Dragging something from the screen
-/// back here takes it off.
+/// Everything that can be added: dragged onto the screen or tapped to go to
+/// the inbox. Dragging something back here removes it.
 class Catalogue extends ConsumerStatefulWidget {
   const Catalogue({super.key});
 
@@ -26,24 +25,24 @@ class Catalogue extends ConsumerStatefulWidget {
 class _CatalogueState extends ConsumerState<Catalogue> {
   String _query = '';
 
-  /// What there is to add, under the heading it is listed under.
+  /// The offers, by heading.
   Map<String, List<_Offer>> _offers(Layout layout) {
     final all = ref.watch(entitiesProvider).value ?? const [];
     final components = ref.watch(tvStateProvider).value?.components ?? const [];
     final prefabs = ref.watch(prefabsProvider);
     final counts = placedCounts(layout);
-    // The entities that are not placed of themselves, such as the media
-    // player: what they do is offered as buttons that do it.
+    // Entities that are not auto-placed, e.g. the media player; their actions
+    // are offered as buttons.
     final standing = [
       for (final entity in all)
         if (entityRegistry(entity.category) case final kind? when !kind.placed)
           entity,
     ];
-    // Named, and given the id that goes with its name, when it is placed.
+    // Named and given its final id when placed.
     final folder = Panel.empty(layout.panelIdFor('Folder'), title: 'Folder');
     _Offer entity(Entity entity) => _Offer(
       Dragged(
-        // As the prefab its kind is shown with, at that prefab's size.
+        // As its category's prefab, at that prefab's size.
         item: () {
           final prefab = prefabs[entityRegistry(entity.category)?.prefab];
           return Component.of(
@@ -62,7 +61,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     );
     List<_Offer> entities(bool Function(Entity entity) which) {
       final offers = all.where(which).map(entity).toList();
-      // What is not on the TV yet comes first; otherwise as the TV has them.
+      // Unplaced first.
       return [
         ...offers.where((offer) => offer.count == 0),
         ...offers.where((offer) => offer.count != 0),
@@ -113,11 +112,10 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
           ),
       ],
-      // One for each thing a button can do, ready to be dropped into the
-      // quick actions or anywhere else.
+      // One button per action.
       'Buttons': [
         for (final kind in actionKinds)
-          // What only one entity does comes below, already told which.
+          // Actions of a single entity are listed below, already targeted.
           if (!standing.any(
             (entity) =>
                 entityRegistry(entity.category)!.actions
@@ -163,9 +161,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
               ),
             ),
       ],
-      // Whatever kinds of entity there are, each under what it is called.
-      // Those there is a ready way of showing; the rest are read and
-      // acted on by what is put on the screen.
+      // Every entity category that has a prefab.
       for (final kind in entityRegistries)
         if (kind.prefab != null)
           kind.label: entities((entity) => entity.category == kind.name),
@@ -225,7 +221,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                       for (final offer in offers)
                         _OfferTile(
                           offer,
-                          // A sidebar has no pane to go to, only an edge.
+                          // A sidebar goes to an edge, not a pane.
                           onTap: () => offer.dragged.sidebar
                               ? addBarSomewhere(context, ref)
                               : placeDragged(
@@ -260,16 +256,15 @@ class _CatalogueState extends ConsumerState<Catalogue> {
   }
 }
 
-/// One thing the catalogue offers.
 class _Offer {
   const _Offer(this.dragged, {this.backed = false, this.count = 0});
 
   final Dragged dragged;
 
-  /// True for a picture that is shown on an entity, as artwork is on the TV.
+  /// Whether the picture gets a card background.
   final bool backed;
 
-  /// How many times it is on the TV already.
+  /// How many times it is already placed.
   final int count;
 }
 

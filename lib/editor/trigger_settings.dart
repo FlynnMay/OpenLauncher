@@ -5,10 +5,8 @@ import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 
-/// What a thing does, by what sets it off: for each trigger, the actions
-/// in the order they are done, each with whatever it is told. Everything
-/// offered is read from `actionKinds`. What is the same as the [usual] is
-/// not kept as set.
+/// Action chains per trigger. Offered actions come from `actionKinds`; chains
+/// equal to [usual] are not stored.
 class TriggerSettings extends StatelessWidget {
   const TriggerSettings({
     super.key,
@@ -25,13 +23,12 @@ class TriggerSettings extends StatelessWidget {
     this.title = 'Actions',
   });
 
-  /// What was set for the thing, and what it does where nothing was.
+  /// The stored chains and the defaults.
   final Triggers set, usual;
 
-  /// The entities there are, by id, with what each is called.
+  /// Entity ids with their labels.
   final Map<String, String> entities;
 
-  /// The triggers the thing has.
   final List<Trigger> triggers;
   final String title;
   final void Function(Triggers set) onChanged;
@@ -66,7 +63,7 @@ class TriggerSettings extends StatelessWidget {
             records: [for (final act in acts) act.toJson()],
             onChanged: (told) => _change(trigger, [
               for (final (index, one) in told.indexed)
-                // Another action is told nothing of what the last was.
+                // Changing the action clears its arguments.
                 ?Act.fromJson(
                   told.length == acts.length && one['do'] != acts[index].name
                       ? {'do': one['do']}

@@ -6,7 +6,7 @@ import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 
-/// Hands the starting focus to the first tile that asks for it.
+/// Gives the initial focus to the first tile that asks.
 class FirstFocus {
   bool _taken = false;
 
@@ -14,7 +14,7 @@ class FirstFocus {
   bool take() => !_taken && (_taken = true);
 }
 
-/// The sizes of a pane's cells when its grid is [width] wide.
+/// Cell sizes of a pane at a given width.
 @immutable
 class PaneMetrics {
   PaneMetrics(Component pane, double width)
@@ -26,16 +26,14 @@ class PaneMetrics {
   final double gapX, gapY, cellWidth;
   final double? _rowHeight;
 
-  /// As tall as the pane says, or else in keeping with how wide it is.
+  /// The pane's row height, else from the cell width.
   double get cellHeight => _rowHeight ?? cellWidth / PaneGrid.cellRatio;
 
-  /// How far [cells] cells reach across, the gaps between them included.
+  /// Width of [cells] columns, gaps included.
   double across(double cells) => cells * cellWidth + (cells - 1) * gapX;
 
-  /// The same, down.
   double down(double cells) => cells * cellHeight + (cells - 1) * gapY;
 
-  /// Where in the grid something placed at [placement] is drawn.
   Rect rectOf(Placement placement) => Rect.fromLTWH(
     placement.x * (cellWidth + gapX),
     placement.y * (cellHeight + gapY),
@@ -43,13 +41,13 @@ class PaneMetrics {
     down(placement.h),
   );
 
-  /// The column and row, with fractions, that a point of the grid is at.
+  /// The fractional column and row at a point.
   Offset cellAt(Offset point) =>
       Offset(point.dx / (cellWidth + gapX), point.dy / (cellHeight + gapY));
 }
 
-/// Puts something around the grid of every pane drawn under it. The TV has
-/// none; the editor uses it to know where each pane's cells are on screen.
+/// Wraps every pane's grid. Unused on the TV; the editor uses it to locate
+/// panes.
 class PaneFrame extends InheritedWidget {
   const PaneFrame({super.key, required this.wrap, required super.child});
 
@@ -59,8 +57,7 @@ class PaneFrame extends InheritedWidget {
   bool updateShouldNotify(PaneFrame oldWidget) => wrap != oldWidget.wrap;
 }
 
-/// Lays a pane's entries out on its cell grid, filling the width given and
-/// as tall as they need.
+/// Lays a pane's children out on its cell grid.
 class PaneGrid extends StatelessWidget {
   const PaneGrid({
     super.key,
@@ -71,18 +68,17 @@ class PaneGrid extends StatelessWidget {
 
   final Component pane;
 
-  /// The id its variables are set under while the launcher runs, where
-  /// that is not its own: a folder's pane goes by the folder's.
+  /// The id its runtime variables are stored under, if not its own: a
+  /// folder's pane uses the folder's.
   final String? owner;
   final Widget Function(Component component) tile;
 
-  /// Width over height of one cell, label included.
+  /// Cell width over height.
   static const cellRatio = 1.45;
 
   @override
   Widget build(BuildContext context) {
     final pane = this.pane;
-    // As the pane would have them: see [Component.shown].
     final shown = pane.shown;
     final grid = LayoutBuilder(
       builder: (context, constraints) {
@@ -91,7 +87,6 @@ class PaneGrid extends StatelessWidget {
         final rows = rowCount(placements);
         return SizedBox(
           height: rows == 0 ? 0 : metrics.down(rows),
-          // What is in here is in this pane, inside whichever it is in.
           child: PaneScope(
             panes: [...PaneScope.of(context), pane.id],
             child: Stack(
@@ -111,8 +106,7 @@ class PaneGrid extends StatelessWidget {
         );
       },
     );
-    // What is in a pane can read the pane's variables, on top of those the
-    // pane itself was handed.
+    // Children can read the pane's variables.
     final scoped = pane.vars.isEmpty
         ? grid
         : Consumer(
@@ -127,34 +121,26 @@ class PaneGrid extends StatelessWidget {
             ),
             child: grid,
           );
-    // And takes after the pane's look.
     final styled = StyleScope.under(context, pane.style, scoped);
     final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
     return frame == null ? styled : frame.wrap(pane, styled);
   }
 }
 
-/// A pane inside another: its background, its title and its own grid.
-///
-/// Its padding is the same with or without a background, and belongs to the
-/// part that scrolls: a focused entity grows into it and is cut only at the
-/// pane's own edge. What does not fit the pane's height is reached by moving
-/// the focus down.
+/// A nested pane: background, title and a scrolling grid. Padding is inside
+/// the scroll area, so a focused tile can grow into it.
 class PaneBox extends ConsumerWidget {
   const PaneBox({super.key, required this.pane, required this.tile});
 
   final Component pane;
   final Widget Function(Component component) tile;
 
-  /// The outline of [pane]: each corner as round as its look says.
   static BorderRadius shapeOf(Component pane) =>
       styleShape(pane.box, Component.defaultCorner);
 
-  /// The gap between a title and what is under it.
   static const _underTitle = 10.0;
 
-  /// How far past its edge a pane with no background lets a focused entity
-  /// show. With a background, the edge is the edge.
+  /// How far a focused tile may show past a pane with no background.
   static const _overhang = 12.0;
 
   @override
@@ -203,7 +189,7 @@ class PaneBox extends ConsumerWidget {
         borderRadius: shape,
         boxShadow: styleShadow(box),
       ),
-      // The outline is drawn over the pane, not around it: it takes no room.
+      // The border is painted over the pane and takes no space.
       position: DecorationPosition.background,
       child: DecoratedBox(
         position: DecorationPosition.foreground,
@@ -220,7 +206,6 @@ class PaneBox extends ConsumerWidget {
   }
 }
 
-/// Clips a little outside the box.
 class _Inflated extends CustomClipper<Rect> {
   const _Inflated(this.by);
 

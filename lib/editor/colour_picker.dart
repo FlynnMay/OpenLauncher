@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// A colour as a small square that opens the picker when pressed; with no
-/// colour, a square to add one. [onChanged] is given null when the colour
-/// is taken away.
+/// A swatch that opens the picker; an "add" square when there is no colour.
+/// [onChanged] gets null when the colour is removed.
 class ColourChip extends StatelessWidget {
   const ColourChip({
     super.key,
@@ -12,7 +11,7 @@ class ColourChip extends StatelessWidget {
     this.tooltip,
   });
 
-  /// As 0xAARRGGBB, the way a `BoxStyle` holds it.
+  /// 0xAARRGGBB.
   final int? colour;
   final String? tooltip;
   final void Function(int? colour) onChanged;
@@ -46,7 +45,7 @@ class ColourChip extends StatelessWidget {
           ),
           child: colour == null
               ? Icon(Icons.add, size: 18, color: outline)
-              // Over a pattern, so that how see-through it is shows.
+              // Over a checkerboard, to show transparency.
               : CustomPaint(
                   painter: const Checks(),
                   child: ColoredBox(color: Color(colour)),
@@ -57,7 +56,7 @@ class ColourChip extends StatelessWidget {
   }
 }
 
-/// The pattern put behind a colour, so that how see-through it is shows.
+/// The transparency checkerboard.
 class Checks extends CustomPainter {
   const Checks();
 
@@ -96,7 +95,7 @@ class _ColourDialogState extends State<_ColourDialog> {
     0x00ACC1, 0x039BE5, 0x1E88E5, 0x3949AB, 0x8E24AA, 0xD81B60,
   ];
 
-  /// The colour without its transparency, and how solid it is, 0 to 255.
+  /// RGB and alpha (0 to 255), separately.
   late int _rgb = (widget.initial ?? 0xFFFFFFFF) & 0xFFFFFF;
   late int _alpha = (widget.initial ?? 0xFFFFFFFF) >>> 24;
   late final _hex = TextEditingController(text: _css(_rgb));

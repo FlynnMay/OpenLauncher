@@ -8,16 +8,15 @@ import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
-/// What a folder holds, as it hovers over the screen on a layer of its
-/// own. With a [subject] it is that entity's menu: named after the entity,
-/// its buttons act on the entity, and those that cannot are left out.
+/// A hovering folder. With a [subject] it is that entity's menu: titled after
+/// it, with inapplicable buttons left out.
 class PanelPopup extends ConsumerWidget {
   const PanelPopup({super.key, required this.panelId, this.subject});
 
   final String panelId;
   final Entity? subject;
 
-  /// The share of the screen's width and height a popup may take.
+  /// Fraction of the screen a popup may take.
   static (double, double) _extent(Panel panel) {
     final step = switch (panel.rule('size')) {
       'small' => 0,
@@ -27,8 +26,7 @@ class PanelPopup extends ConsumerWidget {
     return switch (panel.rule('position')) {
       'bottom' => (1, const [0.34, 0.5, 0.72][step]),
       'left' || 'right' => (const [0.26, 0.36, 0.5][step], 1),
-      // In the middle. One shown in place never comes here; were it to,
-      // as the usual.
+      // Centred (also the fallback for `inline`).
       _ => (const [0.45, 0.62, 0.86][step], 0.8),
     };
   }
@@ -99,7 +97,6 @@ class PanelPopup extends ConsumerWidget {
                       'Nothing here yet. Add things from the web page.',
                       style: TextStyle(color: Colors.white60),
                     ),
-                  // The popup's global pane fills it, inside its margins.
                   Padding(
                     padding: EdgeInsets.all(panel.root.box.padding ?? 0),
                     child: PaneGrid(
@@ -119,13 +116,12 @@ class PanelPopup extends ConsumerWidget {
         ),
       ),
     );
-    // The focus is its own while it is there, and comes to it at once.
     final held = _Held(child: popup);
     return subject == null ? held : ActionSubject(entity: subject, child: held);
   }
 }
 
-/// Keeps the focus among what is inside it, and takes it on appearing.
+/// Traps the focus and takes it on appearing.
 class _Held extends StatefulWidget {
   const _Held({required this.child});
 

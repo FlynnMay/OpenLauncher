@@ -27,9 +27,8 @@ final configApiProvider = Provider<ConfigApi>((ref) {
   return api;
 });
 
-/// The HTTP API behind the config page. A second client of the core, next to
-/// the TV UI: it reads the same providers and changes config through the same
-/// controller.
+/// The HTTP API for the web editor. It uses the same providers and controller
+/// as the TV UI.
 class ConfigApi {
   ConfigApi(this._ref);
 
@@ -87,7 +86,6 @@ class ConfigApi {
       }),
       ('GET', 'api/media/art') => _cover(request, id),
       ('GET', 'api/wallpaper') => _wallpaper(request, id),
-      // One more, after those there are.
       ('POST', 'api/wallpapers') => _uploadWallpaper(request),
       ('PUT', 'api/wallpapers') => _arrangeWallpapers(await _body(request)),
       ('DELETE', 'api/wallpaper') => () async {
@@ -114,7 +112,7 @@ class ConfigApi {
     throw const FormatException('Expected a JSON object');
   }
 
-  /// Runs [action] only if [id] names an entity that currently exists.
+  /// Runs [action] if [id] is an existing entity.
   Future<Response> _withEntity(
     String? id,
     Future<Response> Function(String id) action,
@@ -126,8 +124,7 @@ class ConfigApi {
     return action(id);
   }
 
-  /// Like [_withEntity], but [id] may also name the entity of a popup panel
-  /// (`panel:<panel id>`), which can have a picture too.
+  /// Like [_withEntity], but also accepts a folder's `panel:<id>`.
   Future<Response> _withPicture(
     String? id,
     Future<Response> Function(String id) action,
@@ -139,11 +136,10 @@ class ConfigApi {
     return isPanel ? action(id!) : _withEntity(id, action);
   }
 
-  /// Replaces the whole layout with the one the page sends.
   Future<Response> _setLayout(Map<String, Object?> body) async {
     final layout = Layout.fromJson(body);
     await _ref.read(configProvider.notifier).setLayout(layout);
-    // Pictures of popups that no longer exist have nothing to show on.
+    // Drop pictures of folders that no longer exist.
     final config = await _ref.read(configProvider.future);
     final kept = {
       for (final panel in config.layout.panels) Panel.iconKey(panel.id),
@@ -156,9 +152,7 @@ class ConfigApi {
     return _ok();
   }
 
-  /// Sets an entity's `name` and the entity it takes its picture from
-  /// (`iconFrom`); null undoes either, and whichever the body leaves out
-  /// stays as it is.
+  /// Sets `name` and `iconFrom`; null resets one, a missing key leaves it.
   Future<Response> _setEntity(String id, Map<String, Object?> body) async {
     final config = _ref.read(configProvider.notifier);
     final name = body['name'], from = body['iconFrom'];
@@ -174,7 +168,7 @@ class ConfigApi {
           (from == id || !entities.any((entity) => entity.id == from))) {
         throw const FormatException('"iconFrom" must name another entity');
       }
-      // An uploaded picture is replaced by the borrowed one.
+      // A borrowed picture replaces an uploaded one.
       await _ref.read(customIconsProvider).clear(id);
       if (from is String) await config.setIconSource(id, from);
     }
@@ -182,10 +176,8 @@ class ConfigApi {
     return _ok();
   }
 
-  /// Sets the parts of the config the body names, each as it is saved and
-  /// as the state tells it under `config`; whatever is left out stays as it
-  /// is. What cannot be read is put right rather than refused, as with a
-  /// layout.
+  /// Sets the config keys in the body. Unreadable values fall back to
+  /// defaults instead of failing.
   Future<Response> _setConfig(Map<String, Object?> body) async {
     final unknown = body.keys.where(
       (key) => !LauncherConfig.openKeys.contains(key),
@@ -197,9 +189,8 @@ class ConfigApi {
     return _ok();
   }
 
-  /// What the user's value [id] is now, as the TV has it: the page cannot
-  /// ask other sites itself, and so asks the TV, which asks only the
-  /// addresses it was set up with.
+  /// The current value of user source [id], fetched by the TV because the
+  /// page cannot make cross-site requests.
   Future<Response> _sourceValue(String? id) async {
     final sources = (await _ref.read(configProvider.future)).sources;
     final source = sources.where((source) => source.id == id).firstOrNull;
@@ -207,8 +198,7 @@ class ConfigApi {
     if (source.kind == SourceKind.text) {
       return Response.ok(jsonEncode({'value': source.text}), headers: _json);
     }
-    // What the TV shows already is not asked for twice; what it does not
-    // is held on to until it has answered.
+    // Reuse the value if the TV already shows it; otherwise wait for one.
     final provider = sourceValueProvider(source);
     final held = _ref.listen(provider, (_, _) {});
     try {
@@ -221,11 +211,8 @@ class ConfigApi {
     }
   }
 
-  /// Does the action the body is, as one is saved (`do`, and whatever it
-  /// is told, such as the `entity` it is done to), and answers with what
-  /// there is to tell the user of it (`message`, or null). It is done as
-  /// anything on the TV does it, with no screen: what only a screen can do
-  /// is left undone.
+  /// Runs the action in the body and answers `{message}`. There is no screen,
+  /// so screen-only actions do nothing.
   Future<Response> _act(Map<String, Object?> body) async {
     final act = Act.fromJson(body);
     if (act == null) throw const FormatException('"do" must name an action');
@@ -250,8 +237,7 @@ class ConfigApi {
     }
   }
 
-  /// Finds places by name for the weather component. Done here rather than by
-  /// the page so the page never talks to anything but the TV.
+  /// Geocoding for the weather, proxied so the page only talks to the TV.
   Future<Response> _geocode(String? query) async {
     if (query == null || query.trim().isEmpty) {
       throw const FormatException('"q" must name a place');
@@ -279,11 +265,8 @@ class ConfigApi {
     }
   }
 
-  /// Serves the file at [path]: one whose address carries a version, so
-  /// that what is behind it never changes. Its type goes by the ending of
-  /// its name, which is what it was found to be when it was saved. Byte
-  /// ranges are honoured, because browsers will not play a video without
-  /// them.
+  /// Serves a versioned, immutable file with byte ranges (browsers need them
+  /// for video).
   Future<Response> _file(Request request, String? path, String none) async {
     if (path == null || !await File(path).exists()) return _error(404, none);
     final response = await createFileHandler(path, url: request.url.path)(
@@ -299,13 +282,13 @@ class ConfigApi {
   Future<Response> _icon(Request request, String id) async {
     final entities = await _ref.read(entitiesProvider.future);
     final config = await _ref.read(configProvider.future);
-    // Null for the entity of a popup, which only has a picture if given one.
+    // Null for a folder's picture.
     final entity = entities.byId(id);
     final path = switch (entity) {
       null => config.iconOverrides[id],
       _ => entity.data[Entity.icon] as String?,
     };
-    // Line art is the drawing itself, not a file.
+    // Line art is SVG markup, not a file.
     if (path != null && entity?.data[Entity.shape] == Entity.lineArt) {
       return Response.ok(
         path,
@@ -337,9 +320,7 @@ class ConfigApi {
     return saved ? _ok() : _error(415, 'Not a PNG, JPEG, GIF or WebP image');
   }
 
-  /// Sets the order of the wallpapers (`order`, their ids) and how many
-  /// minutes each stays (`every`, 0 to stay on the first); whichever the
-  /// body leaves out stays as it is.
+  /// Sets wallpaper `order` and `every`; a missing key is left alone.
   Future<Response> _arrangeWallpapers(Map<String, Object?> body) async {
     if (body['order'] case final order?) {
       if (order is! List || order.any((id) => id is! String)) {

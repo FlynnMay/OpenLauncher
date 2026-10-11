@@ -12,9 +12,8 @@ import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_link.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 
-// The config page: a Flutter web app, served by the TV. It
-// runs the launcher itself, fed by the TV over the network (tv_link.dart),
-// and adds the means to rearrange it. Built by tool/build_editor.sh.
+// The web editor: the launcher itself running in the browser against the TV's
+// data (tv_link.dart), plus editing tools. Built by tool/build_editor.sh.
 
 void main() =>
     runApp(ProviderScope(overrides: tvOverrides, child: const EditorApp()));
@@ -26,7 +25,6 @@ class EditorApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'OpenLauncher',
     debugShowCheckedModeBanner: false,
-    // The launcher's own theme.
     theme: ThemeData(
       colorScheme: .fromSeed(seedColor: Colors.indigo, brightness: .dark),
     ),
@@ -37,15 +35,14 @@ class EditorApp extends StatelessWidget {
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key});
 
-  /// From this width on, the catalogue and the settings of what is picked
-  /// out are either side of the screen, not under it.
+  /// Above this width the side panels sit beside the screen, not under it.
   static const _wide = 1000.0;
 
   @override
   ConsumerState<EditorScreen> createState() => _EditorScreenState();
 }
 
-/// What can be shown beside or under the screen while editing.
+/// The side panels.
 enum _Side {
   add('Add', Icons.add),
   objects('Objects', Icons.account_tree_outlined),
@@ -60,11 +57,10 @@ enum _Side {
 class _EditorScreenState extends ConsumerState<EditorScreen> {
   bool _editing = true;
 
-  /// Which of what shares the left of the screen is showing; and, where
-  /// there is only room under the screen, which of all three.
+  /// The panel shown on the left, and under the screen when narrow.
   _Side _left = _Side.add, _under = _Side.add;
 
-  /// [among] to choose from, and under them the one that is [shown].
+  /// Tabs for [among], showing [shown].
   Widget _sides(
     List<_Side> among,
     _Side shown,
@@ -91,7 +87,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
       ),
       Expanded(
-        // All kept, so that each is as it was left when come back to.
+        // All kept alive so each keeps its state.
         child: IndexedStack(
           index: among.indexOf(shown),
           sizing: StackFit.expand,
@@ -108,12 +104,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     ],
   );
 
-  /// Keeps the launcher as it was when the page is laid out anew.
+  /// Keeps the launcher's state across layout changes.
   final _stage = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
-    // Picking something out brings up its settings.
+    // Selecting something shows its settings.
     ref.listen(selectionProvider.select((ids) => ids.isNotEmpty), (_, picked) {
       if (picked) setState(() => _under = _Side.settings);
     });
@@ -150,7 +146,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           const SizedBox(width: 12),
         ],
       ),
-      // Delete takes what is picked out off the TV; Escape lets go of it.
+      // Delete removes the selection; Escape clears it.
       body: CallbackShortcuts(
         bindings: {
           if (_editing) ...{
@@ -199,7 +195,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       SizedBox(width: 300, child: side(const Inspector())),
                     ],
                   )
-                // With less room they take turns under the screen.
+                // When narrow, the panels take turns under the screen.
                 : Column(
                     children: [
                       screen,

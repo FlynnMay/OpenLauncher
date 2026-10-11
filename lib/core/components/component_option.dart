@@ -1,10 +1,8 @@
-/// What kind of thing a component's option is, which is what decides how the
-/// editor lets it be set.
+/// The type of an option; decides which editor field it gets.
 enum OptionKind {
-  /// Text that values can be written into (`{{clock.time}}`).
+  /// Text that may contain `{{...}}`.
   template,
 
-  /// Plain text.
   text,
   number,
   toggle,
@@ -12,29 +10,26 @@ enum OptionKind {
   /// One of [ComponentOption.choices].
   choice,
 
-  /// A colour, saved as `#RRGGBBAA`.
+  /// `#RRGGBBAA`.
   colour,
 
-  /// The name of one of the pictures a button can have.
+  /// A built-in icon name.
   icon,
 
-  /// What a box is filled with: one colour as `#RRGGBBAA`, or a gradient
-  /// as its `colors`, their `stops` and its `angle`.
+  /// A colour, or a gradient (`colors`, `stops`, `angle`).
   fill,
 
-  /// How round a box's corners are: one number for all four, or four.
+  /// One radius or four.
   corners,
 
-  /// Anything, typed as text: kept as a number or as true or false where
-  /// it reads as one ([typedValue]).
+  /// Free text parsed by [typedValue].
   value,
 
-  /// Several things with the same settings, [ComponentOption.fields], one
-  /// after another: added to, taken from, each set like any other.
+  /// A repeating group of [ComponentOption.fields].
   list,
 }
 
-/// What [text] says: nothing, a number, true or false, or the text it is.
+/// Parses [text] as null, a number, a bool, or leaves it as text.
 Object? typedValue(String text) => switch (text.trim()) {
   '' => null,
   'true' => true,
@@ -42,9 +37,8 @@ Object? typedValue(String text) => switch (text.trim()) {
   final said => num.tryParse(said) ?? said,
 };
 
-/// One setting of a component: where it is kept in the item's options, what
-/// it is called, and what it may be. The editor draws its form from these,
-/// knowing nothing of the component.
+/// One setting, described as data: its key, label and type. Editor forms are
+/// generated from these.
 class ComponentOption {
   const ComponentOption(
     this.key,
@@ -66,33 +60,28 @@ class ComponentOption {
   final String key, label;
   final OptionKind kind;
 
-  /// What it is while nothing is saved for it; setting it back to this
-  /// saves nothing.
+  /// The default; not saved.
   final Object? usual;
 
-  /// For a choice: what is saved, with what each is called.
+  /// Choice values with their labels.
   final Map<String, String> choices;
 
-  /// For a number; for a list, [max] is the most there can be in it.
+  /// For numbers; for a list, [max] is the most entries.
   final int min, max, step;
 
-  /// For a number that may be left unset, one step below [min], and a
-  /// choice that may be left unmade: what that is called.
+  /// Label for "unset", for a number or choice that allows it.
   final String? unset;
 
-  /// Says, from the options as they are, whether this one means anything
-  /// now; it is offered only when it does.
+  /// Whether the option applies, given the current values.
   final bool Function(Map<String, Object?> options)? when;
 
-  /// For a list: the settings of one of the things in it, which may go by
-  /// what that one is set to. [label] is what adding one is called.
+  /// For a list: the fields of one entry. [label] is the add button's text.
   final List<ComponentOption> Function(Map<String, Object?> one)? fields;
 
-  /// For a list: what a new one starts as.
+  /// For a list: a new entry's values.
   final Map<String, Object?> blank;
 
-  /// For a list: which of a thing's values it is headed by, where it is
-  /// headed by one; and, where a new one is asked its heading first, what
-  /// that question is called.
+  /// For a list: the field shown as each entry's heading, and the prompt for
+  /// it when adding.
   final String? heading, asks;
 }

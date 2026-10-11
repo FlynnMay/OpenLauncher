@@ -20,9 +20,8 @@ import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/sidebar.dart';
 
-/// The TV's screen with, while [editing], everything on it something to
-/// pick up and move rather than to open, and the screen itself somewhere to
-/// drop things. Otherwise it is simply the launcher, to be used.
+/// The TV's screen. While [editing], components are selectable and draggable
+/// and the screen is a drop target; otherwise it is the plain launcher.
 class Stage extends ConsumerStatefulWidget {
   const Stage({super.key, required this.editing});
 
@@ -35,13 +34,13 @@ class Stage extends ConsumerStatefulWidget {
 class _StageState extends ConsumerState<Stage> {
   final _screen = GlobalKey();
 
-  /// Where each pane's cells, and each pane inside another, are drawn.
+  /// Keys for each pane's grid and each nested pane's box.
   final _grids = <String, GlobalKey>{}, _boxes = <String, GlobalKey>{};
 
-  /// Where what is being dragged would land, on the screen.
+  /// Where the dragged thing would land.
   Rect? _marker;
 
-  /// The sidebar something is being dragged over, if any.
+  /// The sidebar being dragged over.
   String? _over;
 
   static RenderBox? _box(GlobalKey? key) =>
@@ -60,8 +59,7 @@ class _StageState extends ConsumerState<Stage> {
   Widget _editTile(Component item, Widget tile) {
     Dragged dragged(String label, Widget picture) =>
         Dragged(item: item, placed: true, label: label, picture: picture);
-    // The tile's own taps and holds are the remote's; absorbed, not
-    // ignored, so that a tap or a drag starts where the tile is touched.
+    // Absorbs the tile's own gestures so a tap or drag starts on it.
     final still = _Selectable(
       id: item.id,
       child: AbsorbPointer(child: tile),
@@ -74,8 +72,7 @@ class _StageState extends ConsumerState<Stage> {
             item.title.isEmpty ? 'Pane' : item.title,
             const SymbolArt(Icons.dashboard_outlined),
           ),
-          // Outlined, so that a pane with no background can be seen and
-          // picked up or picked out by any part of it.
+          // Outlined so a pane with no background can be seen and grabbed.
           child: _Selectable(
             id: item.id,
             shape: PaneBox.shapeOf(item),
@@ -94,8 +91,6 @@ class _StageState extends ConsumerState<Stage> {
         child: still,
       );
     }
-    // An instance goes by what it was handed: an entity, a folder, or
-    // nothing.
     final source = item.handed.firstOrNull ?? '';
     final entity = ref.read(entitiesProvider).value?.byId(source);
     return DragHandle(
@@ -109,8 +104,8 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
-  /// Where [dragged] would go if let go of at [pointer], and where on the
-  /// screen that is; null over nothing that would take it.
+  /// The drop for [dragged] at [pointer] and its marker rect; null where
+  /// nothing accepts it.
   ({Drop? drop, String? bar, Rect marker})? _target(
     Offset pointer,
     Dragged dragged,
@@ -118,7 +113,7 @@ class _StageState extends ConsumerState<Stage> {
     final layout = ref.read(configProvider).value?.layout;
     if (layout == null) return null;
     if (dragged.sidebar) {
-      // A sidebar goes nowhere but to an edge of the screen with none.
+      // A sidebar only goes to a free edge.
       final screen = _box(_screen);
       if (screen == null) return null;
       final at = screen.globalToLocal(pointer);
@@ -133,8 +128,8 @@ class _StageState extends ConsumerState<Stage> {
       return (drop: null, bar: edge, marker: barRect(layout, edge));
     }
     final item = dragged.item;
-    // An open popup is all there is to drop on; otherwise a sidebar, over
-    // as much of it as shows, and failing that the home screen.
+    // An open popup is the only target; else a visible sidebar; else the home
+    // screen.
     var pane = layout.home.root;
     String? bar;
     for (final panel in layout.panels) {
@@ -154,9 +149,9 @@ class _StageState extends ConsumerState<Stage> {
         bar = panel.id;
       }
     }
-    // A sidebar something is held over opens, to show where it would go.
+    // A sidebar dragged over opens.
     if (bar != _over) setState(() => _over = bar);
-    // The innermost pane under the pointer, other than the one dragged.
+    // The innermost pane under the pointer, excluding the dragged one.
     for (Component? inner = pane; inner != null;) {
       pane = inner;
       inner = null;
@@ -182,8 +177,8 @@ class _StageState extends ConsumerState<Stage> {
       stepIn(pane, snap: ref.read(snapProvider)),
     );
 
-    // Where that puts it is asked of the layout itself, so the marker and
-    // the result cannot disagree.
+    // The marker is computed from the resulting layout so it cannot disagree
+    // with it.
     final after = findPane(
       dropItem(layout, item, drop, panel: dragged.panel),
       pane.id,
@@ -196,9 +191,8 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
-  /// The one thing picked out, if it is somewhere its cells can be found:
-  /// where it is on the screen, and what is needed to work out a new size
-  /// for it from how far a handle is dragged.
+  /// The single selected component, if its cells can be found: its rect and
+  /// what resizing needs.
   ({Found found, Placement placed, PaneMetrics metrics, Rect rect})? _picked() {
     final layout = ref.read(configProvider).value?.layout;
     final ids = ref.read(selectionProvider);
@@ -220,12 +214,10 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
-  /// What the layout would be with the handle let go where it is, shown
-  /// by the marker until it is.
+  /// The layout as it would be on release, shown by the marker.
   Layout? _resized;
 
-  /// Works out, in whole cells, the size and place the picked-out thing
-  /// has with [handle] dragged [moved] from where it was taken hold of.
+  /// The new size and position for [handle] dragged by [moved].
   void _resize(ResizeHandle handle, Offset moved) {
     final picked = _picked();
     final layout = ref.read(configProvider).value?.layout;
@@ -253,8 +245,7 @@ class _StageState extends ConsumerState<Stage> {
     if (grid == null || screen == null) return;
     setState(() {
       _resized = next;
-      // Asked of the layout, as a drop is, so that what is shown is what
-      // letting go gives.
+      // Computed from the resulting layout, as for a drop.
       _marker = MatrixUtils.transformRect(
         grid.getTransformTo(screen),
         metrics.rectOf(placementIn(after.parent, after.item.id)),
@@ -278,8 +269,7 @@ class _StageState extends ConsumerState<Stage> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.editing;
-    // The frames are always there, so that going in and out of editing
-    // leaves the launcher as it was: the same screen, the same popup open.
+    // The frames stay mounted so toggling editing keeps the launcher's state.
     final screen = PaneFrame(
       wrap: _grid,
       child: TileFrame(
@@ -305,7 +295,7 @@ class _StageState extends ConsumerState<Stage> {
           builder: (context, held, _) => Stack(
             key: _screen,
             children: [
-              // A tap on nothing lets go of what was picked out.
+              // Tapping empty space clears the selection.
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: editing
@@ -329,7 +319,7 @@ class _StageState extends ConsumerState<Stage> {
                       children: [
                         if (picked != null)
                           ResizeHandles(
-                            // While one is held, around where it would be.
+                            // While resizing, around the new rect.
                             rect: _resized == null
                                 ? picked.rect
                                 : _marker ?? picked.rect,
@@ -351,8 +341,7 @@ class _StageState extends ConsumerState<Stage> {
                     ),
                   ),
                 ),
-              // While a sidebar is held over the screen, the edges that
-              // would take it.
+              // While a sidebar is dragged, the edges that would take it.
               if (ref.read(configProvider).value?.layout case final layout?
                   when held.any((dragged) => dragged?.sidebar ?? false))
                 for (final id in freeEdges(layout))
@@ -384,10 +373,10 @@ class _StageState extends ConsumerState<Stage> {
       ),
     );
     return SidebarHold(
-      // Open while it is being arranged, has something picked out in it,
-      // or has something held over it.
+      // Open while edited, while something in it is selected or dragged over
+      // it.
       ids: {
-        // Let go of altogether while it is shown opening.
+        // Released while previewing its opening.
         if (editing && !ref.watch(barReplayProvider)) ...{
           ?ref.watch(barProvider),
           ?_over,
@@ -400,9 +389,8 @@ class _StageState extends ConsumerState<Stage> {
   }
 }
 
-/// Something on the screen that a tap picks out for editing: alone, or
-/// together with what already is when Ctrl or Shift is held or several are
-/// being picked. What is picked out is outlined.
+/// A tap selects it; with Ctrl/Shift or multi-select it toggles. Selected
+/// things are outlined.
 class _Selectable extends ConsumerWidget {
   const _Selectable({
     required this.id,
@@ -415,7 +403,7 @@ class _Selectable extends ConsumerWidget {
   final Widget child;
   final BorderRadius shape;
 
-  /// The outline it has while not picked out, if any.
+  /// Outline when not selected.
   final Color? resting;
 
   @override

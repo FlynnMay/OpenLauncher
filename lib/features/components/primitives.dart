@@ -13,10 +13,8 @@ import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 
-// The three a component of the user's own is put together from. Each shows
-// what its options say; an option that is text is a template, so
-// `{{weather.temperature}}` in it is the temperature. How each looks is
-// its `style`, over what the things around it hand down.
+// The primitive components. Text options are templates; style is merged over
+// what is inherited.
 
 Color _colour(Object? css, [Color otherwise = Colors.white]) =>
     switch (BoxStyle.parseColor(css)) {
@@ -24,16 +22,12 @@ Color _colour(Object? css, [Color otherwise = Colors.white]) =>
       final argb => Color(argb),
     };
 
-/// The variables in reach of the components below, by name: those of every
-/// component around them that lets what is inside it read them. Looked in
-/// before what is read by its id.
+/// The variables in scope for the widgets below, by name. Checked before ids.
 class TemplateScope extends InheritedWidget {
   const TemplateScope({super.key, required this.values, required super.child});
 
-  /// By root name.
   final Map<String, Object?> values;
 
-  /// The variables in reach of [context]: none where nothing set any.
   static Map<String, Object?> of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<TemplateScope>()?.values ??
       const {};
@@ -43,8 +37,7 @@ class TemplateScope extends InheritedWidget {
       !mapEquals(values, oldWidget.values);
 }
 
-/// Says whether the tile the components below are part of has the focus, for
-/// those that show it.
+/// Whether the tile the widgets below belong to has the focus.
 class TileFocus extends InheritedWidget {
   const TileFocus({super.key, required this.focused, required super.child});
 
@@ -57,8 +50,7 @@ class TileFocus extends InheritedWidget {
   bool updateShouldNotify(TileFocus oldWidget) => focused != oldWidget.focused;
 }
 
-/// The look of a component set up by [options], as it stands now: what it was
-/// handed down, and its own over that.
+/// The component's style over the inherited one, evaluated.
 Style _style(
   BuildContext context,
   WidgetRef ref,
@@ -68,7 +60,7 @@ Style _style(
   ...styleFromJson(options['style']),
 }, TemplateScope.of(context));
 
-/// A template as it reads now; nothing for no template.
+/// Evaluates [template] to text.
 String _read(BuildContext context, WidgetRef ref, Object? template) {
   if (template is! String) return template == null ? '' : '$template';
   return valueText(
@@ -90,8 +82,7 @@ class TextComponent extends ConsumerWidget {
 
   final Map<String, Object?> options;
 
-  /// True to take only the room one line needs, where it is one part of
-  /// something laid out around it; otherwise it fills its box.
+  /// Take one line's natural size instead of filling the box.
   final bool shrink;
 
   @override
@@ -105,7 +96,7 @@ class TextComponent extends ConsumerWidget {
       _ => (TextAlign.center, Alignment.center),
     };
     final style = TextStyle(
-      // In a tile that shows the focus, plain text shows it too.
+      // Dimmed when its tile is unfocused.
       color: _colour(
         look['color'],
         TileFocus.of(context) == false ? Colors.white60 : Colors.white,
@@ -132,7 +123,7 @@ class TextComponent extends ConsumerWidget {
     }
     if (text.isEmpty) return const SizedBox.expand();
     if (size == null) {
-      // Made to fit, so never too long.
+      // Scaled to fit, so never too long.
       return SizedBox.expand(
         child: FittedBox(
           alignment: alignment,
@@ -156,7 +147,7 @@ class TextComponent extends ConsumerWidget {
               text,
               style: style,
               textAlign: align,
-              // As many lines as there is room for, and no part of one.
+              // As many whole lines as fit.
               maxLines: (box.maxHeight / (style.fontSize! * style.height!))
                   .floor()
                   .clamp(1, 100),
@@ -281,7 +272,7 @@ class PictureComponent extends ConsumerWidget {
     final fit = _read(context, ref, options['fit']) == 'contain'
         ? BoxFit.contain
         : BoxFit.cover;
-    // With no picture: what it is called, or the mark of an empty one.
+    // No picture: the alt text, or a placeholder.
     final none = Center(
       child: alt.isEmpty
           ? const Icon(Icons.image_outlined, color: Colors.white24)
@@ -301,7 +292,7 @@ class PictureComponent extends ConsumerWidget {
       borderRadius: styleShape(look, 6),
       child: Padding(
         padding: EdgeInsets.all(pad),
-        // Line art comes as the drawing itself, not as where it is kept.
+        // SVG markup rather than a path.
         child: source.startsWith('<')
             ? SvgPicture.string(source, fit: BoxFit.contain)
             : Image(

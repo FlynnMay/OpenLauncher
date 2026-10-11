@@ -5,7 +5,7 @@ import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/panel.dart';
 
-/// Everything about where things are on screen.
+/// The saved layout.
 @immutable
 class Layout {
   const Layout({
@@ -20,18 +20,14 @@ class Layout {
   static const topId = 'top';
   static const bottomId = 'bottom';
 
-  /// The popup a held entity opens: the quick actions, a button for each.
+  /// The quick-actions popup.
   static const menuId = 'quick-actions';
 
-  /// The ids of the sidebars there can be, one for each edge.
   static const barIds = [leftId, rightId, topId, bottomId];
 
   static const _firstPane = 'main';
 
-  /// The home screen with one pane showing [order] first and then every
-  /// other entity. The pane is placed to leave the screen's margins and
-  /// the room at the top, and reaches the bottom: new apps turn up in it,
-  /// and it scrolls when they do not fit.
+  /// A home screen with one full-height pane holding [order].
   factory Layout.initial([List<String> order = const []]) => Layout(
     inbox: _firstPane,
     panels: [
@@ -61,12 +57,10 @@ class Layout {
 
   final List<Panel> panels;
 
-  /// The pane that shows entities not placed anywhere, such as newly installed
-  /// apps.
+  /// The pane that receives unplaced entities, e.g. new apps.
   final String inbox;
 
-  /// Entities the user took off the screen altogether. They are not put back
-  /// in the [inbox]; placing one anywhere takes it off this list.
+  /// Entities the user removed; they are not put back in the [inbox].
   final Set<String> removed;
 
   Panel get home => panel(homeId)!;
@@ -78,23 +72,17 @@ class Layout {
     return null;
   }
 
-  /// The sidebars there are, whether or not anything is in them.
   Iterable<Panel> get bars => [for (final id in barIds) ?panel(id)];
 
-  /// The id of the folder [item] was handed, where it is an instance of a
-  /// prefab handed one: what opens a folder.
+  /// The folder [item] opens, if it is an instance handed one.
   String? folderOf(Component item) => !item.isInstance
       ? null
       : item.handed
             .where((id) => panel(id)?.kind == PanelKind.popup)
             .firstOrNull;
 
-  /// Throws a [FormatException] if [json] is not shaped like a layout. The
-  /// result still needs [normalised].
-  ///
-  /// A layout saved by an older version is brought up to date first, by
-  /// the steps in `core/config/migrations`; only what is written now is
-  /// read here.
+  /// Throws [FormatException] on malformed JSON. Older versions are migrated
+  /// first. The result still needs [normalised].
   factory Layout.fromJson(Map<Object?, Object?> saved) {
     final json = migrateLayout(saved);
     return Layout(
@@ -113,8 +101,7 @@ class Layout {
     'panels': [for (final panel in panels) panel.toJson()],
   };
 
-  /// A copy in which the items of every pane on every panel have been
-  /// replaced by what [change] returns for them.
+  /// Rebuilds every pane's children with [change].
   Layout rebuild(
     List<Component> Function(Component pane, List<Component> items) change, {
     Set<String>? removed,
@@ -126,8 +113,7 @@ class Layout {
     ],
   );
 
-  /// A copy with every entity in [entityIds] taken off all panels and noted as
-  /// [removed].
+  /// Removes [entityIds] from every panel and marks them [removed].
   Layout without(Set<String> entityIds) => rebuild(
     (_, items) => [
       for (final item in items)

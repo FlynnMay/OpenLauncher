@@ -1,11 +1,11 @@
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 
-/// [act] as it is said now that every action is some entity's.
+/// [act] rewritten so an entity owns it.
 List<Object?> _owned(Object? act) {
   if (act is! Json) return [act];
   final entity = act['entity'];
   return switch (act['do']) {
-    // The quick actions are opened as any folder is: by their variables.
+    // `menu` becomes two `set`s on the quick-actions pane.
     'menu' => [
       {
         'do': 'set',
@@ -15,12 +15,9 @@ List<Object?> _owned(Object? act) {
       },
       {'do': 'set', 'of': 'quick-actions', 'var': 'open', 'value': true},
     ],
-    // The launcher's settings are opened by the entity that stands for
-    // them.
     'settings' => [
       {'do': 'open', 'entity': 'launcher:settings'},
     ],
-    // Taking something off is the layout's to do, told what.
     'remove' => [
       {'do': 'remove', 'what': entity ?? '{{source.id}}'},
     ],
@@ -41,10 +38,8 @@ void _walk(Object? json) {
   }
 }
 
-/// No action belongs to nothing: opening the quick actions and the
-/// launcher's settings are said with actions entities present, and what
-/// is removed is named to the layout. The quick actions say what they are
-/// about in a variable of theirs, for what is in them to read.
+/// Rewrites the removed `menu` and `settings` actions, gives `remove` its
+/// target, and declares `source` on the quick-actions pane.
 void actionsOwned(Json save, Device device) {
   _walk(save['layout']);
   _walk(save['prefabs']);

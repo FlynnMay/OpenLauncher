@@ -1,5 +1,4 @@
-/// The values text on the screen can be made of, and how they are written
-/// into it.
+/// Templates and the values they read.
 library;
 
 export 'built_in_values.dart';

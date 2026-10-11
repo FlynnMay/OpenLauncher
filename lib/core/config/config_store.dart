@@ -9,7 +9,6 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-/// Where [LauncherConfig] is persisted.
 abstract class ConfigStore {
   Future<LauncherConfig> load();
   Future<void> save(LauncherConfig config);
@@ -17,7 +16,7 @@ abstract class ConfigStore {
 
 final configStoreProvider = Provider<ConfigStore>(
   (ref) => FileConfigStore(
-    // The inputs are all that is not named by its own id.
+    // Only inputs need device names; other ids describe themselves.
     device: () async => Device(
       names: {
         for (final input in await ref.read(tvInputsProvider.future))
@@ -27,12 +26,11 @@ final configStoreProvider = Provider<ConfigStore>(
   ),
 );
 
-/// Stores the config as `config.json` in the app's support directory.
+/// `config.json` in the app's support directory.
 class FileConfigStore implements ConfigStore {
   FileConfigStore({this.device});
 
-  /// Asks the device what it knows, for a config from an older version
-  /// that is brought up to date the better for it. Not waited for long.
+  /// Device info for migrations that use it. Waited on for at most 5 s.
   final Future<Device> Function()? device;
 
   Future<Device> _device() async {
@@ -59,7 +57,7 @@ class FileConfigStore implements ConfigStore {
           jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       final version = versionOf(json);
       if (version < oldestVersion) {
-        // Too old to bring up to date: kept beside, and a fresh start.
+        // Too old to migrate: keep a copy and start fresh.
         await file.copy(p.join(file.parent.path, 'config.v$version.json'));
         return LauncherConfig();
       }
@@ -68,15 +66,13 @@ class FileConfigStore implements ConfigStore {
         device: needsDevice(json) ? await _device() : Device.unknown,
       );
       if (version < saveVersion) {
-        // Written back at once, so that it is brought up to date the one
-        // time; what it was is kept beside it.
+        // Save the migrated config at once, keeping the old file.
         await file.copy(p.join(file.parent.path, 'config.v$version.json'));
         await save(config);
       }
       return config;
     } on Object catch (e) {
-      // An unreadable file must not brick the home screen; keep it for
-      // inspection and start from defaults.
+      // Never fail on a bad file: keep it for inspection and use defaults.
       debugPrint('config.json unreadable, using defaults: $e');
       await file.copy('${file.path}.corrupt');
       return LauncherConfig();

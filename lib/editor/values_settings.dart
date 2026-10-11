@@ -7,9 +7,8 @@ import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/place_search.dart';
 
-/// The values text on the screen can be made of: those the launcher has of
-/// its own, with how each reads now, the place two of them go by, and
-/// those the user defined, which are added, changed and taken away here.
+/// Built-in values with their current reading, the TV's place, and the user's
+/// own values.
 class ValuesSettings extends ConsumerWidget {
   const ValuesSettings({
     super.key,
@@ -24,7 +23,7 @@ class ValuesSettings extends ConsumerWidget {
   final void Function(List<DataSource> sources) onSources;
   final void Function(Place? place) onPlace;
 
-  /// How many single things of a value are listed under it.
+  /// Most fields listed per value.
   static const _mostParts = 12;
 
   @override
@@ -81,7 +80,7 @@ class ValuesSettings extends ConsumerWidget {
       ListField(
         option: DataSource.options,
         records: [for (final source in sources) source.toJson()],
-        // A new one goes by an id made of its name.
+        // A new one's id is derived from its name.
         onChanged: (told) => onSources(
           DataSource.listFromJson([
             for (final one in told)

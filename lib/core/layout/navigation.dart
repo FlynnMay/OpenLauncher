@@ -3,11 +3,9 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
-/// A way the remote's D-pad can be pressed.
 enum NavDirection { left, right, up, down }
 
-/// Something the focus can be on: where it is on screen, and the panes it is
-/// in, outermost first. Anything that is not in a pane has no [panes].
+/// A focusable thing: its rect and the panes it is in, outermost first.
 @immutable
 class NavSpot<T> {
   const NavSpot(this.id, this.rect, [this.panes = const []]);
@@ -17,9 +15,7 @@ class NavSpot<T> {
   final List<String> panes;
 }
 
-/// How the pane of a spot stands to the pane the focus is in. The order is
-/// the order of preference when moving: things in the same pane first, then
-/// in a pane inside it, then in a pane around it, then anywhere else.
+/// How a spot's pane relates to the focused one, in order of preference.
 enum NavKinship { same, child, parent, other }
 
 NavKinship navKinship(List<String> from, List<String> to) {
@@ -93,8 +89,8 @@ NavSpot<T>? navigate<T>(
     if (!ahead) continue;
     final kinship = navKinship(from.panes, spot.panes);
     final inLine = apart < 0;
-    // The distance to travel, plus a heavy charge for being off to the side
-    // and a light one for not being level.
+    // Distance, with a heavy penalty for being off to the side and a light
+    // one for not being level.
     final score = max(0.0, gap) + 3 * max(0.0, apart) + 0.25 * askew;
     final same = kinship == NavKinship.same;
     final better = best == null

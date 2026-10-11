@@ -22,10 +22,8 @@ import 'package:openlauncher/editor/variables_settings.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
-/// The settings of what is picked out on the screen. With several things
-/// picked out, only what every one of them has is offered, and a change is
-/// made to them all; what belongs to one thing alone, such as an entity's name
-/// and picture, is offered for one thing alone.
+/// Settings of the selection. With several selected, only shared settings
+/// show and changes apply to all.
 class SelectedProperties extends ConsumerWidget {
   const SelectedProperties({super.key, required this.found});
 
@@ -42,7 +40,6 @@ class SelectedProperties extends ConsumerWidget {
     void each(Component Function(Component item) how) =>
         change((layout) => changeItems(layout, ids, (item, _) => how(item)));
 
-    // What every one of the selected things is decides what is offered.
     final allPanes = items.every((item) => item.isPane);
     final folders = ref.watch(selectedPanelsProvider);
     final allFolders =
@@ -66,8 +63,7 @@ class SelectedProperties extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // What it is called and its picture are an app's or an input's to
-        // have changed; the clock has neither.
+        // Name and picture apply to auto-placed entities (apps, inputs) only.
         if (single != null &&
             single.isInstance &&
             (entityRegistry(
@@ -115,7 +111,7 @@ class SelectedProperties extends ConsumerWidget {
         if (single != null && !single.isPane)
           TriggerSettings(
             set: single.on,
-            // An entity's are its prefab's.
+            // The prefab's triggers are the defaults.
             usual: {...?ref.watch(prefabsProvider)[single.prefab]?.on},
             entities: {
               for (final entity
@@ -124,7 +120,6 @@ class SelectedProperties extends ConsumerWidget {
             },
             onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
-        // What the panes they are in make of how big each is and where.
         Section(
           'Transform',
           ruleFields(
@@ -143,7 +138,7 @@ class SelectedProperties extends ConsumerWidget {
             ),
           ),
         ),
-        // Only what every one of them takes.
+        // Only style keys common to all.
         StyleSettings(
           keys: items
               .map((item) => item.styleKeys.toSet())
@@ -175,7 +170,6 @@ class SelectedProperties extends ConsumerWidget {
           ),
         if (allFolders)
           Section('Folder', [
-            // Its rules as a pane that is shown and hidden.
             ...ruleFields(
               options: panelRules(folders.values.first.kind),
               json: folders.values.first.rules,
@@ -226,7 +220,7 @@ class SelectedProperties extends ConsumerWidget {
   }
 }
 
-/// What an entity is called and what it looks like, wherever it is placed.
+/// An entity's name and picture.
 class _EntityDetails extends ConsumerStatefulWidget {
   const _EntityDetails({required this.entityId});
 
@@ -250,7 +244,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
       CommitField(
         label: 'Name',
         value: entity.label,
-        // Emptied, it goes back to the name the TV has for it.
+        // Empty restores the device's name.
         onChanged: (name) =>
             whileBusy(() => api.rename(entity.id, name.isEmpty ? null : name)),
       ),
@@ -283,8 +277,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
                     title: "Use another one's picture",
                     entities: [
                       for (final other in entities)
-                        // Those with a picture to lend: what is put on
-                        // the screen as one.
+                        // Only entities that have pictures.
                         if (other.id != entity.id &&
                             (entityRegistry(other.category)?.placed ?? false))
                           other,
@@ -308,7 +301,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
   }
 }
 
-/// What a folder is called and the picture on the entity that opens it.
+/// A folder's name and picture.
 class _FolderDetails extends ConsumerWidget {
   const _FolderDetails({required this.panel, required this.onRenamed});
 

@@ -9,9 +9,8 @@ import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tree_view.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 
-/// What [item] is called: an instance by the name of the entity it was
-/// handed, or of the folder it opens; a pane by its title; a button by
-/// what it says, where that is plain to read.
+/// A component's display name: its entity's or folder's for an instance, its
+/// title for a pane, its label for a button.
 String objectName(Component item, Layout? layout, List<Entity> entities) {
   if (item.isInstance) {
     final handed = item.handed.firstOrNull;
@@ -35,14 +34,12 @@ IconData objectIcon(Component item) => item.isInstance
     ? Icons.dashboard_outlined
     : Icons.widgets_outlined;
 
-/// Everything on the TV as a tree: the home screen, each sidebar and each
-/// folder, and under them the panes, entities and components as they are nested.
-/// A press picks a thing out, as a press on it on the screen does; a press
-/// on a sidebar or a folder brings it up on the screen.
+/// The layout as a tree. Clicking a component selects it; clicking a sidebar
+/// or folder opens it on the screen.
 class ObjectTree extends ConsumerWidget {
   const ObjectTree({super.key});
 
-  /// In front of a panel's id, to tell it from the id of an item.
+  /// Prefix that tells a panel id from a component id.
   static const _panel = 'panel:';
 
   static Widget _icon(IconData icon) => Icon(icon, size: 16);
@@ -102,8 +99,7 @@ class ObjectTree extends ConsumerWidget {
                       : Icons.folder_open_outlined,
                 ),
           ],
-          // With nothing picked out, what the settings beside the screen
-          // are those of.
+          // With no selection, highlight the panel whose settings show.
           picked: selection.isEmpty
               ? {'$_panel${bar ?? Layout.homeId}'}
               : selection,

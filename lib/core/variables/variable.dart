@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 
-/// Who may read a variable: only the component it is on, that component
-/// and what is inside it, or anything at all.
+/// Who can read a variable.
 enum VarAccess {
   private('Only itself'),
   protected('Itself and what is inside it'),
@@ -13,7 +12,7 @@ enum VarAccess {
   final String label;
 }
 
-/// How a conditional variable tells whether a case is the one.
+/// The comparison a conditional case makes.
 enum VarTest {
   equals('is'),
   not('is not'),
@@ -26,8 +25,8 @@ enum VarTest {
   final String label;
 }
 
-/// One case of a conditional variable: what it is ([then]) when what is
-/// looked at stands so ([test]) to [value].
+/// One case: the result is [then] when the input passes [test] against
+/// [value].
 @immutable
 class VarCase {
   const VarCase(this.test, this.value, this.then);
@@ -65,7 +64,7 @@ class VarCase {
   }
 }
 
-/// What sort of value a variable holds. One of no sort holds anything.
+/// The type of a variable's value.
 enum VarType {
   any('Anything'),
   text('Text'),
@@ -73,9 +72,8 @@ enum VarType {
   bool('Yes or no'),
   colour('A colour'),
 
-  /// The id of an entity, or of a component that is one: the variable
-  /// then stands for it, and `{{name.label}}` reads it. This is how
-  /// something is handed to what is inside a component.
+  /// An entity or component id. The variable stands for it, so
+  /// `{{name.label}}` works; this is how an entity is passed to children.
   entity('An entity');
 
   const VarType(this.label);
@@ -83,13 +81,10 @@ enum VarType {
   final String label;
 }
 
-/// A named value on a component, of some [type]: text, a number, a
-/// colour, an entity, or a template that reads other values. Having one makes the component an
-/// entity itself, read by its id by whoever the variable lets.
+/// A named value on a component.
 ///
-/// One with a [when] is conditional: [when] is looked at, and it is the
-/// `then` of the first of its [cases] that holds, or [otherwise] if none
-/// does. Any variable may be set up so.
+/// With a [when] it is conditional: [when] is evaluated and the result is the
+/// `then` of the first matching case, else [otherwise].
 @immutable
 class Variable {
   const Variable(
@@ -101,14 +96,13 @@ class Variable {
     this.otherwise,
   });
 
-  /// What it is, for one that is not conditional.
+  /// The value, when not conditional.
   final Object? value;
   final VarType type;
   final VarAccess access;
 
-  /// This variable as one set over [under], the one of its name in the
-  /// prefab it is an instance of: what sort it is and who may read it are
-  /// the prefab's to say, where this says neither.
+  /// This variable with the type and access of [under], its prefab's
+  /// declaration, when it sets neither.
   Variable over(Variable? under) =>
       under == null || type != VarType.any || access != VarAccess.protected
       ? this
@@ -121,7 +115,7 @@ class Variable {
           otherwise: otherwise,
         );
 
-  /// What a conditional one looks at: a template.
+  /// The template a conditional evaluates.
   final String? when;
   final List<VarCase> cases;
   final Object? otherwise;
@@ -164,7 +158,7 @@ class Variable {
           if (access != VarAccess.protected) 'access': access.name,
         };
 
-  /// What it is now, where [read] says what a template comes to.
+  /// Its current value; [read] evaluates a template.
   Object? result(Object? Function(String template) read) {
     Object? told(Object? raw) =>
         raw is String && raw.contains('{{') ? read(raw) : raw;
@@ -179,14 +173,12 @@ class Variable {
   }
 }
 
-/// The variables of a component, by name.
 typedef Variables = Map<String, Variable>;
 
 bool _conditional(Map<String, Object?> one) => one['conditional'] == true;
 bool _colour(Map<String, Object?> one) => one['type'] == VarType.colour.name;
 
-/// What there is to set about the variables of a component: the editor's
-/// form for them is made from this, over [variablesToForm].
+/// The editor's form is generated from this, over [variablesToForm].
 final variableOptions = ComponentOption(
   'vars',
   'Add a variable',
@@ -260,7 +252,7 @@ final variableOptions = ComponentOption(
   ],
 );
 
-/// [variables] as that form has them: one of each, with its name.
+/// [variables] as rows for that form.
 List<Map<String, Object?>> variablesToForm(Variables variables) => [
   for (final MapEntry(key: name, value: variable) in variables.entries)
     {
@@ -280,9 +272,8 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
     },
 ];
 
-/// The variables that form says there are. A name keeps only what a
-/// template can write, and one with none, or the name of another, is left
-/// out.
+/// Variables from form rows. Names are reduced to `[A-Za-z0-9_]`; empty and
+/// duplicate names are skipped.
 Variables variablesFromForm(List<Map<String, Object?>> form) {
   final variables = <String, Variable>{};
   for (final one in form) {
@@ -311,7 +302,7 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
   return variables;
 }
 
-/// Never throws: what is not a set of variables is none.
+/// Never throws.
 Variables variablesFromJson(Object? json) => {
   if (json is Map)
     for (final MapEntry(:key, :value) in json.entries)

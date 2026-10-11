@@ -7,8 +7,8 @@ import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/selection.dart';
 
-/// Changes the layout through the launcher's own config controller, which
-/// shows the change at once and, in the browser, sends it to the TV.
+/// Changes the layout through the config controller, which updates the screen
+/// and sends it to the TV.
 Future<void> changeLayout(
   BuildContext context,
   WidgetRef ref,
@@ -21,13 +21,13 @@ Future<void> changeLayout(
     await ref.read(configProvider.notifier).setLayout(change(layout));
   } on Object catch (error) {
     messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
-    // Back to what the TV has.
+    // Reload from the TV.
     ref.invalidate(configProvider);
   }
 }
 
-/// Puts what was dragged where it was dropped, or says why it cannot go
-/// there. A new folder is given its name first.
+/// Places what was dragged, or reports why it cannot go there. A new folder
+/// is named first.
 Future<void> placeDragged(
   BuildContext context,
   WidgetRef ref,
@@ -45,7 +45,7 @@ Future<void> placeDragged(
     final name = await askName(context, panel.title);
     if (name == null || !context.mounted) return;
     panel = Panel.empty(layout.panelIdFor(name), title: name);
-    // Handed the folder it opens, by the id that goes with its name.
+    // Point the card at the folder's final id.
     item = item.copyWith(
       id: layout.itemIdFor(name),
       vars: {
@@ -61,8 +61,7 @@ Future<void> placeDragged(
   );
 }
 
-/// Puts a sidebar on the edge [id] names, if there is none, and brings it
-/// up to be arranged.
+/// Adds a sidebar on edge [id] if missing and opens it for editing.
 Future<void> addBar(BuildContext context, WidgetRef ref, String id) async {
   await changeLayout(context, ref, (layout) => withBar(layout, id));
   if (!context.mounted) return;
@@ -70,7 +69,7 @@ Future<void> addBar(BuildContext context, WidgetRef ref, String id) async {
   ref.read(barProvider.notifier).set(id);
 }
 
-/// Puts a sidebar on the first edge that has none, or says there is none.
+/// Adds a sidebar on the first free edge.
 Future<void> addBarSomewhere(BuildContext context, WidgetRef ref) async {
   final layout = ref.read(configProvider).value?.layout;
   if (layout == null) return;
@@ -83,7 +82,6 @@ Future<void> addBarSomewhere(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// Takes what was dragged off the TV.
 Future<void> removeDragged(
   BuildContext context,
   WidgetRef ref,
@@ -91,7 +89,6 @@ Future<void> removeDragged(
 ) =>
     changeLayout(context, ref, (layout) => removeItem(layout, dragged.item.id));
 
-/// Takes everything that is picked out off the TV.
 Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
   final ids = ref.read(selectionProvider);
   if (ids.isEmpty) return;
@@ -99,7 +96,7 @@ Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
   await changeLayout(context, ref, (layout) => ids.fold(layout, removeItem));
 }
 
-/// Asks for the name of something new; null when the user thinks again.
+/// Asks for a name; null if cancelled.
 Future<String?> askName(
   BuildContext context,
   String suggested, {

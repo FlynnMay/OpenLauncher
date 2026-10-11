@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// Something being dragged: an item that is already on the TV, or one from
-/// the catalogue that will be once it is dropped.
+/// Something being dragged: a placed component or a new one from the
+/// catalogue.
 class Dragged {
   const Dragged({
     required this.item,
@@ -13,8 +13,7 @@ class Dragged {
     this.placed = false,
   }) : sidebar = false;
 
-  /// A sidebar from the catalogue. It is not an item: the only place for
-  /// it is an edge of the screen that has no sidebar yet.
+  /// A new sidebar. It can only go to a free screen edge.
   Dragged.sidebar({required this.label, required this.picture})
     : item = const Component(id: 'sidebar'),
       panel = null,
@@ -23,22 +22,21 @@ class Dragged {
 
   final Component item;
 
-  /// A new popup that comes with [item], when it is a new folder.
+  /// The new folder panel that comes with [item], if any.
   final Panel? panel;
 
-  /// True when [item] is somewhere in the layout already.
+  /// Whether [item] is already in the layout.
   final bool placed;
 
-  /// True for a new sidebar, for which [item] stands for nothing.
+  /// A new sidebar; [item] is a placeholder.
   final bool sidebar;
 
-  /// What follows the pointer while it is dragged.
   final String label;
   final Widget picture;
 }
 
-/// Lets what is in it be picked up: at once with a mouse, after a hold with
-/// a finger, so that a swipe still scrolls.
+/// Makes its child draggable: at once with a mouse, after a hold with touch
+/// so swipes still scroll.
 class DragHandle extends StatelessWidget {
   const DragHandle({super.key, required this.data, required this.child});
 
@@ -53,7 +51,7 @@ class DragHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Held by its middle, a little above a finger so it is not hidden.
+    // Held by its centre, slightly above the finger.
     final feedback = FractionalTranslation(
       translation: Offset(-0.5, _byFinger ? -1.1 : -0.5),
       child: _Chip(data),
@@ -82,8 +80,7 @@ class DragHandle extends StatelessWidget {
   }
 }
 
-/// The small copy of a dragged thing that follows the pointer. Where it
-/// will land, and how big, is shown on the screen replica itself.
+/// The chip that follows the pointer.
 class _Chip extends StatelessWidget {
   const _Chip(this.data);
 
@@ -121,7 +118,7 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// A picture for things that have none of their own: a pane, a component.
+/// An icon for things with no picture.
 class SymbolArt extends StatelessWidget {
   const SymbolArt(this.icon, {super.key});
 

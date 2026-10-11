@@ -32,7 +32,7 @@ class SettingsScreen extends ConsumerWidget {
     final said = await _do(ref, const Act('setup'));
     navigator.pop();
     if (!context.mounted || said == null) return;
-    // Its heading, then the rest.
+    // First line is the heading.
     final (title, message) = switch (said.indexOf('\n')) {
       -1 => ('Automatic setup', said),
       final at => (said.substring(0, at), said.substring(at + 1)),
@@ -61,8 +61,8 @@ class SettingsScreen extends ConsumerWidget {
     final canManage = await ref.read(canManageHomeButtonProvider.future);
     if (!context.mounted) return;
     if (!canManage) {
-      // Turning it on needs setup first; turning it off without setup can
-      // only be done in the TV's own settings.
+      // Enabling needs setup; disabling without it is only possible in TV
+      // settings.
       if (enabled) return _runSetup(context, ref);
       await _do(ref, const Act('tvSettings'));
       return;
@@ -70,8 +70,7 @@ class SettingsScreen extends ConsumerWidget {
     await _do(ref, Act('homeButton', {'enabled': enabled}));
   }
 
-  /// Does [act] as anything on the screen would; what it says, or what
-  /// went wrong, comes back.
+  /// Runs [act]; returns its message or the error.
   static Future<String?> _do(WidgetRef ref, Act act) async {
     try {
       return await ref.read(actionRunnerProvider).run(act);

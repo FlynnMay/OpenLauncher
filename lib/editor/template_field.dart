@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/values/values.dart';
 
-/// A line of text that values can be written into: a button beside it
-/// lists the values there are and puts the one pressed where the cursor
-/// is, and under it is how the text reads now. Taken when Enter is pressed
-/// or it is left.
+/// A template text field with a value picker and a live preview. Committed on
+/// Enter or blur.
 class TemplateField extends ConsumerStatefulWidget {
   const TemplateField({
     super.key,
@@ -23,7 +21,7 @@ class TemplateField extends ConsumerStatefulWidget {
 }
 
 class _TemplateFieldState extends ConsumerState<TemplateField> {
-  /// The most parts of one of the user's values the list offers.
+  /// Most fields of a user value the picker lists.
   static const _mostParts = 40;
 
   late final _text = TextEditingController(text: widget.value);
@@ -37,7 +35,7 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
     if (value != widget.value) widget.onChanged(value);
   }
 
-  /// Writes the value named by [path] where the cursor is, or at the end.
+  /// Inserts `{{path}}` at the cursor.
   void _insert(String path) {
     final text = _text.text;
     final at = switch (_text.selection) {
@@ -51,7 +49,7 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
   @override
   void didUpdateWidget(TemplateField old) {
     super.didUpdateWidget(old);
-    // Changed from elsewhere, and not being typed in here.
+    // Updated from outside while not focused.
     if (widget.value != old.value && !_focus.hasFocus) {
       _text.text = widget.value;
     }
@@ -64,8 +62,7 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
     super.dispose();
   }
 
-  /// Offers [values], the paths there are under what each is called, and
-  /// writes in the one chosen.
+  /// Shows the picker for [values] and inserts the choice.
   Future<void> _choose(Map<String, List<String>> values) async {
     final path = await showDialog<String>(
       context: context,
@@ -96,8 +93,7 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
     final sources = ref.watch(
       configProvider.select((config) => config.value?.sources ?? const []),
     );
-    // Kept up to date while the field shows, so that each single thing a
-    // value of the user's last answered with can be offered.
+    // Watched so a user value's current fields can be offered.
     final values = {
       for (final value in builtInValues)
         value.label: [

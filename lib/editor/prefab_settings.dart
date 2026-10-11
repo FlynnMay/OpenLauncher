@@ -14,10 +14,8 @@ List<ComponentOption> _optionsOf(Component part) =>
 List<String> _styleOf(Component part) =>
     ComponentKind.named(part.kind)?.style ?? const [];
 
-/// What one instance of a prefab sets for itself: the prefab it is of, the
-/// variant, and for each component of the prefab whether it shows and
-/// whatever it says differently. Only what differs from the prefab is
-/// kept, value by value, so everything else goes on following the prefab.
+/// An instance's own settings: its prefab, variant, and per-part visibility,
+/// options and style. Only differences from the prefab are stored.
 class InstanceSettings extends StatelessWidget {
   const InstanceSettings({
     super.key,
@@ -29,7 +27,6 @@ class InstanceSettings extends StatelessWidget {
   final Map<String, Prefab> prefabs;
   final Component item;
 
-  /// Called with the instance as it is to be.
   final void Function(Component item) onChanged;
 
   void _override(String part, Map<String, Object?> values, [String? section]) =>
@@ -43,7 +40,7 @@ class InstanceSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     final prefab = prefabs[item.prefab];
     final theme = Theme.of(context);
-    // As it is drawn, and as it would be with nothing set for it here.
+    // As drawn, and as it would be without its own overrides.
     final parts = {
       for (final part in resolved(item, prefabs).all.skip(1))
         if (!part.isPane) part.id.substring(item.id.length + 1): part,
@@ -98,12 +95,11 @@ class InstanceSettings extends StatelessWidget {
               for (final option in _optionsOf(part))
                 option.key: next[option.key] == base[id]!.options[option.key]
                     ? null
-                    // Set back to the usual where the prefab says
-                    // otherwise: that has to be said outright.
+                    // Resetting to the default where the prefab differs must
+                    // be stored explicitly.
                     : next[option.key] ?? option.usual ?? '',
             }, 'options'),
           ),
-          // Its look, of which only what differs from the prefab's is kept.
           ...styleFields(
             keys: _styleOf(part),
             style: part.style,
@@ -125,9 +121,8 @@ class InstanceSettings extends StatelessWidget {
   }
 }
 
-/// The prefabs there are, each with the components it is made of to be
-/// set. A change to one of the launcher's own makes a copy of it that
-/// stands in for it, until it is taken back.
+/// Every prefab with its parts' settings. Editing a built-in stores a copy
+/// that replaces it until reset.
 class PrefabsSettings extends StatelessWidget {
   const PrefabsSettings({
     super.key,
@@ -136,7 +131,7 @@ class PrefabsSettings extends StatelessWidget {
     required this.onChanged,
   });
 
-  /// Every prefab, by id, and those of them that are the user's.
+  /// All prefabs, and the user's.
   final Map<String, Prefab> prefabs;
   final List<Prefab> own;
   final void Function(List<Prefab> own) onChanged;
@@ -193,7 +188,7 @@ class PrefabsSettings extends StatelessWidget {
             ),
           ),
         ],
-        // The look every instance starts with.
+        // The default style of instances.
         Padding(
           padding: const EdgeInsets.only(top: 12),
           child: Text('Its look', style: theme.textTheme.labelLarge),
@@ -209,7 +204,6 @@ class PrefabsSettings extends StatelessWidget {
             ),
           ),
         ),
-        // What its components read by name, and what an instance may set.
         VariablesSettings(
           variables: prefab.vars,
           onChanged: (vars) =>

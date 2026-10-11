@@ -5,9 +5,8 @@ import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/gradient_bar.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 
-/// The fields for the properties of a look called [keys], showing what
-/// [style] has for each. A change is told as the property and what it is
-/// to be, null for the usual again.
+/// Generated fields for style [keys]. Reports one property and its new value,
+/// null for the default.
 List<Widget> styleFields({
   required Iterable<String> keys,
   required Style style,
@@ -20,10 +19,8 @@ List<Widget> styleFields({
   corner: corner,
 );
 
-/// The look of one or more things, as far as they take the same
-/// properties: with several, the first one's is shown, and a change is
-/// made to that property of each, so that giving them the same border
-/// leaves each its own background.
+/// Style of one or more things. With several, the first one's values show and
+/// a change applies that property to each.
 class StyleSettings extends StatelessWidget {
   const StyleSettings({
     super.key,
@@ -33,12 +30,11 @@ class StyleSettings extends StatelessWidget {
     this.corner = 10,
   });
 
-  /// The properties that mean something to what is being edited.
   final Iterable<String> keys;
   final Style style;
   final void Function(String key, Object? value) onChanged;
 
-  /// How round its corners usually are.
+  /// Default corner radius.
   final double corner;
 
   @override
@@ -55,8 +51,7 @@ class StyleSettings extends StatelessWidget {
         );
 }
 
-/// What a box is filled with: nothing, one colour, or several as a
-/// gradient, with where along it each one sits and which way it runs.
+/// A fill: none, one colour, or a gradient.
 class FillField extends StatelessWidget {
   const FillField({
     super.key,
@@ -67,7 +62,7 @@ class FillField extends StatelessWidget {
 
   final String label;
 
-  /// As a look says it: see [BoxStyle.backgroundOf].
+  /// In saved form; see [BoxStyle.backgroundOf].
   final Object? value;
   final void Function(Object? value) onChanged;
 

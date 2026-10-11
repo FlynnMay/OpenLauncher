@@ -16,9 +16,7 @@ import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/editor/values_settings.dart';
 import 'package:openlauncher/editor/wallpaper_settings.dart';
 
-/// What is set for the launcher as a whole, shown while nothing on the
-/// screen is picked out: the wallpaper, how the screen itself arranges
-/// things, the menu a held entity opens, and notifications.
+/// Launcher-wide settings, shown when nothing is selected.
 class GlobalProperties extends ConsumerWidget {
   const GlobalProperties({super.key});
 
@@ -31,7 +29,7 @@ class GlobalProperties extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const WallpaperSettings(),
-        // The screen is a pane like any other, only without a name.
+        // The screen's root pane.
         PaneSettings(
           title: 'Screen',
           prefabs: ref.watch(prefabsProvider),
@@ -78,7 +76,6 @@ class GlobalProperties extends ConsumerWidget {
             children: [
               for (final id in Layout.barIds)
                 OutlinedButton.icon(
-                  // There to be arranged, even with nothing in it yet.
                   onPressed: () => addBar(context, ref, id),
                   icon: Icon(
                     config.layout.panel(id)?.items.isEmpty ?? true

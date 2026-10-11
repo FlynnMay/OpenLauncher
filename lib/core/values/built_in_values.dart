@@ -1,7 +1,5 @@
-/// An entity the launcher has of its own that provides data: the id a
-/// template names it by, what it is called, and the parts it has beside
-/// how it reads whole. What each is at the time is its kind's to say, in
-/// `entity_registry.dart`; this is what the editor lists them from.
+/// A built-in entity that provides data, as the editor lists it: its id,
+/// label and fields.
 typedef BuiltInValue = ({String root, String label, List<String> parts});
 
 const List<BuiltInValue> builtInValues = [
@@ -40,6 +38,5 @@ const List<BuiltInValue> builtInValues = [
   ),
 ];
 
-/// The names a value of the user's may not take: the launcher's own
-/// entities, and `source`, which is what an instance is drawn from.
+/// Ids a user value may not take.
 final builtInRoots = {for (final value in builtInValues) value.root, 'source'};

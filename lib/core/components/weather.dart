@@ -5,11 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-/// Fetches a JSON object from the internet. Replaced in tests.
+/// Fetches JSON over HTTP. Overridden in tests.
 final jsonFetcherProvider =
     Provider<Future<Map<String, Object?>> Function(Uri)>(
       (ref) => (uri) async {
-        // The same on the TV and in a browser.
         final response = await http
             .get(uri)
             .timeout(const Duration(seconds: 15));
@@ -21,7 +20,6 @@ final jsonFetcherProvider =
       },
     );
 
-/// Which weather to show.
 typedef WeatherQuery = ({double latitude, double longitude, bool fahrenheit});
 
 enum Sky { clear, partlyCloudy, cloudy, fog, rain, snow, storm }
@@ -90,8 +88,7 @@ class Weather {
   }
 }
 
-/// The weather at a place, from Open-Meteo (free, no account), refreshed
-/// every half hour while something shows it.
+/// Weather from Open-Meteo, refreshed every 30 minutes while watched.
 final weatherProvider = FutureProvider.autoDispose
     .family<Weather, WeatherQuery>((ref, query) async {
       // Also retries after a failure, e.g. no network just after boot.
@@ -111,7 +108,6 @@ final weatherProvider = FutureProvider.autoDispose
       return Weather.fromJson(reply);
     });
 
-/// A place a weather component can be set to.
 typedef Place = ({String name, double latitude, double longitude});
 
 /// Looks up places called [name], best match first.

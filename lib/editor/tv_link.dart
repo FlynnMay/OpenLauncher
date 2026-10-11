@@ -11,13 +11,11 @@ import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
-/// What makes the launcher run in a browser as it runs on the TV: its
-/// config, entities and wallpaper come from the TV over the network instead of
-/// from the device, and changes to the config go back the same way. Nothing
-/// above these providers knows the difference.
+/// Provider overrides that run the launcher in a browser: config, entities
+/// and wallpapers come from the TV, and config changes go back to it.
 final List<Override> tvOverrides = [
   configStoreProvider.overrideWith(
-    // A new one for each state the TV sends, so the config is read again.
+    // A new store per state, so the config is re-read.
     (ref) => TvConfigStore(
       ref.watch(tvApiProvider),
       ref.watch(tvStateProvider.future),
@@ -26,8 +24,7 @@ final List<Override> tvOverrides = [
   entitiesProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).entities,
   ),
-  // Which of them shows, and when the next takes its turn, is worked out
-  // here as it is on the TV.
+  // Rotation is computed locally, as on the TV.
   wallpapersProvider.overrideWith(
     (ref) => [
       for (final one
@@ -50,13 +47,12 @@ final List<Override> tvOverrides = [
   ),
   launcherPlatformProvider.overrideWith((ref) {
     final platform = BrowserPlatform();
-    // What plays comes with the rest of what the TV sends.
     ref.listen(tvStateProvider, (_, next) {
       if (next.value case final state?) platform.hear(state.nowPlaying);
     }, fireImmediately: true);
     return platform;
   }),
-  // A browser may not ask other sites for what they have; the TV may.
+  // Browsers cannot make cross-site requests; the TV can.
   sourceFetcherProvider.overrideWith((ref) {
     final api = ref.watch(tvApiProvider);
     return (source) => api.sourceValue(source.id);
@@ -65,14 +61,14 @@ final List<Override> tvOverrides = [
   configServerProvider.overrideWith((ref) async => null),
 ];
 
-/// The config as the TV has it. Saving sends the TV whatever changed.
+/// The TV's config. Saving sends what changed.
 class TvConfigStore implements ConfigStore {
   TvConfigStore(this._api, this._state);
 
   final TvApi _api;
   final Future<TvState> _state;
 
-  /// What the TV is known to have: what it sent, or what it was last sent.
+  /// What the TV has: last received or last sent.
   LauncherConfig? _known;
 
   @override
@@ -85,7 +81,7 @@ class TvConfigStore implements ConfigStore {
     if (jsonEncode(config.layout) != jsonEncode(known.layout)) {
       await _api.setLayout(config.layout);
     }
-    // Whatever plain settings there are, without knowing any by name.
+    // Compared key by key.
     final was = known.open, now = config.open;
     final changed = {
       for (final key in LauncherConfig.openKeys)
@@ -95,21 +91,18 @@ class TvConfigStore implements ConfigStore {
   }
 }
 
-/// The device as a browser has it: nothing of its own. What apps and
-/// inputs there are is not asked of it, since the TV sends its entities
-/// ready made, and what is to be done on the TV goes there as an action.
+/// The browser's "device": nothing of its own. Entities arrive from the TV
+/// and device actions are sent to it.
 class BrowserPlatform extends FakeLauncherPlatform {
   BrowserPlatform() : super(const [], const []);
 
-  /// Takes [now] as what is playing on the TV.
   void hear(NowPlaying? now) {
     playing = now;
     notifyNowPlayingChanged();
   }
 }
 
-/// Carries actions out for the launcher in a browser: what the TV itself
-/// does is sent to it, as if set off there, and the rest is done here.
+/// Sends device actions to the TV and runs the rest locally.
 class TvActionRunner extends ActionRunner {
   TvActionRunner(super.ref, this._api);
 
@@ -120,7 +113,7 @@ class TvActionRunner extends ActionRunner {
       ? _api.act(
           Act(run.act.name, {
             ...run.act.args,
-            // The TV is told what it is done to, having no press to go by.
+            // The TV needs the entity named.
             entityArg: ?run.entity?.id,
           }),
         )

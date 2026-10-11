@@ -12,7 +12,7 @@ import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/style_settings.dart';
 
-/// What the sidebar on the edge [id] names is called.
+/// Display name of the sidebar on edge [id].
 String barName(String id) => switch (Panel.edgeOf(id)) {
   BarEdge.left => 'Left',
   BarEdge.right => 'Right',
@@ -21,8 +21,7 @@ String barName(String id) => switch (Panel.edgeOf(id)) {
   null => id,
 };
 
-/// A length that is either the usual one, all there is, or a number of the
-/// TV's pixels: how a sidebar's width and height are set.
+/// A size that is default, fill, or a number of TV pixels.
 class ExtentBox extends StatelessWidget {
   const ExtentBox({
     super.key,
@@ -34,10 +33,10 @@ class ExtentBox extends StatelessWidget {
 
   final String label;
 
-  /// Null for the usual, [Panel.fill] for all there is, else the number.
+  /// Null for default, [Panel.fill] for fill.
   final double? value;
 
-  /// What the usual one comes to, to start from when a number is asked for.
+  /// The default, used as the starting number.
   final double usual;
   final void Function(double? value) onChanged;
 
@@ -86,12 +85,11 @@ class ExtentBox extends StatelessWidget {
   }
 }
 
-/// The settings of one sidebar: how big it is open and closed, and, since
-/// inside it is a pane like any other, everything a pane has.
+/// A sidebar's sizes plus its pane settings.
 class SidebarSettings extends ConsumerWidget {
   const SidebarSettings({super.key, required this.id});
 
-  /// The panel id of the sidebar, which is also the edge it is on.
+  /// The sidebar's panel id, which is its edge.
   final String id;
 
   @override
@@ -102,7 +100,7 @@ class SidebarSettings extends ConsumerWidget {
         changeLayout(context, ref, (layout) => changePanel(layout, id, how));
     void pane(Component Function(Component pane) how) =>
         change((panel) => panel.withRoot(how(panel.root)));
-    // What the edge would give, were nothing set.
+    // The edge's defaults.
     final usual = Panel.empty(id);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,8 +125,7 @@ class SidebarSettings extends ConsumerWidget {
                   ),
                   TextButton.icon(
                     onPressed: () async {
-                      // Emptied, it is simply gone; with things in it, they
-                      // come off the TV with it.
+                      // Confirm only if it holds something.
                       if (panel.items.isNotEmpty &&
                           !await sureToRemove(
                             context,
@@ -169,7 +166,6 @@ class SidebarSettings extends ConsumerWidget {
             onChanged: (height) =>
                 change((panel) => panel.withRule('height', height)),
           ),
-          // Its rules as a pane that is shown and hidden.
           ...ruleFields(
             options: panelRules(panel.kind),
             json: panel.rules,

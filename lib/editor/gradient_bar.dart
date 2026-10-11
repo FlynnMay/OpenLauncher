@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:openlauncher/editor/colour_picker.dart';
 import 'package:openlauncher/editor/controls.dart';
 
-/// One colour of a gradient, as 0xAARRGGBB, and where along it the colour
-/// is at its fullest: 0 at the start to 1 at the end.
+/// One gradient colour (0xAARRGGBB) and its position, 0 to 1.
 typedef ColourStop = ({int colour, double at});
 
-/// A gradient drawn as a bar with a handle under each of its colours. A
-/// handle is dragged to where its colour belongs, pressing the bar adds a
-/// colour there, and the handle last touched has its colour and its exact
-/// place underneath. A handle stays between its neighbours.
+/// A gradient bar with a draggable handle per colour. Tapping the bar adds a
+/// colour; the selected handle's colour and position are edited below.
+/// Handles cannot pass their neighbours.
 class GradientBar extends StatefulWidget {
   const GradientBar({
     super.key,
@@ -21,17 +19,15 @@ class GradientBar extends StatefulWidget {
     this.max = 8,
   });
 
-  /// In order along the gradient.
   final List<ColourStop> stops;
 
-  /// The most colours it may be given.
+  /// Maximum number of colours.
   final int max;
 
-  /// Called with all the stops, on letting go of a handle and on any other
-  /// change. Taking the last colours away is allowed: the list gets short.
+  /// Called on release and on any other change.
   final void Function(List<ColourStop> stops) onChanged;
 
-  /// Half a handle: how far the bar stops short of either end.
+  /// Half a handle's width.
   static const inset = 11.0;
 
   @override
@@ -41,25 +37,24 @@ class GradientBar extends StatefulWidget {
 class _GradientBarState extends State<GradientBar> {
   static const _barHeight = 28.0, _handleHeight = 22.0, _overlap = 6.0;
 
-  /// The handle whose details are shown.
+  /// The selected handle.
   var _picked = 0;
 
-  /// Where the picked handle is while it is held, before being kept
-  /// between its neighbours; the change is made on letting go.
+  /// The dragged handle's position before clamping; committed on release.
   double? _held;
 
-  /// Where the pointer took hold of it, and where the handle was then.
+  /// Pointer and handle positions at drag start.
   var _grabbed = 0.0, _from = 0.0;
 
   int get _index => min(_picked, widget.stops.length - 1);
 
-  /// How far the handle at [index] may go either way.
+  /// The range the handle at [index] can move in.
   (double, double) _room(int index) => (
     index == 0 ? 0 : widget.stops[index - 1].at,
     index == widget.stops.length - 1 ? 1 : widget.stops[index + 1].at,
   );
 
-  /// The stops as drawn: the held handle where it has been dragged to.
+  /// The stops as drawn, including the dragged one.
   List<ColourStop> get _shown {
     final held = _held;
     if (held == null) return widget.stops;
@@ -72,11 +67,11 @@ class _GradientBarState extends State<GradientBar> {
     ];
   }
 
-  /// To a whole percent.
+  /// Rounded to a whole percent.
   static double _whole(double at) => (at * 100).round() / 100;
 
   void _send(List<ColourStop> stops) {
-    // However they were come by, never one before the one in front of it.
+    // Keep them ascending.
     var last = 0.0;
     widget.onChanged([
       for (final stop in stops)
@@ -89,7 +84,7 @@ class _GradientBarState extends State<GradientBar> {
     if (stops.length >= widget.max) return;
     final after = stops.indexWhere((stop) => stop.at > at);
     final index = after < 0 ? stops.length : after;
-    // The colour the gradient already has there, so nothing jumps.
+    // The gradient's colour at that point, so nothing jumps.
     final Color colour;
     if (index == 0) {
       colour = Color(stops.first.colour);

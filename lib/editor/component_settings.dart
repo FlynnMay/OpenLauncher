@@ -6,8 +6,7 @@ import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 
-/// What one component on the screen is set to show; different for each kind
-/// of component, and nothing at all for a kind with nothing to set.
+/// The settings of one primitive component.
 class ComponentSettings extends ConsumerWidget {
   const ComponentSettings({
     super.key,
@@ -17,7 +16,6 @@ class ComponentSettings extends ConsumerWidget {
 
   final Component item;
 
-  /// Called with the component's options as they are to be.
   final void Function(Map<String, Object?> options) onChanged;
 
   void _set(String key, Object? value) => onChanged(
@@ -30,7 +28,7 @@ class ComponentSettings extends ConsumerWidget {
     final state = ref.watch(tvStateProvider).value;
     final kind = ComponentKind.named(item.kind);
     final settings = [
-      // What takes more than a plain setting: a search, a list the TV has.
+      // Fields that need more than a generated one.
       ...switch (kind) {
         ComponentKind.android => [
           LabelledRow(
@@ -50,7 +48,7 @@ class ComponentSettings extends ConsumerWidget {
         ],
         _ => const <Widget>[],
       },
-      // Everything else is read from what the kind says can be set.
+      // The rest is generated from the kind's options.
       ...optionFields(
         options: kind?.options ?? const [],
         values: options,

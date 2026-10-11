@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/editor/controls.dart';
 
-/// How round the four corners of a box are: all alike, or each by itself.
+/// Corner radii: one for all, or each separately.
 class CornerSettings extends StatefulWidget {
   const CornerSettings({
     super.key,
@@ -14,13 +14,12 @@ class CornerSettings extends StatefulWidget {
 
   final String label;
 
-  /// Top left, top right, bottom right, bottom left; null for the usual.
+  /// Top left, top right, bottom right, bottom left; null for the default.
   final List<double>? corners;
 
-  /// How round a corner usually is.
   final double usual, max;
 
-  /// Called with all four, or with null for the usual again.
+  /// Null restores the default.
   final void Function(List<double>? corners) onChanged;
 
   @override
@@ -35,8 +34,7 @@ class _CornerSettingsState extends State<CornerSettings> {
     'Bottom left',
   ];
 
-  /// Whether each corner is shown by itself. They are from the start when
-  /// they differ.
+  /// Whether corners are edited separately; starts true if they differ.
   late bool _each = _differ;
 
   bool get _differ =>
@@ -51,7 +49,7 @@ class _CornerSettingsState extends State<CornerSettings> {
       children: [
         NumberStepper(
           label: widget.label,
-          // Below nothing stands for the usual; no value for "they differ".
+          // Below zero means default; null means mixed.
           value: corners == null
               ? -1
               : _differ

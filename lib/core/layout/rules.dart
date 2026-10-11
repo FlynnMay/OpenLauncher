@@ -4,18 +4,13 @@ import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 
-// The rules of a pane, and of the panes that are shown and hidden: each
-// one setting, described once, under the name it is saved by. The editor
-// draws its forms from these and changes the thing by that name; a new
-// rule is a line here and its use where the pane is drawn.
+// Pane and panel settings described as data; editor forms are generated from
+// these.
 
-/// A component's transform: how big it is and where, in the cells of the
-/// pane it is in. It is the pane's to describe, since the same numbers
-/// mean something else in another: [parents] are the panes of what is
-/// being set, and only what means something in all of them is offered. A
-/// pane that places things in order gives none of them a place.
+/// The transform fields for components whose parents are [parents]; only what
+/// applies in all of them.
 List<ComponentOption> transformOptions(Iterable<Component> parents) {
-  // In a line there are no cells: a share of the room, or a shape.
+  // Rows and columns have flex and aspect, not cells.
   if (parents.every((pane) => pane.mode.inLine)) {
     return const [
       ComponentOption(
@@ -63,7 +58,7 @@ List<ComponentOption> transformOptions(Iterable<Component> parents) {
   ];
 }
 
-/// What every pane says of how it arranges what is in it.
+/// Settings of every pane.
 final List<ComponentOption> paneRules = [
   const ComponentOption('title', 'Title', OptionKind.text),
   const ComponentOption(
@@ -107,7 +102,7 @@ final List<ComponentOption> paneRules = [
     unset: 'Usual',
     when: _onCells,
   ),
-  // What a line has in place of cells.
+  // Row and column panes only.
   const ComponentOption(
     'gap',
     'Gap',
@@ -142,12 +137,10 @@ bool _inLine(Map<String, Object?> options) =>
     options['mode'] == 'row' || options['mode'] == 'column';
 bool _onCells(Map<String, Object?> options) => !_inLine(options);
 
-/// What a pane that is shown and hidden says of how: a sidebar's rules,
-/// and a folder's. They differ only in these.
+/// Settings of a sidebar or a folder.
 List<ComponentOption> panelRules(PanelKind kind) => switch (kind) {
   PanelKind.sidebar => const [
-    // How much of it shows while the focus is elsewhere; 0 keeps it out
-    // of sight until the focus goes to its edge.
+    // 0 hides it until the focus reaches its edge.
     ComponentOption(
       'closed',
       'Closed',

@@ -3,9 +3,8 @@ import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/file_pick.dart';
 import 'package:openlauncher/editor/image_carousel.dart';
 
-/// The one picture something has: a carousel of a single image, with the
-/// choosing of a file and the waiting for it done. Used for an entity's
-/// picture and a folder's.
+/// A single picture with upload and reset; used for entity and folder
+/// pictures.
 class PictureSettings extends StatefulWidget {
   const PictureSettings({
     super.key,
@@ -17,13 +16,11 @@ class PictureSettings extends StatefulWidget {
     this.aspectRatio = 16 / 9,
   });
 
-  /// What it looks like now; null for nothing.
   final Widget? picture;
 
-  /// Called with the file the user chose in its place.
   final Future<void> Function(PickedFile file) onPicked;
 
-  /// Returns it to what it was by itself; null when it already is.
+  /// Resets it; null when already default.
   final Future<void> Function()? onCleared;
   final String empty, clearLabel;
   final double aspectRatio;

@@ -14,8 +14,8 @@ bool isSelectKey(LogicalKeyboardKey key) =>
     key == LogicalKeyboardKey.gameButtonA ||
     key == LogicalKeyboardKey.space;
 
-/// Says which panes the widgets below it are in, outermost first, so that
-/// moving the focus can prefer what is in the same pane.
+/// The panes the widgets below are in, outermost first; used by focus
+/// navigation.
 class PaneScope extends InheritedWidget {
   const PaneScope({super.key, required this.panes, required super.child});
 
@@ -25,7 +25,7 @@ class PaneScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<PaneScope>()?.panes ??
       const [];
 
-  /// The same, for a context that is only being looked at, not built.
+  /// The same without subscribing.
   static List<String> peek(BuildContext context) =>
       context.getInheritedWidgetOfExactType<PaneScope>()?.panes ?? const [];
 
@@ -34,22 +34,20 @@ class PaneScope extends InheritedWidget {
       !listEquals(panes, oldWidget.panes);
 }
 
-/// Says how much of the widgets below it can be seen, when that is less
-/// than where they are laid out: a sidebar that is closed to a strip, or
-/// out of sight. Moving the focus goes by what can be seen.
+/// The visible part of the widgets below when it is less than their layout,
+/// e.g. a closed sidebar. Navigation uses it.
 class FocusBounds extends InheritedWidget {
   const FocusBounds({super.key, required this.visible, required super.child});
 
-  /// What is in view, in the coordinates of the whole display.
+  /// In global coordinates.
   final Rect? Function() visible;
 
   @override
   bool updateShouldNotify(FocusBounds oldWidget) => false;
 }
 
-/// Where on the display [node] can be seen: where it is, cut down to what
-/// its [FocusBounds] let through. Wholly out of view, it is a point on the
-/// edge it is behind, which is where the focus has to go to reach it.
+/// Where [node] is visible. If fully hidden, a point on the edge it is
+/// behind.
 Rect focusRect(FocusNode node) {
   final rect = node.rect;
   final bounds = node.context
@@ -64,16 +62,8 @@ Rect focusRect(FocusNode node) {
   );
 }
 
-/// Moves the focus between tiles the launcher's way.
-///
-/// Where a press of the D-pad leads is decided by [navigate]: what is in the
-/// same pane first, then in a pane inside it, then around it, then anywhere.
-///
-/// It also does not scroll to what it focuses. Flutter's own handling
-/// scrolls every scrollable around the newly focused widget, to its end when
-/// moving right or down and to its start when moving left or up; a
-/// [FocusTile] decides for itself how it comes into view, and two rules
-/// pulling in turn made panes jump.
+/// Moves the focus using [navigate] (same pane first, then inside, around,
+/// anywhere). It does not scroll to the target; [FocusTile] does that itself.
 class TileTraversal extends StatelessWidget {
   const TileTraversal({super.key, required this.child});
 
@@ -127,8 +117,7 @@ class _PanePolicy extends ReadingOrderTraversalPolicy {
   }
 }
 
-/// Something the D-pad can land on. A press selects it; holding the button
-/// down (or pressing Menu) asks for its menu instead.
+/// A focusable tile. OK selects; holding OK or pressing Menu opens its menu.
 class FocusTile extends StatefulWidget {
   const FocusTile({
     super.key,
@@ -143,11 +132,9 @@ class FocusTile extends StatefulWidget {
   final Widget Function(BuildContext context, bool focused) builder;
   final VoidCallback onSelect;
 
-  /// Called with true when the menu was asked for by holding OK, in which
-  /// case the button is still down.
+  /// [held] is true when OK is still down.
   final void Function(bool held)? onMenu;
 
-  /// Called as the focus arrives (true) and as it leaves.
   final void Function(bool focused)? onFocus;
   final bool autofocus;
   final double focusedScale;
@@ -162,7 +149,7 @@ class FocusTile extends StatefulWidget {
 class _FocusTileState extends State<FocusTile> {
   bool _focused = false;
 
-  /// Running while OK is down and has not yet been held long enough.
+  /// Running while OK is down but not yet held long enough.
   Timer? _hold;
 
   void _onFocusChange(bool focused) {
@@ -175,14 +162,11 @@ class _FocusTileState extends State<FocusTile> {
     _reveal();
   }
 
-  /// Room left around a tile when a pane scrolls to it: enough for it to
-  /// grow and show its outline when focused.
+  /// Margin kept around a tile when scrolling to it, for its focused size.
   static const _overhang = 12.0;
 
-  /// Scrolls whatever needs scrolling for this tile to be seen. The screen
-  /// brings it to the middle. A pane inside the screen moves only as far as
-  /// it must, so its contents do not shift about as the focus moves in it;
-  /// if the tile is taller than the pane, its top is what shows.
+  /// Scrolls the tile into view. The screen centres it; a pane scrolls as
+  /// little as needed, showing the top of a tile taller than itself.
   void _reveal() {
     final object = context.findRenderObject();
     if (object == null) return;
@@ -250,7 +234,7 @@ class _FocusTileState extends State<FocusTile> {
     }
     if (!isSelectKey(event.logicalKey)) return KeyEventResult.ignored;
     if (event is KeyDownEvent) {
-      // Selecting waits for the release, so a hold can become the menu.
+      // Select fires on release so a hold can become the menu.
       _hold = Timer(FocusTile.holdTime, () {
         _hold = null;
         (onMenu ?? (_) => widget.onSelect())(true);

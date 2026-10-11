@@ -18,8 +18,7 @@ export 'launcher_api.g.dart'
         TvInputKind,
         WidgetProvider;
 
-/// What the launcher needs from the device. Everything above this layer is
-/// platform-independent, so it runs on desktop and in tests with a fake.
+/// What the launcher needs from the device. Faked on desktop and in tests.
 abstract class LauncherPlatform {
   Future<List<InstalledApp>> listApps();
   Future<void> launchApp(String packageName);
@@ -27,52 +26,46 @@ abstract class LauncherPlatform {
   /// Fires when a package is installed, removed or updated.
   Stream<void> get appsChanged;
 
-  /// The TV's own inputs; empty on devices that have none.
   Future<List<TvInput>> listInputs();
   Future<void> switchToInput(String inputId);
 
   /// Fires when an input is added, removed or renamed.
   Stream<void> get inputsChanged;
 
-  /// Whether the remote's Home button opens this launcher. On Google TV that
-  /// needs a service the user switches on in the TV's settings.
+  /// Whether the remote's Home button opens this launcher.
   Future<bool> isHomeButtonEnabled();
   Future<void> openHomeButtonSettings();
 
-  /// Whether the app can switch the Home button itself; true once
-  /// [runAutomaticSetup] has succeeded.
+  /// True once [runAutomaticSetup] has succeeded.
   Future<bool> canManageHomeButton();
   Future<void> setHomeButtonEnabled(bool enabled);
 
-  /// Grants the app what it needs through the TV's own ADB service and
-  /// switches the Home button on. The TV asks the user to allow it.
+  /// Grants the app's permissions through the TV's ADB service and enables
+  /// the Home button. The TV asks the user to allow it.
   Future<SetupResult> runAutomaticSetup();
 
   Future<void> openAppInfo(String packageName);
 
-  /// Asks the device to uninstall an app; the device confirms with the user.
+  /// The device confirms with the user.
   Future<void> uninstallApp(String packageName);
 
-  /// False when the device would not let the launcher stop the app.
+  /// False if the device refused.
   Future<bool> forceStopApp(String packageName);
 
-  /// Whether the launcher may see other apps' notifications and what they
-  /// are playing; granted by [runAutomaticSetup].
+  /// Granted by [runAutomaticSetup].
   Future<bool> isNotificationAccessEnabled();
 
   Future<NowPlaying?> nowPlaying();
   Future<void> sendMediaCommand(MediaCommand command);
 
-  /// Fires when what [nowPlaying] returns has changed.
   Stream<void> get nowPlayingChanged;
 
-  /// Notifications other apps post while the launcher is running.
+  /// Notifications posted while the launcher runs.
   Stream<AppNotification> get notifications;
 
-  /// Widgets offered by installed apps; empty where unsupported.
   Future<List<WidgetProvider>> listWidgetProviders();
 
-  /// The native widget id for a layout item, or null if the device refuses.
+  /// The native widget id for a component, or null if refused.
   Future<int?> bindWidget(String itemId, String provider);
   Future<void> pruneWidgets(List<String> itemIds);
 }

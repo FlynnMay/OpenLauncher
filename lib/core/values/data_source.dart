@@ -2,13 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 
-/// Where a value the user defined comes from.
 enum SourceKind {
-  /// Asked of a web address now and then; the JSON it answers with is the
-  /// value, and a template reaches into it.
+  /// Polled from a URL; the JSON answer is the value.
   http('Web address (JSON)'),
 
-  /// Typed in once, to be written in many places and changed in one.
   text('Fixed text');
 
   const SourceKind(this.label);
@@ -16,8 +13,7 @@ enum SourceKind {
   final String label;
 }
 
-/// A value the user defined, beside those the launcher has of its own. A
-/// template reads it by its [id]: `{{lounge.state}}`.
+/// A user-defined value, read as `{{<id>...}}`.
 @immutable
 class DataSource {
   const DataSource({
@@ -29,32 +25,28 @@ class DataSource {
     this.every = 60,
   });
 
-  /// The fewest and most seconds between two askings.
+  /// Bounds of the polling interval, in seconds.
   static const minEvery = 10, maxEvery = 24 * 60 * 60;
 
-  /// How many the user may define.
   static const maxCount = 24;
 
   final String id;
 
-  /// What the user calls it; the [id] is made from this when it is new.
+  /// Display name; a new [id] is derived from it.
   final String name;
   final SourceKind kind;
 
-  /// The address asked, for [SourceKind.http].
   final String url;
 
-  /// The value itself, for [SourceKind.text].
   final String text;
 
-  /// Seconds between one asking and the next.
+  /// Polling interval in seconds.
   final int every;
 
   static bool _asked(Map<String, Object?> one) =>
       one['kind'] != SourceKind.text.name;
 
-  /// What there is to set about the user's values: the editor's form for
-  /// them is made from this, over each as it is saved.
+  /// The editor's form is generated from this.
   static final options = ComponentOption(
     'sources',
     'Add a value',
@@ -84,7 +76,7 @@ class DataSource {
         OptionKind.text,
         when: _asked,
       ),
-      // By the TV, while something shows it.
+      // Polled by the TV while something shows it.
       const ComponentOption(
         'every',
         'Seconds between asking',
@@ -103,8 +95,7 @@ class DataSource {
     _ => null,
   };
 
-  /// Reads the sources in a saved config; what cannot be read is left out,
-  /// and no two keep the same id or take the name of one of [taken].
+  /// Skips unreadable entries, duplicate ids and ids in [taken].
   static List<DataSource> listFromJson(
     Object? json, {
     Set<String> taken = const {},

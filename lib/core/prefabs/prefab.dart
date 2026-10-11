@@ -6,8 +6,7 @@ import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
-/// One way a prefab can be, beside the way it was saved: a name for what
-/// it sets differently about the prefab's components, by the id of each.
+/// A named set of overrides on a prefab's components.
 @immutable
 class PrefabVariant {
   const PrefabVariant(this.label, [this.overrides = const {}]);
@@ -29,14 +28,9 @@ class PrefabVariant {
   };
 }
 
-/// A component that was saved to be used again: [root], with everything
-/// it is made of, written against variables that each instance may set
-/// for itself. The launcher's cards are instances of `app-card`, whose
-/// variable `source` each is handed an app as.
-///
-/// An instance keeps only what it sets differently; everything else it
-/// reads from the prefab each time it is drawn, so a change to the prefab
-/// reaches every instance that has not overridden that very value.
+/// A saved component, reused through instances. An instance stores only what
+/// it changes, so edits to the prefab reach every instance that has not
+/// overridden that value.
 @immutable
 class Prefab {
   const Prefab({
@@ -48,25 +42,21 @@ class Prefab {
 
   final String id, name;
 
-  /// The component itself. Its variables, look and triggers are what an
-  /// instance has unless it sets its own; its size is what a new instance
-  /// starts with.
+  /// The component. Its size is what a new instance starts with.
   final Component root;
 
-  /// The ways it can be, by name; the first is the usual one.
+  /// By name; the first is the default.
   final Map<String, PrefabVariant> variants;
 
   Variables get vars => root.vars;
   Style get style => root.style;
   Triggers get on => root.on;
 
-  /// Everything it is made of other than the root, at any depth, that is
-  /// not only there to arrange the rest.
+  /// Every non-pane descendant of the root.
   Iterable<Component> get parts =>
       root.all.skip(1).where((component) => !component.isPane);
 
-  /// The name of the variant [instance] is: the one it names, where there
-  /// is such a one, or else the first.
+  /// The variant [instance] uses, falling back to the first.
   String? variantOf(Component instance) =>
       variants.containsKey(instance.variant)
       ? instance.variant
@@ -79,8 +69,7 @@ class Prefab {
     variants: variants,
   );
 
-  /// This prefab with the component [id] of it replaced by what [change]
-  /// makes of it.
+  /// Replaces the descendant [id] with what [change] returns.
   Prefab withPart(String id, Component Function(Component part) change) {
     Component walk(Component component) => component.id == id
         ? change(component)
@@ -117,8 +106,7 @@ class Prefab {
     return null;
   }
 
-  /// Never throws; what cannot be read is left out, as is a second prefab
-  /// with the id of an earlier one.
+  /// Skips unreadable entries and duplicate ids. Never throws.
   static List<Prefab> listFromJson(Object? json) {
     final ids = <String>{};
     return [
@@ -141,12 +129,10 @@ class Prefab {
   };
 }
 
-/// [instance] as it is drawn: its prefab's component with, value by
-/// value, what the variant it is sets, and over that what the instance
-/// sets itself. Its variables, look and triggers are the prefab's with
-/// its own over them; its size and place are its own. Anything that is
-/// not an instance is itself. One whose prefab is gone is drawn as the
-/// launcher's first, a card.
+/// The concrete component for [instance]: the prefab's tree with the
+/// variant's overrides, then the instance's. Variables, style and triggers
+/// are merged; size and position are the instance's. A missing prefab falls
+/// back to the first built-in.
 Component resolved(
   Component instance,
   Map<String, Prefab> prefabs, [
@@ -158,15 +144,14 @@ Component resolved(
     prefab.variants[prefab.variantOf(instance)]?.overrides ?? const {},
     instance.overrides,
   );
-  // What is inside goes by the instance's id and its own, so that two
-  // instances of one prefab have nothing of the same name.
+  // Child ids are prefixed with the instance id to keep them unique.
   Component part(Component child) => child
       .overridden(set[child.id])
       .copyWith(
         id: '${instance.id}/${child.id}',
         children: [for (final inner in child.children) part(inner)],
       );
-  // A prefab may itself be made from another.
+  // A prefab's root may itself be an instance.
   final base = depth < Component.maxDepth
       ? resolved(prefab.root, prefabs, depth + 1)
       : prefab.root;
@@ -199,13 +184,11 @@ const _name = Component(
   kind: 'text',
   options: {'text': '{{source.label}}', 'overflow': 'ellipsis'},
   style: {'fontSize': 12, 'fontWeight': 'medium'},
-  // Its room is kept while it is hidden, so every card's picture is the
-  // same size.
+  // Keeps its space when hidden so every card's picture is the same size.
   keep: true,
 );
 
-/// The two ways a card is arranged, whatever its picture is: as it was
-/// saved, and in a row, where [small] is what the picture sets otherwise.
+/// The two card variants. [small] is the picture's options in the row one.
 Map<String, PrefabVariant> _cardVariants({
   Map<String, Object?> small = const {},
 }) => {
@@ -225,8 +208,7 @@ Map<String, PrefabVariant> _cardVariants({
   }),
 };
 
-/// A pane that puts [children] in a line, as the launcher's own prefabs
-/// are made.
+/// A row or column pane.
 Component _line(
   String id,
   PaneMode mode,
@@ -247,10 +229,8 @@ Component _line(
   children: children,
 );
 
-/// The prefabs the launcher comes with, each made only of what a user can
-/// make. The user's own, and their changed copies of these, are in the
-/// config; one of those with the id of one of these stands in for it
-/// until it is taken away again.
+/// Built-in prefabs, made only from what a user can make. A user prefab with
+/// the same id replaces one.
 final List<Prefab> builtInPrefabs = [
   Prefab(
     id: cardPrefabId,
@@ -262,12 +242,10 @@ final List<Prefab> builtInPrefabs = [
       'root',
       PaneMode.column,
       rules: const {'gap': 6},
-      // What an instance is handed: an app, an input.
       vars: const {'source': Variable(null, type: VarType.entity)},
       on: const {
         Trigger.press: [Act('open')],
-        // The quick actions are a pane like any folder: told what they
-        // are about, and opened, by its variables.
+        // Opens the quick actions for this entity.
         Trigger.hold: [
           Act('set', {
             'of': 'quick-actions',
@@ -283,10 +261,8 @@ final List<Prefab> builtInPrefabs = [
           kind: 'picture',
           options: {
             'source': '{{source.icon}}',
-            // How it sits in its frame is this card's to say, from the
-            // sort of picture it was handed: artwork made for the whole
-            // frame fills it, an icon sits in it, and line art has no
-            // frame behind it at all.
+            // Banners fill the frame, icons are padded, line art has no
+            // frame.
             'fit': "{{source.shape == 'banner' ? 'cover' : 'contain'}}",
             'pad': "{{source.shape == 'icon' ? 14 : 0}}",
             'alt': '{{source.label}}',
@@ -300,9 +276,7 @@ final List<Prefab> builtInPrefabs = [
       ],
     ),
   ),
-  // Handed a folder, which is a pane that says what it is called and how
-  // much is in it. A press sets that folder's `open`, which is all that
-  // opens one.
+  // Pressing it sets the folder's `open`.
   Prefab(
     id: folderPrefabId,
     name: 'Folder card',
@@ -332,8 +306,6 @@ final List<Prefab> builtInPrefabs = [
       ],
     ),
   ),
-  // Each some text and pictures reading an entity the launcher has, to be
-  // changed like any prefab.
   Prefab(
     id: 'clock',
     name: 'Clock',
@@ -371,8 +343,7 @@ final List<Prefab> builtInPrefabs = [
       rules: const {'fit': true, 'gap': 14},
       vars: const {
         'source': Variable('weather', type: VarType.entity),
-        // Which of the launcher's small pictures stands for the sky: told
-        // by what the weather says of it, as any variable may be told.
+        // The icon for the sky.
         'icon': Variable(
           null,
           when: '{{source.sky}}',
@@ -386,7 +357,7 @@ final List<Prefab> builtInPrefabs = [
           ],
           otherwise: 'rain',
         ),
-        // What it is like, and with them the day's highest and lowest.
+        // Description, plus high / low when known.
         'summary': Variable(
           null,
           when: '{{source.high}}',
@@ -450,7 +421,7 @@ final List<Prefab> builtInPrefabs = [
           cases: [VarCase(VarTest.equals, 'true', 'pause')],
           otherwise: 'play',
         ),
-        // Who it is by and what is playing it, or only the second.
+        // Artist and app, or only the app.
         'summary': Variable(
           null,
           when: '{{source.artist}}',

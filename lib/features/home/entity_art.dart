@@ -6,16 +6,16 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
-/// The picture of an entity: its artwork, line art, or failing both its name.
+/// An entity's picture: artwork, line art, or its name.
 class EntityArt extends StatelessWidget {
   const EntityArt({super.key, required this.entity, this.padding = 14});
 
   final Entity entity;
 
-  /// Space left around a square icon.
+  /// Padding around a square icon.
   final double padding;
 
-  /// Whether [entity] is drawn as line art with no entity behind it.
+  /// Whether [entity] is line art.
   static bool isBare(Entity entity) =>
       entity.data[Entity.shape] == Entity.lineArt;
 
@@ -49,15 +49,14 @@ class EntityArt extends StatelessWidget {
   }
 }
 
-/// What a folder looks like from outside: the picture the user gave it,
-/// else the first few things in it, else a folder drawn in outline.
+/// A folder's picture: the user's, else a preview of its contents, else an
+/// outline.
 class FolderArt extends ConsumerWidget {
   const FolderArt({super.key, required this.folder});
 
-  /// The id of the folder.
   final String folder;
 
-  /// How many of the things in it are shown.
+  /// How many entities the preview shows.
   static const _shown = 4;
 
   static const _outline =

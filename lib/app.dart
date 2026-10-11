@@ -6,8 +6,7 @@ import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/notifications/toast_overlay.dart';
 import 'package:openlauncher/server/config_server.dart';
 
-/// Has the Home button looked at again whenever the app comes back to the
-/// front, since it can be changed in the TV's settings.
+/// Re-checks the Home button on resume; it can change in TV settings.
 final _homeButtonRecheckProvider = Provider<void>((ref) {
   final listener = AppLifecycleListener(
     onResume: () => ref.invalidate(homeButtonEnabledProvider),

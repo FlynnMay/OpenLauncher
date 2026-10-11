@@ -1,4 +1,4 @@
-/// What things on the screen do, and what sets them off.
+/// Actions, triggers and the runner.
 library;
 
 export 'act.dart';

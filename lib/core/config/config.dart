@@ -1,4 +1,4 @@
-/// The user's saved choices and the one place they are changed.
+/// The saved config and its controller.
 library;
 
 export 'config_controller.dart';

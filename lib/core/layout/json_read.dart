@@ -1,5 +1,4 @@
-/// Reading and writing the layout's JSON. Not part of the barrel: only the
-/// layout model's own files use it.
+/// JSON helpers for the layout model. Deliberately not in the barrel.
 library;
 
 T? jsonOptional<T>(Map<Object?, Object?> json, String key) {
@@ -11,7 +10,7 @@ T? jsonOptional<T>(Map<Object?, Object?> json, String key) {
 T jsonRequired<T>(Map<Object?, Object?> json, String key) =>
     jsonOptional<T>(json, key) ?? (throw FormatException('"$key" is missing'));
 
-/// Whole numbers are written without a fraction, as the page writes them.
+/// Whole numbers are written as ints.
 num tidy(double value) =>
     value == value.roundToDouble() ? value.toInt() : value;
 

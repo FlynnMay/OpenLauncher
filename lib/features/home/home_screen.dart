@@ -16,15 +16,15 @@ import 'package:openlauncher/features/home/sidebar.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/wallpaper/wallpaper_background.dart';
 
-/// Where the focus is on the home screen itself, kept while a layer above
-/// has it, so that it can be given back.
+/// The home screen's focus scope, kept so focus can return from a modal
+/// layer.
 final _homeFocusProvider = Provider((ref) {
   final node = FocusScopeNode(debugLabel: 'home');
   ref.onDispose(node.dispose);
   return node;
 });
 
-/// What each sidebar is known by across the layers it moves between.
+/// One key per sidebar so its state survives moving between layers.
 final _sidebarKeysProvider = Provider((ref) => <String, GlobalKey>{});
 
 class HomeScreen extends ConsumerWidget {
@@ -38,15 +38,14 @@ class HomeScreen extends ConsumerWidget {
     final layout = ref.watch(layoutViewProvider);
     final layers = ref.watch(layersProvider);
     final keys = ref.watch(_sidebarKeysProvider);
-    // Hides everything on [layer], which is what takes it away.
+    // Hides everything on [layer], which closes it.
     void shut(ScreenLayer layer) {
       for (final id in layer.holds) {
         ref.read(runtimeVarsProvider.notifier).set(id, openVar, false);
       }
     }
 
-    // With the last layer that kept the focus gone, it goes back to where
-    // it was on the home screen.
+    // When the last modal layer closes, focus returns to the home screen.
     final home = ref.watch(_homeFocusProvider);
     ref.listen(layersProvider, (before, now) {
       bool keeps(List<ScreenLayer>? layers) =>
@@ -57,8 +56,6 @@ class HomeScreen extends ConsumerWidget {
         });
       }
     });
-    // The same sidebar wherever it is drawn, so that moving between layers
-    // keeps how far open it is and where the focus is in it.
     Widget sidebar(Panel panel) => KeyedSubtree(
       key: keys.putIfAbsent(panel.id, GlobalKey.new),
       child: Sidebar(
@@ -68,8 +65,7 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
     return PopScope(
-      // This is the home screen: Back has nowhere to go, but for taking
-      // away the top layer that keeps the focus, a folder's.
+      // Back only closes the top modal layer.
       canPop: false,
       onPopInvokedWithResult: (_, _) {
         if (layers.where((layer) => layer.modal).lastOrNull case final top?) {
@@ -78,7 +74,6 @@ class HomeScreen extends ConsumerWidget {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        // Folders show over all of it while their `open` is set.
         body: PopupHost(
           child: TileTraversal(
             child: Stack(
@@ -100,8 +95,7 @@ class HomeScreen extends ConsumerWidget {
                   ],
                   data: (layout) {
                     final focus = FirstFocus();
-                    // What one layer does to all below it, and what is on
-                    // it.
+                    // A layer's backdrop and contents.
                     List<Widget> shown(ScreenLayer layer) => [
                       if (layer.blur > 0 || layer.dim > 0)
                         Positioned.fill(
@@ -121,8 +115,7 @@ class HomeScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                      // Where it keeps the focus, a press beside what is on
-                      // it takes it away, as Back does.
+                      // Tapping outside a modal layer closes it.
                       if (layer.modal)
                         Positioned.fill(
                           child: GestureDetector(
@@ -143,9 +136,8 @@ class HomeScreen extends ConsumerWidget {
                           ),
                     ];
                     return [
-                      // The home screen and the layers that share the focus
-                      // with it, so that it can pass between them: an open
-                      // sidebar is on a layer, and still a step away.
+                      // The home screen and non-modal layers share one focus
+                      // scope, so the D-pad moves between them.
                       Positioned.fill(
                         child: FocusScope(
                           node: home,
@@ -155,9 +147,8 @@ class HomeScreen extends ConsumerWidget {
                               if (layout.home.isEmpty)
                                 const Center(child: Text('Nothing here yet'))
                               else
-                                // The global pane: the whole screen, edge to
-                                // edge. It is the user's to arrange, margins
-                                // included.
+                                // The root pane fills the screen; margins are
+                                // the user's.
                                 SingleChildScrollView(
                                   padding: EdgeInsets.all(
                                     layout.home.root.box.padding ?? 0,
@@ -170,8 +161,7 @@ class HomeScreen extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
-                              // Over the home screen, each from its own edge:
-                              // those that are on no layer of their own.
+                              // Sidebars not on a layer.
                               for (final bar in layout.bars)
                                 if (layerOf(layers, bar.id) == null)
                                   sidebar(bar),
@@ -188,8 +178,7 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      // Those that keep the focus to themselves, over all of
-                      // that, lowest first.
+                      // Modal layers on top, lowest first.
                       for (final layer in layers)
                         if (layer.modal) ...shown(layer),
                     ];
@@ -203,14 +192,14 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Whether the Settings entity is somewhere the user can get to.
+  /// Whether the Settings card is placed anywhere.
   static bool _hasSettings(Layout layout) => layout.panels.any(
     (panel) =>
         panel.items.any((item) => item.handed.contains(Entity.settings.id)),
   );
 }
 
-/// Buttons over the top right corner that are only there when needed.
+/// Buttons shown only when needed.
 class _Header extends ConsumerWidget {
   const _Header({required this.settingsPlaced});
 
@@ -222,15 +211,14 @@ class _Header extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       spacing: 8,
       children: [
-        // Offered until Home opens this launcher.
+        // Until Home opens this launcher.
         if (ref.watch(homeButtonEnabledProvider).value == false)
           _HeaderButton(
             icon: Icons.home_outlined,
             label: 'Set as Home',
             onPressed: () => SettingsScreen.show(context),
           ),
-        // The way in to Settings is an entity like any other; this stands in
-        // for it while it has been removed, so there is always a way in.
+        // A fallback way into Settings while its card is not placed.
         if (!settingsPlaced)
           _HeaderButton(
             icon: Icons.settings_outlined,

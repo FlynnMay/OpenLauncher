@@ -8,8 +8,7 @@ import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/trigger_settings.dart';
 import 'package:openlauncher/editor/variables_settings.dart';
 
-/// How one or more panes arrange what is in them: the same settings for a
-/// pane on the screen and for the screen itself, which is a pane too.
+/// Settings of one or more panes, including the screen's root pane.
 class PaneSettings extends StatelessWidget {
   const PaneSettings({
     super.key,
@@ -22,26 +21,23 @@ class PaneSettings extends StatelessWidget {
     this.usualOn,
   });
 
-  /// The heading the settings go under.
   final String title;
   final List<Component> panes;
 
-  /// Called with how each of the panes is to change.
+  /// Called with a function to apply to each pane.
   final void Function(Component Function(Component pane) change) onChanged;
 
-  /// Whether a pane's own title is among its settings.
+  /// Whether the title is editable.
   final bool named;
 
-  /// The prefabs there are, by id, for the rules a pane has for each;
-  /// with none given, rules are not offered.
+  /// Prefabs for the rules section; empty hides it.
   final Map<String, Prefab> prefabs;
 
-  /// What the pane does when it is revealed and hidden where it says
-  /// nothing itself, for a pane that is: a sidebar's, a folder's. With
-  /// none given, that is not offered.
+  /// Default reveal/hide chains, for a sidebar or folder; null hides that
+  /// section.
   final Triggers? usualOn;
 
-  /// More settings, shown after these.
+  /// Extra widgets after the settings.
   final List<Widget> children;
 
   @override
@@ -59,7 +55,7 @@ class PaneSettings extends StatelessWidget {
           usual: usual,
           onChanged: (on) => onChanged((pane) => pane.copyWith(on: on)),
         ),
-      // What everything in the pane can read; one pane at a time.
+      // One pane at a time.
       if (panes.length == 1)
         VariablesSettings(
           variables: panes.single.vars,
@@ -68,8 +64,8 @@ class PaneSettings extends StatelessWidget {
     ],
   );
 
-  /// Its rules, each drawn from what describes it. With several panes
-  /// they show the first one's, and a change is made to them all.
+  /// With several panes the first one's values show and a change applies to
+  /// all.
   Widget get _arrangement => Section(title, [
     ...ruleFields(
       options: [
@@ -83,8 +79,8 @@ class PaneSettings extends StatelessWidget {
     ...children,
   ]);
 
-  /// This pane's rule for [prefab] with [key] set to [value]; null takes
-  /// it away, and a rule with nothing left in it goes too.
+  /// Sets [key] of the pane's rule for [prefab]; null removes it, and an
+  /// empty rule is dropped.
   static Component _ruled(
     Component pane,
     String prefab,
@@ -104,10 +100,8 @@ class PaneSettings extends StatelessWidget {
   static bool _builtIn(Prefab prefab) =>
       builtInPrefabs.any((own) => own.id == prefab.id);
 
-  /// What the pane says of the instances of prefabs directly in it. The
-  /// launcher's own prefabs always have their rule here, so that there is
-  /// somewhere to say how the entities of a pane are laid out; a rule for a
-  /// prefab of the user's is there once it is added.
+  /// Rules for instances directly in the pane. Built-in prefabs are always
+  /// listed; a user prefab's rule appears once added.
   Widget get _rules {
     bool ruled(Prefab prefab) =>
         panes.any((pane) => pane.prefabRules.containsKey(prefab.id));
@@ -133,8 +127,7 @@ class PaneSettings extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: PopupMenuButton<Prefab>(
             tooltip: 'Add a rule for a prefab',
-            // A rule has to say something to be one: it starts with the
-            // prefab's first variant.
+            // A rule starts with the prefab's first variant.
             onSelected: (prefab) => onChanged(
               (pane) => _ruled(
                 pane,
@@ -160,7 +153,7 @@ class PaneSettings extends StatelessWidget {
     ]);
   }
 
-  /// The rule for [prefab]: its variant, and whether each part shows.
+  /// A prefab's rule: its variant and each part's visibility.
   List<Widget> _rule(Prefab prefab) => [
     LabelledRow(
       prefab.name,
@@ -175,9 +168,7 @@ class PaneSettings extends StatelessWidget {
           ),
         ),
         choices: {
-          // The launcher's own may leave it to each instance; a rule that
-          // was added says which, or is taken away.
-          // One that says no variant, as a save may, can be given one.
+          // Built-ins may leave the variant to each instance.
           if (_builtIn(prefab) ||
               panes.any(
                 (pane) => pane.prefabRules[prefab.id]?['variant'] == null,
@@ -254,7 +245,6 @@ class PaneSettings extends StatelessWidget {
       ),
   ];
 
-  /// The size the pane gives every entity directly in it.
   Widget get _entities => Section('Size of what is in it', open: false, [
     TickBox(
       label: 'All the same size',
@@ -283,6 +273,6 @@ class PaneSettings extends StatelessWidget {
     ],
   ]);
 
-  /// Stands for "the pane does not decide" among the choices.
+  /// The "not decided by the pane" choice.
   static const _each = 'each';
 }

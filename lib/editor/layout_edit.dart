@@ -2,9 +2,8 @@ import 'dart:math';
 
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// Where in the layout something is put: into [pane], and there in front of
-/// the item [before] (a pane that flows), or at the cell [x], [y] (a pane
-/// with places). With neither, wherever there is room.
+/// A drop target: [pane], and either before child [before] (flow) or at cell
+/// [x], [y]. With neither, wherever there is room.
 class Drop {
   const Drop(this.pane, {this.before, this.x, this.y});
 
@@ -24,8 +23,7 @@ class Drop {
   int get hashCode => Object.hash(pane, before, x, y);
 }
 
-/// A pane, the panel it is on and how deep it is there; the pane that fills
-/// a panel is at depth 1.
+/// A pane with its panel and depth (a panel's root is 1).
 typedef FoundPane = ({Panel panel, Component pane, int depth});
 
 FoundPane? findPane(Layout layout, String id) {
@@ -51,8 +49,7 @@ int _deepest(Component pane) =>
       (most, inner) => inner.isPane ? max(most, _deepest(inner)) : most,
     );
 
-/// Why [item] cannot go into the pane [paneId], or null if it can. Only a
-/// pane is ever refused.
+/// Why [item] cannot go into [paneId], or null. Only panes are ever refused.
 String? refusal(Layout layout, Component item, String paneId) {
   final found = findPane(layout, paneId);
   if (found == null) return 'That pane is gone.';
@@ -66,10 +63,8 @@ String? refusal(Layout layout, Component item, String paneId) {
   return null;
 }
 
-/// Gives every one of [items], in a [PaneMode.grid] pane [columns] wide, a
-/// cell of its own. [fixed], if given, gets exactly the cell it asks for;
-/// the others keep theirs when they can and otherwise take the nearest free
-/// one, or the first if they asked for none.
+/// Gives each of [items] its own cell in a grid pane. [fixed] gets exactly
+/// the cell it asks for; the rest keep theirs or take the nearest free one.
 List<Component> settle(List<Component> items, int columns, {String? fixed}) {
   final taken = <(int, int)>{};
   final settled = <String, Component>{};
@@ -153,10 +148,8 @@ Layout _rebuilt(
   ],
 );
 
-/// [layout] with [item] put where [drop] says, and taken from wherever it
-/// was before if it was anywhere. [panel] is a new popup that comes with it,
-/// when the item is an entity that opens one. The caller has made sure that
-/// [refusal] has nothing against it.
+/// Moves or adds [item] at [drop]. [panel] is the new folder that comes with
+/// it. The caller has checked [refusal].
 Layout dropItem(Layout layout, Component item, Drop drop, {Panel? panel}) {
   final found = findPane(layout, drop.pane)!;
   final target = found.pane;
@@ -184,7 +177,7 @@ Layout dropItem(Layout layout, Component item, Drop drop, {Panel? panel}) {
           fixed: drop.x == null ? null : item.id,
         );
       case PaneMode.free:
-        // With nowhere asked for, under everything that is there.
+        // Below everything, when no position is given.
         final below = rowCount(placeItems(items, target.columns, target.mode))
             .ceilToDouble();
         return [
@@ -209,14 +202,13 @@ Layout dropItem(Layout layout, Component item, Drop drop, {Panel? panel}) {
       return pane.id == target.id ? into(rest) : rest;
     },
     added: panel,
-    // An entity that is placed is no longer one the user took off.
+    // Placing an entity un-removes it.
     removed: {...layout.removed}..removeAll(item.handed),
   );
 }
 
-/// [layout] without the item [id] and whatever is in it. Entities that are then
-/// on no panel are noted as removed, so the TV does not put them back as if
-/// they were new apps.
+/// Removes [id] and its contents. Entities left unplaced are marked removed
+/// so the TV does not re-add them.
 Layout removeItem(Layout layout, String id) {
   final gone = <Component>[];
   final rest = _rebuilt(
@@ -249,12 +241,10 @@ Layout removeItem(Layout layout, String id) {
   );
 }
 
-/// An item of the layout with where it is: the pane it is in and the panel
-/// that pane is on.
+/// A component with its parent pane and panel.
 typedef Found = ({Component item, Component parent, Panel panel});
 
-/// The items [ids] name, in the order they are in [layout]; ids of things
-/// that are no longer there are left out.
+/// The components [ids], in layout order; missing ids are skipped.
 List<Found> findItems(Layout layout, Set<String> ids) => [
   for (final panel in layout.panels)
     for (final pane in panel.root.panes)
@@ -262,8 +252,7 @@ List<Found> findItems(Layout layout, Set<String> ids) => [
         if (ids.contains(item.id)) (item: item, parent: pane, panel: panel),
 ];
 
-/// [layout] with each of the items [ids] replaced by what [change] makes of
-/// it, given the pane it is in.
+/// Replaces each of [ids] with what [change] returns.
 Layout changeItems(
   Layout layout,
   Set<String> ids,
@@ -275,9 +264,7 @@ Layout changeItems(
   ],
 );
 
-/// [layout] with the items [ids] made [w] cells wide and [h] tall; either
-/// may be left as it is. In a pane with cells, what is then in the way of
-/// one of them moves aside.
+/// Resizes [ids]. In a grid pane, whatever is in the way moves aside.
 Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
     _rebuilt(layout, (pane, items) {
       final whole = pane.mode != PaneMode.free;
@@ -310,9 +297,8 @@ Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
       return next;
     });
 
-/// [layout] with the item [id] made [w] by [h] cells and, in a pane where
-/// things have places, put at [x], [y]. In a pane with cells, what is then
-/// in its way moves aside.
+/// Resizes and repositions [id]. In a grid pane, whatever is in the way moves
+/// aside.
 Layout reshapeItem(
   Layout layout,
   String id, {
@@ -340,17 +326,15 @@ Layout reshapeItem(
       : next;
 });
 
-/// [layout] with one part of the transform of the items [ids] set: [key]
-/// is `w`, `h`, `x`, `y`, `flex` or `aspect`, as a component saves them. A place is a column and
-/// a row together, so setting one of them where there was neither starts
-/// the other at nought, and taking one away ([value] null) takes both.
+/// Sets one transform field (`w`, `h`, `x`, `y`, `flex`, `aspect`) on [ids].
+/// Setting x or y alone starts the other at 0; clearing one clears both.
 Layout transformItems(
   Layout layout,
   Set<String> ids,
   String key,
   double? value,
 ) => switch (key) {
-  // In a line: a share of the room, or a shape. None is said as nought.
+  // 0 means none.
   'flex' || 'aspect' => changeItems(
     layout,
     ids,
@@ -378,9 +362,7 @@ Layout transformItems(
   ),
 };
 
-/// [pane] with the rule called [key] set to [value], as it is saved; null
-/// for the usual. How it places things and how many columns it has take
-/// what is in it with them.
+/// Sets a pane option. `mode` and `columns` also re-place the children.
 Component withRule(Component pane, String key, Object? value) => switch (key) {
   'mode' => withMode(pane, PaneMode.values.asNameMap()[value] ?? PaneMode.flow),
   'columns' => withColumns(
@@ -390,22 +372,21 @@ Component withRule(Component pane, String key, Object? value) => switch (key) {
   _ => pane.withOption(key, value == '' ? null : value),
 };
 
-/// The same for a panel: a sidebar's rules, a folder's.
 Panel withPanelRule(Panel panel, String key, Object? value) => key == 'title'
     ? panel.copyWith(title: value is String ? value : '')
     : panel.withRule(key, value);
 
-/// [pane] placing its items the [mode] way, each staying where it was as
-/// far as that way allows.
+/// Changes [pane]'s mode, keeping children where they were as far as
+/// possible.
 Component withMode(Component pane, PaneMode mode) {
-  // A line keeps what is in it as it is, in the order it was.
+  // A row or column keeps its children in order.
   if (mode.inLine) return pane.withOption('mode', mode.name);
   final placed = placeItems(pane.children, pane.columns, pane.mode);
   final whole = mode != PaneMode.free;
   double size(double value) => whole ? max(1.0, value.roundToDouble()) : value;
   final List<Component> items;
   if (mode == PaneMode.flow) {
-    // In reading order of where they were.
+    // In reading order of their old positions.
     final order = [for (var i = 0; i < placed.length; i++) i]
       ..sort((a, b) {
         final rows = placed[a].y.compareTo(placed[b].y);
@@ -437,7 +418,7 @@ Component withMode(Component pane, PaneMode mode) {
       );
 }
 
-/// [pane] with [columns] cells across; what no longer fits is made to.
+/// Sets the column count, refitting what no longer fits.
 Component withColumns(Component pane, int columns) {
   final items = [
     for (final item in pane.children)
@@ -458,7 +439,6 @@ Component withColumns(Component pane, int columns) {
       );
 }
 
-/// [layout] with the panel [id] replaced by what [change] makes of it.
 Layout changePanel(Layout layout, String id, Panel Function(Panel) change) =>
     Layout(
       inbox: layout.inbox,
@@ -469,8 +449,8 @@ Layout changePanel(Layout layout, String id, Panel Function(Panel) change) =>
       ],
     );
 
-/// [layout] without the popup [id], the entities that open it, and what was in
-/// it; entities that are then nowhere are noted as removed.
+/// Removes folder [id], its cards and its contents; entities left unplaced
+/// are marked removed.
 Layout removePanel(Layout layout, String id) {
   final panel = layout.panel(id);
   if (panel == null) return layout;
@@ -485,7 +465,7 @@ Layout removePanel(Layout layout, String id) {
     ),
     (_, items) => [
       for (final item in items)
-        // What opened it has nothing left to open.
+        // Its folder cards go with it.
         if (!item.isInstance || !item.handed.contains(id)) item,
     ],
   );
@@ -504,7 +484,7 @@ Layout removePanel(Layout layout, String id) {
   );
 }
 
-/// [layout] with a sidebar on the edge [id] names, empty if there was none.
+/// Adds an empty sidebar on edge [id] if there is none.
 Layout withBar(Layout layout, String id) => layout.panel(id) != null
     ? layout
     : Layout(
@@ -513,15 +493,13 @@ Layout withBar(Layout layout, String id) => layout.panel(id) != null
         panels: [...layout.panels, Panel.empty(id)],
       );
 
-/// The edges, by sidebar id, that have no sidebar: none was ever put
-/// there, or the one that was has nothing in it.
+/// Edges with no sidebar, or an empty one.
 List<String> freeEdges(Layout layout) => [
   for (final id in Layout.barIds)
     if (layout.panel(id)?.root.children.isEmpty ?? true) id,
 ];
 
-/// The edge [among] those given that the point ([x], [y]) is nearest to on
-/// a screen [width] by [height], if it is within [reach] of one.
+/// The edge of [among] nearest to ([x], [y]), if within [reach].
 String? edgeNear(
   double x,
   double y,
@@ -548,11 +526,10 @@ String? edgeNear(
   return nearest;
 }
 
-/// [layout] with new apps going to the pane [paneId].
 Layout withInbox(Layout layout, String paneId) =>
     Layout(inbox: paneId, removed: layout.removed, panels: layout.panels);
 
-/// How many times each entity is somewhere in [layout], by entity id.
+/// How many times each entity is placed.
 Map<String, int> placedCounts(Layout layout) {
   final counts = <String, int>{};
   for (final panel in layout.panels) {

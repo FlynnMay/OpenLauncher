@@ -1,4 +1,4 @@
-/// Components saved to be used again, and their instances.
+/// Prefabs and their instances.
 library;
 
 export 'instance.dart';

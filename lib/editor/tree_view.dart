@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// One line of a [TreeView]: something that can be ticked or picked,
-/// [value], or a heading over the [children] it can be opened to show, or
-/// both.
+/// A row of a [TreeView]: a checkable or pickable [value], a heading over
+/// [children], or both.
 @immutable
 class TreeNode<T> {
   const TreeNode({
@@ -16,20 +15,17 @@ class TreeNode<T> {
 
   final String label;
 
-  /// What ticking this line switches; null for a line that is only a
-  /// heading, which is ticked when everything under it is.
+  /// Null for a pure heading, which is checked when all its children are.
   final T? value;
   final List<TreeNode<T>> children;
 
-  /// Shown in front of the label, and at the end of the line.
   final Widget? leading, trailing;
 
-  /// What tells this line from the others when the lines are made anew
-  /// each time they are shown, so that a heading stays open or closed.
-  /// Without one, the line itself has to stay the same.
+  /// A stable identity, so a heading keeps its open state when nodes are
+  /// rebuilt.
   final Object? id;
 
-  /// The values of this line and of every line under it.
+  /// This row's value and all below it.
   Iterable<T> get values sync* {
     if (value case final value?) yield value;
     for (final child in children) {
@@ -38,12 +34,9 @@ class TreeNode<T> {
   }
 }
 
-/// A list of things to tick, some of them under headings that open and
-/// close. Ticking a heading ticks everything under it; a heading with only
-/// some of what is under it ticked shows as neither.
-///
-/// [TreeView.pick] is the same list with nothing to tick: a press on a
-/// line picks that line alone, and the lines that are picked are marked.
+/// A checkbox tree with collapsible headings; a heading toggles everything
+/// under it. [TreeView.pick] is the same without checkboxes: a click picks a
+/// row.
 class TreeView<T> extends StatefulWidget {
   const TreeView({
     super.key,
@@ -64,17 +57,12 @@ class TreeView<T> extends StatefulWidget {
 
   final List<TreeNode<T>> nodes;
 
-  /// The values that are ticked, or picked.
   final Set<T> checked;
 
-  /// Called with the values a tick was put on or taken off.
   final void Function(Set<T> values, bool checked)? onChanged;
 
-  /// Called with the value of a line that was pressed, where lines are
-  /// picked rather than ticked.
   final void Function(T value)? onPicked;
 
-  /// Whether headings start out open.
   final bool startOpen;
 
   @override
@@ -82,7 +70,7 @@ class TreeView<T> extends StatefulWidget {
 }
 
 class _TreeViewState<T> extends State<TreeView<T>> {
-  /// The headings whose state is the other one than they started in.
+  /// Headings toggled from their initial state.
   final _toggled = <Object>{};
 
   static const _indent = 20.0;
@@ -107,7 +95,7 @@ class _TreeViewState<T> extends State<TreeView<T>> {
         widget.checked.contains(node.value);
     yield InkWell(
       onTap: onPicked != null
-          // A heading that is nothing by itself just opens and closes.
+          // A pure heading only expands and collapses.
           ? switch (node.value) {
               final value? => () => onPicked(value),
               null => parent ? () => _toggle(node) : null,
@@ -136,7 +124,7 @@ class _TreeViewState<T> extends State<TreeView<T>> {
                   : null,
             ),
             if (onPicked == null)
-              // The line is what is pressed; the box only shows.
+              // The row handles the click.
               IgnorePointer(
                 child: Checkbox(
                   tristate: true,

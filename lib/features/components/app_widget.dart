@@ -15,8 +15,8 @@ final _widgetIdProvider = FutureProvider.family<int?, _Binding>(
       .bindWidget(binding.itemId, binding.provider),
 );
 
-/// Tells the device which app widgets the layout still uses, so it can let
-/// go of the rest. Watched for as long as the app runs.
+/// Tells the device which app widgets the layout still uses, so it can free
+/// the rest.
 final widgetCleanupProvider = Provider<void>((ref) {
   ref.listen(configProvider, (_, next) {
     final layout = next.value?.layout;

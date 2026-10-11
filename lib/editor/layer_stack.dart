@@ -10,7 +10,7 @@ import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 
-/// Where the focus goes from one place when the D-pad is pressed one way.
+/// One focus move: from where, to where, in which direction.
 @immutable
 class _Move {
   const _Move(this.layer, this.from, this.to, this.item);
@@ -18,7 +18,7 @@ class _Move {
   final EditLayer layer;
   final Rect from, to;
 
-  /// The layout item it starts on, if it starts on one.
+  /// The component it starts on, if any.
   final String? item;
 
   @override
@@ -33,13 +33,10 @@ class _Move {
   int get hashCode => Object.hash(layer, from, to, item);
 }
 
-/// Draws the layers that are switched on over the launcher's screen, which
-/// it is laid over and is the size of. It takes no part in what happens on
-/// the screen: nothing in it can be touched.
+/// Paints the enabled overlays over the launcher's screen. Not interactive.
 class LayerStack extends ConsumerStatefulWidget {
   const LayerStack({super.key, required this.navigator});
 
-  /// The launcher's navigator, whose screen this is over.
   final GlobalKey<NavigatorState> navigator;
 
   @override
@@ -47,13 +44,11 @@ class LayerStack extends ConsumerStatefulWidget {
 }
 
 class _LayerStackState extends ConsumerState<LayerStack> {
-  /// Every move the D-pad can make on the screen as it is now, found the
-  /// way the launcher finds it: from what can take the focus on the screen
-  /// in front, by the launcher's own rule.
+  /// Every D-pad move possible on the current screen, using the launcher's
+  /// own [navigate].
   List<_Move> _find() {
     final screen = context.findRenderObject();
-    // The screen in front: the home screen, or the popup last opened over
-    // it. Each has its own focus scope, under the navigator's.
+    // The front focus scope: the home screen or the last popup.
     final scope = widget.navigator.currentState?.focusNode.children
         .whereType<FocusScopeNode>()
         .lastOrNull;
@@ -69,7 +64,7 @@ class _LayerStackState extends ConsumerState<LayerStack> {
       spots.add(
         NavSpot(
           node,
-          // Measured on the launcher's screen, however large it is shown.
+          // In the launcher screen's coordinates.
           MatrixUtils.transformRect(
             box.getTransformTo(screen),
             Offset.zero & box.size,
@@ -100,8 +95,7 @@ class _LayerStackState extends ConsumerState<LayerStack> {
     final layers = ref.watch(layersProvider);
     final selected = ref.watch(selectionProvider);
     if (layers.isEmpty) return const SizedBox.shrink();
-    // Where things are changes with scrolling, popups, rails and the
-    // layout, none of which say so: looked at again after every frame.
+    // Recomputed after every frame; scrolling and popups do not notify.
     return AfterFrame<List<_Move>>(
       read: _find,
       same: listEquals,
@@ -109,7 +103,7 @@ class _LayerStackState extends ConsumerState<LayerStack> {
         child: CustomPaint(
           painter: _MovesPainter([
             for (final move in moves ?? const <_Move>[])
-              // With things picked out, only where the focus goes from them.
+              // With a selection, only moves from it.
               if (layers.contains(move.layer) &&
                   (selected.isEmpty || selected.contains(move.item)))
                 move,
@@ -120,8 +114,7 @@ class _LayerStackState extends ConsumerState<LayerStack> {
   }
 }
 
-/// An arrow for each move, from the edge the focus leaves by to the edge
-/// it arrives at.
+/// An arrow per move, from the edge left to the edge reached.
 class _MovesPainter extends CustomPainter {
   const _MovesPainter(this.moves);
 
@@ -139,7 +132,7 @@ class _MovesPainter extends CustomPainter {
           direction == NavDirection.left || direction == NavDirection.right;
       final forwards =
           direction == NavDirection.right || direction == NavDirection.down;
-      // Kept a little off the middle, so that there and back do not overlap.
+      // Offset so the two directions do not overlap.
       final shift = forwards ? 5.0 : -5.0;
       var start = sideways
           ? Offset(forwards ? a.right : a.left, a.center.dy + shift)
@@ -147,8 +140,7 @@ class _MovesPainter extends CustomPainter {
       var end = sideways
           ? Offset(forwards ? c.left : c.right, c.center.dy + shift)
           : Offset(c.center.dx + shift, forwards ? c.top : c.bottom);
-      // Where the two overlap, or it would have to turn back: from middle
-      // to middle.
+      // Centre to centre when the rects overlap.
       final travel = sideways ? end.dx - start.dx : end.dy - start.dy;
       if (travel * (forwards ? 1 : -1) < 4) {
         final aside = sideways ? Offset(0, shift) : Offset(shift, 0);

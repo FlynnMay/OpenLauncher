@@ -40,29 +40,27 @@ class Template {
   /// Text and [_Expr]s, in order.
   final List<Object> _parts;
 
-  /// The roots whose values it reads.
+  /// The roots it reads.
   Set<String> get roots => {
     for (final part in _parts)
       if (part is _Expr) ...part.roots,
   };
 
-  /// What it is when it is one value and nothing else, as that value and
-  /// not as text: a number stays a number, a thing of several parts stays
-  /// whole. Otherwise how it reads.
+  /// The value itself when the template is a single expression, keeping its
+  /// type; otherwise the rendered text.
   Object? evaluate(Object? Function(String root) lookup) => switch (_parts) {
     [final _Expr only] => only.value(lookup),
     _ => render(lookup),
   };
 
-  /// How it reads when each root is what [lookup] says it is.
+  /// The rendered text.
   String render(Object? Function(String root) lookup) => [
     for (final part in _parts)
       part is _Expr ? valueText(part.value(lookup)) : part,
   ].join();
 }
 
-/// How a value reads: a whole number without its `.0`, a thing of several
-/// parts by its `text` part.
+/// A value as text: whole numbers without `.0`, a map by its `text`.
 String valueText(Object? value) => switch (value) {
   null => '',
   final double number when number == number.roundToDouble() =>
@@ -72,8 +70,8 @@ String valueText(Object? value) => switch (value) {
   _ => '$value',
 };
 
-/// Every single value in [value] with the path that names it, as it is
-/// written in a template: `lounge.attributes.temperature`.
+/// Every leaf of [value] by its template path, e.g.
+/// `lounge.attributes.temperature`.
 Map<String, Object?> valuePaths(String root, Object? value) => switch (value) {
   final Map<Object?, Object?> parts => {
     for (final MapEntry(:key, value: part) in parts.entries)
@@ -86,15 +84,14 @@ Map<String, Object?> valuePaths(String root, Object? value) => switch (value) {
   _ => {root: value},
 };
 
-/// What stands between a pair of double braces: a value, a comparison of
-/// two, or one of two things by which way a comparison or a value falls.
+/// One `{{...}}`: a value, a comparison, or a ternary.
 class _Expr {
   const _Expr(this.left, [this.op, this.right, this.yes, this.no]);
 
   factory _Expr.parse(String source) {
     var condition = source;
     _Slot? yes, no;
-    // Only with room either side: `default:?` is a pipe's business.
+    // Needs spaces, so `default:?` stays a pipe argument.
     final asks = _outside(source, ' ? ');
     if (asks != -1) {
       final rest = source.substring(asks + 3);
@@ -123,8 +120,7 @@ class _Expr {
   final String? op;
   final _Slot? right, yes, no;
 
-  /// Where [mark] first is in [text] that is not inside quotes; -1 if
-  /// nowhere.
+  /// The first [mark] in [text] outside quotes, or -1.
   static int _outside(String text, String mark) {
     String? quote;
     for (var i = 0; i < text.length; i++) {
@@ -180,8 +176,7 @@ class _Expr {
 class _Slot {
   const _Slot(this.path, this.pipes, [this.literal]);
 
-  /// What [source] says outright, if it is not the path of a value: text
-  /// between quotes, a number, `true` or `false`.
+  /// A literal: quoted text, a number, `true` or `false`.
   static Object? _said(String source) {
     final text = source.trim();
     if (text.length > 1 &&
@@ -208,7 +203,7 @@ class _Slot {
         for (final pipe in pipes)
           switch (pipe.indexOf(':')) {
             -1 => (name: pipe.trim(), argument: ''),
-            // Only the first: a time's pattern has colons of its own.
+            // Only the first colon; a time pattern has its own.
             final colon => (
               name: pipe.substring(0, colon).trim(),
               argument: _unquoted(pipe.substring(colon + 1).trim()),
@@ -218,12 +213,11 @@ class _Slot {
     );
   }
 
-  /// Names and places in a list, from the root down.
+  /// Names and indexes, from the root down.
   final List<Object> path;
   final List<({String name, String argument})> pipes;
 
-  /// What it is, for one that says so outright in place of naming a
-  /// value.
+  /// The value, for a literal.
   final Object? literal;
 
   static String _unquoted(String text) =>
@@ -242,8 +236,7 @@ class _Slot {
     {'epoch': final num epoch} => DateTime.fromMillisecondsSinceEpoch(
       epoch.toInt(),
     ),
-    // Too small to be thousandths of a second: whole seconds, as most
-    // APIs count them.
+    // Too small for milliseconds, so seconds.
     final num epoch => DateTime.fromMillisecondsSinceEpoch(
       (epoch.abs() < 1e11 ? epoch * 1000 : epoch).toInt(),
     ),
@@ -280,7 +273,7 @@ class _Slot {
           null => value,
           final time => formatDateTime(time, argument),
         },
-        // Unknown, or not for this kind of value: as it was.
+        // Unknown pipe, or wrong type: unchanged.
         _ => value,
       };
     }

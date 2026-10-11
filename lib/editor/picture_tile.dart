@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// A small picture with its name under it and, if given, a note in its
-/// corner: how the catalogue and the entity chooser show what there is.
+/// A picture with a name and an optional corner note, as the catalogue and
+/// pickers show things.
 class PictureTile extends StatelessWidget {
   const PictureTile({
     super.key,
@@ -16,7 +16,7 @@ class PictureTile extends StatelessWidget {
   final String label;
   final Widget picture;
 
-  /// True for a picture that is shown on an entity, as artwork is on the TV.
+  /// Whether the picture gets a card background.
   final bool backed;
   final String? badge;
   final String? tooltip;
@@ -89,7 +89,7 @@ class PictureTile extends StatelessWidget {
   }
 }
 
-/// How a grid of [PictureTile]s is laid out, wherever one is shown.
+/// The grid layout for [PictureTile]s.
 const pictureTileGrid = SliverGridDelegateWithMaxCrossAxisExtent(
   maxCrossAxisExtent: 104,
   mainAxisSpacing: 8,

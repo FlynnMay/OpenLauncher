@@ -6,14 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// Notifications other apps post while the launcher is running.
 final notificationsProvider = StreamProvider<AppNotification>(
   (ref) => ref.watch(launcherPlatformProvider).notifications,
 );
 
-/// Shows each notification from another app for a few seconds in a corner
-/// of the screen, one at a time. Where, for how long, and whether at all is
-/// the user's choice.
+/// Shows other apps' notifications one at a time in a corner, as configured.
 class ToastOverlay extends ConsumerStatefulWidget {
   const ToastOverlay({super.key});
 
@@ -22,7 +19,7 @@ class ToastOverlay extends ConsumerStatefulWidget {
 }
 
 class _ToastOverlayState extends ConsumerState<ToastOverlay> {
-  /// More than this waiting means a flood; the oldest are dropped.
+  /// Beyond this the oldest are dropped.
   static const _maxWaiting = 5;
 
   final _waiting = Queue<AppNotification>();

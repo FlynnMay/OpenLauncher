@@ -1,9 +1,7 @@
-/// Where everything is on screen: the saved model, how items are placed on
-/// their grid, and the layout matched to what it shows.
+/// The layout model, placement and navigation.
 library;
 
 export 'package:openlauncher/core/components/component.dart';
-// A look is anything's to have, but most of what has one is here.
 export 'package:openlauncher/core/style/box_style.dart';
 export 'package:openlauncher/core/style/style.dart';
 

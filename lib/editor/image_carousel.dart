@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
 
-/// One of the pictures an [ImageCarousel] shows.
 @immutable
 class CarouselImage {
   const CarouselImage({required this.id, required this.child});
 
-  /// What it is told apart by.
   final String id;
 
-  /// The picture itself; it is given the whole frame.
   final Widget child;
 }
 
-/// A frame showing one of several pictures at a time, with the means to go
-/// through them, add to them, take one away and put one first. With [max]
-/// of 1 it is simply a picture that can be chosen, replaced and removed.
-///
-/// It only shows and asks: what adding or removing does is the caller's.
-/// Whichever of [onAdd], [onRemove] and [onFirst] is null is not offered.
+/// Shows one of several pictures with controls to browse, add, remove and
+/// make one first. With [max] 1 it is a single replaceable picture. It only
+/// reports; the caller does the work.
 class ImageCarousel extends StatefulWidget {
   const ImageCarousel({
     super.key,
@@ -38,26 +32,23 @@ class ImageCarousel extends StatefulWidget {
 
   final List<CarouselImage> images;
 
-  /// How many pictures there may be.
   final int max;
   final double aspectRatio;
 
-  /// What the frame says while there is no picture.
+  /// Text shown when there is no picture.
   final String empty;
   final String addLabel, replaceLabel, removeLabel, firstLabel;
 
-  /// True while something is on its way, such as an upload.
+  /// While something is pending, such as an upload.
   final bool busy;
 
-  /// Asked for another picture, or with [max] of 1 and one there already,
-  /// for a different one.
+  /// Add a picture, or replace it when [max] is 1.
   final VoidCallback? onAdd;
   final void Function(String id)? onRemove;
 
-  /// Asked to put a picture in front of the others.
   final void Function(String id)? onFirst;
 
-  /// Whether a given picture can be removed; all can if this is null.
+  /// All are removable if null.
   final bool Function(String id)? canRemove;
 
   @override
@@ -73,7 +64,7 @@ class _ImageCarouselState extends State<ImageCarousel> {
     super.didUpdateWidget(old);
     final count = widget.images.length;
     if (count > old.images.length && old.images.isNotEmpty) {
-      // One was added: go to it.
+      // Go to the one just added.
       _go(count - 1);
     } else if (_index >= count) {
       _index = count == 0 ? 0 : count - 1;

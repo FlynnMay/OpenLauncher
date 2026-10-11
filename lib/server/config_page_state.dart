@@ -9,19 +9,17 @@ import 'package:path/path.dart' as p;
 
 String _iconUrl(String id, String source) =>
     '/api/icon?id=${Uri.encodeQueryComponent(id)}'
-    // The source changes whenever the image does, so it doubles as a cache
-    // key.
+    // The source's hash is the cache key.
     '&v=${source.hashCode.toRadixString(36)}';
 
-/// What the config page shows and edits, as JSON: the wallpaper, every entity
-/// there is (placed or not), the layout, and what there is to choose from.
+/// The state the editor loads: wallpapers, entities, layout and choices.
 final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   ref,
 ) async {
   final entities = await ref.watch(entitiesProvider.future);
   final config = await ref.watch(configProvider.future);
   final providers = await ref.watch(widgetProvidersProvider.future);
-  // Not waited for: the page is worth showing before this is known.
+  // Not awaited; the page should not wait for it.
   final playing = ref.watch(nowPlayingProvider).value;
   final wallpapers = [
     for (final path in config.wallpapers)
@@ -29,7 +27,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
         {
           'id': WallpaperStore.idOf(path),
           'kind': wallpaper.kind.name,
-          // A file never changes under its name, so this caches for good.
+          // Immutable URL.
           'url':
               '/api/wallpaper?id='
               '${Uri.encodeQueryComponent(WallpaperStore.idOf(path))}',
@@ -37,32 +35,26 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   ];
   return {
     'wallpapers': wallpapers,
-    // Minutes each one stays, or 0 to stay on the first.
     'wallpaperEvery': config.wallpaperEvery,
     'entities': [
       for (final entity in entities)
         {
           'id': entity.id,
           'category': entity.category,
-          // What can be done with it, by the names actions go by.
           'actions': [
             for (final action
                 in entityRegistry(entity.category)?.actions ?? const [])
               action.name,
           ],
           'label': entity.label,
-          // What the device calls it; ids in the layout are made from it.
           'name': entity.name,
-          // Whether the user chose the name, rather than the device.
           'renamed': config.names.containsKey(entity.id),
-          // An uploaded picture, or another entity's.
+          // An uploaded or borrowed picture.
           'customIcon':
               config.iconOverrides.containsKey(entity.id) ||
               config.iconSources.containsKey(entity.id),
-          // The entity whose picture this one shows, if any.
           'iconFrom': config.iconSources[entity.id],
-          // What there is to read of it, as the TV has it; its picture is
-          // a file here, so what is sent is where to fetch it.
+          // The icon is sent as a URL.
           'data': {
             ...entity.data,
             if (entity.data[Entity.icon] case final String source)
@@ -70,10 +62,10 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
           },
         },
     ],
-    // Exactly what the TV arranges: entities placed nowhere are already in
-    // their section, and entities that are gone are left out.
+    // As the TV draws it: unplaced entities in the inbox, missing ones
+    // dropped.
     'layout': layoutWith(config.layout, entities).toJson(),
-    // Pictures the user gave to entities that open a popup, by panel id.
+    // Folder pictures by panel id.
     'panelIcons': {
       for (final panel in config.layout.panels)
         if (config.iconOverrides[Panel.iconKey(panel.id)] case final path?)
@@ -81,7 +73,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     },
     'components': [
       for (final kind in ComponentKind.values)
-        // App widgets are only offered where there are some.
+        // App widgets only where some exist.
         if (kind != ComponentKind.android || providers.isNotEmpty)
           {
             'type': kind.name,
@@ -94,18 +86,13 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
       for (final provider in providers)
         {'id': provider.id, 'label': provider.label, 'app': provider.appLabel},
     ],
-    // Every setting that is plain data, as it is saved; set the same way
-    // with `PUT /api/config`.
+    // Plain-data settings; set with `PUT /api/config`.
     'config': config.open,
-    // Toasts and the now-playing component stay empty without it.
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
-    // Whether the remote's Home button opens the launcher, and whether
-    // the launcher may switch that itself.
     'homeButton': {
       'enabled': await ref.watch(homeButtonEnabledProvider.future),
       'canManage': await ref.watch(canManageHomeButtonProvider.future),
     },
-    // What the now-playing component shows, or null.
     'nowPlaying': playing == null
         ? null
         : {
@@ -114,7 +101,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
             'title': playing.title,
             'artist': playing.artist,
             'playing': playing.playing,
-            // A cover never changes under its name, so this caches for good.
+            // Immutable URL.
             'art': switch (playing.artPath) {
               null => null,
               final path =>

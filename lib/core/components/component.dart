@@ -8,14 +8,12 @@ import 'package:openlauncher/core/style/box_style.dart';
 import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
-/// The kind of a component that is made of others: it arranges its
-/// [Component.children] as its [Component.mode] says.
+/// The kind of a component that holds [Component.children].
 const paneKind = 'pane';
 
-/// What is set differently about the components of a prefab, by the id
-/// each has in it: under `options`, `style` and `transform` the values
-/// that differ, each by its name, and `hidden`. A value of null hands
-/// that one back to whatever is underneath.
+/// Per-child differences from a prefab, keyed by child id. Each entry may
+/// hold `options`, `style`, `transform` (maps) and `hidden`. A null value
+/// means "inherit".
 typedef Overrides = Map<String, Map<String, Object?>>;
 
 Overrides overridesFromJson(Object? json) => {
@@ -31,9 +29,8 @@ Map<String, Object?> _map(Object? json) => switch (json) {
   _ => const {},
 };
 
-/// [overrides] with [values] set for the component [id], each under
-/// [section] (`options`, `style`, `transform`), or with no section for
-/// `hidden`. A value of null is taken away, and so handed back.
+/// Sets [values] for child [id] under [section], or at the top level (for
+/// `hidden`) when [section] is null. Null values are removed.
 Overrides withOverride(
   Overrides overrides,
   String id,
@@ -56,7 +53,7 @@ Overrides withOverride(
   };
 }
 
-/// [under] with [over] set on top of it, value by value.
+/// Merges [over] onto [under], value by value.
 Overrides overridesOver(Overrides under, Overrides over) {
   var result = under;
   for (final MapEntry(key: id, value: set) in over.entries) {
@@ -69,11 +66,8 @@ Overrides overridesOver(Overrides under, Overrides over) {
   return result;
 }
 
-/// The one thing everything on the screen is: a primitive (text, a
-/// picture, a button), something made of other components (a pane), or an
-/// instance of a prefab, which is a component that was saved to be used
-/// again. Each has options (what its kind lets be set), variables, a
-/// transform (its size and place in what holds it), a look and triggers.
+/// Everything on screen: a primitive (text, picture, button), a pane holding
+/// other components, or an instance of a prefab.
 @immutable
 class Component {
   const Component({
@@ -97,9 +91,7 @@ class Component {
     this.overrides = const {},
   });
 
-  /// One made of others. [rules] are its measures (`spacing`, `rowHeight`,
-  /// `itemW`, `itemH`, `gap`, `fit`, `align`), which are options like its
-  /// title, mode and columns.
+  /// A pane. [rules] are extra options such as `spacing`, `rowHeight`, `gap`.
   Component.pane({
     required this.id,
     String title = '',
@@ -131,8 +123,7 @@ class Component {
          if (prefabRules.isNotEmpty) 'prefabRules': prefabRules,
        };
 
-  /// An instance of the prefab [prefab], which is the one a card is unless
-  /// another is named, handed the entity [entityId] as its `source`.
+  /// An instance of [prefab] whose `source` variable is [entityId].
   Component.of(
     String entityId, {
     required this.id,
@@ -156,111 +147,92 @@ class Component {
 
   static const defaultColumns = 5;
 
-  /// How round a pane's corners are when its look does not say, in the
-  /// TV's pixels.
+  /// Pane corner radius when the style sets none.
   static const defaultCorner = 14.0;
 
-  /// The lowest and the tallest a row can be made, in the TV's pixels.
   static const minRowHeight = 16.0, maxRowHeight = 400.0;
 
-  /// The row height a sidebar starts with: a line of small pictures.
+  /// Default row height of a sidebar.
   static const barRowHeight = 36.0;
 
-  /// The room a pane keeps between its edge and what is in it when its
-  /// look does not say; a global pane keeps none.
+  /// Pane padding when the style sets none.
   static const defaultPadding = 16.0;
 
-  /// The gap between cells, across and down, when [spacing] is not set.
+  /// Cell gaps when [spacing] is unset.
   static const defaultSpacingX = 20.0, defaultSpacingY = 16.0;
   static const maxSpacing = 80.0;
 
-  /// The columns a new global pane has: enough to place things finely.
+  /// Columns of a new root pane.
   static const globalColumns = 12;
   static const maxColumns = 24;
 
-  /// The tallest a component can be, in cells.
+  /// Tallest a component can be, in cells.
   static const maxRows = 60;
 
-  /// The smallest a component of a [PaneMode.free] pane can be, in cells.
+  /// Smallest size in a [PaneMode.free] pane, in cells.
   static const minFreeSpan = 0.25;
 
-  /// How deep panes may be nested, counting the global one.
+  /// Maximum pane nesting, counting the root.
   static const maxDepth = 4;
 
-  /// The name of the variable the launcher's own prefabs are handed an
-  /// entity as. It is theirs alone: nothing treats a variable of this
-  /// name as anything but a variable.
+  /// The variable name the built-in prefabs use for their entity. Nothing
+  /// else gives this name special meaning.
   static const sourceVar = 'source';
 
-  /// Unique within the layout; within its prefab, for one that is part of
-  /// a prefab.
+  /// Unique in the layout, or within its prefab.
   final String id;
 
-  /// What it is: the name of a primitive (`ComponentKind`) or [paneKind].
-  /// Nothing for an instance, which is whatever its prefab is.
+  /// A `ComponentKind` name or [paneKind]. Empty for an instance.
   final String kind;
 
-  /// The id of the prefab this is an instance of, if it is one. It then
-  /// says only what it sets differently; the rest it reads from the prefab
-  /// each time it is drawn.
+  /// The prefab this is an instance of, if any. An instance stores only what
+  /// differs from it.
   final String? prefab;
 
-  /// Which of its prefab's variants an instance is; none for the first.
+  /// The prefab variant; null for the first.
   final String? variant;
 
-  /// What its kind lets be set, by name: a primitive's settings
-  /// (`ComponentKind.options`), a pane's title, mode, columns and
-  /// measures. An instance's are set over its prefab's.
+  /// Settings defined by the kind. A pane's title, mode, columns and measures
+  /// are options too.
   final Map<String, Object?> options;
 
-  /// The variables it has of its own, which what is inside it can read
-  /// and, where they are public, anything can by its id. Those of an
-  /// instance are set over its prefab's.
+  /// Its own variables. Children inherit the non-private ones.
   final Variables vars;
 
-  /// Its look. An instance's counts over its prefab's.
   final Style style;
 
-  /// What it does, by what sets it off. An instance's counts over its
-  /// prefab's, trigger by trigger.
   final Triggers on;
 
-  /// Its transform in a pane of cells: its size, and column and row from
-  /// zero. Whole numbers except in [PaneMode.free] panes; [x] and [y] are
-  /// not used by [PaneMode.flow] panes.
+  /// Size and position in the parent pane's cells. Fractions only in
+  /// [PaneMode.free]; [x] and [y] are unused in [PaneMode.flow].
   final double w, h;
   final double? x, y;
 
-  /// Its transform in a pane that puts things in a line: the share of the
-  /// room left over it takes ([flex]), or the shape it keeps ([aspect],
-  /// width over height). With neither it takes only what it needs.
+  /// In a row or column pane: share of the free space ([flex]) or
+  /// width/height ratio ([aspect]). With neither it takes its natural size.
   final double? flex, aspect;
 
-  /// True to keep its room in a line while [hidden], so that hiding it
-  /// does not change the size of the rest.
+  /// Keep its space in a row or column while [hidden].
   final bool keep;
 
-  /// True for one that is not shown.
   final bool hidden;
 
-  /// What it is made of, for a pane.
   final List<Component> children;
 
-  /// What an instance sets differently about the components of its prefab.
+  /// An instance's differences from its prefab's children.
   final Overrides overrides;
 
   bool get isPane => kind == paneKind;
   bool get isInstance => prefab != null;
 
-  /// The ids of the entities it was handed: what its variables that hold
-  /// an entity are set to, whatever they are called.
+  /// Ids held by its entity-typed variables.
   Iterable<String> get handed => [
     for (final variable in vars.values)
       if (variable.type == VarType.entity)
         if (variable.value case final String id when id.isNotEmpty) id,
   ];
 
-  // What a pane's options say, each as what it is.
+  // Typed access to a pane's options.
 
   String get title => switch (options['title']) {
     final String title => title,
@@ -270,7 +242,6 @@ class Component {
   PaneMode get mode =>
       PaneMode.values.asNameMap()[options['mode']] ?? PaneMode.flow;
 
-  /// How many cells wide the pane is; more columns mean smaller cells.
   int get columns => switch (options['columns']) {
     final num columns => columns.toInt(),
     _ => defaultColumns,
@@ -281,60 +252,51 @@ class Component {
     _ => null,
   };
 
-  /// The gap between cells, in the TV's 960-wide pixels, the same across
-  /// and down; null for the usual one.
+  /// Cell gap in TV pixels, both axes; null for the default.
   double? get spacing => _measure('spacing');
   double get spacingX => spacing ?? defaultSpacingX;
   double get spacingY => spacing ?? defaultSpacingY;
 
-  /// How tall a row of cells is, in the TV's 960-wide pixels; null for a
-  /// height that follows from how wide a cell is.
+  /// Row height in TV pixels; null derives it from the cell width.
   double? get rowHeight => _measure('rowHeight');
 
-  /// The size the pane gives every instance directly in it, whatever each
-  /// says for itself. Null leaves that to each of them.
+  /// Size forced on every instance directly in the pane; null leaves it to
+  /// each.
   double? get itemW => _measure('itemW');
   double? get itemH => _measure('itemH');
 
-  /// The room between the things of a pane that puts them in a line.
+  /// Gap between children of a row or column pane.
   double get gap => _measure('gap') ?? 0;
 
-  /// True for a line whose things each take the room they need and are
-  /// then made, together, as big as the box allows: a clock, whatever its
-  /// box.
+  /// Children take their natural size, then the whole row or column is scaled
+  /// to fit its box.
   bool get fit => options['fit'] == true;
 
-  /// Where the things of a line sit across the way it runs: `start`,
-  /// `center`, `end` or `stretch`. Unsaid, in the middle of a row and
-  /// filling the width of a column.
+  /// Cross-axis alignment in a row or column pane: `start`, `center`, `end`
+  /// or `stretch`.
   String? get align => switch (options['align']) {
     final String align => align,
     _ => null,
   };
 
-  /// What the pane says of the instances of a prefab directly in it, by
-  /// the prefab's id: which `variant` they are, and what it `overrides`
-  /// in them. What an instance says for itself is kept, and counts again
-  /// once the rule is gone.
+  /// Per-prefab rules for instances directly in the pane: `{prefabId:
+  /// {variant, overrides}}`. A rule wins over the instance's own values
+  /// without changing them.
   Map<String, Map<String, Object?>> get prefabRules =>
       overridesFromJson(options['prefabRules']);
 
-  /// [style] as a box is painted from it.
   BoxStyle get box => BoxStyle.of(style);
 
-  /// The properties of a look that mean something to it: a box's, and with
-  /// them a primitive's own or, for what holds other things, those the
-  /// text inside takes after.
+  /// Style properties that apply to this component.
   List<String> get styleKeys => [
     ...boxStyle,
     ...ComponentKind.named(kind)?.style ?? textStyle,
   ];
 
-  /// Whether the pane decides something for what is in it.
+  /// Whether the pane overrides anything on its children.
   bool get decides => itemW != null || itemH != null || prefabRules.isNotEmpty;
 
-  /// The children as they are to be placed and drawn: instances as the
-  /// pane would have them.
+  /// The children with the pane's rules applied; what is drawn.
   List<Component> get shown {
     if (!decides) return children;
     final rules = prefabRules;
@@ -347,9 +309,8 @@ class Component {
     ];
   }
 
-  /// This instance as [rule], which a pane sets for every instance of a
-  /// prefab in it, would have it: its variant and whatever it overrides
-  /// count over what the instance says for itself.
+  /// This instance with a pane's [rule] applied over its own variant and
+  /// overrides.
   Component underRule(Map<String, Object?>? rule) => rule == null
       ? this
       : copyWith(
@@ -363,7 +324,7 @@ class Component {
           ),
         );
 
-  /// This component with what [set] says laid over it: see [Overrides].
+  /// This component with one [Overrides] entry applied.
   Component overridden(Map<String, Object?>? set) {
     if (set == null || set.isEmpty) return this;
     final transform = _map(set['transform']);
@@ -387,8 +348,7 @@ class Component {
       h: number('h', h) ?? 1,
       x: number('x', x),
       y: number('y', y),
-      // None is said as nothing or as 0, which a variant can set over a
-      // share its prefab gives.
+      // 0 means "no flex", so a variant can unset its prefab's.
       flex: _positive(number('flex', flex)),
       aspect: _positive(number('aspect', aspect)),
       keep: switch (transform['keep']) {
@@ -404,14 +364,12 @@ class Component {
     );
   }
 
-  /// This component with the option [key] set to [value]; null for the
-  /// usual.
+  /// Sets option [key]; null removes it.
   Component withOption(String key, Object? value) => copyWith(
     options: {...options, key: value}..removeWhere((_, value) => value == null),
   );
 
-  /// This pane set up the way a sidebar starts out: a line of small rows,
-  /// each a picture with its name beside it, one cell each.
+  /// Sets a pane up as a new sidebar: small rows, row-layout cards.
   Component asBar() => copyWith(
     options: {
       ...options,
@@ -434,12 +392,11 @@ class Component {
     }
   }
 
-  /// Everything in this pane and the panes inside it, other than the panes
-  /// themselves.
+  /// Every non-pane component in this pane and the panes inside it.
   Iterable<Component> get contents =>
       panes.expand((pane) => pane.children).where((child) => !child.isPane);
 
-  /// This component and everything inside it, at any depth.
+  /// This component and all its descendants.
   Iterable<Component> get all sync* {
     yield this;
     for (final child in children) {
@@ -447,11 +404,10 @@ class Component {
     }
   }
 
-  /// Whether there is nothing in it but, at most, empty panes.
+  /// True if it holds nothing but empty panes.
   bool get isEmpty => children.every((child) => child.isPane && child.isEmpty);
 
-  /// A copy in which the children of every pane, innermost first, have
-  /// been replaced by what [change] returns for them.
+  /// Rebuilds every pane's children with [change], innermost first.
   Component rebuild(
     List<Component> Function(Component pane, List<Component> children) change,
   ) => !isPane
@@ -462,16 +418,14 @@ class Component {
           ]),
         );
 
-  /// The id wanted for an instance handed the entity [entityId]: an app's
-  /// after its package, which says what it is whatever it is called; any
-  /// other after the [name] the device has for it, or failing that the
-  /// end of its own id.
+  /// A readable id for an instance of [entityId]: the package slug for an
+  /// app, else from the device [name].
   static String autoId(String entityId, [String? name]) =>
       entityId.startsWith('app:')
       ? packageSlug(entityId.substring(4))
       : slugOf(name ?? '', slugOf(entityId.split(RegExp('[:/.]')).last));
 
-  /// This component set up otherwise. A [w] or [h] of null keeps its own.
+  /// A null [w] or [h] keeps the current one.
   Component copyWith({
     String? id,
     String? kind,
@@ -507,7 +461,7 @@ class Component {
     overrides: overrides ?? this.overrides,
   );
 
-  /// This instance as the first of its prefab's variants, or as [variant].
+  /// Sets or clears the variant (copyWith cannot clear).
   Component withVariant(String? variant) => Component(
     id: id,
     kind: kind,
@@ -529,8 +483,7 @@ class Component {
     overrides: overrides,
   );
 
-  /// This component at another size and place; with no [x] and [y],
-  /// wherever its pane puts it.
+  /// Sets size and position; omitted [x] and [y] are cleared.
   Component sized(double w, double h, {double? x, double? y}) => Component(
     id: id,
     kind: kind,
@@ -552,7 +505,7 @@ class Component {
     overrides: overrides,
   );
 
-  /// Throws a [FormatException] for what is not shaped like a component.
+  /// Throws [FormatException] on malformed JSON.
   factory Component.fromJson(Map<Object?, Object?> json) {
     final transform =
         jsonOptional<Map<Object?, Object?>>(json, 'transform') ?? const {};
@@ -609,7 +562,6 @@ class Component {
   }
 }
 
-/// The prefab an instance handed an entity is of unless it names another,
-/// and the one what opens a folder is.
+/// The built-in card prefabs.
 const cardPrefabId = 'app-card';
 const folderPrefabId = 'folder-card';

@@ -7,15 +7,13 @@ import 'package:openlauncher/editor/image_carousel.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
-/// The pictures and videos behind the home screen: a carousel of them, and
-/// whether and how often they take turns.
+/// The wallpapers and their rotation.
 class WallpaperSettings extends ConsumerStatefulWidget {
   const WallpaperSettings({super.key});
 
-  /// How many wallpapers the TV keeps.
   static const max = 12;
 
-  /// The choices of how long each stays, in minutes.
+  /// Rotation intervals, in minutes.
   static const turns = {
     0: 'Stay on the first',
     1: 'Every minute',

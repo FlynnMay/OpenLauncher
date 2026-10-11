@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// The pictures a button can be given, by the names they are saved under.
+/// Icons by their saved names.
 const tileIcons = <String, IconData>{
   'play': Icons.play_arrow_outlined,
   'pause': Icons.pause_circle_outline,
@@ -21,7 +21,7 @@ const tileIcons = <String, IconData>{
   'power': Icons.power_settings_new,
   'light': Icons.lightbulb_outline,
   'music': Icons.music_note_outlined,
-  // The sky, as the weather names it.
+  // Weather.
   'sun': Icons.wb_sunny_outlined,
   'partly': Icons.wb_cloudy_outlined,
   'cloud': Icons.cloud_outlined,

@@ -3,10 +3,7 @@ import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 
-/// The variables of one component: each named, with what it is, who may
-/// read it, and, for one that is conditional, what it looks at and what it
-/// is for each case. The form is made from [variableOptions]. Knows nothing
-/// of what the component is.
+/// A component's variables, generated from [variableOptions].
 class VariablesSettings extends StatelessWidget {
   const VariablesSettings({
     super.key,
@@ -18,7 +15,7 @@ class VariablesSettings extends StatelessWidget {
   final Variables variables;
   final void Function(Variables variables) onChanged;
 
-  /// Said above them, where there is something to say of whose they are.
+  /// A note shown above them.
   final String? note;
 
   @override

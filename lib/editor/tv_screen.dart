@@ -4,16 +4,14 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 
-/// The launcher itself, running in a box the size of the TV's screen: the
-/// same home screen, popups, menus and settings, each kept inside the box.
+/// The launcher running in a box the size of the TV's screen.
 class TvScreen extends StatelessWidget {
   const TvScreen({super.key});
 
-  /// The TV's screen, in the units everything on it is measured in.
+  /// In the TV's logical pixels.
   static const size = Size(960, 540);
 
-  /// The launcher's own navigator, for opening something on its screen
-  /// from outside it.
+  /// For opening things on the launcher's screen from outside.
   static final navigator = GlobalKey<NavigatorState>();
 
   static ProviderContainer? get _launcher =>
@@ -22,7 +20,6 @@ class TvScreen extends StatelessWidget {
         final context => ProviderScope.containerOf(context),
       };
 
-  /// Closes whatever folders the launcher has open over its home screen.
   static void closePopups() {
     final launcher = _launcher;
     if (launcher == null) return;
@@ -35,8 +32,7 @@ class TvScreen extends StatelessWidget {
     }
   }
 
-  /// Shows the folder [panelId] on the launcher's screen, as a press on
-  /// what opens it would: by its variable.
+  /// Opens folder [panelId] by setting its `open` variable.
   static void openPopup(String panelId) =>
       _launcher?.read(runtimeVarsProvider.notifier).set(panelId, openVar, true);
 
@@ -51,8 +47,7 @@ class TvScreen extends StatelessWidget {
         viewPadding: EdgeInsets.zero,
       ),
       child: ClipRect(
-        // Its own, so that what the launcher opens and says stays on its
-        // screen instead of covering the page.
+        // Its own messenger, so snackbars stay inside the box.
         child: ScaffoldMessenger(
           child: Navigator(
             key: navigator,

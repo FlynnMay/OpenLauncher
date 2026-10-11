@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// Whether things in a pane that lets them be anywhere still land on whole
-/// cells. On unless switched off: freedom is there for the asking.
+/// Whether components in a free pane still snap to whole cells. On by
+/// default.
 final snapProvider = NotifierProvider<Snap, bool>(Snap.new);
 
 class Snap extends Notifier<bool> {
@@ -13,21 +13,18 @@ class Snap extends Notifier<bool> {
   void set(bool snap) => state = snap;
 }
 
-/// How finely something can be placed and sized off the cells.
+/// Step for unsnapped placement, in cells.
 const freeStep = 0.05;
 
-/// The steps, in cells, that a place or a size in [pane] goes by: whole
-/// cells, or with [snap] off in a pane that lets things be anywhere, small
-/// fractions of one.
+/// The placement step in [pane]: whole cells, or [freeStep] in a free pane
+/// with [snap] off.
 double stepIn(Component pane, {required bool snap}) =>
     pane.mode == PaneMode.free && !snap ? freeStep : 1;
 
-/// [value] at the nearest multiple of [step], to the hundredth the layout
-/// keeps.
+/// [value] rounded to a multiple of [step], to two decimals.
 double snapTo(double value, double step) =>
     ((value / step).roundToDouble() * step * 100).roundToDouble() / 100;
 
-/// Switches snapping to whole cells on and off.
 class SnapButton extends ConsumerWidget {
   const SnapButton({super.key});
 

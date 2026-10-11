@@ -3,16 +3,15 @@ import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// What only the screen an action was set off on can do. There is none
-/// where there is no screen, and such actions then do nothing.
+/// What only the screen an action fired on can do. Null off-screen.
 abstract interface class ActionScreen {
   Future<void> openSettings();
 
-  /// Closes the popup the action was set off in.
+  /// Closes the popup the action fired in.
   void close();
 }
 
-/// One action as it is being carried out.
+/// One action being run.
 class ActionRun {
   const ActionRun(
     this.ref,
@@ -26,19 +25,18 @@ class ActionRun {
   final Ref ref;
   final Act act;
 
-  /// What it is done to; never null for an action an entity presents.
+  /// The entity doing it.
   final Entity? entity;
   final ActionScreen? screen;
   final bool held;
 
-  /// The id of the component it was set off from, if it was from one.
+  /// The component it fired from, if any.
   final String? component;
 
   LauncherPlatform get platform => ref.read(launcherPlatformProvider);
 }
 
-/// A thing that can be done: by an entity, which presents the actions of
-/// its kind, or by the launcher itself.
+/// An action an entity category presents.
 class ActionKind {
   const ActionKind({
     required this.name,
@@ -49,23 +47,20 @@ class ActionKind {
     this.onDevice = false,
   });
 
-  /// How an [Act] names it. Kinds of entity may each have an action of the
-  /// same name, which is then whichever the entity's kind has.
+  /// The name an [Act] uses. Categories may share a name.
   final String name;
   final String label;
 
-  /// The name of the picture a button that does this starts with.
+  /// Default icon for a button that does this.
   final String icon;
 
-  /// What it is told beside the entity, by the name of each, with what
-  /// that is: `panel` (the id of a popup) or the choices there are.
+  /// Extra arguments by name, each with its allowed values (empty = free
+  /// text).
   final Map<String, List<String>> args;
 
-  /// True for what is done by the TV itself: opening an app, stopping one.
-  /// A launcher that runs somewhere else, as the page's does in a browser,
-  /// has the TV do these; the rest it does where it is.
+  /// True if only the TV can do it. The web editor sends these to the TV.
   final bool onDevice;
 
-  /// Does it. Returns something to tell the user, if there is anything.
+  /// Returns a message for the user, or null.
   final Future<String?> Function(ActionRun run) run;
 }

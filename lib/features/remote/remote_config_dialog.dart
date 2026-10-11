@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/server/config_server.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-/// The address of the config page, re-read each time the dialog opens.
+/// Re-read each time the dialog opens.
 final _configUrlProvider = FutureProvider.autoDispose<Uri?>((ref) async {
   final server = await ref.watch(configServerProvider.future);
   return server?.url();
 });
 
-/// Shows how to open the config page from a phone or computer.
+/// Shows the editor's address and QR code.
 class RemoteConfigDialog extends ConsumerWidget {
   const RemoteConfigDialog({super.key});
 

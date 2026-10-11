@@ -1,38 +1,32 @@
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/style/style.dart';
 
-/// The components the launcher can show. A layout item of kind `component` names
-/// one of these in its `ref`.
+/// The primitive component kinds.
 enum ComponentKind {
-  /// The three a component of the user's own is put together from, in a pane:
-  /// each shows what its options say, written as templates
-  /// (`{{weather.temperature}}`).
   text('Text', 2, 1),
   picture('Picture', 2, 2),
   meter('Meter', 2, 1),
 
-  /// One of the launcher's small pictures, by name.
+  /// A built-in icon, by name.
   icon('Icon', 1, 1),
 
-  /// What a folder looks like from outside: its picture, or the first few
-  /// things in it.
+  /// A folder's picture, or a preview of its contents.
   folder('Folder picture', 1, 1),
 
-  /// Something to press: what it does is in the item's triggers.
+  /// Its behaviour is in its triggers.
   button('Button', 2, 1),
 
-  /// An Android widget provided by an installed app; the item's `provider` option
-  /// says which.
+  /// An Android app widget; the `provider` option says which.
   android('App widget', 2, 2);
 
   const ComponentKind(this.label, this.defaultW, this.defaultH);
 
   final String label;
 
-  /// The size, in cells, a new component of this kind starts with.
+  /// Default size in cells.
   final int defaultW, defaultH;
 
-  /// The options a new component of this kind starts with.
+  /// Options a new component starts with.
   Map<String, Object?> get starter => switch (this) {
     text => const {'text': '{{clock.time}}'},
     meter => const {'value': '{{clock.second}}', 'max': 60},
@@ -40,14 +34,11 @@ enum ComponentKind {
     _ => const {},
   };
 
-  /// What can be set about a component of this kind. **A new setting is a
-  /// line here and its use where the component is drawn**: the editor's form
-  /// is made from this list.
+  /// The settings of this kind; the editor's form is generated from this.
   List<ComponentOption> get options => switch (this) {
     text => [
       const ComponentOption('text', 'Text', OptionKind.template),
-      // For letters of a set size; made to fill the box, text is never
-      // too long for it.
+      // Only applies with a fixed font size.
       const ComponentOption(
         'overflow',
         'Too long',
@@ -85,8 +76,7 @@ enum ComponentKind {
     ],
     meter => const [
       ComponentOption('value', 'Value', OptionKind.template),
-      // Whole numbers; a value of another scale is brought to one with
-      // `| times:`.
+      // Integers only; scale other values with `| times:`.
       ComponentOption(
         'min',
         'Empty at',
@@ -133,9 +123,7 @@ enum ComponentKind {
     android => const [],
   };
 
-  /// The properties of a look that mean something to a component of this
-  /// kind, beyond those of the box it is in. Letters with no size fill
-  /// their box.
+  /// Style properties specific to this kind, beyond the box ones.
   List<String> get style => switch (this) {
     text => textStyle,
     button => const ['color', 'fontSize'],

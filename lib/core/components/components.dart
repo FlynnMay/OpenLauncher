@@ -1,4 +1,4 @@
-/// What the launcher's components show and where they get it from.
+/// Components, their kinds and option descriptors.
 library;
 
 export 'component_kind.dart';

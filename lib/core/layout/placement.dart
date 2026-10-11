@@ -4,8 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 
-/// The cells an item covers: column and row from zero, and its size. Whole
-/// numbers except in a [PaneMode.free] section.
+/// The cells a component covers. Fractions only in [PaneMode.free].
 @immutable
 class Placement {
   const Placement(this.x, this.y, this.w, this.h);
@@ -27,19 +26,15 @@ class Placement {
   String toString() => 'Placement($x, $y, ${w}x$h)';
 }
 
-/// Works out where each of [items] goes on a grid [columns] wide, in the
-/// same order as [items].
+/// The placement of each of [items] on a grid [columns] wide.
 ///
-/// In [PaneMode.flow] the items follow one another the way CSS grid
-/// auto-placement puts them. In [PaneMode.grid] items sit where they say; any that
-/// have no position, or whose position is taken, fill the first free space.
-/// In [PaneMode.free] items are simply where they say, overlapping or
-/// not; any without a position line up below those.
+/// Flow follows CSS grid auto-placement. Grid uses explicit positions;
+/// unplaced or colliding items take the first free space. Free uses positions
+/// as given; unplaced items line up below the rest.
 List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
   if (mode == PaneMode.free) {
     double width(Component item) => min(item.w, columns * 1.0);
-    // What has no position yet, such as a newly installed app, goes in rows
-    // under everything that has one, rather than on top of it.
+    // Unplaced items go below everything that has a position.
     final below = items
         .where((item) => item.x != null && item.y != null)
         .fold(0.0, (rows, item) => max(rows, item.y! + item.h))
@@ -94,8 +89,8 @@ List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
     }
   }
 
-  // The flow cursor only moves forward, which keeps items in their order.
-  // A line has no cells: asked for all the same, it answers as a flow.
+  // The cursor only moves forward, keeping order. Row and column panes are
+  // treated as flow.
   final flow = mode != PaneMode.grid;
   var cursorX = 0, cursorY = 0;
   for (final (index, item) in items.indexed) {
@@ -117,7 +112,6 @@ List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
   return placed.cast();
 }
 
-/// How many rows [placements] reach down to; a fraction only in a
-/// [PaneMode.free] section.
+/// The number of rows [placements] reach.
 double rowCount(Iterable<Placement> placements) =>
     placements.fold(0, (rows, p) => max(rows, p.y + p.h));

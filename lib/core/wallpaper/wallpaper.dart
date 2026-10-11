@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 
 enum WallpaperKind { image, video }
 
-/// What is shown behind the home screen.
 @immutable
 class Wallpaper {
   const Wallpaper(this.path, this.kind);
@@ -13,8 +12,7 @@ class Wallpaper {
   final String path;
   final WallpaperKind kind;
 
-  /// File extensions the launcher can show, by kind. Animated GIF and WebP
-  /// count as images: they animate without a video decoder.
+  /// Supported extensions by kind. Animated GIF and WebP count as images.
   static const extensions = {
     'png': WallpaperKind.image,
     'jpg': WallpaperKind.image,
@@ -40,7 +38,7 @@ class Wallpaper {
   int get hashCode => Object.hash(path, kind);
 }
 
-/// Every wallpaper there is, in the user's order.
+/// Every wallpaper, in the user's order.
 final wallpapersProvider = Provider<List<Wallpaper>>(
   (ref) => [
     for (final path in ref.watch(configProvider).value?.wallpapers ?? const [])
@@ -48,20 +46,18 @@ final wallpapersProvider = Provider<List<Wallpaper>>(
   ],
 );
 
-/// How many minutes each wallpaper stays before the next; 0 for no turns.
+/// Minutes per wallpaper; 0 for no rotation.
 final wallpaperEveryProvider = Provider<int>(
   (ref) => ref.watch(configProvider).value?.wallpaperEvery ?? 0,
 );
 
-/// Counts the turns taken since it was first asked, one every so many
-/// minutes.
+/// Counts rotations since first watched.
 final _turnsProvider = StreamProvider.autoDispose.family<int, int>(
   (ref, minutes) =>
       Stream.periodic(Duration(minutes: minutes), (turn) => turn + 1),
 );
 
-/// The wallpaper to show now, or null for a plain background: the first,
-/// or with turns switched on each of them for a while.
+/// The wallpaper to show now, or null.
 final wallpaperProvider = Provider<Wallpaper?>((ref) {
   final all = ref.watch(wallpapersProvider);
   if (all.isEmpty) return null;

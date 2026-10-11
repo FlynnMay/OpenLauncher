@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
 
-// The small parts every panel of settings is made of. Each shows one value
-// and reports a change; none knows what the value belongs to. A value of
-// null means "mixed": the things being edited differ.
+// Small controls used by every settings panel. A null value means "mixed":
+// the edited things differ.
 
-/// The one value all of [values] share, or null when they differ.
+/// The value all of [values] share, or null.
 T? shared<T>(Iterable<T> values) =>
     values.toSet().length == 1 ? values.first : null;
 
-/// A group of like settings under a heading, which a press closes and opens
-/// again. Whether it is open is remembered by its [title] for as long as
-/// the page is up, so it stays as it was left from one thing picked out to
-/// the next.
+/// A collapsible group of settings. Its open state is remembered by [title]
+/// for the life of the page.
 class Section extends StatefulWidget {
   const Section(this.title, this.children, {super.key, this.open = true});
 
   final String title;
   final List<Widget> children;
 
-  /// Whether it is open until it has been pressed.
+  /// Initial state.
   final bool open;
 
   @override
@@ -85,7 +82,6 @@ class _SectionState extends State<Section> {
   }
 }
 
-/// A setting with its name in front of it.
 class LabelledRow extends StatelessWidget {
   const LabelledRow(this.label, this.child, {super.key});
 
@@ -104,9 +100,8 @@ class LabelledRow extends StatelessWidget {
   );
 }
 
-/// A whole number with a button either side. No [value] means the selected
-/// things differ; a value below [min] stands for "the usual", when [usual]
-/// names that.
+/// An integer with a button either side. Null means mixed; below [min] means
+/// "default" when [usual] is set.
 class NumberStepper extends StatelessWidget {
   const NumberStepper({
     super.key,
@@ -136,7 +131,7 @@ class NumberStepper extends StatelessWidget {
         : value == value.roundToDouble()
         ? '${value.round()}'
         : value.toStringAsFixed(2);
-    // From "differs", the first press settles on the lowest.
+    // From mixed, the first press goes to the minimum.
     final from = value?.round() ?? lowest;
     return LabelledRow(
       label,
@@ -171,7 +166,7 @@ class NumberStepper extends StatelessWidget {
   }
 }
 
-/// A switch that is neither on nor off while the selected things differ.
+/// A switch that can also show mixed.
 class TickBox extends StatelessWidget {
   const TickBox({
     super.key,
@@ -192,7 +187,7 @@ class TickBox extends StatelessWidget {
     tristate: value == null,
     title: Text(label),
     value: value,
-    // From "differs", a press turns it on for all of them.
+    // From mixed, a press turns it on.
     onChanged: (next) => onChanged(next ?? true),
   );
 }
@@ -238,7 +233,7 @@ class SlideBar extends StatefulWidget {
   final double value, max;
   final int divisions;
 
-  /// How a value reads, shown over the thumb while it is held.
+  /// The label shown while dragging.
   final String Function(double value) label;
   final void Function(double value) onChanged;
 
@@ -247,7 +242,7 @@ class SlideBar extends StatefulWidget {
 }
 
 class _SlideBarState extends State<SlideBar> {
-  /// Where the thumb is while it is held; the change is made on letting go.
+  /// The value while dragging; committed on release.
   double? _held;
 
   @override
@@ -264,7 +259,7 @@ class _SlideBarState extends State<SlideBar> {
   );
 }
 
-/// A line of text that is taken when Enter is pressed or it is left.
+/// A text field committed on Enter or blur.
 class CommitField extends StatefulWidget {
   const CommitField({
     super.key,
@@ -295,7 +290,7 @@ class _CommitFieldState extends State<CommitField> {
   @override
   void didUpdateWidget(CommitField old) {
     super.didUpdateWidget(old);
-    // Changed from elsewhere, and not being typed in here.
+    // Updated from outside while not focused.
     if (widget.value != old.value && !_focus.hasFocus) {
       _text.text = widget.value;
     }
@@ -324,8 +319,8 @@ class _CommitFieldState extends State<CommitField> {
   );
 }
 
-/// For a setting that sends something off and waits: [busy] while it is on
-/// its way, and what went wrong said at the foot of the page.
+/// For settings that make a request: [busy] while pending, errors shown in a
+/// snackbar.
 mixin Busy<T extends StatefulWidget> on State<T> {
   bool busy = false;
 
@@ -346,8 +341,7 @@ mixin Busy<T extends StatefulWidget> on State<T> {
   }
 }
 
-/// Asks before something is taken away with what is in it: [title] is the
-/// question and [does] what the button that goes ahead says.
+/// A confirmation dialog; [does] is the confirm button's label.
 Future<bool> sureToRemove(
   BuildContext context,
   String title,

@@ -6,8 +6,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 
-/// The entity everything below is about: set by a popup opened as an entity's
-/// menu, so that its buttons act on that entity.
+/// The entity a menu was opened for; its buttons act on it.
 class ActionSubject extends InheritedWidget {
   const ActionSubject({super.key, required this.entity, required super.child});
 
@@ -21,8 +20,7 @@ class ActionSubject extends InheritedWidget {
       entity != oldWidget.entity;
 }
 
-/// The things in [root] that are offered when it is [subject]'s menu:
-/// all but those that are pressed to do what cannot be done to it.
+/// The children of [root] whose actions all apply to [subject].
 List<Component> offeredFor(
   Component root,
   Entity subject,
@@ -35,7 +33,7 @@ List<Component> offeredFor(
       item,
 ];
 
-/// What a tile does on this screen, by what sets it off.
+/// Runs a tile's triggers.
 class TileActions {
   TileActions(
     this._context,
@@ -52,21 +50,18 @@ class TileActions {
   final WidgetRef _ref;
   final Triggers triggers;
 
-  /// The variables the tile can read, which what an action is told may
-  /// be written against: `{{source.id}}`.
+  /// Variables that action arguments may read, e.g. `{{source.id}}`.
   final Map<String, Object?> scope;
 
-  /// The id of the component these are the triggers of.
   final String? component;
 
-  /// The entity an action that names none is done to.
+  /// The default entity for actions that name none.
   final Entity? subject;
 
-  /// The id of the folder the tile is in, where it is in one that hovers.
+  /// The hovering folder the tile is in, if any.
   final String? popup;
 
-  /// True where a press closes the popup the tile is in before anything
-  /// else: an entity in a folder, a button of an entity's menu.
+  /// Whether a press closes that folder first.
   final bool closes;
 
   bool has(Trigger trigger) => triggers[trigger]?.isNotEmpty ?? false;
@@ -78,7 +73,6 @@ class TileActions {
     final navigator = Navigator.of(_context);
     final actions = _ref.read(actionRunnerProvider);
     final closed = closes && trigger == Trigger.press;
-    // A folder is closed as it is opened: by its variable.
     void close() {
       if (popup case final id?) {
         _ref.read(runtimeVarsProvider.notifier).set(id, openVar, false);
@@ -91,7 +85,7 @@ class TileActions {
       String? message;
       try {
         message = await actions.run(
-          // What it is told, as that reads now.
+          // Arguments with templates evaluated.
           Act(act.name, {
             for (final MapEntry(:key, :value) in act.args.entries)
               key: value is String && value.contains('{{')

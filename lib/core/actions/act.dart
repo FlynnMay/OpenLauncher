@@ -1,13 +1,13 @@
 import 'package:flutter/foundation.dart';
 
-/// What can set a thing on the screen off.
+/// What can fire a chain of actions.
 enum Trigger {
   press('Pressed'),
   hold('Held down'),
   focus('The focus arrives'),
   blur('The focus leaves'),
 
-  /// For what is shown and hidden: a sidebar, a folder.
+  /// For things that are shown and hidden: a sidebar, a folder.
   reveal('It is revealed'),
   hide('It is hidden');
 
@@ -16,9 +16,8 @@ enum Trigger {
   final String label;
 }
 
-/// One thing to do, as it is saved: the name of an `ActionKind` and
-/// whatever that kind is told beside, such as the `entity` it is done to. An
-/// action that names no entity is done to the entity it was set off from.
+/// One saved action: an `ActionKind` name plus its arguments, such as the
+/// `entity` that does it.
 @immutable
 class Act {
   const Act(this.name, [this.args = const {}]);
@@ -26,7 +25,7 @@ class Act {
   final String name;
   final Map<String, Object?> args;
 
-  /// What it is told under [key], if that is text.
+  /// The argument [key], if it is a string.
   String? arg(String key) => switch (args[key]) {
     final String value => value,
     _ => null,
@@ -50,11 +49,10 @@ class Act {
   int get hashCode => Object.hash(name, Object.hashAllUnordered(args.keys));
 }
 
-/// What a thing does, by what sets it off. A trigger with an empty list
-/// does nothing, whatever the thing would have done of itself.
+/// Actions per trigger. An empty list disables the prefab's default.
 typedef Triggers = Map<Trigger, List<Act>>;
 
-/// Never throws: what is not understood is left out.
+/// Skips what it cannot read. Never throws.
 Triggers triggersFromJson(Object? json) => {
   if (json is Map)
     for (final trigger in Trigger.values)

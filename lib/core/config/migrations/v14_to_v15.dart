@@ -5,9 +5,7 @@ Json _json(Object? json) => switch (json) {
   _ => {},
 };
 
-/// What an instance or a rule set for the parts of a prefab, each part's
-/// options, its look and `hidden` all together, as overrides: the options
-/// by themselves, apart from the look.
+/// Old per-part overrides, with options split from style and `hidden`.
 Json _overrides(Object? parts) => {
   for (final MapEntry(key: id, value: set) in _json(parts).entries)
     if (set is Map)
@@ -21,7 +19,7 @@ Json _overrides(Object? parts) => {
       },
 };
 
-/// Where and how big, kept together as a transform.
+/// Size and position as a transform.
 Json _transform(Json from, [List<String> keys = const ['w', 'h', 'x', 'y']]) =>
     {
       for (final key in keys)
@@ -35,8 +33,7 @@ void _put(Json into, String key, Object? value) {
   into[key] = value;
 }
 
-/// A pane as the component it is: its title, mode, columns and measures
-/// are its options, what was in it its children.
+/// A pane as a component: settings become options, items children.
 Json _pane(Json pane, Json transform) {
   final rules = <String, Object?>{
     for (final MapEntry(key: prefab, value: rule) in _json(
@@ -67,7 +64,7 @@ Json _pane(Json pane, Json transform) {
   return component;
 }
 
-/// One thing that was placed in a pane, as a component.
+/// A layout item as a component.
 Json _item(Json item) {
   final transform = _transform(item);
   if (item['pane'] case final Json pane) return _pane(pane, transform);
@@ -88,9 +85,7 @@ Json _item(Json item) {
   return component;
 }
 
-/// Everything on the screen is a component: a pane is one made of others,
-/// with no item around it to say where it is, and an instance says the
-/// prefab it is of as `prefab`. A panel's pane is its `root`.
+/// Panes and items become components; a panel's pane becomes its `root`.
 void everythingAComponent(Json save, Device device) {
   final layout = layoutOf(save);
   if (layout == null) return;
@@ -101,7 +96,7 @@ void everythingAComponent(Json save, Device device) {
   }
 }
 
-/// One place of a prefab's old layout: a part, or a group of them.
+/// One slot of an old prefab layout: a part or a group.
 Json? _slot(Json slot, Json parts, int index) {
   final transform = <String, Object?>{
     ..._transform(slot, const ['flex', 'aspect']),
@@ -136,7 +131,7 @@ List<Json> _slots(Json layout, Json parts) => [
     ?_slot(slot, parts, index),
 ];
 
-/// How a prefab's old layout arranged its parts, as a pane's options.
+/// An old prefab layout's arrangement as pane options.
 Json _line(Json layout) => {
   'mode': layout['direction'] == 'row' ? 'row' : 'column',
   if (layout['gap'] case final num gap when gap > 0) 'gap': gap,
@@ -144,7 +139,7 @@ Json _line(Json layout) => {
   'align': ?layout['align'],
 };
 
-/// Every part an old layout placed, those in groups among them.
+/// Every part an old layout placed, including those in groups.
 Iterable<Json> _placed(Json layout) => objectsIn(layout, 'parts').expand(
   (slot) => switch (slot['group']) {
     final Json group => _placed(group),
@@ -152,11 +147,9 @@ Iterable<Json> _placed(Json layout) => objectsIn(layout, 'parts').expand(
   },
 );
 
-/// A prefab was a list of parts and several layouts of them; it is a
-/// component now, made of others, as its first layout had it. Each other
-/// layout is a variant: what it sets differently about that component.
-/// A layout that grouped the parts another way keeps the first one's
-/// groups.
+/// Old prefabs (parts + layouts) become a root component from the first
+/// layout, with each other layout as a variant. Later layouts keep the first
+/// one's grouping.
 void prefabsAsComponents(Json save, Device device) {
   final prefabs = objectsIn(save, 'prefabs');
   for (final prefab in prefabs) {

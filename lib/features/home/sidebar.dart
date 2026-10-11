@@ -6,13 +6,10 @@ import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
-/// Keeps the sidebars named open whatever has the focus, and shown even
-/// with nothing in them. The TV has none; the editor uses it for a sidebar
-/// that is being arranged.
+/// Sidebars to keep open and shown even when empty. Used by the editor.
 class SidebarHold extends InheritedWidget {
   const SidebarHold({super.key, required this.ids, required super.child});
 
-  /// The panel ids of the sidebars held open.
   final Set<String> ids;
 
   @override
@@ -20,19 +17,15 @@ class SidebarHold extends InheritedWidget {
       !ids.containsAll(oldWidget.ids) || !oldWidget.ids.containsAll(ids);
 }
 
-/// A pane along one edge of the screen that opens over the home screen
-/// while the focus is in it, and otherwise keeps to a strip along its edge,
-/// or out of sight. Inside it is a pane like any other.
-///
-/// It is always laid out at its open size, whatever of it shows, so nothing
-/// in it moves about as it opens.
+/// A pane on a screen edge that opens while it has the focus and otherwise
+/// shows a strip or nothing. Always laid out at its open size, so its
+/// contents do not move as it opens.
 class Sidebar extends StatefulWidget {
   const Sidebar({super.key, required this.panel, this.onOpen});
 
   final Panel panel;
 
-  /// Told when it starts to open (true) and to close: what its `open`
-  /// variable is kept by.
+  /// Called when it starts opening (true) or closing.
   final void Function(bool open)? onOpen;
 
   @override
@@ -40,25 +33,22 @@ class Sidebar extends StatefulWidget {
 }
 
 class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
-  /// How long what is in it takes to appear, where that has a time of its
-  /// own.
+  /// Duration of the contents' own reveal.
   static const _revealMs = 150;
 
   final _box = GlobalKey(), _contents = GlobalKey();
 
-  /// 0 closed to 1 open, taking in both the sidebar's opening and what is
-  /// in it appearing.
+  /// 0 closed to 1 open, covering both the bar opening and its contents
+  /// appearing.
   late final _opened = AnimationController(vsync: this);
   bool _focused = false, _held = false;
 
-  /// What was last told of it.
+  /// The last value passed to [Sidebar.onOpen].
   bool? _told;
 
   Panel get _panel => widget.panel;
 
-  /// How long the sidebar itself takes to open.
-  /// How it comes open and how what is in it appears, as its rules name
-  /// them.
+  /// The `opening` and `reveal` rules.
   Object? get _opening => _panel.rule('opening');
   Object? get _reveal => _panel.rule('reveal');
 
@@ -88,12 +78,12 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
     _ => 1,
   };
 
-  /// Sets it opening or closing, to match the focus and the hold.
+  /// Opens or closes to match the focus and [SidebarHold].
   void _sync() {
     final open = _focused || _held;
     if (open != _told) {
       _told = open;
-      // Not while building, which is when a hold is found out.
+      // Deferred: found out during build.
       Future.microtask(() {
         if (mounted) widget.onOpen?.call(open);
       });
@@ -123,14 +113,14 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  /// What of the sidebar can be seen, on the display.
+  /// The visible part of the sidebar, in global coordinates.
   Rect? _visible() => switch (_box.currentContext?.findRenderObject()) {
     final RenderBox box when box.attached && box.hasSize =>
       box.localToGlobal(Offset.zero) & box.size,
     _ => null,
   };
 
-  /// [tile] appearing the way what is in this sidebar does.
+  /// [tile] with the reveal animation applied.
   Widget _appearing(Widget tile, Alignment edge) => _reveal == 'always'
       ? tile
       : AnimatedBuilder(
@@ -153,7 +143,6 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final panel = _panel;
-    // With nothing in it there is nothing to show or to go to.
     if (widget.panel.isEmpty && !_held) return const SizedBox.shrink();
     final edge = panel.edge!;
     final alignment = switch (edge) {
@@ -165,18 +154,17 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
     final root = widget.panel.root;
     return LayoutBuilder(
       builder: (context, screen) {
-        // As big as it is set to be, and no bigger than the screen.
+        // Clamped to the screen.
         final width = panel.openWidth.clamp(0.0, screen.maxWidth);
         final height = panel.openHeight.clamp(0.0, screen.maxHeight);
         final across = panel.opensAcross;
         final full = across ? width : height;
         final closed = panel.closedSize.clamp(0.0, full);
-        // Keyed, to stay as it is when the fading comes and goes around it.
+        // Keyed so it keeps its state when the fade wrapper changes.
         final contents = FocusBounds(
           key: _contents,
           visible: _visible,
-          // On the right the rows are mirrored, to keep their pictures at
-          // the edge.
+          // Mirrored on the right, to keep pictures at the edge.
           child: Directionality(
             textDirection: edge == BarEdge.right
                 ? TextDirection.rtl
@@ -203,7 +191,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
               builder: (context, contents) {
                 final open = _barOpen;
                 final fading = _opening == 'fade';
-                // Fading in, it is at its open size from the start.
+                // A fading bar is at full size from the start.
                 final shown = fading
                     ? (open > 0 ? full : closed)
                     : closed + (full - closed) * open;
@@ -214,8 +202,8 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
                   width: across ? shown : width,
                   height: across ? height : shown,
                   clipBehavior: Clip.hardEdge,
-                  // Fades into the home screen on the side it opens
-                  // towards, unless the pane has a background of its own.
+                  // A scrim towards the home screen, unless the pane has a
+                  // background.
                   decoration: BoxDecoration(
                     gradient: root.box.isEmpty
                         ? LinearGradient(
@@ -227,14 +215,13 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
                         : null,
                   ),
                   child: _Faded(
-                    // All but the strip that shows while it is closed.
+                    // Everything but the closed strip.
                     amount: fading && open > 0 ? open : 1,
                     from: alignment,
                     kept: strip,
                     child: OverflowBox(
-                      // Laid out at its open size whatever of it shows:
-                      // held to its edge it is uncovered, held to the
-                      // other side it is carried in.
+                      // Aligned to its edge it is uncovered; to the other
+                      // side it slides in.
                       alignment: _opening == 'slide' ? -alignment : alignment,
                       minWidth: width,
                       maxWidth: width,
@@ -253,8 +240,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   }
 }
 
-/// [child] seen through by [amount] (1 is not at all), except for the
-/// first [kept] of it measured from the edge [from], which stays as it is.
+/// [child] faded to [amount], except the first [kept] pixels from [from].
 class _Faded extends StatelessWidget {
   const _Faded({
     required this.amount,

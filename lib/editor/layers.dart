@@ -3,11 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/tree_view.dart';
 
-/// Something drawn over the screen while editing, on top of the outlines
-/// editing always shows, to make visible what cannot otherwise be seen.
-/// Each can be switched on by itself. A new kind of layer is a value here,
-/// a line in [layerTree], and what draws it in `LayerStack`
-/// (`layer_stack.dart`).
+/// A debug overlay drawn over the screen while editing. A new one is a value
+/// here, an entry in [layerTree] and its painter in `layer_stack.dart`.
 enum EditLayer {
   navUp('Up', Icons.arrow_upward, Color(0xFF8C9EFF)),
   navDown('Down', Icons.arrow_downward, Color(0xFFFF8A80)),
@@ -19,10 +16,9 @@ enum EditLayer {
   final String label;
   final IconData icon;
 
-  /// What it is drawn in, to tell it from the others.
   final Color colour;
 
-  /// The way the D-pad is pressed, for a layer that shows where that leads.
+  /// The D-pad direction a navigation overlay shows.
   NavDirection? get direction => switch (this) {
     navUp => NavDirection.up,
     navDown => NavDirection.down,
@@ -31,7 +27,7 @@ enum EditLayer {
   };
 }
 
-/// The layers that are switched on.
+/// The enabled overlays.
 final layersProvider = NotifierProvider<Layers, Set<EditLayer>>(Layers.new);
 
 class Layers extends Notifier<Set<EditLayer>> {
@@ -48,8 +44,7 @@ TreeNode<EditLayer> _line(EditLayer layer) => TreeNode(
   trailing: Icon(layer.icon, color: layer.colour, size: 18),
 );
 
-/// The layers as they are listed: those that belong together under a
-/// heading, which switches them all.
+/// The overlays as listed; a heading toggles its group.
 final layerTree = <TreeNode<EditLayer>>[
   TreeNode(
     label: 'Navigation',
@@ -62,7 +57,6 @@ final layerTree = <TreeNode<EditLayer>>[
   ),
 ];
 
-/// The button that lists the layers and switches them on and off.
 class LayersButton extends ConsumerWidget {
   const LayersButton({super.key});
 
@@ -82,7 +76,7 @@ class LayersButton extends ConsumerWidget {
       menuChildren: [
         SizedBox(
           width: 230,
-          // Watched here too: the menu is drawn apart from the button.
+          // The menu is built outside the button, so it watches too.
           child: Consumer(
             builder: (context, ref, _) => TreeView<EditLayer>(
               nodes: layerTree,

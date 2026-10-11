@@ -14,9 +14,8 @@ import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
-/// Puts something around every component a pane of cells holds. The TV
-/// has none; the web editor uses it to make them things that are picked
-/// up and moved instead of opened.
+/// Wraps every component in a cell pane. Unused on the TV; the editor uses it
+/// to make them draggable.
 class TileFrame extends InheritedWidget {
   const TileFrame({super.key, required this.wrap, required super.child});
 
@@ -26,8 +25,8 @@ class TileFrame extends InheritedWidget {
   bool updateShouldNotify(TileFrame oldWidget) => wrap != oldWidget.wrap;
 }
 
-/// The look of the tile the components below are part of, for the one of
-/// them that shows its focus.
+/// The box style of the tile the widgets below belong to, for its focus
+/// frame.
 class TileLook extends InheritedWidget {
   const TileLook({super.key, required this.box, required super.child});
 
@@ -40,15 +39,14 @@ class TileLook extends InheritedWidget {
   bool updateShouldNotify(TileLook oldWidget) => box != oldWidget.box;
 }
 
-/// What shows that the tile it is part of has the focus: the frame behind
-/// a picture, or the whole of a tile none of whose parts does.
+/// Shows the tile's focus: the frame behind a picture, or around a whole
+/// tile.
 class FocusFrame extends StatelessWidget {
   const FocusFrame({super.key, required this.child, this.bare = false});
 
   final Widget child;
 
-  /// True for no frame behind what is in it, only a faint wash to show
-  /// the focus: line art, which sits straight on the wallpaper.
+  /// No background, only a faint wash when focused (for line art).
   final bool bare;
 
   @override
@@ -62,8 +60,8 @@ class FocusFrame extends StatelessWidget {
     return AnimatedContainer(
       duration: FocusTile.duration,
       clipBehavior: Clip.antiAlias,
-      // The border is drawn over the artwork so the tile does not change
-      // size when focused.
+      // The border is drawn over the content so focus does not resize the
+      // tile.
       foregroundDecoration: BoxDecoration(
         borderRadius: shape,
         border: Border.all(
@@ -93,11 +91,9 @@ class FocusFrame extends StatelessWidget {
   }
 }
 
-/// Draws one component, whatever it is, and gives it its behaviour, which
-/// is whatever its triggers say. An instance of a prefab is drawn as its
-/// prefab's component with what it sets differently; a pane draws what is
-/// in it the same way. Anything given something to do on a press or a
-/// hold can be landed on.
+/// Draws any component and wires up its triggers. An instance is resolved
+/// against its prefab first. Anything with a press or hold action is
+/// focusable.
 class ComponentView extends ConsumerWidget {
   const ComponentView({
     super.key,
@@ -110,18 +106,17 @@ class ComponentView extends ConsumerWidget {
 
   final Component component;
 
-  /// Gives the starting focus to the first thing on screen that takes it.
+  /// Gives the initial focus to the first focusable component.
   final FirstFocus? focus;
 
-  /// The id of the folder it is in, where that hovers over the screen:
-  /// one that closes when something in it is opened.
+  /// The hovering folder it is in, which closes when something in it is
+  /// opened.
   final String? popup;
 
-  /// True for one that is part of a line, which its place is the line's
-  /// to give.
+  /// It is a child of a row or column pane.
   final bool inLine;
 
-  /// True for one to take only the room it needs, where it can.
+  /// Take its natural size where it can.
   final bool shrink;
 
   @override
@@ -141,16 +136,12 @@ class ComponentView extends ConsumerWidget {
             ComponentView(component: inner, focus: focus, popup: popup),
       );
     }
-    // In an entity's menu, what is pressed is done to that entity.
+    // In an entity's menu, buttons act on that entity.
     final menuOf = ActionSubject.of(context);
-    // Its variables as they stand: what it was handed by whatever it is
-    // inside, and its own on top.
     final scope = scopeOf(ref.watch, c.id, c.vars, TemplateScope.of(context));
-    // Its look as it stands: whatever of it is written as a template read
-    // now.
     final look = readStyle(ref.watch, c.style, scope.own);
     final box = BoxStyle.of(look);
-    // What it was handed, where that is one of the entities there are.
+    // The entity it was handed, if any.
     final handed = c.handed.firstOrNull;
     final entity = handed == null
         ? null
@@ -180,12 +171,12 @@ class ComponentView extends ConsumerWidget {
 
     if (!c.isPane) {
       Widget content = TemplateScope(
-        // A component reads all its own variables, its private ones too.
+        // A component reads its own private variables too.
         values: scope.own,
         child: ComponentTile(item: c, shrink: shrink),
       );
       if (c.options['frame'] == true) {
-        // Whether it has a frame behind it is its own to say, as a value.
+        // `bare` may be a template.
         final bare = switch (c.options['bare']) {
           final String template => readTemplate(ref.watch, template, scope.own),
           final other => other,
@@ -221,8 +212,7 @@ class ComponentView extends ConsumerWidget {
       );
     }
 
-    // Handed a folder that is set to open in place, it shows what the
-    // folder holds where it is, for as long as `open` is set.
+    // A folder set to open in place is drawn here while `open` is set.
     if (ref.watch(layoutViewProvider).value?.panel(handed ?? '')
         case final folder?
         when folder.kind == PanelKind.popup &&
@@ -234,7 +224,6 @@ class ComponentView extends ConsumerWidget {
             )) {
       return _InPlace(panel: folder);
     }
-    // What it is made of, in a line, reading what it hands down.
     final line = TemplateScope(
       values: scope.inner,
       child: TileLook(
@@ -242,8 +231,7 @@ class ComponentView extends ConsumerWidget {
         child: LinePane(pane: c, inner: inLine, focus: focus, popup: popup),
       ),
     );
-    // Only what does something is landed on; the rest is looked at, and
-    // has no frame of its own to carry the look the user gave it.
+    // Without actions it is not focusable.
     if (!acts) {
       return StyleScope.under(
         context,
@@ -251,8 +239,7 @@ class ComponentView extends ConsumerWidget {
         StyledBox(style: box, child: line),
       );
     }
-    // The part marked `frame` is what shows the focus, or the whole of it
-    // where no part is.
+    // A child with `frame` shows the focus; otherwise the whole tile does.
     final framed = c.all.any((part) => part.options['frame'] == true);
     return StyleScope.under(
       context,
@@ -286,9 +273,8 @@ class ComponentView extends ConsumerWidget {
   }
 }
 
-/// A pane that puts what is in it in a line, side by side or one under the
-/// other: each takes the share of the room its transform says, keeps the
-/// shape it says, or takes only what it needs.
+/// Draws a row or column pane: children sized by flex, aspect or their
+/// natural size.
 class LinePane extends StatelessWidget {
   const LinePane({
     super.key,
@@ -300,14 +286,14 @@ class LinePane extends StatelessWidget {
 
   final Component pane;
 
-  /// True for a line that is itself part of a line.
+  /// Nested in another row or column.
   final bool inner;
   final FirstFocus? focus;
   final String? popup;
 
   Widget? _place(Component child) {
     if (child.hidden && !child.keep) return null;
-    // Where everything takes only the room it needs, nothing is shared out.
+    // Nothing is shared out when the pane is fitted.
     final sized = !pane.fit && (child.flex != null || child.aspect != null);
     Widget placed = ComponentView(
       key: ValueKey(child.id),
@@ -317,8 +303,7 @@ class LinePane extends StatelessWidget {
       inLine: true,
       shrink: !sized,
     );
-    // Its room is kept either way, so hiding it does not change the size
-    // of the rest.
+    // Keeps its space while hidden.
     if (child.keep) {
       placed = Visibility.maintain(visible: !child.hidden, child: placed);
     }
@@ -345,19 +330,19 @@ class LinePane extends StatelessWidget {
         'end' => CrossAxisAlignment.end,
         'center' => CrossAxisAlignment.center,
         'stretch' => CrossAxisAlignment.stretch,
-        // Stretching asks for all the room, which a fitted one has none of.
+        // A fitted row cannot stretch.
         _ when row || pane.fit => CrossAxisAlignment.center,
         _ => CrossAxisAlignment.stretch,
       },
       spacing: pane.gap,
       children: [for (final child in pane.shown) ?_place(child)],
     );
-    // Made as big as the box allows, once and at the top.
+    // Scaled to the box once, at the top level.
     return pane.fit && !inner ? FittedBox(child: flex) : flex;
   }
 }
 
-/// What a folder holds, shown where the folder is. Back closes it.
+/// A folder's contents drawn in place. Back closes it.
 class _InPlace extends ConsumerWidget {
   const _InPlace({required this.panel});
 

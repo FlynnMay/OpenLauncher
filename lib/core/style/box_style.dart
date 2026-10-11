@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/style/style.dart';
 
-/// How a box is painted, read from the [Style] of whatever the box is:
-/// its fill (nothing, one colour, or a gradient), its outline, how round
-/// its corners are, the room it keeps inside, and how solid it is.
+/// A [Style] resolved for painting a box: fill, border, corners, padding,
+/// opacity, shadow.
 @immutable
 class BoxStyle {
   const BoxStyle({
@@ -21,15 +20,13 @@ class BoxStyle {
   static const none = BoxStyle();
   static const maxColors = 8;
 
-  /// Fill colours as 0xAARRGGBB. None leaves the box as it normally is, one
-  /// is a flat colour, more make a gradient.
+  /// Fill colours as 0xAARRGGBB: none, one (flat) or several (gradient).
   final List<int> colors;
 
-  /// Where along a gradient each colour is at its fullest, 0 at the start
-  /// to 1 at the end, in order. Empty spreads the colours evenly.
+  /// Gradient stop positions, 0 to 1. Empty spreads them evenly.
   final List<double> stops;
 
-  /// [stops], worked out when they are left to be even.
+  /// [stops], or even ones when unset.
   List<double> get positions => stops.length == colors.length
       ? stops
       : [
@@ -37,31 +34,30 @@ class BoxStyle {
             colors.length < 2 ? 0 : i / (colors.length - 1),
         ];
 
-  /// Direction of a gradient in degrees, as CSS counts them: 0 runs
-  /// upwards, 90 to the right, 180 downwards.
+  /// Gradient angle in CSS degrees: 0 up, 90 right.
   final int angle;
 
-  /// Outline colour as 0xAARRGGBB, or null for none, and how thick it is.
+  /// Border colour as 0xAARRGGBB, or null for none.
   final int? border;
   final double borderWidth;
 
-  /// How round each corner is, in the TV's 960-wide pixels: top left, top
-  /// right, bottom right, bottom left. Null for the usual of what it is.
+  /// Corner radii in TV pixels: top left, top right, bottom right, bottom
+  /// left. Null for the default.
   final List<double>? corners;
 
-  /// The room between its edge and what is in it; null for the usual.
+  /// Null for the default.
   final double? padding;
 
-  /// From 0, not there, to 1, solid.
+  /// 0 to 1.
   final double opacity;
 
-  /// How far its shadow spreads; 0 for none.
+  /// Shadow blur; 0 for none.
   final double shadow;
 
-  /// Whether nothing of it is painted.
+  /// Whether nothing is painted.
   bool get isEmpty => colors.isEmpty && border == null && shadow == 0;
 
-  /// Reads `#RRGGBB` or `#RRGGBBAA`, the forms CSS and the page use.
+  /// Parses `#RRGGBB` or `#RRGGBBAA`.
   static int? parseColor(Object? css) {
     if (css is! String ||
         !RegExp(r'^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$').hasMatch(css)) {
@@ -78,8 +74,7 @@ class BoxStyle {
       '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}'
       '${(argb >>> 24).toRadixString(16).padLeft(2, '0')}';
 
-  /// A measure as a look may say it: a number, or one as text, which is
-  /// what a template reads as.
+  /// A number, or text that parses as one, clamped.
   static double? number(Object? value, [num low = 0, num high = 1000]) {
     final number = switch (value) {
       final num number => number.toDouble(),
@@ -91,7 +86,7 @@ class BoxStyle {
         : number.clamp(low, high).toDouble();
   }
 
-  /// Never throws: whatever of [style] is not understood is left out.
+  /// Ignores what it cannot read. Never throws.
   factory BoxStyle.of(Style style) {
     final background = style['background'];
     final colors = background is Map ? background['colors'] : null;
@@ -102,8 +97,7 @@ class BoxStyle {
       if (colors is List)
         for (final color in colors.take(maxColors)) ?parseColor(color),
     ];
-    // Only stops that fit the colours are kept: one each, none out of
-    // range or before the one in front of it.
+    // Keep stops only if there is one per colour, in range and ascending.
     var last = 0.0;
     final fits =
         stops is List &&
@@ -136,9 +130,7 @@ class BoxStyle {
     );
   }
 
-  /// A fill as a look says it: nothing for no colour, the colour alone
-  /// for one, and for a gradient its colours, where each sits and the way
-  /// it runs.
+  /// The saved form of a fill: null, one colour, or a gradient map.
   static Object? backgroundOf(
     List<int> colors, [
     List<double> stops = const [],

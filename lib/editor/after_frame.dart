@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Builds with something that can only be known once the page has been laid
-/// out, such as where another widget is on screen. [read] is asked after
-/// every frame, and the builder is run again when the answer has changed.
-/// Asking does not itself cause a frame.
+/// Builds from a value only known after layout, such as another widget's
+/// position. [read] runs after every frame; the builder re-runs when the
+/// value changes.
 class AfterFrame<T> extends StatefulWidget {
   const AfterFrame({
     super.key,
@@ -14,10 +13,10 @@ class AfterFrame<T> extends StatefulWidget {
 
   final T Function() read;
 
-  /// Whether two answers are the same; `==` if not given.
+  /// Equality for the value; `==` by default.
   final bool Function(T a, T b)? same;
 
-  /// Given null until the first frame has been drawn.
+  /// Null until the first frame.
   final Widget Function(BuildContext context, T? value) builder;
 
   @override

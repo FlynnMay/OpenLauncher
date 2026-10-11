@@ -4,7 +4,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 
-/// The ids of the items picked out for editing.
+/// Ids of the selected components.
 final selectionProvider = NotifierProvider<Selection, Set<String>>(
   Selection.new,
 );
@@ -13,8 +13,7 @@ class Selection extends Notifier<Set<String>> {
   @override
   Set<String> build() => const {};
 
-  /// A tap on the item [id]: it becomes the selection, or with [adding]
-  /// joins or leaves it.
+  /// Selects [id], or toggles it when [adding].
   void tap(String id, {required bool adding}) {
     if (!adding) {
       state = {id};
@@ -25,9 +24,8 @@ class Selection extends Notifier<Set<String>> {
     }
   }
 
-  /// A press on the item [id], on the screen or in a list of what is on
-  /// it: it joins or leaves the selection while several are being picked or
-  /// Ctrl, Shift or Cmd is held, and otherwise becomes it.
+  /// A click on [id]: toggles it in multi-select mode or with Ctrl/Shift/Cmd
+  /// held, otherwise selects only it.
   void press(String id) {
     final keys = HardwareKeyboard.instance;
     tap(
@@ -45,8 +43,7 @@ class Selection extends Notifier<Set<String>> {
   }
 }
 
-/// Whether a tap adds to the selection without a key held down: the way to
-/// pick several things by finger.
+/// Multi-select without a modifier key, for touch.
 final selectSeveralProvider = NotifierProvider<SelectSeveral, bool>(
   SelectSeveral.new,
 );
@@ -58,16 +55,15 @@ class SelectSeveral extends Notifier<bool> {
   void set(bool several) => state = several;
 }
 
-/// The selected items as they are in the layout now. What has since been
-/// removed is simply not among them.
+/// The selected components as they are in the layout now.
 final selectedProvider = Provider<List<Found>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
   final ids = ref.watch(selectionProvider);
   return layout == null || ids.isEmpty ? const [] : findItems(layout, ids);
 });
 
-/// The sidebar being arranged, by panel id: held open on the screen, with
-/// its settings in the panel while nothing in it is picked out.
+/// The sidebar being edited: held open, its settings shown when nothing in it
+/// is selected.
 final barProvider = NotifierProvider<EditedBar, String?>(EditedBar.new);
 
 class EditedBar extends Notifier<String?> {
@@ -77,8 +73,7 @@ class EditedBar extends Notifier<String?> {
   void set(String? id) => state = id;
 }
 
-/// Whether the sidebar being arranged is let go of for a moment, so that
-/// it closes and opens again the way it will on the TV.
+/// Briefly releases the edited sidebar to preview its opening.
 final barReplayProvider = NotifierProvider<BarReplay, bool>(BarReplay.new);
 
 class BarReplay extends Notifier<bool> {
@@ -93,12 +88,11 @@ class BarReplay extends Notifier<bool> {
   }
 }
 
-/// The popups the selected folder entities open, by panel id.
+/// The folders the selected folder cards open, by panel id.
 final selectedPanelsProvider = Provider<Map<String, Panel>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
   final panels = <String, Panel>{};
   for (final one in ref.watch(selectedProvider)) {
-    // What opens a folder is drawn from it.
     final folder = layout?.folderOf(one.item);
     if (layout?.panel(folder ?? '') case final panel?) {
       panels[panel.id] = panel;
@@ -107,7 +101,6 @@ final selectedPanelsProvider = Provider<Map<String, Panel>>((ref) {
   return panels;
 });
 
-/// The pane new apps go to.
 final inboxProvider = Provider<String?>(
   (ref) => ref.watch(configProvider).value?.layout.inbox,
 );

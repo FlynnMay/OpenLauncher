@@ -2,8 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/prefabs/prefab.dart';
 
-/// Every prefab there is, by id: the launcher's own, and the user's, which
-/// stand in for the launcher's where they have the same id.
+/// All prefabs by id; the user's replace built-ins of the same id.
 final prefabsProvider = Provider<Map<String, Prefab>>((ref) {
   final own = ref.watch(
     configProvider.select((config) => config.value?.prefabs ?? const []),

@@ -9,7 +9,7 @@ import 'package:openlauncher/core/values/data_source.dart';
 
 enum ToastPosition { topLeft, topRight, bottomLeft, bottomRight }
 
-/// How notifications from other apps pop up over the home screen.
+/// How other apps' notifications are shown.
 @immutable
 class ToastOptions {
   const ToastOptions({
@@ -21,11 +21,9 @@ class ToastOptions {
   final bool enabled;
   final ToastPosition position;
 
-  /// How long each one stays up.
   final int seconds;
 
-  /// What there is to set about them: the editor's form is made from
-  /// this.
+  /// The editor's form is generated from this.
   static const options = [
     ComponentOption(
       'enabled',
@@ -73,7 +71,7 @@ class ToastOptions {
   };
 }
 
-/// Everything the user can customise. Persisted as JSON by a `ConfigStore`.
+/// Everything the user can customise.
 @immutable
 class LauncherConfig {
   LauncherConfig({
@@ -89,66 +87,51 @@ class LauncherConfig {
     this.prefabs = const [],
   }) : layout = layout ?? Layout.initial();
 
-  /// Where every entity, folder and component is.
   final Layout layout;
 
-  /// Entity id -> absolute path of a user-chosen image. Entities that open a
-  /// popup are keyed `panel:<panel id>`.
+  /// Entity id -> image path. Folder pictures are keyed `panel:<panel id>`.
   final Map<String, String> iconOverrides;
 
-  /// Entity id -> id of the entity whose picture it shows instead of its own.
+  /// Entity id -> the entity whose picture it shows.
   final Map<String, String> iconSources;
 
-  /// Entity id -> the name the user gave it.
+  /// Entity id -> custom name.
   final Map<String, String> names;
 
-  /// Absolute paths of the images and videos shown behind the home screen;
-  /// none for a plain background. The first is the one shown, unless they
-  /// take turns.
+  /// Image and video paths; the first is shown unless they rotate.
   final List<String> wallpapers;
 
-  /// How many minutes each wallpaper stays before the next takes its turn;
-  /// 0 to stay on the first.
+  /// Minutes per wallpaper; 0 stays on the first.
   final int wallpaperEvery;
 
-  /// The longest [wallpaperEvery] may be: a week.
+  /// One week.
   static const maxWallpaperEvery = 7 * 24 * 60;
 
-  /// The first wallpaper, which is the only one unless they take turns.
   String? get wallpaper => wallpapers.firstOrNull;
 
   final ToastOptions toasts;
 
-  /// The values the user defined, which text on the screen can be made of
-  /// beside the launcher's own.
+  /// User-defined values.
   final List<DataSource> sources;
 
-  /// Where the TV is, as the user said: the `location` value, and where
-  /// the `weather` value is the weather of.
+  /// Where the TV is; used by `location` and `weather`.
   final Place? place;
 
-  /// The prefabs the user made, and their changed copies of the launcher's
-  /// own, which stand in for those by having the same id.
+  /// User prefabs; one with a built-in's id replaces it.
   final List<Prefab> prefabs;
 
-  /// The parts of the config that are carried whole between the TV and
-  /// whatever edits it: told in the state, set through `PUT /api/config`,
-  /// sent back by the editor when they change. **A new setting that is
-  /// plain data is a field here and its name in this list, and nothing
-  /// anywhere else.** What is not here needs more than carrying: the layout
-  /// (repaired, and its pictures tidied), and whatever holds the paths of
-  /// files on the TV, which no page may choose.
+  /// Config keys sent whole between the TV and the editor (`PUT
+  /// /api/config`). A new plain-data setting is a field plus its name here.
+  /// The layout and file paths are handled separately.
   static const openKeys = ['toasts', 'sources', 'place', 'prefabs'];
 
-  /// The [openKeys] parts as they are saved; one that is not set is null.
+  /// The [openKeys] values as saved.
   Map<String, Object?> get open {
     final json = toJson();
     return {for (final key in openKeys) key: json[key]};
   }
 
-  /// This config with the [openKeys] parts that [json] has set to what it
-  /// says. Like anything read from a save, what cannot be read falls back
-  /// to how it is when nothing was chosen.
+  /// This config with the [openKeys] present in [json] replaced.
   LauncherConfig patched(Map<String, Object?> json) => LauncherConfig.fromJson({
     ...toJson(),
     for (final key in openKeys)
@@ -164,7 +147,7 @@ class LauncherConfig {
     int? wallpaperEvery,
     ToastOptions? toasts,
     List<DataSource>? sources,
-    // A function, so that it can be taken away: null leaves it as it is.
+    // A function so that null can be passed.
     Place? Function()? place,
     List<Prefab>? prefabs,
   }) => LauncherConfig(
@@ -180,9 +163,7 @@ class LauncherConfig {
     prefabs: prefabs ?? this.prefabs,
   );
 
-  /// Reads a saved config of any version: an older one is brought up to
-  /// date first, by the steps in `migrations`, which do better for knowing
-  /// the [device]. Only what is written now is read here.
+  /// Reads a saved config, migrating older versions first.
   factory LauncherConfig.fromJson(
     Map<String, dynamic> saved, {
     Device device = Device.unknown,
@@ -192,9 +173,8 @@ class LauncherConfig {
     try {
       return migrate(saved, device: device);
     } on FormatException catch (e) {
-      // A broken layout must not take the wallpaper and pictures with it.
+      // A bad layout must not lose the rest of the config.
       debugPrint('Saved layout unreadable, starting a new one: $e');
-      // The rest is read as it stands.
       return {...saved, 'v': saveVersion}..remove('layout');
     }
   }
@@ -223,7 +203,6 @@ class LauncherConfig {
     prefabs: Prefab.listFromJson(json['prefabs']),
   );
 
-  /// A place as it is saved, or null for anything else.
   static Place? placeFromJson(Object? json) => switch (json) {
     {
       'name': final String name,
@@ -258,7 +237,7 @@ class LauncherConfig {
         return Layout.fromJson(layout).normalised();
       }
     } on FormatException catch (e) {
-      // A broken layout must not take the wallpaper and pictures with it.
+      // A bad layout must not lose the rest of the config.
       debugPrint('Saved layout unreadable, starting a new one: $e');
     }
     return Layout.initial();

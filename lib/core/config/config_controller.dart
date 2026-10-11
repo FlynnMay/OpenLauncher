@@ -7,9 +7,7 @@ final configProvider = AsyncNotifierProvider<ConfigController, LauncherConfig>(
   ConfigController.new,
 );
 
-/// The only place config is mutated. The TV UI and the web server
-/// both go through these methods, so every change is persisted and every
-/// listener is notified the same way.
+/// The only place config is changed, so every change is saved and notified.
 class ConfigController extends AsyncNotifier<LauncherConfig> {
   @override
   Future<LauncherConfig> build() => ref.watch(configStoreProvider).load();
@@ -20,39 +18,34 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     await ref.read(configStoreProvider).save(next);
   }
 
-  /// Replaces where everything is. [layout] is made valid first.
+  /// Replaces the layout, repaired first.
   Future<void> setLayout(Layout layout) =>
       _update((c) => c.copyWith(layout: layout.normalised()));
 
-  /// Changes the config in whatever way [how] says. For a setting that is
-  /// plain data this is all there is to changing it:
-  /// `change((c) => c.copyWith(toasts: ...))`.
+  /// Applies [how] to the config.
   Future<void> change(LauncherConfig Function(LauncherConfig config) how) =>
       _update(how);
 
-  /// Sets the parts of the config [json] names, as they are saved; see
-  /// [LauncherConfig.openKeys] for which there are.
+  /// Sets the [LauncherConfig.openKeys] parts present in [json].
   Future<void> patch(Map<String, Object?> json) =>
       _update((c) => c.patched(json));
 
-  /// Takes an entity off every panel. It stays off until it is placed again.
+  /// Removes an entity from every panel until it is placed again.
   Future<void> removeEntity(String id) =>
       _update((c) => c.copyWith(layout: c.layout.without({id}).normalised()));
 
-  /// Sets the images and videos behind the home screen, the first being
-  /// the one shown unless they take turns; none leaves it plain.
   Future<void> setWallpapers(List<String> paths) =>
       _update((c) => c.copyWith(wallpapers: List.unmodifiable(paths)));
 
-  /// Sets how many minutes each wallpaper stays; 0 keeps to the first.
+  /// Minutes per wallpaper; 0 stays on the first.
   Future<void> setWallpaperEvery(int minutes) => _update(
     (c) => c.copyWith(
       wallpaperEvery: minutes.clamp(0, LauncherConfig.maxWallpaperEvery),
     ),
   );
 
-  /// Sets a custom image for an entity; pass null to return to the automatic one.
-  /// Either way the entity stops showing another entity's picture.
+  /// Sets a custom picture; null restores the automatic one. Clears any
+  /// borrowed picture.
   Future<void> setIconOverride(String id, String? path) => _update(
     (c) => c.copyWith(
       iconOverrides: path == null
@@ -62,8 +55,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     ),
   );
 
-  /// Makes entity [id] show the picture of entity [from]; null gives it its own
-  /// back.
+  /// Makes [id] show [from]'s picture; null restores its own.
   Future<void> setIconSource(String id, String? from) => _update(
     (c) => c.copyWith(
       iconSources: from == null
@@ -72,7 +64,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     ),
   );
 
-  /// Names an entity; null or blank returns it to the name the device gives it.
+  /// Renames an entity; null or blank restores the device's name.
   Future<void> setName(String id, String? name) {
     final trimmed = name?.trim() ?? '';
     return _update(

@@ -8,7 +8,7 @@ import 'package:openlauncher/editor/tv_api.dart';
 class PlaceSearch extends ConsumerStatefulWidget {
   const PlaceSearch({super.key, required this.said, required this.onChosen});
 
-  /// What is said of the place chosen so far, or of there being none.
+  /// The current place, or that there is none.
   final String said;
   final void Function(Place place) onChosen;
 

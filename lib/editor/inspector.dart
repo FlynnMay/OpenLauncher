@@ -9,8 +9,8 @@ import 'package:openlauncher/editor/selected_properties.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
 
-/// The panel of settings beside the screen: those of whatever is picked
-/// out on it, or with nothing picked out, those of the launcher as a whole.
+/// The settings panel: the selection's, or the launcher's when nothing is
+/// selected.
 class Inspector extends ConsumerWidget {
   const Inspector({super.key});
 
@@ -67,8 +67,7 @@ class Inspector extends ConsumerWidget {
             final bar => SidebarSettings(key: ValueKey(bar), id: bar),
           }
         else
-          // A new one for each selection, so nothing typed or found for one
-          // thing is carried over to the next.
+          // Keyed by selection so no field state carries over.
           SelectedProperties(
             key: ValueKey(found.map((one) => one.item.id).join(' ')),
             found: found,

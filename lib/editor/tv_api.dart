@@ -12,7 +12,7 @@ import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/file_pick.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// A component the TV can show, as the catalogue offers it.
+/// A primitive component as the catalogue offers it.
 typedef ComponentOffer = ({
   String type,
   String label,
@@ -21,11 +21,10 @@ typedef ComponentOffer = ({
   Map<String, Object?> options,
 });
 
-/// What the user has changed about an entity, beyond where it is.
+/// The user's changes to an entity.
 typedef EntityDetails = ({bool renamed, bool customIcon, String? iconFrom});
 
-/// What the TV says it has: the same things the launcher on the TV works
-/// from, with every picture as the address the TV serves it at.
+/// The TV's state, with every picture as a URL.
 class TvState {
   const TvState({
     required this.entities,
@@ -41,57 +40,50 @@ class TvState {
     this.nowPlaying,
   });
 
-  /// Every entity, with the user's names and pictures already applied.
+  /// With the user's names and pictures applied.
   final List<Entity> entities;
 
-  /// The layout, the pictures of folders and the options.
   final LauncherConfig config;
   final List<ComponentOffer> components;
 
-  /// By entity id.
   final Map<String, EntityDetails> details;
 
-  /// Every wallpaper, by the name the TV knows it by, in order.
+  /// By id, in order.
   final List<({String id, Wallpaper wallpaper})> wallpapers;
 
-  /// How many minutes each wallpaper stays; 0 to stay on the first.
   final int wallpaperEvery;
 
-  /// The app widgets there are to show, by id, with how each is called.
+  /// App widget ids with their labels.
   final Map<String, String> widgetProviders;
 
-  /// Whether the TV lets the launcher see notifications and what plays.
   final bool notificationAccess;
 
-  /// Whether the TV remote's Home button opens the launcher.
   final bool homeButton;
 
-  /// Whether the launcher may switch that itself.
   final bool canManageHomeButton;
 
-  /// What is playing on the TV, if anything.
   final NowPlaying? nowPlaying;
 }
 
 final tvApiProvider = Provider<TvApi>((ref) => TvApi());
 
-/// What the TV has, and again each time it changes.
+/// The TV's state, updated on every change.
 final tvStateProvider = StreamProvider<TvState>(
   (ref) => ref.watch(tvApiProvider).states(),
 );
 
-/// The TV's config API, at the address this page came from.
+/// The TV's HTTP API, at this page's origin.
 class TvApi {
   final _client = http.Client();
   final _base = Uri.base;
 
-  /// Line art by address: the address changes when the drawing does.
+  /// Line art by URL; the URL changes with the drawing.
   final _drawings = <String, Future<String>>{};
 
   Uri _at(String path) => _base.resolve(path);
 
-  /// Follows the TV's event stream, joining it again whenever it is lost.
-  /// Fails only if the TV cannot be reached to begin with.
+  /// Follows the TV's event stream, reconnecting when it drops. Fails only if
+  /// the first connection does.
   Stream<TvState> states() async* {
     var reached = false;
     while (true) {
@@ -123,7 +115,6 @@ class TvApi {
       entities: await Future.wait([
         for (final Map entity in json['entities'] as List) _entity(entity),
       ]),
-      // Every plain setting comes as it is saved, whatever there are.
       config:
           LauncherConfig.fromJson({
             'v': saveVersion,
@@ -138,7 +129,7 @@ class TvApi {
           ),
       components: [
         for (final Map component in json['components'] as List)
-          // An app widget is offered once for each one an app provides.
+          // One offer per app widget.
           for (final Map? provider
               in component['type'] == 'android' ? providers : [null])
             (
@@ -213,8 +204,7 @@ class TvApi {
       name: json['name'] as String?,
       data: {
         ...data,
-        // On the TV its picture is a file, or the drawing itself; here it
-        // is where the TV serves that file, or the drawing fetched.
+        // The icon arrives as a URL; line art is fetched as markup.
         if (icon is String)
           Entity.icon: data[Entity.shape] == Entity.lineArt
               ? await _drawings.putIfAbsent(
@@ -226,7 +216,7 @@ class TvApi {
     );
   }
 
-  /// What the TV said was wrong, from the body of its reply.
+  /// The error from the TV's reply body.
   static Exception _refused(int status, String body) {
     try {
       if (jsonDecode(body) case {'error': final String error}) {
@@ -259,29 +249,23 @@ class TvApi {
   Future<void> setLayout(Layout layout) =>
       _ask('PUT', '/api/layout', layout.toJson());
 
-  /// Sets the plain settings [changed] names, each as it is saved.
   Future<void> setConfig(Map<String, Object?> changed) =>
       _ask('PUT', '/api/config', changed);
 
-  /// What the user's value [id] is now, asked of the TV, which asks its
-  /// source.
   Future<Object?> sourceValue(String id) async =>
       (await _ask('GET', '/api/source${_id(id)}') as Map)['value'];
 
-  /// Gives the entity [id], or the entity of the popup `panel:<id>`, the
-  /// picture [file].
+  /// [id] may also be a folder's `panel:<id>`.
   Future<void> setPicture(String id, PickedFile file) =>
       _upload('PUT', '/api/icon${_id(id)}', file);
 
-  /// Returns an entity to its own picture, whether it had one given to it or
-  /// borrowed another entity's.
+  /// Clears an uploaded or borrowed picture.
   Future<void> clearPicture(String id) => _ask('DELETE', '/api/icon${_id(id)}');
 
-  /// Has the entity [id] show the picture of the entity [from].
   Future<void> borrowPicture(String id, String from) =>
       _ask('PUT', '/api/entity${_id(id)}', {'iconFrom': from});
 
-  /// Names the entity [id]; null gives it back the name the TV has for it.
+  /// Null restores the device's name.
   Future<void> rename(String id, String? name) =>
       _ask('PUT', '/api/entity${_id(id)}', {'name': name});
 
@@ -291,17 +275,15 @@ class TvApi {
   Future<void> removeWallpaper(String id) =>
       _ask('DELETE', '/api/wallpaper${_id(id)}');
 
-  /// Sets the order of the wallpapers, by id, and how many minutes each
-  /// stays; whichever is left out stays as it is.
+  /// A null argument is left unchanged.
   Future<void> arrangeWallpapers({List<String>? order, int? every}) =>
       _ask('PUT', '/api/wallpapers', {'order': ?order, 'every': ?every});
 
-  /// Has the TV do [act], and returns what it has to tell the user of it.
+  /// Runs [act] on the TV; returns its message.
   Future<String?> act(Act act) async =>
       (await _ask('POST', '/api/act', act.toJson()) as Map)['message']
           as String?;
 
-  /// Finds places by name, for the weather component.
   Future<List<Place>> findPlaces(String name) async {
     final reply = await _ask(
       'GET',

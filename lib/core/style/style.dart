@@ -1,14 +1,10 @@
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
-/// The look of a component as it is saved: what it sets, by the name of
-/// the property. Anything on the screen may have one; which properties
-/// mean something to it is for it to say ([boxStyle], [textStyle], a
-/// component kind's own).
+/// A component's saved style: property name -> value.
 typedef Style = Map<String, Object?>;
 
-/// One property of a look, described once. The editor draws its field from
-/// this, knowing nothing of what takes it.
+/// One style property, described as data for the editor.
 class StyleProp extends ComponentOption {
   const StyleProp(
     super.key,
@@ -23,14 +19,12 @@ class StyleProp extends ComponentOption {
     super.unset = 'Usual',
   });
 
-  /// True for a property that what is inside a component takes after it
-  /// in, unless it sets its own: a pane's letters colour is that of every
-  /// text in it.
+  /// Whether children inherit it unless they set their own.
   final bool inherits;
 }
 
-/// Every property a look can have. **A new one is a line here, its name in
-/// the list of whatever takes it, and its use where that is drawn.**
+/// Every style property. A new one goes here, in the key list of whatever
+/// takes it, and where it is drawn.
 const styleProps = [
   StyleProp('background', 'Background', OptionKind.fill),
   StyleProp('borderColor', 'Border', OptionKind.colour),
@@ -88,8 +82,7 @@ const styleProps = [
   ),
 ];
 
-/// What anything that is a box takes: a pane, and whatever is placed in
-/// one.
+/// Properties of any box.
 const boxStyle = [
   'background',
   'borderColor',
@@ -100,16 +93,16 @@ const boxStyle = [
   'shadow',
 ];
 
-/// What text takes, and so what anything that holds text hands down.
+/// Text properties; containers pass these down.
 const textStyle = ['color', 'fontSize', 'fontWeight', 'textAlign'];
 
-/// The properties called [keys], in the order they are listed above.
+/// The properties named [keys], in declaration order.
 List<StyleProp> stylePropsOf(Iterable<String> keys) => [
   for (final prop in styleProps)
     if (keys.contains(prop.key)) prop,
 ];
 
-/// Never throws: a look is decoration, so what is not a look is none.
+/// Never throws; anything unreadable is an empty style.
 Style styleFromJson(Object? json) => switch (json) {
   final Map<Object?, Object?> style => {
     for (final MapEntry(:key, :value) in style.entries)
@@ -118,12 +111,11 @@ Style styleFromJson(Object? json) => switch (json) {
   _ => const {},
 };
 
-/// [style] with [values] set over it; one that is null is taken away,
-/// which hands that property back to whatever is underneath.
+/// Merges [values] over [style]; null removes a property.
 Style withStyle(Style style, Style values) =>
     {...style, ...values}..removeWhere((_, value) => value == null);
 
-/// What of [style] the things inside take after.
+/// The inherited properties of [style].
 Style inheritedOf(Style style) => {
   for (final prop in styleProps)
     if (prop.inherits && style[prop.key] != null) prop.key: style[prop.key],
@@ -131,8 +123,7 @@ Style inheritedOf(Style style) => {
 
 bool _written(Object? value) => value is String && value.contains('{{');
 
-/// [style] as it stands now: a value written as a template
-/// (`{{lamp.colour}}`) is what that reads as, among [scope] first.
+/// [style] with template values evaluated, [scope] first.
 Style readStyle(Watch watch, Style style, Map<String, Object?> scope) =>
     !style.values.any(_written)
     ? style

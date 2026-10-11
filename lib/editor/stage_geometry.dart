@@ -6,16 +6,15 @@ import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
-/// Where the item [id] is placed in [pane]: where it is drawn, which is as
-/// its pane would have it.
+/// [id]'s placement in [pane], as drawn.
 Placement placementIn(Component pane, String id) => placeItems(
   pane.shown,
   pane.columns,
   pane.mode,
 )[pane.children.indexWhere((item) => item.id == id)];
 
-/// Where [item] would go in [pane] if let go of [at] a point of its grid,
-/// places and sizes going by [step] cells.
+/// The drop for [item] released [at] a point of [pane]'s grid, snapped to
+/// [step].
 Drop dropAt(
   Component pane,
   PaneMetrics metrics,
@@ -24,8 +23,7 @@ Drop dropAt(
   double step,
 ) {
   if (pane.mode == PaneMode.flow) {
-    // In front of the first thing that comes after the pointer, reading
-    // across and then down.
+    // Before the first child after the pointer, in reading order.
     final placed = placeItems(pane.shown, pane.columns, pane.mode);
     String? before;
     for (final (index, other) in pane.children.indexed) {
@@ -39,9 +37,8 @@ Drop dropAt(
     }
     return Drop(pane.id, before: before);
   }
-  // Held by its middle, and set down on whole cells; or, where things
-  // can be anywhere and are not being kept to cells, just about where
-  // it is let go. Only there does it keep a size that is not whole.
+  // Held by its centre and snapped to [step]. Fractional sizes only in an
+  // unsnapped free pane.
   final free = pane.mode == PaneMode.free;
   final w = (free ? item.w : item.w.roundToDouble())
       .clamp(free ? Component.minFreeSpan : 1, pane.columns)
@@ -59,8 +56,7 @@ Drop dropAt(
   );
 }
 
-/// Where on the screen a sidebar on the edge [id] is when open, or with
-/// [thickness], a strip that thick along that edge.
+/// The open rect of the sidebar on edge [id], or a strip [thickness] thick.
 Rect barRect(Layout layout, String id, {double? thickness}) {
   final panel = layout.panel(id) ?? Panel.empty(id);
   final Size(:width, :height) = TvScreen.size;
@@ -79,20 +75,18 @@ Rect barRect(Layout layout, String id, {double? thickness}) {
   };
 }
 
-/// The smallest a thing can be made, in cells, when sizes go by [step].
+/// Smallest size in cells at [step].
 double leastSpan(double step) => step < 1 ? Component.minFreeSpan : 1;
 
-/// The handles that can do something for a thing placed at [placed] in
-/// [pane]: an edge has one if it can go outwards, there being room in the
-/// pane, or inwards, the thing being more than a cell across; a corner
-/// has one if both its edges do.
+/// The handles that can do something: an edge needs room to grow or more than
+/// one cell to shrink; a corner needs both its edges.
 Set<ResizeHandle> resizeHandles(
   Component item,
   Placement placed,
   Component pane,
   double least,
 ) {
-  // An entity whose size its pane decides has none to change.
+  // The pane sets its size.
   final decided = (pane.itemW != null || pane.itemH != null) && item.isInstance;
   if (decided) return const {};
   bool across(int side) =>
@@ -109,9 +103,8 @@ Set<ResizeHandle> resizeHandles(
   };
 }
 
-/// The place and size, in cells, that a thing [placed] in [pane] has with
-/// [handle] dragged [moved] from where it was taken hold of, places and
-/// sizes going by [step] cells.
+/// The cells for [placed] with [handle] dragged by [moved], snapped to
+/// [step].
 ({double x, double y, double w, double h}) resizedTo(
   Component pane,
   Placement placed,
@@ -122,9 +115,8 @@ Set<ResizeHandle> resizeHandles(
 ) {
   final by = metrics.cellAt(moved);
   final columns = by.dx.round(), rows = by.dy.round();
-  // The edge that is held goes to the nearest line: of the cells, or
-  // where things are not kept to cells, of small parts of one. It can go
-  // no further than leaves the least there can be, or than the pane.
+  // The dragged edge snaps to the nearest line, within the minimum size and
+  // the pane.
   final least = leastSpan(step);
   final left = handle.dx < 0
       ? snapTo(placed.x + by.dx, step).clamp(0, placed.x + placed.w - least)
@@ -144,8 +136,7 @@ Set<ResizeHandle> resizeHandles(
           step,
         ).clamp(top + least, top + Component.maxRows)
       : placed.y + placed.h;
-  // Where things flow there is no place to keep or change, only a size:
-  // any handle pulled outwards makes it bigger by that much.
+  // In a flow pane only the size changes.
   final flows = pane.mode == PaneMode.flow;
   return (
     x: left * 1.0,

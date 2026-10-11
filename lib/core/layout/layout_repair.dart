@@ -8,8 +8,7 @@ import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/panel.dart';
 import 'package:openlauncher/core/layout/rules.dart';
 
-/// [rules] with those in [sound] as they are there, a number written
-/// without a fraction where it has none; one that is null is left out.
+/// [rules] with [sound] merged in; nulls dropped, whole doubles as ints.
 Map<String, Object?> _kept(
   Map<String, Object?> rules,
   Map<String, Object?> sound,
@@ -18,13 +17,10 @@ Map<String, Object?> _kept(
     if (value != null) key: value is double ? tidy(value) : value,
 };
 
-/// Making a layout fit to use: what was read made sound, and the entities there
-/// are matched to it.
 extension LayoutRepair on Layout {
-  /// A copy with everything the rest of the app relies on made true: a home
-  /// panel, unique ids, sizes and positions that fit their pane, panes
-  /// nested no deeper than [Component.maxDepth], links
-  /// only to popups that exist, and a valid [inbox].
+  /// Enforces what the app relies on: a home panel, unique ids, sizes and
+  /// positions that fit, bounded nesting, no links to missing folders, a
+  /// valid [inbox].
   Layout normalised() {
     final panelIds = <String>{};
     final unique = [
@@ -35,7 +31,7 @@ extension LayoutRepair on Layout {
       unique.insert(0, Panel.empty(Layout.homeId));
     }
 
-    // One set of ids for everything: a pane is a component like the rest.
+    // Panes and other components share one id space.
     final ids = <String>{};
     String fresh(String wanted, String fallback) {
       final id = freeId(wanted.isEmpty ? fallback : wanted, ids);
@@ -45,8 +41,8 @@ extension LayoutRepair on Layout {
 
     late Component Function(Component, PanelKind, int) repair;
 
-    /// [item] made to fit [parent]; several when it is a pane that cannot
-    /// stay one, and none when it is nothing.
+    /// [item] fitted to [parent]: flattened if nested too deep, dropped if
+    /// invalid.
     Iterable<Component> fitted(
       Component item,
       Component parent,
@@ -54,7 +50,7 @@ extension LayoutRepair on Layout {
       int depth,
     ) sync* {
       if (item.isPane) {
-        // Too deep: what is in it moves up a level.
+        // Too deep: children move up a level.
         if (depth >= Component.maxDepth) {
           for (final child in item.children) {
             yield* fitted(child, parent, kind, depth);
@@ -62,13 +58,13 @@ extension LayoutRepair on Layout {
           return;
         }
       } else if (item.kind.isEmpty && !item.isInstance ||
-          // What opened a folder that is gone has nothing left to open.
+          // A folder card whose folder is gone.
           item.prefab == folderPrefabId &&
               !item.handed.any(panelIds.contains)) {
         return;
       }
       final repaired = item.isPane ? repair(item, kind, depth + 1) : item;
-      // In a line its transform is not in cells.
+      // No cells in a row or column.
       if (parent.mode.inLine) {
         yield repaired.isPane
             ? repaired
@@ -76,14 +72,14 @@ extension LayoutRepair on Layout {
         return;
       }
       final columns = parent.columns;
-      // Only a free pane keeps fractions of a cell.
+      // Fractions only in a free pane.
       final free = parent.mode == PaneMode.free;
       double fit(double value, num low, num high) =>
           ((free ? value : value.roundToDouble()).clamp(low, high)).toDouble();
       final smallest = free ? Component.minFreeSpan : 1;
       final w = fit(item.w.isFinite ? item.w : 1, smallest, columns);
       final x = item.x, y = item.y;
-      // A position is only kept whole; half of one means nothing.
+      // A position needs both x and y.
       final placed = x != null && y != null && x.isFinite && y.isFinite;
       yield repaired
           .sized(
@@ -97,9 +93,9 @@ extension LayoutRepair on Layout {
 
     repair = (pane, kind, depth) {
       final columns = pane.columns.clamp(1, Component.maxColumns);
-      // The pane's own id first, so that nothing inside can take it.
+      // Claim the pane's id before its children's.
       final id = fresh(pane.id, 'pane');
-      // A measure that means something, kept within what is allowed.
+      // Clamps a measure; null if invalid.
       double? within(double? value, num low, num high) =>
           value != null && value.isFinite
           ? value.clamp(low, high).toDouble()
@@ -146,7 +142,7 @@ extension LayoutRepair on Layout {
             'width': extent(panel.width, 40),
             'height': extent(panel.height, 40),
             'closed': extent(panel.closed, 0),
-            // A choice that is none of those there are is not one made.
+            // Drop unknown choice values.
             for (final rule in panelRules(panel.kind))
               if (rule.kind == OptionKind.choice &&
                   !rule.choices.containsKey(panel.rules[rule.key]))
@@ -169,20 +165,16 @@ extension LayoutRepair on Layout {
     );
   }
 
-  /// A copy matched to the entities there are. Items drawn from an entity
-  /// that no longer exists are dropped; one is known if it is in [known],
-  /// which unless given is [entityIds]. The entities in [entityIds] that
-  /// are placed nowhere are added to the end of the [inbox] pane, in the
-  /// order given, unless the user [removed] them: these are the ones that
-  /// are put on the screen of themselves, as a new app is. Each gets an id
-  /// after what the device calls it, in [names] by entity id. The quick
-  /// actions are added too, where the layout has none of its own.
+  /// Matches the layout to the entities that exist. Instances of missing
+  /// entities are dropped ([known] defaults to [entityIds]). Unplaced
+  /// [entityIds] not in [removed] are appended to the [inbox], with ids from
+  /// [names]. Adds the default quick actions if there are none.
   Layout withEntities(
     Iterable<String> entityIds, {
     Map<String, String> names = const {},
     Set<String>? known,
   }) {
-    // A folder is something to be drawn from too.
+    // Folders count as known.
     final there = {...known ?? entityIds, for (final panel in panels) panel.id};
     final kept = rebuild(
       (_, items) => [
@@ -198,7 +190,6 @@ extension LayoutRepair on Layout {
         if (item.isInstance) placed.addAll(item.handed);
       }
     }
-    // Named after the entity, by what it is called if that is known.
     String autoId(String entityId) {
       final id = freeId(Component.autoId(entityId, names[entityId]), itemIds);
       itemIds.add(id);
@@ -212,8 +203,7 @@ extension LayoutRepair on Layout {
     final filled = kept.rebuild(
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,
     );
-    // Like an entity placed nowhere, the quick actions are there before they
-    // are saved: as they usually are, until the user arranges them.
+    // The quick actions exist before they are first saved.
     if (filled.panel(Layout.menuId) != null) return filled;
     return Layout(
       panels: [...filled.panels, usualMenuPanel()],

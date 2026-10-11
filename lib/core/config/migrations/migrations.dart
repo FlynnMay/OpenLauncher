@@ -7,32 +7,20 @@ import 'package:openlauncher/core/config/migrations/v16_to_v17.dart';
 
 export 'save_json.dart' show Device, Json;
 
-/// The version of what is saved now: `config.json`, and a layout sent on
-/// its own. Both say it as `v`.
+/// The current save version, written as `v` on the config and the layout.
 ///
-/// To change what is saved in a way older saves do not already fit:
-///
-///  1. add a [Migration] from this version to the next at the end of
-///     [migrations], with its rules in a file of their own beside the
-///     others;
-///  2. make this the version it goes to;
-///  3. have the models read and write the new form only.
-///
-/// A step that has shipped is never changed: saves that went through it
-/// are out there. What it got wrong, a later step puts right.
+/// To change the saved format: add a [Migration] to the end of [migrations]
+/// with its rules in a new file, bump this, and have the models read and
+/// write only the new form. Never edit a shipped step.
 const saveVersion = 17;
 
-/// The oldest version there are still steps from. A save from before it
-/// cannot be brought up to date: the steps that did were taken out when
-/// everything on the screen became one kind of thing, a component.
+/// The oldest version that can still be migrated.
 const oldestVersion = 14;
 
-/// One thing a [Migration] does to a save, by changing [save] in place. It
-/// finds what it is for and leaves the rest be, whatever shape that is in:
-/// what is wrong with a save is for the models to say when they read it.
+/// One in-place change to a save. Rules are JSON only; they never use the
+/// models.
 typedef Rule = void Function(Json save, Device device);
 
-/// How a save of one version becomes one of the next.
 class Migration {
   const Migration({
     required this.from,
@@ -47,16 +35,13 @@ class Migration {
   /// What changed, in a line.
   final String what;
 
-  /// Applied in the order given.
   final List<Rule> rules;
 
-  /// True when a rule does better for knowing the [Device], which whoever
-  /// loads a save may then wait for.
+  /// Whether a rule benefits from [Device] info.
   final bool needsDevice;
 }
 
-/// Every change there has been to what is saved, oldest first. A save of
-/// any version follows them from where it is to [saveVersion].
+/// Every migration, oldest first.
 const migrations = [
   Migration(
     from: 14,
@@ -85,30 +70,27 @@ const migrations = [
   ),
 ];
 
-/// The version [save] is: what it says, or failing that what its layout
-/// says. One that says nothing is taken to be written as things are now.
+/// The version of [save], from it or its layout. A save with no version is
+/// treated as current.
 int versionOf(Map<Object?, Object?> save) => switch (save) {
   {'v': final num version} => version.toInt(),
   {'layout': {'v': final num version}} => version.toInt(),
   _ => saveVersion,
 };
 
-/// The steps [save] has yet to go through.
+/// The steps [save] still needs.
 Iterable<Migration> pending(Map<Object?, Object?> save) {
   final version = versionOf(save);
   return migrations.where((step) => step.from >= version);
 }
 
-/// Whether bringing [save] up to date goes better with the [Device] known.
 bool needsDevice(Map<Object?, Object?> save) =>
     pending(save).any((step) => step.needsDevice);
 
-/// [save], a whole config, as it is written now: a copy taken through every
-/// step from its version to [saveVersion]. One that is there already, or
-/// from a later version than this, is given back as it is.
+/// [save] migrated to [saveVersion]; returned as is if already current.
 ///
-/// Throws a [FormatException] where a rule cannot make sense of what it is
-/// there to change, and for a save from before [oldestVersion].
+/// Throws [FormatException] if a rule fails or the save is older than
+/// [oldestVersion].
 Json migrate(Map<Object?, Object?> save, {Device device = Device.unknown}) {
   if (versionOf(save) < oldestVersion) {
     throw FormatException(
@@ -117,7 +99,7 @@ Json migrate(Map<Object?, Object?> save, {Device device = Device.unknown}) {
   }
   final steps = pending(save).toList();
   if (steps.isEmpty) return save is Json ? save : save.cast();
-  // A copy all of whose parts can be changed, whatever was handed in.
+  // A deep, mutable copy.
   final next = (jsonDecode(jsonEncode(save)) as Map).cast<String, Object?>();
   for (final step in steps) {
     for (final rule in step.rules) {
@@ -129,8 +111,7 @@ Json migrate(Map<Object?, Object?> save, {Device device = Device.unknown}) {
   return next;
 }
 
-/// [layout], a layout on its own, as it is written now. It goes through
-/// the same steps as the config it would be part of.
+/// The same for a layout sent on its own.
 Json migrateLayout(
   Map<Object?, Object?> layout, {
   Device device = Device.unknown,

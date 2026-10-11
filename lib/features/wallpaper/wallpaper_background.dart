@@ -21,8 +21,7 @@ class WallpaperBackground extends ConsumerWidget {
       children: [
         switch (wallpaper.kind) {
           WallpaperKind.image => Image(
-            // Decoded no larger than the screen: a camera photo at full
-            // size takes seconds to appear and a lot of memory.
+            // Decoded at screen size; full-size photos are slow and heavy.
             image: ResizeImage(
               pictureAt(wallpaper.path),
               width:
@@ -47,8 +46,7 @@ class WallpaperBackground extends ConsumerWidget {
   }
 }
 
-/// A silent, looping video that stops decoding while the launcher is not on
-/// screen.
+/// A muted looping video, paused while the launcher is not on screen.
 class _VideoWallpaper extends StatefulWidget {
   const _VideoWallpaper({super.key, required this.path});
 
@@ -59,11 +57,10 @@ class _VideoWallpaper extends StatefulWidget {
 }
 
 class _VideoWallpaperState extends State<_VideoWallpaper> {
-  /// How often a video that will not play is tried again before it is left
-  /// until the launcher is next brought to the front.
+  /// Retries before giving up until the launcher is next resumed.
   static const _tries = 5;
 
-  /// The player, once it is playing; null while there is none that works.
+  /// Null until a player works.
   VideoPlayerController? _controller;
   late final AppLifecycleListener _lifecycle;
   Timer? _retry;
@@ -80,7 +77,6 @@ class _VideoWallpaperState extends State<_VideoWallpaper> {
         } else if (_controller case final controller?) {
           controller.play();
         } else {
-          // Whatever stood in the way may be gone by now.
           _failures = 0;
           _start();
         }
@@ -93,7 +89,7 @@ class _VideoWallpaperState extends State<_VideoWallpaper> {
     _retry?.cancel();
     // Never take audio focus from whatever else is playing.
     final options = VideoPlayerOptions(mixWithOthers: true);
-    // In the browser the wallpaper is at an address, as pictures are.
+    // A URL in the browser.
     final controller = kIsWeb
         ? VideoPlayerController.networkUrl(
             Uri.parse(widget.path),
@@ -129,9 +125,8 @@ class _VideoWallpaperState extends State<_VideoWallpaper> {
     setState(() => _controller = controller);
   }
 
-  /// A TV has few video decoders, often one, and the app that was on screen
-  /// a moment ago may still hold it: a video that fails is tried again,
-  /// leaving the plain background meanwhile and for good if it never plays.
+  /// TVs have few video decoders and another app may still hold one, so a
+  /// failed video is retried.
   void _failed(Object? error) {
     debugPrint('Wallpaper video failed: $error');
     if (!mounted || ++_failures >= _tries) return;

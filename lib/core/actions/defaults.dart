@@ -5,17 +5,15 @@ import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
-/// What a panel does when its pane does not say: a sidebar that is
-/// revealed is put on a layer of its own above the home screen, as is a
-/// folder, and the layer goes when it is hidden. These are their
-/// ready-made rules, there to be changed like any other.
+/// Default reveal/hide chains: a sidebar or folder moves to a new layer when
+/// shown and the layer closes when hidden.
 Triggers usualPanelTriggers(Panel panel) => switch (panel.kind) {
   PanelKind.sidebar => const {
     Trigger.reveal: [Act('newLayer'), Act('toLayer')],
     Trigger.hide: [Act('closeLayer')],
   },
-  // A folder hovers over the screen: a layer that darkens what is under
-  // it and keeps the focus. One set to open in place needs no layer.
+  // A hovering folder dims what is below and takes the focus. An in-place one
+  // needs no layer.
   PanelKind.popup when panel.rule('position') != 'inline' => const {
     Trigger.reveal: [
       Act('newLayer', {'dim': 0.54, 'modal': true}),
@@ -26,16 +24,13 @@ Triggers usualPanelTriggers(Panel panel) => switch (panel.kind) {
   _ => const {},
 };
 
-/// What [panel] does: what its pane says, and the usual for every trigger
-/// it says nothing of.
+/// The pane's own chains over the defaults.
 Triggers panelTriggersOf(Panel panel) => {
   ...usualPanelTriggers(panel),
   ...panel.root.on,
 };
 
-/// A button that does [kind], as the quick actions have them and the
-/// editor offers them: to whatever it is set off from, or to [entity] by
-/// its id.
+/// A button that runs [kind], optionally on [entity].
 Component actionButton(
   String id,
   ActionKind kind, {
@@ -52,11 +47,10 @@ Component actionButton(
   },
 );
 
-/// The names of the actions the quick actions start with, in order.
+/// The default quick actions, in order.
 const usualMenu = ['open', 'info', 'forceStop', 'uninstall', 'remove'];
 
-/// The quick actions as they are until the user arranges them: a popup
-/// like any folder, holding a button for each action.
+/// The default quick-actions popup.
 Panel usualMenuPanel() => Panel(
   id: Layout.menuId,
   rules: const {'size': 'small'},
@@ -64,8 +58,7 @@ Panel usualMenuPanel() => Panel(
     id: Panel.rootId(Layout.menuId),
     columns: 1,
     rules: const {'rowHeight': 40, 'spacing': 4},
-    // What the menu is about: set when it is opened, and read by what is
-    // in it.
+    // Set to the entity the menu was opened for.
     vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
     children: [
       for (final name in usualMenu)
@@ -73,7 +66,6 @@ Panel usualMenuPanel() => Panel(
           actionButton(
             '${Layout.menuId}-${kind.name.toLowerCase()}',
             kind,
-            // Taking something off is the layout's to do, told what.
             args: {if (name == 'remove') 'what': '{{source.id}}'},
           ),
     ],

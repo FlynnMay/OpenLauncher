@@ -5,11 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/server/config_api.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
-/// The running config web server, or null if it could not be started.
+/// The running web server, or null if it could not start.
 final configServerProvider = FutureProvider<ConfigServer?>((ref) async {
   final api = ref.watch(configApiProvider);
-  // A fixed port keeps bookmarks working; the next few are fallbacks in case
-  // another app already has it.
+  // A fixed port keeps bookmarks working; the next few are fallbacks.
   for (
     var port = ConfigServer.preferredPort;
     port < ConfigServer.preferredPort + 10;
@@ -37,8 +36,7 @@ class ConfigServer {
 
   final int port;
 
-  /// The address to open on another device, or null when the TV is not on a
-  /// network. Looked up on each call since the address can change.
+  /// The LAN address, or null with no network. Looked up each call.
   Future<Uri?> url() async {
     final interfaces = await NetworkInterface.list(
       type: InternetAddressType.IPv4,

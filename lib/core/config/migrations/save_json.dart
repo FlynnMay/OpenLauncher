@@ -1,18 +1,16 @@
-/// A save, or part of one, as JSON.
 typedef Json = Map<String, Object?>;
 
-/// What is known of the device a save is being brought up to date on. With
-/// nothing known the rules still do their work, only less well.
+/// Device info available to a migration; may be empty.
 class Device {
   const Device({this.names = const {}});
 
   static const unknown = Device();
 
-  /// What the device calls each entity, by entity id.
+  /// Entity id -> the device's name for it.
   final Map<String, String> names;
 }
 
-/// The parts of [json] under [key] that are objects.
+/// The objects in the list at [key].
 List<Json> objectsIn(Json json, String key) => [
   if (json[key] case final List<Object?> entries)
     for (final entry in entries)
@@ -36,13 +34,12 @@ Iterable<Json> panesIn(Json pane) sync* {
   }
 }
 
-/// Every pane of [layout], each panel's own first.
+/// Every pane of [layout].
 Iterable<Json> panesOf(Json layout) sync* {
   for (final panel in panelsOf(layout)) {
     if (panel['pane'] case final Json root) yield* panesIn(root);
   }
 }
 
-/// The strings in [json], which may be anything.
 Iterable<String> stringsIn(Object? json) =>
     json is List<Object?> ? json.whereType<String>() : const [];
