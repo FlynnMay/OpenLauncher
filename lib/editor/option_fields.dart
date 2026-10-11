@@ -13,11 +13,13 @@ import 'package:openlauncher/features/home/tile_icons.dart';
 /// what [values] has for it. A change is told as the whole of the values
 /// as they are to be; one set back to its usual is no longer among them.
 /// [corner] is how round the corners of what is being set usually are.
+/// [mixed] names the numbers that differ among the things being set.
 List<Widget> optionFields({
   required List<ComponentOption> options,
   required Map<String, Object?> values,
   required void Function(Map<String, Object?> values) onChanged,
   double corner = 10,
+  Set<String> mixed = const {},
 }) {
   void set(ComponentOption option, Object? value) => onChanged(
     {...values, option.key: value == option.usual ? null : value}
@@ -64,7 +66,9 @@ List<Widget> optionFields({
         return NumberStepper(
           label: option.label,
           // Unset, it is below the least there is, which reads as that.
-          value: value is num
+          value: mixed.contains(option.key)
+              ? null
+              : value is num
               ? value.toDouble()
               : (option.min - option.step) * 1.0,
           min: option.min,
@@ -147,10 +151,12 @@ List<Widget> ruleFields({
   required Map<String, Object?> json,
   required void Function(String key, Object? value) onChanged,
   double corner = 10,
+  Set<String> mixed = const {},
 }) => optionFields(
   options: options,
   values: json,
   corner: corner,
+  mixed: mixed,
   onChanged: (next) {
     for (final option in options) {
       if (next[option.key] != json[option.key]) {

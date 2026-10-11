@@ -63,6 +63,12 @@ class SelectedProperties extends ConsumerWidget {
       ),
     );
 
+    final transform = {
+      'w': [for (final item in items) item.w],
+      'h': [for (final item in items) item.h],
+      'x': [for (final item in items) item.x],
+      'y': [for (final item in items) item.y],
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -135,26 +141,25 @@ class SelectedProperties extends ConsumerWidget {
             },
             onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
-        Section('Size', [
-          NumberStepper(
-            label: 'Cells wide',
-            value: shared(items.map((item) => item.w)),
-            min: 1,
-            max: found
-                .map((one) => one.parent.columns)
-                .reduce((a, b) => a < b ? a : b),
-            onChanged: (w) =>
-                change((layout) => resizeItems(layout, ids, w: w * 1.0)),
+        // What the panes they are in make of how big each is and where.
+        Section(
+          'Transform',
+          ruleFields(
+            options: transformOptions([for (final one in found) one.parent]),
+            json: {
+              for (final MapEntry(:key, :value) in transform.entries)
+                key: ?shared<double?>(value),
+            },
+            mixed: {
+              for (final MapEntry(:key, :value) in transform.entries)
+                if (value.toSet().length > 1) key,
+            },
+            onChanged: (key, value) => change(
+              (layout) =>
+                  transformItems(layout, ids, key, (value as num?)?.toDouble()),
+            ),
           ),
-          NumberStepper(
-            label: 'Cells tall',
-            value: shared(items.map((item) => item.h)),
-            min: 1,
-            max: Pane.maxRows,
-            onChanged: (h) =>
-                change((layout) => resizeItems(layout, ids, h: h * 1.0)),
-          ),
-        ]),
+        ),
         // Only what every one of them takes.
         StyleSettings(
           keys: items

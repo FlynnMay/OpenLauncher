@@ -349,6 +349,36 @@ Layout reshapeItem(
       : next;
 });
 
+/// [layout] with one part of the transform of the items [ids] set: [key]
+/// is `w`, `h`, `x` or `y`, as an item saves them. A place is a column and
+/// a row together, so setting one of them where there was neither starts
+/// the other at nought, and taking one away ([value] null) takes both.
+Layout transformItems(
+  Layout layout,
+  Set<String> ids,
+  String key,
+  double? value,
+) => switch (key) {
+  'w' => resizeItems(layout, ids, w: value),
+  'h' => resizeItems(layout, ids, h: value),
+  _ when value == null => changeItems(
+    layout,
+    ids,
+    (item, _) => item.sized(item.w, item.h),
+  ),
+  _ => findItems(layout, ids).fold(
+    layout,
+    (layout, found) => reshapeItem(
+      layout,
+      found.item.id,
+      w: found.item.w,
+      h: found.item.h,
+      x: key == 'x' ? value : found.item.x ?? 0,
+      y: key == 'y' ? value : found.item.y ?? 0,
+    ),
+  ),
+};
+
 /// [pane] with the rule called [key] set to [value], as it is saved; null
 /// for the usual. How it places things and how many columns it has take
 /// what is in it with them.

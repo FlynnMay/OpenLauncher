@@ -323,6 +323,30 @@ void main() {
       expect((d.x, d.y, d.w, d.h), (null, null, 1, 2));
     });
 
+    test('a transform is set a part at a time, by the pane it is in', () {
+      // Where things have places they are offered; where they flow, not.
+      List<String> offered(String id) => [
+        for (final option in transformOptions([
+          findItems(layout, {id}).single.parent,
+        ]))
+          option.key,
+      ];
+      expect(offered('a'), ['w', 'h', 'x', 'y']);
+      expect(offered('d'), ['w', 'h']);
+
+      final wider = transformItems(layout, {'a'}, 'w', 2);
+      expect(findItems(wider, {'a'}).single.item.w, 2);
+      // A column is given: its neighbour there moves aside.
+      final moved = transformItems(layout, {'a'}, 'x', 1);
+      expect(at(moved, 'a'), (1, 0));
+      expect(at(moved, 'b'), isNot((1, 0)));
+      // A place taken away is a column and a row gone together.
+      final loose = findItems(transformItems(layout, {'a'}, 'y', null), {
+        'a',
+      }).single.item;
+      expect((loose.x, loose.y), (null, null));
+    });
+
     test('several are resized together, each in its own pane', () {
       final resized = resizeItems(layout, {'a', 'c'}, h: 2);
       expect(

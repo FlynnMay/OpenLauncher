@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/pane.dart';
@@ -7,6 +9,41 @@ import 'package:openlauncher/core/layout/panel.dart';
 // one setting, described once, under the name it is saved by. The editor
 // draws its forms from these and changes the thing by that name; a new
 // rule is a line here and its use where the pane is drawn.
+
+/// A component's transform: how big it is and where, in the cells of the
+/// pane it is in. It is the pane's to describe, since the same numbers
+/// mean something else in another: [parents] are the panes of what is
+/// being set, and only what means something in all of them is offered. A
+/// pane that places things in order gives none of them a place.
+List<ComponentOption> transformOptions(Iterable<Pane> parents) {
+  final columns = parents.map((pane) => pane.columns).reduce(min);
+  return [
+    ComponentOption('w', 'Cells wide', OptionKind.number, min: 1, max: columns),
+    const ComponentOption(
+      'h',
+      'Cells tall',
+      OptionKind.number,
+      min: 1,
+      max: Pane.maxRows,
+    ),
+    if (parents.every((pane) => pane.mode != PaneMode.flow)) ...[
+      ComponentOption(
+        'x',
+        'Column',
+        OptionKind.number,
+        max: columns - 1,
+        unset: 'Where it fits',
+      ),
+      const ComponentOption(
+        'y',
+        'Row',
+        OptionKind.number,
+        max: 999,
+        unset: 'Where it fits',
+      ),
+    ],
+  ];
+}
 
 /// What every pane says of how it arranges what is in it.
 final List<ComponentOption> paneRules = [
