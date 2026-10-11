@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -54,6 +55,10 @@ void main() {
         wallpaperDirProvider.overrideWith(
           (ref) => Directory('${tmp.path}/wallpaper'),
         ),
+        sourceFetcherProvider.overrideWithValue((source) async {
+          if (source.url.contains('broken')) throw Exception('No answer');
+          return {'state': 'on', 'asked': source.url};
+        }),
         jsonFetcherProvider.overrideWithValue((uri) async {
           fetched.add(uri);
           return {
@@ -156,6 +161,9 @@ void main() {
       'clock',
       'weather',
       'media',
+      'text',
+      'picture',
+      'meter',
     ]);
     expect(
       (page['actions'] as List).map((a) => a['id']),
@@ -404,6 +412,90 @@ void main() {
     );
     expect(response.statusCode, 400);
   });
+
+  test(
+    'options set the values and the place, and values are asked for',
+    () async {
+      var response = await call(
+        'PUT',
+        '/api/options',
+        body: {
+          'sources': [
+            {
+              'id': 'lamp',
+              'name': 'Lamp',
+              'kind': 'http',
+              'url': 'http://ha/x',
+            },
+            {'id': 'motto', 'kind': 'text', 'text': 'Hi'},
+            {'id': 'broken', 'kind': 'http', 'url': 'http://broken/x'},
+          ],
+          'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
+        },
+      );
+      expect(response.statusCode, 200);
+      expect(store.config.sources.map((source) => source.id), [
+        'lamp',
+        'motto',
+        'broken',
+      ]);
+      expect(store.config.place?.name, 'Perth');
+      final told = await state();
+      expect(told['sources'][0], {
+        'id': 'lamp',
+        'name': 'Lamp',
+        'kind': 'http',
+        'url': 'http://ha/x',
+        'every': 60,
+      });
+      expect(told['place']['latitude'], -31.95);
+      // The three of the user's own are offered like any other widget.
+      expect([
+        for (final widget in told['widgets']) widget['type'],
+      ], containsAll(['text', 'picture', 'meter']));
+
+      Future<(int, Object?)> value(String id) async {
+        final response = await call('GET', '/api/source?id=$id');
+        final said = jsonDecode(await response.readAsString()) as Map;
+        return (response.statusCode, said['value']);
+      }
+
+      final lamp = await value('lamp');
+      expect(lamp.$1, 200);
+      expect(lamp.$2, {'state': 'on', 'asked': 'http://ha/x'});
+      expect(await value('motto'), (200, 'Hi'));
+      expect((await value('broken')).$1, 502);
+      expect((await value('nobody')).$1, 404);
+
+      // Only what is named is touched; a place is taken away with null.
+      response = await call('PUT', '/api/options', body: {'place': null});
+      expect(response.statusCode, 200);
+      expect(store.config.place, isNull);
+      expect(store.config.sources, hasLength(3));
+
+      for (final bad in [
+        {
+          'sources': [
+            {'id': 'time', 'kind': 'text'},
+          ],
+        },
+        {
+          'sources': [
+            {'id': 'a'},
+            {'id': 'a'},
+          ],
+        },
+        {'sources': 'lamp'},
+        {
+          'place': {'name': 'Nowhere'},
+        },
+      ]) {
+        response = await call('PUT', '/api/options', body: bad);
+        expect(response.statusCode, 400, reason: '$bad');
+      }
+      expect(store.config.sources, hasLength(3));
+    },
+  );
 
   test('looks places up for the weather widget', () async {
     final response = await call('GET', '/api/geocode?q=Perth');

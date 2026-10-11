@@ -1,30 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
-const _days = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
-const _months = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+import 'package:openlauncher/core/values/date_format.dart';
 
 /// The time as the clock widget writes it.
 String formatTime(DateTime time, {required bool hour24, bool seconds = false}) {
@@ -35,8 +12,7 @@ String formatTime(DateTime time, {required bool hour24, bool seconds = false}) {
   return '$hour:$tail ${time.hour < 12 ? 'am' : 'pm'}';
 }
 
-String formatDate(DateTime time) =>
-    '${_days[time.weekday - 1]} ${time.day} ${_months[time.month - 1]}';
+String formatDate(DateTime time) => formatDateTime(time, 'EEEE d MMMM');
 
 /// The time, and optionally the date, in plain white text sized to its box.
 ///

@@ -99,6 +99,9 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     ],
     'contextMenu': [for (final action in config.contextMenu) action.name],
     'toasts': config.toasts.toJson(),
+    // The values the user defined, and where the TV is said to be.
+    'sources': [for (final source in config.sources) source.toJson()],
+    'place': LauncherConfig.placeToJson(config.place),
     // Toasts and the now-playing widget stay empty without it.
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
     // What the now-playing widget shows, or null.

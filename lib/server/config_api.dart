@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_page_state.dart';
@@ -70,6 +71,7 @@ class ConfigApi {
       ('GET', 'api/events') => _events(),
       ('PUT', 'api/layout') => _setLayout(await _body(request)),
       ('PUT', 'api/options') => _setOptions(await _body(request)),
+      ('GET', 'api/source') => _sourceValue(id),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
       ('POST', 'api/remote') => _remote(id, await _body(request)),
       ('PUT', 'api/card') => _withCard(
@@ -180,8 +182,10 @@ class ConfigApi {
     return _ok();
   }
 
-  /// Sets the quick actions (`contextMenu`) and how notifications pop up
-  /// (`toasts`); whichever the body leaves out stays as it is.
+  /// Sets the quick actions (`contextMenu`), how notifications pop up
+  /// (`toasts`), the values the user defined (`sources`) and where the TV
+  /// is (`place`, or null for nowhere); whichever the body leaves out stays
+  /// as it is.
   Future<Response> _setOptions(Map<String, Object?> body) async {
     final config = _ref.read(configProvider.notifier);
     if (body['contextMenu'] case final menu?) {
@@ -200,7 +204,53 @@ class ConfigApi {
       }
       await config.setToasts(ToastOptions.fromJson(toasts));
     }
+    if (body['sources'] case final sources?) {
+      if (sources is! List || sources.length > DataSource.maxCount) {
+        throw const FormatException('"sources" must list the values');
+      }
+      final read = DataSource.listFromJson(sources, taken: builtInRoots);
+      if (read.length != sources.length) {
+        throw const FormatException(
+          'Each value needs an id of its own, in small letters, that is '
+          'not one of the launcher\'s',
+        );
+      }
+      await config.setSources(read);
+    }
+    if (body.containsKey('place')) {
+      final place = LauncherConfig.placeFromJson(body['place']);
+      if (place == null && body['place'] != null) {
+        throw const FormatException(
+          '"place" needs a name, a latitude and a longitude',
+        );
+      }
+      await config.setPlace(place);
+    }
     return _ok();
+  }
+
+  /// What the user's value [id] is now, as the TV has it: the page cannot
+  /// ask other sites itself, and so asks the TV, which asks only the
+  /// addresses it was set up with.
+  Future<Response> _sourceValue(String? id) async {
+    final sources = (await _ref.read(configProvider.future)).sources;
+    final source = sources.where((source) => source.id == id).firstOrNull;
+    if (source == null) return _error(404, 'No such value');
+    if (source.kind == SourceKind.text) {
+      return Response.ok(jsonEncode({'value': source.text}), headers: _json);
+    }
+    // What the TV shows already is not asked for twice; what it does not
+    // is held on to until it has answered.
+    final provider = sourceValueProvider(source);
+    final held = _ref.listen(provider, (_, _) {});
+    try {
+      final value = await _ref.read(provider.future);
+      return Response.ok(jsonEncode({'value': value}), headers: _json);
+    } on Exception catch (e) {
+      return _error(502, 'The TV could not get that: $e');
+    } finally {
+      held.close();
+    }
   }
 
   /// Does on the TV what a press on the remote would (`do`): `open`, `info`,

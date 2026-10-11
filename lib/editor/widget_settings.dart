@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
+import 'package:openlauncher/editor/colour_picker.dart';
 import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/place_search.dart';
+import 'package:openlauncher/editor/template_field.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 
 /// What one widget on the screen is set to show; different for each kind
@@ -21,6 +24,38 @@ class WidgetSettings extends ConsumerWidget {
 
   void _set(String key, Object? value) => onChanged(
     {...item.options, key: value}..removeWhere((_, v) => v == null),
+  );
+
+  /// What a text widget does with text too long for its box.
+  static const _overflows = {
+    'fade': 'Fades out',
+    'ellipsis': 'Cut short with …',
+    'clip': 'Cut off',
+    'wrap': 'Goes onto more lines',
+    'scroll': 'Moves along',
+  };
+
+  String _text(String key) => switch (item.options[key]) {
+    final String text => text,
+    _ => '',
+  };
+
+  double _number(String key, double usual) => switch (item.options[key]) {
+    final num number => number.toDouble(),
+    _ => usual,
+  };
+
+  /// White until another colour is chosen.
+  Widget _colour(String label) => LabelledRow(
+    label,
+    Align(
+      alignment: Alignment.centerLeft,
+      child: ColourChip(
+        colour: BoxStyle.parseColor(item.options['colour']) ?? 0xFFFFFFFF,
+        onChanged: (next) =>
+            _set('colour', next == null ? null : BoxStyle.colorToCss(next)),
+      ),
+    ),
   );
 
   @override
@@ -47,8 +82,11 @@ class WidgetSettings extends ConsumerWidget {
         ),
       ],
       WidgetKind.weather => [
-        _PlaceSearch(
-          place: options['place'] as String?,
+        PlaceSearch(
+          said: switch (options['place']) {
+            final String place => 'Weather for $place',
+            _ => 'No place chosen yet',
+          },
           onChosen: (place) => onChanged({
             ...options,
             'place': place.name,
@@ -85,80 +123,123 @@ class WidgetSettings extends ConsumerWidget {
             'can see what is playing.',
           ),
       ],
+      WidgetKind.text => [
+        TemplateField(
+          label: 'Text',
+          value: _text('text'),
+          onChanged: (text) => _set('text', text),
+        ),
+        NumberStepper(
+          label: 'Letter size',
+          value: _number('size', 0),
+          min: 8,
+          max: 200,
+          step: 2,
+          usual: 'Fills the box',
+          onChanged: (size) => _set('size', size < 8 ? null : size),
+        ),
+        // Text made to fill the box is never too long for it.
+        if (options['size'] is num) ...[
+          LabelledRow(
+            'Too long',
+            ChoiceBox<String>(
+              value: switch (options['overflow']) {
+                final String overflow when _overflows.containsKey(overflow) =>
+                  overflow,
+                _ => 'fade',
+              },
+              choices: _overflows,
+              onChanged: (overflow) => _set('overflow', overflow),
+            ),
+          ),
+          if (options['overflow'] == 'scroll')
+            NumberStepper(
+              label: 'Moves',
+              value: _number('speed', 40),
+              min: 10,
+              max: 300,
+              step: 10,
+              onChanged: (speed) => _set('speed', speed),
+            ),
+        ],
+        LabelledRow(
+          'Sits',
+          ChoiceBox<String>(
+            value: switch (options['align']) {
+              'left' => 'left',
+              'right' => 'right',
+              _ => 'center',
+            },
+            choices: const {
+              'left': 'Left',
+              'center': 'In the middle',
+              'right': 'Right',
+            },
+            onChanged: (align) => _set('align', align),
+          ),
+        ),
+        TickBox(
+          label: 'Bold',
+          value: options['bold'] == true,
+          onChanged: (on) => _set('bold', on ? true : null),
+        ),
+        _colour('Colour'),
+      ],
+      WidgetKind.picture => [
+        TemplateField(
+          label: 'Web address or value',
+          value: _text('source'),
+          onChanged: (source) => _set('source', source),
+        ),
+        TickBox(
+          label: 'Show all of it',
+          value: options['fit'] == 'contain',
+          onChanged: (on) => _set('fit', on ? 'contain' : null),
+        ),
+        NumberStepper(
+          label: 'Round corners',
+          value: _number('round', 6),
+          min: 0,
+          max: 120,
+          step: 2,
+          onChanged: (round) => _set('round', round),
+        ),
+      ],
+      WidgetKind.meter => [
+        TemplateField(
+          label: 'Value',
+          value: _text('value'),
+          onChanged: (value) => _set('value', value),
+        ),
+        // Whole numbers here; a value of another scale is brought to one
+        // with `| times:`.
+        NumberStepper(
+          label: 'Empty at',
+          value: _number('min', 0),
+          min: -1000,
+          max: 100000,
+          onChanged: (min) => _set('min', min),
+        ),
+        NumberStepper(
+          label: 'Full at',
+          value: _number('max', 100),
+          min: -1000,
+          max: 100000,
+          onChanged: (max) => _set('max', max),
+        ),
+        LabelledRow(
+          'Drawn as',
+          ChoiceBox<String>(
+            value: options['shape'] == 'ring' ? 'ring' : 'bar',
+            choices: const {'bar': 'A bar', 'ring': 'A ring'},
+            onChanged: (shape) => _set('shape', shape),
+          ),
+        ),
+        _colour('Colour'),
+      ],
       null => const <Widget>[],
     };
     if (settings.isEmpty) return const SizedBox.shrink();
     return Section(kind?.label ?? 'Widget', settings);
   }
-}
-
-/// Finds a place by name and offers what was found.
-class _PlaceSearch extends ConsumerStatefulWidget {
-  const _PlaceSearch({required this.place, required this.onChosen});
-
-  final String? place;
-  final void Function(Place place) onChosen;
-
-  @override
-  ConsumerState<_PlaceSearch> createState() => _PlaceSearchState();
-}
-
-class _PlaceSearchState extends ConsumerState<_PlaceSearch>
-    with Busy<_PlaceSearch> {
-  List<Place>? _found;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(switch (widget.place) {
-          null => 'No place chosen yet',
-          final place => 'Weather for $place',
-        }),
-      ),
-      TextField(
-        decoration: InputDecoration(
-          labelText: 'Town or city',
-          isDense: true,
-          border: const OutlineInputBorder(),
-          suffixIcon: busy
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : const Icon(Icons.search),
-        ),
-        onSubmitted: (name) {
-          if (name.trim().isEmpty) return;
-          whileBusy(() async {
-            final found = await ref.read(tvApiProvider).findPlaces(name.trim());
-            if (mounted) setState(() => _found = found);
-          });
-        },
-      ),
-      if (_found case final found?)
-        if (found.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: Text('No place found by that name.'),
-          )
-        else
-          for (final place in found)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.place_outlined),
-              title: Text(place.name),
-              onTap: () {
-                setState(() => _found = null);
-                widget.onChosen(place);
-              },
-            ),
-    ],
-  );
 }

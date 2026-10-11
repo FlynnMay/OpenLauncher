@@ -10,6 +10,7 @@ import 'package:openlauncher/editor/order_list.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
+import 'package:openlauncher/editor/values_settings.dart';
 import 'package:openlauncher/editor/wallpaper_settings.dart';
 
 /// What is set for the launcher as a whole, shown while nothing on the
@@ -80,6 +81,12 @@ class GlobalProperties extends ConsumerWidget {
             ],
           ),
         ]),
+        ValuesSettings(
+          sources: config.sources,
+          place: config.place,
+          onSources: controller.setSources,
+          onPlace: controller.setPlace,
+        ),
         Section('Menu on holding OK', open: false, [
           OrderList<CardAction>(
             all: CardAction.values,

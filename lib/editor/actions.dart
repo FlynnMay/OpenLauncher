@@ -41,7 +41,7 @@ Future<void> placeDragged(
   }
   var panel = dragged.panel, item = dragged.item;
   if (panel != null) {
-    final name = await _askName(context, panel.title);
+    final name = await askName(context, panel.title);
     if (name == null || !context.mounted) return;
     panel = Panel.empty(layout.panelIdFor(name), title: name);
     item = item.copyWith(id: layout.itemIdFor(name), ref: panel.id);
@@ -91,12 +91,17 @@ Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
   await changeLayout(context, ref, (layout) => ids.fold(layout, removeItem));
 }
 
-Future<String?> _askName(BuildContext context, String suggested) {
+/// Asks for the name of something new; null when the user thinks again.
+Future<String?> askName(
+  BuildContext context,
+  String suggested, {
+  String title = 'Name of the folder',
+}) {
   final name = TextEditingController(text: suggested);
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Name of the folder'),
+      title: Text(title),
       content: TextField(
         controller: name,
         autofocus: true,

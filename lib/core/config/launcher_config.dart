@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/values/built_in_values.dart';
+import 'package:openlauncher/core/values/data_source.dart';
+import 'package:openlauncher/core/widgets/weather.dart';
 
 enum ToastPosition { topLeft, topRight, bottomLeft, bottomRight }
 
@@ -50,6 +53,8 @@ class LauncherConfig {
     this.wallpaperEvery = 0,
     this.contextMenu = CardAction.values,
     this.toasts = const ToastOptions(),
+    this.sources = const [],
+    this.place,
   }) : layout = layout ?? Layout.initial();
 
   /// Where every card, folder and widget is.
@@ -85,6 +90,14 @@ class LauncherConfig {
 
   final ToastOptions toasts;
 
+  /// The values the user defined, which text on the screen can be made of
+  /// beside the launcher's own.
+  final List<DataSource> sources;
+
+  /// Where the TV is, as the user said: the `location` value, and where
+  /// the `weather` value is the weather of.
+  final Place? place;
+
   LauncherConfig copyWith({
     Layout? layout,
     Map<String, String>? iconOverrides,
@@ -94,6 +107,9 @@ class LauncherConfig {
     int? wallpaperEvery,
     List<CardAction>? contextMenu,
     ToastOptions? toasts,
+    List<DataSource>? sources,
+    // A function, so that it can be taken away: null leaves it as it is.
+    Place? Function()? place,
   }) => LauncherConfig(
     layout: layout ?? this.layout,
     iconOverrides: iconOverrides ?? this.iconOverrides,
@@ -103,6 +119,8 @@ class LauncherConfig {
     wallpaperEvery: wallpaperEvery ?? this.wallpaperEvery,
     contextMenu: contextMenu ?? this.contextMenu,
     toasts: toasts ?? this.toasts,
+    sources: sources ?? this.sources,
+    place: place == null ? this.place : place(),
   );
 
   /// Reads a saved config of any version: an older one is brought up to
@@ -151,7 +169,32 @@ class LauncherConfig {
       final Map<Object?, Object?> toasts => ToastOptions.fromJson(toasts),
       _ => const ToastOptions(),
     },
+    sources: DataSource.listFromJson(json['sources'], taken: builtInRoots),
+    place: placeFromJson(json['place']),
   );
+
+  /// A place as it is saved, or null for anything else.
+  static Place? placeFromJson(Object? json) => switch (json) {
+    {
+      'name': final String name,
+      'latitude': final num latitude,
+      'longitude': final num longitude,
+    } =>
+      (
+        name: name,
+        latitude: latitude.toDouble(),
+        longitude: longitude.toDouble(),
+      ),
+    _ => null,
+  };
+
+  static Map<String, Object?>? placeToJson(Place? place) => place == null
+      ? null
+      : {
+          'name': place.name,
+          'latitude': place.latitude,
+          'longitude': place.longitude,
+        };
 
   static Map<String, String> _strings(Object? json) => {
     if (json is Map)
@@ -185,5 +228,7 @@ class LauncherConfig {
     'wallpaperEvery': wallpaperEvery,
     'contextMenu': [for (final action in contextMenu) action.name],
     'toasts': toasts.toJson(),
+    'sources': [for (final source in sources) source.toJson()],
+    'place': ?placeToJson(place),
   };
 }

@@ -4,6 +4,7 @@ import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/features/widgets/app_widget.dart';
 import 'package:openlauncher/features/widgets/clock_widget.dart';
 import 'package:openlauncher/features/widgets/media_widget.dart';
+import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 import 'package:openlauncher/features/widgets/weather_widget.dart';
 
 /// Draws the widget a layout item stands for. Widgets have no card behind
@@ -22,6 +23,9 @@ class WidgetTile extends StatelessWidget {
     WidgetKind.weather => WeatherWidget(options: item.options),
     WidgetKind.media => MediaWidget(compact: compact),
     WidgetKind.android => AppWidgetView(item: item),
+    WidgetKind.text => TextWidget(options: item.options),
+    WidgetKind.picture => PictureWidget(options: item.options),
+    WidgetKind.meter => MeterWidget(options: item.options),
     // Made by a newer version of the launcher.
     null => const SizedBox.shrink(),
   };

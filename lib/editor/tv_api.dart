@@ -6,7 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/file_pick.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
@@ -21,9 +23,6 @@ typedef WidgetOffer = ({
 
 /// What the user has changed about a card, beyond where it is.
 typedef CardDetails = ({bool renamed, bool customIcon, String? iconFrom});
-
-/// A place the weather can be shown for.
-typedef Place = ({String name, double latitude, double longitude});
 
 /// What the TV says it has: the same things the launcher on the TV works
 /// from, with every picture as the address the TV serves it at.
@@ -128,6 +127,8 @@ class TvApi {
             ?CardAction.named(name),
         ],
         toasts: ToastOptions.fromJson(json['toasts'] as Map),
+        sources: DataSource.listFromJson(json['sources']),
+        place: LauncherConfig.placeFromJson(json['place']),
       ),
       widgets: [
         for (final Map widget in json['widgets'] as List)
@@ -141,7 +142,10 @@ class TvApi {
                   : '${provider['app']}: ${provider['label']}',
               w: (widget['w'] as num).toDouble(),
               h: (widget['h'] as num).toDouble(),
-              options: {'provider': ?provider?['id']},
+              options: {
+                ...?WidgetKind.named(widget['type'] as String)?.starter,
+                'provider': ?provider?['id'],
+              },
             ),
       ],
       details: {
@@ -243,7 +247,14 @@ class TvApi {
       _ask('PUT', '/api/options', {
         'contextMenu': [for (final action in config.contextMenu) action.name],
         'toasts': config.toasts.toJson(),
+        'sources': [for (final source in config.sources) source.toJson()],
+        'place': LauncherConfig.placeToJson(config.place),
       });
+
+  /// What the user's value [id] is now, asked of the TV, which asks its
+  /// source.
+  Future<Object?> sourceValue(String id) async =>
+      (await _ask('GET', '/api/source${_id(id)}') as Map)['value'];
 
   /// Gives the card [id], or the card of the popup `panel:<id>`, the
   /// picture [file].

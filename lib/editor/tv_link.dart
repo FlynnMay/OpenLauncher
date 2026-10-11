@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -43,6 +44,11 @@ final List<Override> tvOverrides = [
     }, fireImmediately: true);
     return platform;
   }),
+  // A browser may not ask other sites for what they have; the TV may.
+  sourceFetcherProvider.overrideWith((ref) {
+    final api = ref.watch(tvApiProvider);
+    return (source) => api.sourceValue(source.id);
+  }),
   // The page is the config server's guest; it does not run one.
   configServerProvider.overrideWith((ref) async => null),
 ];
@@ -63,6 +69,8 @@ class TvConfigStore implements ConfigStore {
   static String _options(LauncherConfig config) => jsonEncode([
     [for (final action in config.contextMenu) action.name],
     config.toasts,
+    config.sources,
+    LauncherConfig.placeToJson(config.place),
   ]);
 
   @override
