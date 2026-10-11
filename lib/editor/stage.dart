@@ -89,9 +89,14 @@ class _StageState extends ConsumerState<Stage> {
           data: dragged(entity.label, EntityArt(entity: entity, padding: 4)),
           child: still,
         );
-      case PanelEntry():
+      // Drawn from a folder, or from nothing: by what it is drawn from.
+      case PrefabEntry(:final item):
+        final folder = item.source ?? '';
         return DragHandle(
-          data: dragged(entry.label, FolderArt(entry: entry)),
+          data: dragged(
+            folder.isEmpty ? 'Prefab' : folder,
+            FolderArt(folder: folder),
+          ),
           child: still,
         );
       case WidgetEntry(:final item):

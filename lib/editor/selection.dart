@@ -98,8 +98,11 @@ final selectedPanelsProvider = Provider<Map<String, Panel>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
   final panels = <String, Panel>{};
   for (final one in ref.watch(selectedProvider)) {
-    if (one.item.kind != ItemKind.panel) continue;
-    if (layout?.panel(one.item.ref) case final panel?) panels[panel.id] = panel;
+    // What opens a folder is drawn from it.
+    final folder = layout?.folderOf(one.item);
+    if (layout?.panel(folder ?? '') case final panel?) {
+      panels[panel.id] = panel;
+    }
   }
   return panels;
 });

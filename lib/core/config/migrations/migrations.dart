@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:openlauncher/core/config/migrations/save_json.dart';
+import 'package:openlauncher/core/config/migrations/v10_to_v11.dart';
 import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
 import 'package:openlauncher/core/config/migrations/v3_to_v4.dart';
@@ -9,6 +10,7 @@ import 'package:openlauncher/core/config/migrations/v5_to_v6.dart';
 import 'package:openlauncher/core/config/migrations/v6_to_v7.dart';
 import 'package:openlauncher/core/config/migrations/v7_to_v8.dart';
 import 'package:openlauncher/core/config/migrations/v8_to_v9.dart';
+import 'package:openlauncher/core/config/migrations/v9_to_v10.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -25,7 +27,7 @@ export 'save_json.dart' show Device, Json;
 ///
 /// A step that has shipped is never changed: saves that went through it
 /// are out there. What it got wrong, a later step puts right.
-const saveVersion = 9;
+const saveVersion = 11;
 
 /// One thing a [Migration] does to a save, by changing [save] in place. It
 /// finds what it is for and leaves the rest be, whatever shape that is in:
@@ -127,6 +129,18 @@ const migrations = [
         'What an instance is drawn from is one of its variables, as any '
         'component may have variables.',
     rules: [sourceAsVariable],
+  ),
+  Migration(
+    from: 9,
+    to: 10,
+    what: 'A folder is opened by setting its variable `open`.',
+    rules: [foldersOpenByVariable],
+  ),
+  Migration(
+    from: 10,
+    to: 11,
+    what: 'What opens a folder is an instance of a prefab, drawn from it.',
+    rules: [foldersAsInstances],
   ),
 ];
 

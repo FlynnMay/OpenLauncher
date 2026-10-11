@@ -13,3 +13,4 @@ export 'navigation.dart';
 export 'pane.dart';
 export 'panel.dart';
 export 'placement.dart';
+export 'rules.dart';

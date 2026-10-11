@@ -101,17 +101,19 @@ void main() {
   });
 
   test('an entity that opens a folder is an instance too', () {
-    const folder = LayoutItem(id: 'f', kind: ItemKind.panel, ref: 'games');
+    final folder = LayoutItem.of('games', id: 'f', prefab: folderPrefabId);
     expect(prefabIdOf(folder), folderPrefabId);
     final prefab = builtInPrefabs.firstWhere(
       (prefab) => prefab.id == folderPrefabId,
     );
     final instance = instanceOf(prefab, folder)!;
     expect(instance.parts.first.kind, 'folder');
-    // What it does is open its folder, which no prefab can know.
+    // What it does is set the `open` of whatever it is drawn from: said in
+    // the prefab, against its `source`, like anything else.
     expect(instance.triggers(folder)[Trigger.press], [
-      const Act('panel', {'panel': 'games'}),
+      const Act('set', {'var': 'open', 'value': true, 'of': '{{source.id}}'}),
     ]);
+    expect(folder.source, 'games');
   });
 
   test("the user's prefabs are settings like any other", () {

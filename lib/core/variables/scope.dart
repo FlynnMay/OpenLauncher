@@ -77,7 +77,9 @@ Scope scopeOf(
         : variable.result((template) => readTemplate(watch, template, own));
     final value = switch (raw) {
       final String text when text.isNotEmpty =>
-        watch(entityDataProvider(text)) ?? raw,
+        watch(entityDataProvider(text)) ??
+            watch(componentDataProvider(text)) ??
+            raw,
       _ => raw,
     };
     own[name] = value;
@@ -90,33 +92,75 @@ Scope scopeOf(
 /// The variables [item] has: its prefab's, where it is an instance of
 /// one, with its own over them.
 Variables variablesOf(LayoutItem item, Map<String, Prefab> prefabs) => {
-  if (item.kind == ItemKind.prefab || item.kind == ItemKind.panel)
-    ...?prefabs[prefabIdOf(item)]?.vars,
+  if (item.kind == ItemKind.prefab) ...?prefabs[item.ref]?.vars,
   ...item.vars,
 };
 
+/// The variable that says a folder, or anything else that is shown and
+/// hidden, is showing.
+const openVar = 'open';
+
 /// What anything may read of the component [id]: its public variables as
-/// they stand, or null where it has none. This is what makes a component
-/// with variables an entity.
+/// they stand. A pane also says what it is called and how much is in it,
+/// and a folder or a sidebar, which is a pane that is shown and hidden,
+/// whether it is `open`. Null where there is no such thing, or nothing to
+/// read of it. This is what makes a component an entity.
 final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   ref,
   id,
 ) {
-  final item = ref.watch(
+  final found = ref.watch(
     configProvider.select((config) {
       for (final panel in config.value?.layout.panels ?? const <Panel>[]) {
+        if (panel.id == id) return (panel: panel, pane: panel.root, item: null);
         for (final pane in panel.root.panes) {
+          if (pane.id == id) return (panel: null, pane: pane, item: null);
           for (final item in pane.items) {
-            if (item.id == id) return item;
+            if (item.id == id && item.pane == null) {
+              return (panel: null, pane: null, item: item);
+            }
           }
         }
       }
       return null;
     }),
   );
-  if (item == null) return null;
-  final variables = variablesOf(item, ref.watch(prefabsProvider));
-  if (!variables.values.any((v) => v.access == VarAccess.public)) return null;
-  // Read from outside, it has only what is its own: nothing handed down.
-  return scopeOf(ref.watch, id, variables, const {}).public;
+  if (found == null) return null;
+  final item = found.item, pane = found.pane, panel = found.panel;
+  if (item != null) {
+    final variables = variablesOf(item, ref.watch(prefabsProvider));
+    if (!variables.values.any((v) => v.access == VarAccess.public)) {
+      return null;
+    }
+    // Read from outside, it has only what is its own: nothing handed down.
+    return scopeOf(ref.watch, id, variables, const {}).public;
+  }
+  final label = switch (panel?.title ?? pane!.title) {
+    '' => panel == null ? 'Pane' : 'Folder',
+    final title => title,
+  };
+  return {
+    'text': label,
+    'id': id,
+    'label': label,
+    'title': panel?.title ?? pane!.title,
+    'count': pane!.contents.length,
+    // With no picture given it and nothing in it, a folder is drawn in
+    // outline, with no frame behind.
+    if (panel != null)
+      'bare':
+          pane.contents.isEmpty &&
+          !ref.watch(
+            configProvider.select(
+              (config) =>
+                  config.value?.iconOverrides.containsKey(Panel.iconKey(id)) ??
+                  false,
+            ),
+          ),
+    if (panel != null)
+      openVar:
+          ref.watch(runtimeVarsProvider.select((all) => all[id]?[openVar])) ==
+          true,
+    ...scopeOf(ref.watch, id, pane.vars, const {}).public,
+  };
 });

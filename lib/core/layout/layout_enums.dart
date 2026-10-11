@@ -22,12 +22,9 @@ enum PaneMode {
 enum ItemKind {
   /// An instance of a prefab: [LayoutItem.ref] is the prefab's id and
   /// [LayoutItem.source] the id of the entity it is drawn from. What used
-  /// to be called a card is one of these, of the prefab `app-card`.
+  /// to be called a card is one of these, of the prefab `app-card`; what
+  /// opens a folder is one of `folder-card`, drawn from the folder.
   prefab,
-
-  /// Opens a popup panel (this is what a folder is); [LayoutItem.ref] is the
-  /// panel id.
-  panel,
 
   /// A launcher widget; [LayoutItem.ref] is the `WidgetKind` name.
   widget,
@@ -47,6 +44,8 @@ enum BarOpening { expand, slide, fade, instant }
 /// sidebar opens, fading in once it is open, or sliding in from its edge.
 enum BarReveal { always, fade, late, slide }
 
-enum PopupPosition { center, bottom, left, right }
+/// Where what a folder holds shows when it is opened: hovering over the
+/// screen at one of four places, or in place, where the folder itself is.
+enum PopupPosition { center, bottom, left, right, inline }
 
 enum PopupSize { small, medium, large }

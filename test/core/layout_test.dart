@@ -227,8 +227,8 @@ void main() {
               items: [
                 _item('a', x: 9, y: 2, w: 2, h: 99),
                 _item('half', x: 1),
-                _item('gone', kind: ItemKind.panel, ref: 'missing'),
-                _item('open', kind: ItemKind.panel, ref: 'games'),
+                LayoutItem.of('missing', id: 'gone', prefab: folderPrefabId),
+                LayoutItem.of('games', id: 'open', prefab: folderPrefabId),
                 const LayoutItem(id: 'empty', kind: ItemKind.pane, ref: 'x'),
                 LayoutItem.pane(nest(2)),
               ],
@@ -597,7 +597,7 @@ void main() {
               Pane(
                 id: 'global',
                 items: [
-                  _item('folder', kind: ItemKind.panel, ref: 'games'),
+                  LayoutItem.of('games', id: 'folder', prefab: folderPrefabId),
                   _item('clock', kind: ItemKind.widget, ref: 'clock'),
                   LayoutItem.pane(const Pane(id: 'main')),
                 ],
@@ -614,10 +614,9 @@ void main() {
       final view = resolveLayout(entities, config);
       final [folder, clock, pane] = view.home.root.entries;
 
-      folder as PanelEntry;
-      expect(folder.label, 'Games');
-      expect(folder.icon, '/games.png');
-      expect(folder.preview.map((c) => c.id), ['app:b']);
+      // Drawn from a folder, not from an entity.
+      expect(folder, isA<PrefabEntry>());
+      expect(config.layout.folderOf(folder.item), 'games');
       expect(clock, isA<WidgetEntry>());
       // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.

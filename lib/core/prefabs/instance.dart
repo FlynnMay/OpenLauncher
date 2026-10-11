@@ -43,11 +43,7 @@ class PrefabInstance {
 
   /// What the instance does: the prefab's, but for each trigger [item] set
   /// itself.
-  Triggers triggers(LayoutItem item) => {
-    ...usualTriggers(item),
-    ...prefab.on,
-    ...item.on,
-  };
+  Triggers triggers(LayoutItem item) => {...prefab.on, ...item.on};
 }
 
 /// [prefab] as [item] shows it: each value is the instance's where it set
@@ -86,10 +82,4 @@ PrefabInstance? instanceOf(Prefab prefab, LayoutItem item) {
           );
         }(),
   ]);
-}
-
-/// What an entity that opens the folder [panel] offers its prefab.
-Map<String, Object?> folderValues(Panel panel) {
-  final label = panel.title.isEmpty ? 'Folder' : panel.title;
-  return {'text': label, 'id': panel.id, 'label': label, 'kind': 'folder'};
 }

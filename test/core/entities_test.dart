@@ -189,9 +189,9 @@ void main() {
           final view = await container.read(layoutViewProvider.future);
           return [
             for (final item in view.panels[Layout.menuId]!.panel.items)
-              if (triggersOf(
-                item,
-              )[Trigger.press]!.every((act) => actions.applies(act, entity)))
+              if (item.on[Trigger.press]!.every(
+                (act) => actions.applies(act, entity),
+              ))
                 item.options['label'] as String,
           ];
         }
@@ -254,7 +254,7 @@ void main() {
       // What an instance does is its prefab's to say, unless it says.
       Triggers does(LayoutItem item) =>
           instanceOf(builtInPrefabs.first, item)!.triggers(item);
-      expect(triggersOf(entity), isEmpty);
+      expect(entity.on, isEmpty);
       expect(does(entity), {
         Trigger.press: [const Act('open')],
         Trigger.hold: [const Act('menu')],
@@ -281,10 +281,6 @@ void main() {
       });
       expect(LayoutItem.fromJson(quiet.toJson()).on, quiet.on);
       expect(entity.toJson().containsKey('on'), isFalse);
-      const folder = LayoutItem(id: 'f', kind: ItemKind.panel, ref: 'games');
-      expect(triggersOf(folder)[Trigger.press], [
-        const Act('panel', {'panel': 'games'}),
-      ]);
     });
   });
 

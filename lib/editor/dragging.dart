@@ -16,7 +16,7 @@ class Dragged {
   /// A sidebar from the catalogue. It is not an item: the only place for
   /// it is an edge of the screen that has no sidebar yet.
   Dragged.sidebar({required this.label, required this.picture})
-    : item = LayoutItem(id: 'sidebar', kind: ItemKind.panel, ref: ''),
+    : item = LayoutItem(id: 'sidebar', kind: ItemKind.widget, ref: ''),
       panel = null,
       placed = false,
       sidebar = true;

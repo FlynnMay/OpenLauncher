@@ -160,7 +160,7 @@ void main() {
       );
       final dropped = dropItem(
         flow,
-        const LayoutItem(id: 'i', kind: ItemKind.panel, ref: 'f'),
+        LayoutItem.of('f', id: 'i', prefab: folderPrefabId),
         const Drop('p'),
         panel: folder,
       );
@@ -371,7 +371,7 @@ void main() {
             id: 'p',
             items: [
               entity('a'),
-              const LayoutItem(id: 'opens', kind: ItemKind.panel, ref: 'f'),
+              LayoutItem.of('f', id: 'opens', prefab: folderPrefabId),
             ],
           ),
         ),

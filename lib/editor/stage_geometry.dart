@@ -95,7 +95,7 @@ Set<ResizeHandle> resizeHandles(
   // An entity whose size its pane decides has none to change.
   final decided =
       (pane.itemW != null || pane.itemH != null) &&
-      (item.kind == ItemKind.prefab || item.kind == ItemKind.panel);
+      item.kind == ItemKind.prefab;
   if (decided) return const {};
   bool across(int side) =>
       side == 0 ||

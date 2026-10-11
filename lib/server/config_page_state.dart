@@ -79,8 +79,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     // Pictures the user gave to entities that open a popup, by panel id.
     'panelIcons': {
       for (final panel in config.layout.panels)
-        if (config.iconOverrides[PanelEntry.iconKey(panel.id)] case final path?)
-          panel.id: _iconUrl(PanelEntry.iconKey(panel.id), path),
+        if (config.iconOverrides[Panel.iconKey(panel.id)] case final path?)
+          panel.id: _iconUrl(Panel.iconKey(panel.id), path),
     },
     'widgets': [
       for (final kind in WidgetKind.values)

@@ -681,4 +681,89 @@ void main() {
       expect(t.vars, isEmpty);
     });
   });
+
+  group('from 9 to 10', () {
+    test('what opened a folder sets its `open`', () {
+      final save = migrate({
+        'v': 9,
+        'layout': {
+          'v': 9,
+          'inbox': 'main',
+          'panels': [
+            {
+              'id': 'home',
+              'pane': {
+                'id': 'main',
+                'items': [
+                  {
+                    'id': 'b',
+                    'kind': 'widget',
+                    'ref': 'button',
+                    'on': {
+                      'press': [
+                        {'do': 'panel', 'panel': 'games'},
+                        {'do': 'settings'},
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      final item = Layout.fromJson(save['layout']! as Json).home.items.single;
+      expect(
+        [for (final act in item.on.values.single) act.toJson()],
+        [
+          {'do': 'set', 'var': 'open', 'value': true, 'of': 'games'},
+          {'do': 'settings'},
+        ],
+      );
+    });
+  });
+
+  group('from 10 to 11', () {
+    test('what opens a folder is an instance drawn from it', () {
+      final save = migrate({
+        'v': 10,
+        'layout': {
+          'v': 10,
+          'inbox': 'main',
+          'panels': [
+            {
+              'id': 'home',
+              'pane': {
+                'id': 'main',
+                'items': [
+                  {'id': 'f', 'kind': 'panel', 'ref': 'games', 'w': 2},
+                  {
+                    'id': 'g',
+                    'kind': 'panel',
+                    'ref': 'games',
+                    'options': {'prefab': 'my-folder', 'layout': 'row'},
+                  },
+                ],
+              },
+            },
+            {
+              'id': 'games',
+              'title': 'Games',
+              'pane': {'id': 'games/root', 'items': <Object?>[]},
+            },
+          ],
+        },
+      });
+      final layout = Layout.fromJson(save['layout']! as Json).normalised();
+      final [f, g] = layout.home.items.toList();
+      expect(
+        (f.kind, f.ref, f.source, f.w),
+        (ItemKind.prefab, folderPrefabId, 'games', 2),
+      );
+      expect((g.ref, g.source), ('my-folder', 'games'));
+      expect(g.options, {'layout': 'row'});
+      expect(layout.folderOf(f), 'games');
+      expect(f.toJson().keys, isNot(contains('options')));
+    });
+  });
 }

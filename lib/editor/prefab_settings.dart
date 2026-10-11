@@ -51,12 +51,7 @@ class InstanceSettings extends StatelessWidget {
           choices: {
             for (final prefab in prefabs.values) prefab.id: prefab.name,
           },
-          // An instance names its prefab itself; a card that opens a
-          // folder says so among its options, unless it is the usual one.
-          onChanged: (id) => switch (onPrefab) {
-            final onPrefab? => onPrefab(id),
-            null => _set(prefabOption, id == folderPrefabId ? null : id),
-          },
+          onChanged: (id) => onPrefab?.call(id),
         ),
       ),
       if (prefab != null && instance != null) ...[

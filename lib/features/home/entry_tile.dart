@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
-import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/prefab_tile.dart';
@@ -30,20 +30,16 @@ class TileFrame extends InheritedWidget {
 /// triggers say (`triggersOf`): an entity is only a button that came with a
 /// press and a hold already set. A pane draws what is in it the same way.
 class EntryTile extends ConsumerWidget {
-  const EntryTile({
-    super.key,
-    required this.entry,
-    this.focus,
-    this.inPopup = false,
-  });
+  const EntryTile({super.key, required this.entry, this.focus, this.popup});
 
   final Entry entry;
 
   /// Gives the starting focus to the first entity on screen.
   final FirstFocus? focus;
 
-  /// True inside a popup, which closes when one of its entities is opened.
-  final bool inPopup;
+  /// The id of the folder it is in, where that hovers over the screen:
+  /// one that closes when something in it is opened.
+  final String? popup;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -57,29 +53,23 @@ class EntryTile extends ConsumerWidget {
     if (entry case PaneEntry(:final view)) {
       return PaneBox(
         view: view,
-        tile: (inner) =>
-            EntryTile(entry: inner, focus: focus, inPopup: inPopup),
+        tile: (inner) => EntryTile(entry: inner, focus: focus, popup: popup),
       );
     }
     // In an entity's menu, what is pressed is done to that entity.
     final menuOf = ActionSubject.of(context);
-    // An entity, and an entity that opens a folder, is an instance of a prefab,
-    // which says what it is made of and what it does; the instance says
-    // only where it differs. One whose prefab is gone is drawn as the
-    // launcher's own for its kind.
-    final instance = switch (entry) {
-      EntityEntry(:final item) || PanelEntry(:final item) => () {
-        final own = ref.watch(
-          prefabsProvider.select((prefabs) => prefabs[prefabIdOf(item)]),
-        );
-        final usual = builtInPrefabs.firstWhere(
-          (prefab) =>
-              prefab.id ==
-              (item.kind == ItemKind.panel ? folderPrefabId : cardPrefabId),
-        );
-        return (own == null ? null : instanceOf(own, item)) ??
-            instanceOf(usual, item);
-      }(),
+    // An instance of a prefab: the prefab says what it is made of and
+    // what it does, the instance only where it differs. One whose prefab
+    // is gone is drawn as the launcher's first, a card.
+    final instance = switch (entry.item) {
+      final item when item.kind == ItemKind.prefab =>
+        switch (ref.watch(
+              prefabsProvider.select((prefabs) => prefabs[item.ref]),
+            )) {
+              null => null,
+              final prefab => instanceOf(prefab, item),
+            } ??
+            instanceOf(builtInPrefabs.first, item),
       _ => null,
     };
     // Its variables as they stand: what it was handed by whatever it is
@@ -94,10 +84,11 @@ class EntryTile extends ConsumerWidget {
       context,
       ref,
       component: entry.item.id,
-      instance?.triggers(entry.item) ?? triggersOf(entry.item),
+      instance?.triggers(entry.item) ?? entry.item.on,
+      scope: scope.own,
       subject: entry is EntityEntry ? entry.entity : menuOf,
-      inPopup: inPopup,
-      closes: inPopup && (entry is EntityEntry || menuOf != null),
+      popup: popup,
+      closes: popup != null && (entry is EntityEntry || menuOf != null),
     );
     void press() => does.fire(Trigger.press);
     final hold = does.has(Trigger.hold)
@@ -111,12 +102,24 @@ class EntryTile extends ConsumerWidget {
           }
         : null;
     switch (entry) {
-      case EntityEntry(:final entity):
+      case EntityEntry() || PrefabEntry():
+        // Drawn from a folder that is set to open in place, it shows what
+        // the folder holds where it is, for as long as `open` is set.
+        final layout = ref.watch(layoutViewProvider).value;
+        if (layout?.panels[entry.item.source] case final folder?
+            when folder.panel.kind == PanelKind.popup &&
+                folder.panel.position == PopupPosition.inline &&
+                ref.watch(
+                  runtimeVarsProvider.select(
+                    (all) => all[folder.panel.id]?[openVar] == true,
+                  ),
+                )) {
+          return _InPlace(view: folder);
+        }
         final acts = does.has(Trigger.press) || hold != null;
         final tile = PrefabTile(
           instance: instance!,
           scope: scope.inner,
-          bare: EntityArt.isBare(entity),
           // Only what does something is landed on; the rest is looked at.
           autofocus: acts && (focus?.take() ?? false),
           boxStyle: entry.item.style,
@@ -134,19 +137,6 @@ class EntryTile extends ConsumerWidget {
                 padding: const EdgeInsets.all(8),
                 child: tile,
               );
-      case PanelEntry(:final panel):
-        return PrefabTile(
-          instance: instance!,
-          // What it opens is what it is drawn from, unless it says.
-          scope: {'source': folderValues(panel), ...scope.inner},
-          custom: {'folder': FolderArt(entry: entry)},
-          bare: FolderArt.isBare(entry),
-          autofocus: focus?.take() ?? false,
-          boxStyle: entry.item.style,
-          onSelect: press,
-          onMenu: hold,
-          onFocus: onFocus,
-        );
       case WidgetEntry(:final item):
         final box = StyledBox(
           style: item.style,
@@ -189,5 +179,47 @@ class EntryTile extends ConsumerWidget {
       case PaneEntry():
         throw StateError('Drawn above');
     }
+  }
+}
+
+/// What a folder holds, shown where the folder is. Back closes it.
+class _InPlace extends ConsumerWidget {
+  const _InPlace({required this.view});
+
+  final PanelView view;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final focus = FirstFocus();
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (_, event) {
+        final key = event.logicalKey;
+        if (key != LogicalKeyboardKey.goBack &&
+            key != LogicalKeyboardKey.escape &&
+            key != LogicalKeyboardKey.browserBack) {
+          return KeyEventResult.ignored;
+        }
+        if (event is KeyDownEvent) {
+          ref
+              .read(runtimeVarsProvider.notifier)
+              .set(view.panel.id, openVar, false);
+        }
+        return KeyEventResult.handled;
+      },
+      child: Material(
+        color: const Color(0xFA1A1C23),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(view.root.pane.padding ?? 12),
+          child: PaneGrid(
+            view: view.root,
+            tile: (entry) => EntryTile(entry: entry, focus: focus),
+          ),
+        ),
+      ),
+    );
   }
 }

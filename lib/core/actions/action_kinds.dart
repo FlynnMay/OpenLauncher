@@ -3,11 +3,9 @@ import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/actions/action_kind.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/scope.dart';
-
-/// The argument whose value is the id of a popup.
-const panelArg = 'panel';
 
 /// The argument that names the entity an action is done to, where that is
 /// not the one it was set off from.
@@ -21,7 +19,11 @@ final List<ActionKind> entityActions = [
     label: 'Quick actions',
     icon: 'menu',
     run: (run) async {
-      await run.screen?.openPanel(Layout.menuId, subject: run.entity);
+      // The quick actions are a pane like any folder: told what they are
+      // about, and opened, by its variables.
+      run.ref.read(runtimeVarsProvider.notifier)
+        ..set(Layout.menuId, LayoutItem.sourceVar, run.entity!.id)
+        ..set(Layout.menuId, openVar, true);
       return null;
     },
   ),
@@ -39,18 +41,6 @@ final List<ActionKind> entityActions = [
 
 /// What the launcher does of itself, with no entity to do it to.
 final List<ActionKind> launcherActions = [
-  ActionKind(
-    name: 'panel',
-    label: 'Open a folder',
-    icon: 'folder',
-    args: const {panelArg: []},
-    run: (run) async {
-      if (run.act.arg(panelArg) case final id?) {
-        await run.screen?.openPanel(id);
-      }
-      return null;
-    },
-  ),
   ActionKind(
     name: 'settings',
     label: 'Launcher settings',
@@ -82,6 +72,60 @@ final List<ActionKind> launcherActions = [
         final value => value,
       };
       run.ref.read(runtimeVarsProvider.notifier).set(component, name, value);
+      return null;
+    },
+  ),
+  // Layers: what is moved to one is drawn over all below it, which the
+  // layer may blur or darken.
+  ActionKind(
+    name: 'newLayer',
+    label: 'Create a new layer',
+    icon: 'apps',
+    args: const {
+      'blur': [],
+      'dim': [],
+      'modal': ['true', 'false'],
+    },
+    run: (run) async {
+      double number(String key) => switch (run.act.args[key]) {
+        final num number => number.toDouble(),
+        final String text => double.tryParse(text) ?? 0,
+        _ => 0,
+      };
+      run.ref
+          .read(layersProvider.notifier)
+          .create(
+            blur: number('blur'),
+            dim: number('dim'),
+            modal: switch (run.act.args['modal']) {
+              true || 'true' => true,
+              _ => false,
+            },
+          );
+      return null;
+    },
+  ),
+  ActionKind(
+    name: 'toLayer',
+    label: 'Move to the top layer',
+    icon: 'apps',
+    args: const {'of': []},
+    run: (run) async {
+      if (run.act.arg('of') ?? run.component case final component?) {
+        run.ref.read(layersProvider.notifier).moveToTop(component);
+      }
+      return null;
+    },
+  ),
+  ActionKind(
+    name: 'closeLayer',
+    label: 'Take its layer away',
+    icon: 'close',
+    args: const {'of': []},
+    run: (run) async {
+      run.ref
+          .read(layersProvider.notifier)
+          .close(run.act.arg('of') ?? run.component);
       return null;
     },
   ),

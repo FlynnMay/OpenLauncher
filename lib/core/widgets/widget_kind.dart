@@ -13,6 +13,10 @@ enum WidgetKind {
   /// One of the launcher's small pictures, by name.
   icon('Icon', 1, 1),
 
+  /// What a folder looks like from outside: its picture, or the first few
+  /// things in it.
+  folder('Folder picture', 1, 1),
+
   /// Something to press: what it does is in the item's triggers.
   button('Button', 2, 1),
 
@@ -157,6 +161,9 @@ enum WidgetKind {
         unset: 'Fills the box',
       ),
       WidgetOption('colour', 'Colour', OptionKind.colour),
+    ],
+    folder => const [
+      WidgetOption('folder', 'Folder (its id)', OptionKind.template),
     ],
     android => const [],
   };

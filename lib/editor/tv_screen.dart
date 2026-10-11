@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
-import 'package:openlauncher/features/home/popup_panel.dart';
 
 /// The launcher itself, running in a box the size of the TV's screen: the
 /// same home screen, popups, menus and settings, each kept inside the box.
@@ -14,16 +16,29 @@ class TvScreen extends StatelessWidget {
   /// from outside it.
   static final navigator = GlobalKey<NavigatorState>();
 
-  /// Closes whatever the launcher has open over its home screen.
-  static void closePopups() =>
-      navigator.currentState?.popUntil((route) => route.isFirst);
+  static ProviderContainer? get _launcher =>
+      switch (navigator.currentState?.overlay?.context) {
+        null => null,
+        final context => ProviderScope.containerOf(context),
+      };
 
-  /// Shows the popup [panelId] on the launcher's screen.
-  static void openPopup(String panelId) {
-    if (navigator.currentState?.overlay?.context case final context?) {
-      showPanelPopup(context, panelId);
+  /// Closes whatever folders the launcher has open over its home screen.
+  static void closePopups() {
+    final launcher = _launcher;
+    if (launcher == null) return;
+    final vars = launcher.read(runtimeVarsProvider.notifier);
+    for (final MapEntry(key: id, value: set)
+        in launcher.read(runtimeVarsProvider).entries) {
+      if (set[openVar] == true && Panel.kindOf(id) == PanelKind.popup) {
+        vars.set(id, openVar, false);
+      }
     }
   }
+
+  /// Shows the folder [panelId] on the launcher's screen, as a press on
+  /// what opens it would: by its variable.
+  static void openPopup(String panelId) =>
+      _launcher?.read(runtimeVarsProvider.notifier).set(panelId, openVar, true);
 
   @override
   Widget build(BuildContext context) => SizedBox.fromSize(

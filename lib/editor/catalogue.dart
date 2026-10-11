@@ -81,10 +81,10 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         ),
         _Offer(
           Dragged(
-            item: LayoutItem(
+            item: LayoutItem.of(
+              folder.id,
+              prefab: folderPrefabId,
               id: layout.itemIdFor(folder.title),
-              kind: ItemKind.panel,
-              ref: folder.id,
             ),
             panel: folder,
             label: 'New folder',
@@ -153,12 +153,12 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           if (panel.kind == PanelKind.popup && panel.id != Layout.menuId)
             _Offer(
               Dragged(
-                item: LayoutItem(
+                item: LayoutItem.of(
+                  panel.id,
+                  prefab: folderPrefabId,
                   id: layout.itemIdFor(
                     panel.title.isEmpty ? 'folder' : panel.title,
                   ),
-                  kind: ItemKind.panel,
-                  ref: panel.id,
                 ),
                 label: panel.title.isEmpty ? 'Folder' : panel.title,
                 picture: const SymbolArt(Icons.folder_outlined),

@@ -134,10 +134,10 @@ void main() {
                   mode: PaneMode.grid,
                   columns: 4,
                   items: [
-                    const LayoutItem(
+                    LayoutItem.of(
+                      'games',
                       id: 'folder',
-                      kind: ItemKind.panel,
-                      ref: 'games',
+                      prefab: folderPrefabId,
                       x: 1,
                       y: 0,
                     ),

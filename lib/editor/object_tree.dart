@@ -18,7 +18,12 @@ String objectName(
 ) => switch (item.kind) {
   ItemKind.prefab =>
     entities.where((entity) => entity.id == item.source).firstOrNull?.label ??
-        'Prefab',
+        // Drawn from a folder, it goes by the folder's name.
+        switch (layout?.panel(item.source ?? '')?.title) {
+          null => 'Prefab',
+          '' => 'Folder',
+          final title => title,
+        },
   // A button by what it says, where that is plain to read.
   ItemKind.widget => switch (item.options['label']) {
     final String label when label.isNotEmpty && !label.contains('{{') => label,
@@ -28,17 +33,12 @@ String objectName(
     null || '' => 'Pane',
     final title => title,
   },
-  ItemKind.panel => switch (layout?.panel(item.ref)?.title) {
-    null || '' => 'Folder',
-    final title => title,
-  },
 };
 
 IconData objectIcon(ItemKind kind) => switch (kind) {
   ItemKind.prefab => Icons.crop_16_9,
   ItemKind.widget => Icons.widgets_outlined,
   ItemKind.pane => Icons.dashboard_outlined,
-  ItemKind.panel => Icons.folder_outlined,
 };
 
 /// Everything on the TV as a tree: the home screen, each sidebar and each

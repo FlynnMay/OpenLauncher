@@ -20,10 +20,8 @@ class PrefabTile extends StatelessWidget {
     this.onSelect,
     this.onMenu,
     this.onFocus,
-    this.bare = false,
     this.autofocus = false,
     this.boxStyle = BoxStyle.none,
-    this.custom = const {},
   });
 
   final PrefabInstance instance;
@@ -38,16 +36,15 @@ class PrefabTile extends StatelessWidget {
   final void Function(bool focused)? onFocus;
 
   /// True for line art, which sits straight on the wallpaper with only a
-  /// faint wash to show focus.
-  final bool bare;
+  /// faint wash to show focus: what it is drawn from says so.
+  bool get bare => switch (scope['source']) {
+    {'bare': true} => true,
+    _ => false,
+  };
   final bool autofocus;
 
   /// The fill and outline the user gave it, if any.
   final BoxStyle boxStyle;
-
-  /// What draws a part of a kind that is not a widget's, by that kind:
-  /// what only the launcher knows how to draw, such as a folder's face.
-  final Map<String, Widget> custom;
 
   Widget _framed(BuildContext context, bool focused, bool bare, Widget child) {
     final fill = styleFill(boxStyle);
@@ -99,9 +96,7 @@ class PrefabTile extends StatelessWidget {
     } else {
       final part = instance.part(slot);
       if (part == null || part.hidden && !slot.keep) return null;
-      child =
-          custom[part.kind] ??
-          WidgetTile.of(part.kind, part.options, shrink: !sized);
+      child = WidgetTile.of(part.kind, part.options, shrink: !sized);
       if (part.options['frame'] == true) {
         child = _framed(context, focused, bare, child);
       }

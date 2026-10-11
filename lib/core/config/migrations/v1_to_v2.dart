@@ -19,7 +19,8 @@ void wallpaperToWallpapers(Json save, Device device) {
 void _asWritten(Json pane) {
   for (final item in itemsOf(pane)) {
     if (item case {'kind': 'prefab', 'vars': {'source': final String source}}) {
-      item['kind'] = 'card';
+      // What opened a folder said `panel`; anything else was a card.
+      item['kind'] = item['ref'] == 'folder-card' ? 'panel' : 'card';
       item['ref'] = source;
       item.remove('vars');
     }

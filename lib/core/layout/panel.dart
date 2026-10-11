@@ -98,6 +98,10 @@ class Panel {
 
   static String rootId(String panelId) => '$panelId/root';
 
+  /// The key, in `LauncherConfig.iconOverrides`, of the picture the user
+  /// gave what opens the folder [panelId].
+  static String iconKey(String panelId) => 'panel:$panelId';
+
   static Pane _emptyRoot(String panelId) => switch (kindOf(panelId)) {
     PanelKind.home => Pane(
       id: rootId(panelId),

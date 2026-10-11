@@ -8,26 +8,11 @@ import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
-/// Opens the popup panel [panelId] over the current screen. Back closes it.
-/// With a [subject] it is that entity's menu: named after the entity, its
-/// buttons act on the entity, and those that cannot are left out.
-Future<void> showPanelPopup(
-  BuildContext context,
-  String panelId, {
-  Entity? subject,
-}) => showGeneralDialog<void>(
-  context: context,
-  barrierDismissible: true,
-  barrierLabel: 'Close',
-  barrierColor: Colors.black54,
-  transitionDuration: const Duration(milliseconds: 150),
-  transitionBuilder: (_, animation, _, child) =>
-      FadeTransition(opacity: animation, child: child),
-  pageBuilder: (_, _, _) => _PanelPopup(panelId: panelId, subject: subject),
-);
-
-class _PanelPopup extends ConsumerWidget {
-  const _PanelPopup({required this.panelId, this.subject});
+/// What a folder holds, as it hovers over the screen on a layer of its
+/// own. With a [subject] it is that entity's menu: named after the entity,
+/// its buttons act on the entity, and those that cannot are left out.
+class PanelPopup extends ConsumerWidget {
+  const PanelPopup({super.key, required this.panelId, this.subject});
 
   final String panelId;
   final Entity? subject;
@@ -36,7 +21,9 @@ class _PanelPopup extends ConsumerWidget {
   static (double, double) _extent(Panel panel) {
     final step = panel.size.index;
     return switch (panel.position) {
-      PopupPosition.center => (const [0.45, 0.62, 0.86][step], 0.8),
+      // One shown in place never comes here; were it to, as the usual.
+      PopupPosition.center ||
+      PopupPosition.inline => (const [0.45, 0.62, 0.86][step], 0.8),
       PopupPosition.bottom => (1, const [0.34, 0.5, 0.72][step]),
       PopupPosition.left ||
       PopupPosition.right => (const [0.26, 0.36, 0.5][step], 1),
@@ -72,12 +59,14 @@ class _PanelPopup extends ConsumerWidget {
     };
     final screen = MediaQuery.sizeOf(context);
     final (width, height) = _extent(panel);
-    final centred = panel.position == PopupPosition.center;
+    final centred =
+        panel.position == PopupPosition.center ||
+        panel.position == PopupPosition.inline;
     final focus = FirstFocus();
     final popup = TileTraversal(
       child: Align(
         alignment: switch (panel.position) {
-          PopupPosition.center => Alignment.center,
+          PopupPosition.center || PopupPosition.inline => Alignment.center,
           PopupPosition.bottom => Alignment.bottomCenter,
           PopupPosition.left => Alignment.centerLeft,
           PopupPosition.right => Alignment.centerRight,
@@ -121,7 +110,7 @@ class _PanelPopup extends ConsumerWidget {
                     child: PaneGrid(
                       view: root,
                       tile: (entry) =>
-                          EntryTile(entry: entry, focus: focus, inPopup: true),
+                          EntryTile(entry: entry, focus: focus, popup: panelId),
                     ),
                   ),
                 ],
@@ -131,8 +120,40 @@ class _PanelPopup extends ConsumerWidget {
         ),
       ),
     );
-    return subject == null
-        ? popup
-        : ActionSubject(entity: subject, child: popup);
+    // The focus is its own while it is there, and comes to it at once.
+    final held = _Held(child: popup);
+    return subject == null ? held : ActionSubject(entity: subject, child: held);
   }
+}
+
+/// Keeps the focus among what is inside it, and takes it on appearing.
+class _Held extends StatefulWidget {
+  const _Held({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_Held> createState() => _HeldState();
+}
+
+class _HeldState extends State<_Held> {
+  final _scope = FocusScopeNode(debugLabel: 'folder');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_scope.hasFocus) _scope.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scope.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FocusScope(node: _scope, autofocus: true, child: widget.child);
 }

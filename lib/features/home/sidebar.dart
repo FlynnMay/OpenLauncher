@@ -27,9 +27,13 @@ class SidebarHold extends InheritedWidget {
 /// It is always laid out at its open size, whatever of it shows, so nothing
 /// in it moves about as it opens.
 class Sidebar extends StatefulWidget {
-  const Sidebar({super.key, required this.view});
+  const Sidebar({super.key, required this.view, this.onOpen});
 
   final PanelView view;
+
+  /// Told when it starts to open (true) and to close: what its `open`
+  /// variable is kept by.
+  final void Function(bool open)? onOpen;
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -46,6 +50,9 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   /// in it appearing.
   late final _opened = AnimationController(vsync: this);
   bool _focused = false, _held = false;
+
+  /// What was last told of it.
+  bool? _told;
 
   Panel get _panel => widget.view.panel;
 
@@ -83,6 +90,13 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   /// Sets it opening or closing, to match the focus and the hold.
   void _sync() {
     final open = _focused || _held;
+    if (open != _told) {
+      _told = open;
+      // Not while building, which is when a hold is found out.
+      Future.microtask(() {
+        if (mounted) widget.onOpen?.call(open);
+      });
+    }
     if (_totalMs == 0) {
       _opened.value = open ? 1 : 0;
       return;

@@ -73,7 +73,7 @@ class LayoutItem {
   final BoxStyle style;
 
   /// What it does, by what sets it off, where that is not the usual for
-  /// its kind (`usualTriggers`).
+  /// its prefab.
   final Triggers on;
 
   /// The pane this item is, for [ItemKind.pane].
@@ -173,7 +173,9 @@ class LayoutItem {
     // all, and named its entity as `ref`. Saves are brought up to date
     // before they are read, so this is met only by the first of those
     // steps, which reads sections through this to make panes of them.
-    if (named == null || named == 'card') return LayoutItem._legacy(json);
+    if (named == null || named == 'card' || named == 'panel') {
+      return LayoutItem._legacy(json, folder: named == 'panel');
+    }
     final kind = jsonNamed(ItemKind.values, named, ItemKind.prefab);
     final pane = switch (jsonOptional<Map<Object?, Object?>>(json, 'pane')) {
       final pane? when kind == ItemKind.pane => Pane.fromJson(pane),
@@ -197,7 +199,11 @@ class LayoutItem {
     );
   }
 
-  factory LayoutItem._legacy(Map<Object?, Object?> json) {
+  /// What opened a folder said `panel`, and named the folder as `ref`.
+  factory LayoutItem._legacy(
+    Map<Object?, Object?> json, {
+    bool folder = false,
+  }) {
     final options = <String, Object?>{
       ...?jsonOptional<Map<Object?, Object?>>(json, 'options')?.cast(),
     };
@@ -217,9 +223,9 @@ class LayoutItem {
     return LayoutItem(
       id: jsonRequired<String>(json, 'id'),
       kind: ItemKind.prefab,
-      ref: switch (options.remove(prefabOption)) {
+      ref: switch (options.remove('prefab')) {
         final String prefab => prefab,
-        _ => cardPrefabId,
+        _ => folder ? folderPrefabId : cardPrefabId,
       },
       vars: {sourceVar: Variable(jsonRequired<String>(json, 'ref'))},
       w: jsonOptional<num>(json, 'w')?.toDouble() ?? 1,

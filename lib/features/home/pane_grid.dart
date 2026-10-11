@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
+import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 
 /// Hands the starting focus to the first tile that asks for it.
 class FirstFocus {
@@ -96,8 +99,24 @@ class PaneGrid extends StatelessWidget {
         );
       },
     );
+    // What is in a pane can read the pane's variables, on top of those the
+    // pane itself was handed.
+    final scoped = pane.vars.isEmpty
+        ? grid
+        : Consumer(
+            builder: (context, ref, child) => TemplateScope(
+              values: scopeOf(
+                ref.watch,
+                pane.id,
+                pane.vars,
+                TemplateScope.of(context),
+              ).inner,
+              child: child!,
+            ),
+            child: grid,
+          );
     final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
-    return frame == null ? grid : frame.wrap(pane, grid);
+    return frame == null ? scoped : frame.wrap(pane, scoped);
   }
 }
 

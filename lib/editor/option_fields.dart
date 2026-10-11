@@ -27,6 +27,12 @@ List<Widget> optionFields({
           value: value is String ? value : '',
           onChanged: (text) => set(option, text.isEmpty ? null : text),
         );
+      case OptionKind.text:
+        return CommitField(
+          label: option.label,
+          value: value is String ? value : '',
+          onChanged: (text) => set(option, text),
+        );
       case OptionKind.toggle:
         return TickBox(
           label: option.label,
@@ -89,3 +95,22 @@ List<Widget> optionFields({
       if (option.when?.call(values) ?? true) field(option),
   ];
 }
+
+/// The same for a thing that is saved as [json], such as a pane with its
+/// rules: each setting shows what the thing has under its name, and a
+/// change is told as that name and what it is to be, null for the usual.
+List<Widget> ruleFields({
+  required List<WidgetOption> options,
+  required Map<String, Object?> json,
+  required void Function(String key, Object? value) onChanged,
+}) => optionFields(
+  options: options,
+  values: json,
+  onChanged: (next) {
+    for (final option in options) {
+      if (next[option.key] != json[option.key]) {
+        onChanged(option.key, next[option.key]);
+      }
+    }
+  },
+);

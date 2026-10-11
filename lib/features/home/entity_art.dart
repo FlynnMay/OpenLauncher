@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/picture.dart';
@@ -50,15 +52,16 @@ class EntityArt extends StatelessWidget {
   }
 }
 
-/// The face of an entity that opens a popup: the user's picture, else the first
-/// few entities inside, else a folder drawn in outline.
-class FolderArt extends StatelessWidget {
-  const FolderArt({super.key, required this.entry});
+/// What a folder looks like from outside: the picture the user gave it,
+/// else the first few things in it, else a folder drawn in outline.
+class FolderArt extends ConsumerWidget {
+  const FolderArt({super.key, required this.folder});
 
-  final PanelEntry entry;
+  /// The id of the folder.
+  final String folder;
 
-  static bool isBare(PanelEntry entry) =>
-      entry.icon == null && entry.preview.isEmpty;
+  /// How many of the things in it are shown.
+  static const _shown = 4;
 
   static const _outline =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90" '
@@ -68,8 +71,13 @@ class FolderArt extends StatelessWidget {
       '5H51a5 5 0 0 1-5-5z"/></svg>';
 
   @override
-  Widget build(BuildContext context) {
-    if (entry.icon case final icon?) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final icon = ref.watch(
+      configProvider.select(
+        (config) => config.value?.iconOverrides[Panel.iconKey(folder)],
+      ),
+    );
+    if (icon != null) {
       return Image(
         image: pictureAt(icon),
         fit: BoxFit.cover,
@@ -77,7 +85,18 @@ class FolderArt extends StatelessWidget {
         errorBuilder: (_, _, _) => SvgPicture.string(_outline),
       );
     }
-    if (entry.preview.isEmpty) return SvgPicture.string(_outline);
+    final preview = [
+      for (final entry
+          in ref
+                  .watch(layoutViewProvider)
+                  .value
+                  ?.panels[folder]
+                  ?.root
+                  .contents ??
+              const <Entry>[])
+        if (entry is EntityEntry) entry.entity,
+    ].take(_shown).toList();
+    if (preview.isEmpty) return SvgPicture.string(_outline);
     return Padding(
       padding: const EdgeInsets.all(6),
       child: Column(
@@ -90,13 +109,10 @@ class FolderArt extends StatelessWidget {
                 children: [
                   for (var i = row * 2; i < row * 2 + 2; i++)
                     Expanded(
-                      child: i < entry.preview.length
+                      child: i < preview.length
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(4),
-                              child: EntityArt(
-                                entity: entry.preview[i],
-                                padding: 2,
-                              ),
+                              child: EntityArt(entity: preview[i], padding: 2),
                             )
                           : const SizedBox.shrink(),
                     ),

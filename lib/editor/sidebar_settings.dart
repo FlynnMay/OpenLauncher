@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/style_settings.dart';
@@ -185,54 +187,12 @@ class SidebarSettings extends ConsumerWidget {
             onChanged: (height) =>
                 change((panel) => panel.copyWith(height: height)),
           ),
-          NumberStepper(
-            label: 'Closed',
-            value: panel.closed ?? -1,
-            usual: usual.closedSize == 0
-                ? 'Usual (hidden)'
-                : 'Usual (${usual.closedSize.round()})',
-            min: 0,
-            max: 400,
-            step: 8,
-            onChanged: (closed) => change(
-              (panel) =>
-                  panel.copyWith(closed: closed < 0 ? null : closed * 1.0),
-            ),
-          ),
-          Text(
-            'Closed is how much of it shows while the focus is elsewhere; '
-            '0 keeps it out of sight until the focus goes to its edge.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ]),
-        Section('Opening', [
-          LabelledRow(
-            'Opens by',
-            ChoiceBox<BarOpening>(
-              value: panel.opening,
-              choices: const {
-                BarOpening.expand: 'Growing from its edge',
-                BarOpening.slide: 'Sliding in',
-                BarOpening.fade: 'Fading in',
-                BarOpening.instant: 'At once',
-              },
-              onChanged: (opening) =>
-                  change((panel) => panel.copyWith(opening: opening)),
-            ),
-          ),
-          LabelledRow(
-            'What is in it',
-            ChoiceBox<BarReveal>(
-              value: panel.reveal,
-              choices: const {
-                BarReveal.always: 'Always there',
-                BarReveal.fade: 'Fade in',
-                BarReveal.late: 'Fade in once it is open',
-                BarReveal.slide: 'Slide in',
-              },
-              onChanged: (reveal) =>
-                  change((panel) => panel.copyWith(reveal: reveal)),
-            ),
+          // Its rules as a pane that is shown and hidden.
+          ...ruleFields(
+            options: panelRules(panel),
+            json: panel.toJson(),
+            onChanged: (key, value) =>
+                change((panel) => withPanelRule(panel, key, value)),
           ),
           Align(
             alignment: Alignment.centerLeft,
@@ -248,6 +208,7 @@ class SidebarSettings extends ConsumerWidget {
         PaneSettings(
           title: 'Its pane',
           prefabs: ref.watch(prefabsProvider),
+          usualOn: usualPanelTriggers(panel),
           panes: [panel.root],
           onChanged: pane,
         ),

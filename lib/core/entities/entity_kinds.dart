@@ -337,6 +337,8 @@ Map<String, Object?> _pictured(Ref ref, Entity entity) {
   final fills = entity.wideIcon || entity.iconPath == null;
   return {
     'icon': entity.iconPath ?? entity.svg,
+    // Line art, which sits on the wallpaper with no frame behind it.
+    'bare': entity.iconPath == null && entity.svg != null,
     'fit': entity.wideIcon ? 'cover' : 'contain',
     'pad': fills ? 0 : 14,
     'padSmall': fills ? 0 : 4,

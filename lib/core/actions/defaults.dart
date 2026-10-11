@@ -4,21 +4,33 @@ import 'package:openlauncher/core/actions/action_kinds.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
 
-/// What a thing does when neither it nor its prefab says: what opens a
-/// folder opens it, which only the item can know. What an instance of a
-/// prefab does is the prefab's to say.
-Triggers usualTriggers(LayoutItem item) => switch (item.kind) {
-  ItemKind.panel => {
-    Trigger.press: [
-      Act('panel', {panelArg: item.ref}),
+/// What a panel does when its pane does not say: a sidebar that is
+/// revealed is put on a layer of its own above the home screen, as is a
+/// folder, and the layer goes when it is hidden. These are their
+/// ready-made rules, there to be changed like any other.
+Triggers usualPanelTriggers(Panel panel) => switch (panel.kind) {
+  PanelKind.sidebar => const {
+    Trigger.reveal: [Act('newLayer'), Act('toLayer')],
+    Trigger.hide: [Act('closeLayer')],
+  },
+  // A folder hovers over the screen: a layer that darkens what is under
+  // it and keeps the focus. One set to open in place needs no layer.
+  PanelKind.popup when panel.position != PopupPosition.inline => const {
+    Trigger.reveal: [
+      Act('newLayer', {'dim': 0.54, 'modal': true}),
+      Act('toLayer'),
     ],
+    Trigger.hide: [Act('closeLayer')],
   },
   _ => const {},
 };
 
-/// What [item] does: what was set for it, and the usual for every trigger
-/// nothing was set for.
-Triggers triggersOf(LayoutItem item) => {...usualTriggers(item), ...item.on};
+/// What [panel] does: what its pane says, and the usual for every trigger
+/// it says nothing of.
+Triggers panelTriggersOf(Panel panel) => {
+  ...usualPanelTriggers(panel),
+  ...panel.root.on,
+};
 
 /// A button that does [kind], as the quick actions have them and the
 /// editor offers them: to whatever it is set off from, or to [entity] by

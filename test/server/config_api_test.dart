@@ -165,6 +165,7 @@ void main() {
       'picture',
       'meter',
       'icon',
+      'folder',
       'button',
     ]);
     // The quick actions are a popup in the layout like any folder.
@@ -326,8 +327,14 @@ void main() {
     // which was placed nowhere, in the section for new entities.
     expect(await onTv(), ['app:b', 'input:tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
-    final folder = view.home.root.contents.elementAt(1) as PanelEntry;
-    expect(folder.preview.single.id, 'app:a');
+    final folder = view.home.root.contents.elementAt(1);
+    expect(folder, isA<PrefabEntry>());
+    expect(
+      view.panels[folder.item.source]!.root.contents.map(
+        (entry) => entry.item.source,
+      ),
+      ['app:a'],
+    );
     final shown = (await state())['layout']['panels'][0]['pane']['items'][1];
     expect(
       (shown['pane']['items'] as List).map(

@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 import 'package:openlauncher/features/widgets/marquee.dart';
@@ -227,6 +228,19 @@ class IconWidget extends ConsumerWidget {
         ? Icon(icon, color: colour, size: size.toDouble())
         : FittedBox(child: Icon(icon, color: colour));
   }
+}
+
+/// What a folder looks like from outside, for whatever opens it.
+///
+/// Options: `folder` (a template that reads as the folder's id).
+class FolderPicture extends ConsumerWidget {
+  const FolderPicture({super.key, required this.options});
+
+  final Map<String, Object?> options;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      FolderArt(folder: _read(context, ref, options['folder']).trim());
 }
 
 /// A picture from a web address or from a value, such as the cover of

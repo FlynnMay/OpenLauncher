@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -9,6 +8,7 @@ import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/entity_picker.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/picture_settings.dart';
 import 'package:openlauncher/editor/prefab_settings.dart';
@@ -45,7 +45,6 @@ class SelectedProperties extends ConsumerWidget {
     final items = [for (final one in found) one.item];
     final single = items.length == 1 ? items.single : null;
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    final layout = ref.watch(configProvider).value?.layout;
     void change(Layout Function(Layout layout) how) =>
         changeLayout(context, ref, how);
     void each(LayoutItem Function(LayoutItem item) how) =>
@@ -55,25 +54,13 @@ class SelectedProperties extends ConsumerWidget {
     final allPanes = items.every((item) => item.kind == ItemKind.pane);
     final folders = ref.watch(selectedPanelsProvider);
     final allFolders =
-        items.every((item) => item.kind == ItemKind.panel) &&
+        items.every((item) => item.kind == ItemKind.prefab) &&
         folders.length == items.length;
     void eachFolder(Panel Function(Panel panel) how) => change(
       (layout) => folders.keys.fold(
         layout,
         (layout, id) => changePanel(layout, id, how),
       ),
-    );
-    Panel folder(
-      Panel panel, {
-      String? title,
-      PopupPosition? position,
-      PopupSize? size,
-    }) => Panel(
-      id: panel.id,
-      title: title ?? panel.title,
-      root: panel.root,
-      position: position ?? panel.position,
-      size: size ?? panel.size,
     );
 
     return Column(
@@ -96,7 +83,7 @@ class SelectedProperties extends ConsumerWidget {
           _FolderDetails(
             panel: folders.values.single,
             onRenamed: (title) =>
-                eachFolder((panel) => folder(panel, title: title)),
+                eachFolder((panel) => withPanelRule(panel, 'title', title)),
           ),
         if (single != null && single.kind == ItemKind.widget)
           WidgetSettings(
@@ -104,9 +91,7 @@ class SelectedProperties extends ConsumerWidget {
             onChanged: (options) =>
                 each((item) => item.copyWith(options: options)),
           ),
-        if (single != null &&
-            (single.kind == ItemKind.prefab ||
-                single.kind == ItemKind.panel)) ...[
+        if (single != null && single.kind == ItemKind.prefab) ...[
           if (found.single.parent.rules.containsKey(prefabIdOf(single)))
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -140,18 +125,8 @@ class SelectedProperties extends ConsumerWidget {
             set: single.on,
             // An entity's are its prefab's.
             usual: {
-              ...usualTriggers(single),
               if (single.kind == ItemKind.prefab)
-                ...?ref.watch(prefabsProvider)[prefabIdOf(single)]?.on,
-            },
-            panels: {
-              for (final panel in layout?.panels ?? const <Panel>[])
-                if (panel.kind == PanelKind.popup)
-                  panel.id: switch (panel.title) {
-                    '' =>
-                      panel.id == Layout.menuId ? 'Quick actions' : 'Folder',
-                    final title => title,
-                  },
+                ...?ref.watch(prefabsProvider)[single.ref]?.on,
             },
             entities: {
               for (final entity
@@ -206,39 +181,19 @@ class SelectedProperties extends ConsumerWidget {
           ),
         if (allFolders)
           Section('Folder', [
-            LabelledRow(
-              'Opens',
-              ChoiceBox<PopupPosition>(
-                value: shared(folders.values.map((panel) => panel.position)),
-                choices: const {
-                  PopupPosition.center: 'Centre',
-                  PopupPosition.bottom: 'Bottom',
-                  PopupPosition.left: 'Left',
-                  PopupPosition.right: 'Right',
-                },
-                onChanged: (position) =>
-                    eachFolder((panel) => folder(panel, position: position)),
-              ),
-            ),
-            LabelledRow(
-              'Size',
-              ChoiceBox<PopupSize>(
-                value: shared(folders.values.map((panel) => panel.size)),
-                choices: const {
-                  PopupSize.small: 'Small',
-                  PopupSize.medium: 'Medium',
-                  PopupSize.large: 'Large',
-                },
-                onChanged: (size) =>
-                    eachFolder((panel) => folder(panel, size: size)),
-              ),
+            // Its rules as a pane that is shown and hidden.
+            ...ruleFields(
+              options: panelRules(folders.values.first),
+              json: folders.values.first.toJson(),
+              onChanged: (key, value) =>
+                  eachFolder((panel) => withPanelRule(panel, key, value)),
             ),
             if (single != null)
               Wrap(
                 spacing: 8,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () => TvScreen.openPopup(single.ref),
+                    onPressed: () => TvScreen.openPopup(single.source!),
                     icon: const Icon(Icons.folder_open_outlined),
                     label: const Text('Open it'),
                   ),
@@ -246,7 +201,7 @@ class SelectedProperties extends ConsumerWidget {
                     onPressed: () async {
                       if (await _sure(context) && context.mounted) {
                         ref.read(selectionProvider.notifier).clear();
-                        change((layout) => removePanel(layout, single.ref));
+                        change((layout) => removePanel(layout, single.source!));
                       }
                     },
                     icon: const Icon(Icons.folder_delete_outlined),
@@ -390,7 +345,7 @@ class _FolderDetails extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(tvApiProvider);
-    final key = PanelEntry.iconKey(panel.id);
+    final key = Panel.iconKey(panel.id);
     final picture = ref.watch(configProvider).value?.iconOverrides[key];
     return Section('Folder card', [
       CommitField(label: 'Name', value: panel.title, onChanged: onRenamed),

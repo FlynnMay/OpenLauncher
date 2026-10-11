@@ -322,13 +322,23 @@ final List<Prefab> builtInPrefabs = [
     },
     layouts: _cardLayouts(small: const {'pad': '{{source.padSmall}}'}),
   ),
-  // What it does is open its folder, which is the item's to say.
+  // Drawn from a folder, which is a pane that says what it is called and
+  // how much is in it. A press sets that folder's `open`, which is all
+  // that opens one.
   Prefab(
     id: folderPrefabId,
     name: 'Folder card',
+    vars: const {'source': Variable(null)},
+    on: const {
+      Trigger.press: [
+        Act('set', {'var': 'open', 'value': true, 'of': '{{source.id}}'}),
+      ],
+    },
     parts: const {
-      // Drawn by the launcher: the folder's picture, or what is in it.
-      'picture': PrefabPart('folder', {'frame': true}),
+      'picture': PrefabPart('folder', {
+        'folder': '{{source.id}}',
+        'frame': true,
+      }),
       'name': _name,
     },
     layouts: _cardLayouts(),

@@ -9,6 +9,8 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/home_screen.dart';
+import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 String _render(String source, Map<String, Object?> values) =>
@@ -274,6 +276,141 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Player'), findsOneWidget);
       expect(find.byIcon(Icons.play_arrow_outlined), findsOneWidget);
+    });
+
+    test('a pane and a folder are read by their ids', () async {
+      final c = container(
+        Layout(
+          inbox: 'main',
+          panels: [
+            Panel(
+              id: Layout.homeId,
+              root: Pane(
+                id: 'main',
+                title: 'Apps',
+                vars: const {
+                  'tint': Variable('red', access: VarAccess.public),
+                  'kept': Variable('x'),
+                },
+                items: [LayoutItem.of('app:a', id: 'a')],
+              ),
+            ),
+            Panel(
+              id: 'games',
+              title: 'Games',
+              root: Pane(
+                id: 'games/root',
+                items: [LayoutItem.of('app:a', id: 'g')],
+              ),
+            ),
+          ],
+        ),
+      );
+      await c.read(entitiesProvider.future);
+      final held = [
+        for (final id in ['main', 'games'])
+          c.listen(componentDataProvider(id), (_, _) {}),
+      ];
+      addTearDown(() {
+        for (final one in held) {
+          one.close();
+        }
+      });
+      String reads(String template) =>
+          valueText(readTemplate(c.read, template, const {}));
+      expect(
+        reads('{{main.title}} {{main.count}} {{main.tint}}'),
+        'Apps 1 red',
+      );
+      expect(reads('[{{main.kept}}]'), '[]');
+      expect(
+        reads('{{games}} {{games.count}} {{games.open}}'),
+        'Games 1 false',
+      );
+      // Opened by its variable, as a press on what opens it does.
+      await c
+          .read(actionRunnerProvider)
+          .run(const Act('set', {'var': 'open', 'value': true, 'of': 'games'}));
+      expect(reads("{{games.open == true ? 'open' : 'shut'}}"), 'open');
+    });
+
+    testWidgets('what is in a pane reads the pane, and a folder in place '
+        'shows where it is', (tester) async {
+      final platform = FakeLauncherPlatform([
+        InstalledApp(packageName: 'a', label: 'Alpha', isBanner: true),
+      ], const []);
+      final config = LauncherConfig(
+        layout: Layout(
+          inbox: 'main',
+          panels: [
+            Panel(
+              id: Layout.homeId,
+              root: Pane(
+                id: 'main',
+                columns: 2,
+                rowHeight: 200,
+                vars: const {'greeting': Variable('Hello')},
+                items: [
+                  const LayoutItem(
+                    id: 't',
+                    kind: ItemKind.widget,
+                    ref: 'text',
+                    options: {'text': '{{greeting}} there', 'size': 14},
+                  ),
+                  LayoutItem.of('games', id: 'f', prefab: folderPrefabId),
+                ],
+              ),
+            ),
+            Panel(
+              id: 'games',
+              title: 'Games',
+              position: PopupPosition.inline,
+              root: Pane(
+                id: 'games/root',
+                columns: 1,
+                rowHeight: 60,
+                items: [LayoutItem.of('app:a', id: 'g')],
+              ),
+            ),
+          ],
+        ).normalised(),
+      );
+      late WidgetRef ref;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
+            launcherPlatformProvider.overrideWithValue(platform),
+          ],
+          child: MaterialApp(
+            home: Consumer(
+              builder: (context, r, _) {
+                ref = r;
+                return const HomeScreen();
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Hello there'), findsOneWidget);
+      final held = find.byWidgetPredicate(
+        (widget) => widget is PaneGrid && widget.view.pane.id == 'games/root',
+      );
+      // Shut, the folder is its name; what it holds is not laid out.
+      expect(find.text('Games'), findsOneWidget);
+      expect(held, findsNothing);
+
+      ref.read(runtimeVarsProvider.notifier).set('games', openVar, true);
+      await tester.pumpAndSettle();
+      // In place: no popup over the screen, and what it holds is there.
+      expect(find.byType(Dialog), findsNothing);
+      expect(held, findsOneWidget);
+      expect(find.text('Hello there'), findsOneWidget);
+
+      ref.read(runtimeVarsProvider.notifier).set('games', openVar, false);
+      await tester.pumpAndSettle();
+      expect(held, findsNothing);
     });
   });
 }

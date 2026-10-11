@@ -5,6 +5,7 @@ import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/layout/panel.dart';
+import 'package:openlauncher/core/prefabs/instance_options.dart';
 
 /// Making a layout fit to use: what was read made sound, and the entities there
 /// are matched to it.
@@ -22,11 +23,6 @@ extension LayoutRepair on Layout {
     if (!panelIds.contains(Layout.homeId)) {
       unique.insert(0, Panel.empty(Layout.homeId));
     }
-
-    final popups = {
-      for (final panel in unique)
-        if (panel.kind == PanelKind.popup) panel.id,
-    };
 
     final paneIds = <String>{};
     final itemIds = <String>{};
@@ -58,7 +54,10 @@ extension LayoutRepair on Layout {
           return;
         }
       } else if (item.ref.isEmpty ||
-          item.kind == ItemKind.panel && !popups.contains(item.ref)) {
+          // What opened a folder that is gone has nothing left to open.
+          item.kind == ItemKind.prefab &&
+              item.ref == folderPrefabId &&
+              !panelIds.contains(item.source)) {
         return;
       }
       // Only a free pane keeps fractions of a cell.
@@ -128,6 +127,8 @@ extension LayoutRepair on Layout {
         itemW: cells(pane.itemW, columns),
         itemH: cells(pane.itemH, Pane.maxRows),
         rules: pane.rules,
+        vars: pane.vars,
+        on: pane.on,
       );
     };
 
@@ -177,7 +178,8 @@ extension LayoutRepair on Layout {
     Map<String, String> names = const {},
     Set<String>? known,
   }) {
-    final there = known ?? entityIds.toSet();
+    // A folder is something to be drawn from too.
+    final there = {...known ?? entityIds, for (final panel in panels) panel.id};
     final kept = rebuild(
       (_, items) => [
         for (final item in items)

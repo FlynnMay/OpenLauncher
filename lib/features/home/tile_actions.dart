@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/features/home/popup_panel.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 
 /// The entity everything below is about: set by a popup opened as an entity's
@@ -25,7 +25,7 @@ class ActionSubject extends InheritedWidget {
 /// all but those that are pressed to do what cannot be done to it.
 List<Entry> offeredFor(PaneView root, Entity subject, ActionRunner actions) => [
   for (final entry in root.entries)
-    if ((triggersOf(entry.item)[Trigger.press] ?? const []).every(
+    if ((entry.item.on[Trigger.press] ?? const []).every(
       (act) => actions.applies(act, subject),
     ))
       entry,
@@ -38,8 +38,9 @@ class TileActions {
     this._ref,
     this.triggers, {
     this.component,
+    this.scope = const {},
     this.subject,
-    this.inPopup = false,
+    this.popup,
     this.closes = false,
   });
 
@@ -47,12 +48,18 @@ class TileActions {
   final WidgetRef _ref;
   final Triggers triggers;
 
+  /// The variables the tile can read, which what an action is told may
+  /// be written against: `{{source.id}}`.
+  final Map<String, Object?> scope;
+
   /// The id of the component these are the triggers of.
   final String? component;
 
   /// The entity an action that names none is done to.
   final Entity? subject;
-  final bool inPopup;
+
+  /// The id of the folder the tile is in, where it is in one that hovers.
+  final String? popup;
 
   /// True where a press closes the popup the tile is in before anything
   /// else: an entity in a folder, a button of an entity's menu.
@@ -67,13 +74,26 @@ class TileActions {
     final navigator = Navigator.of(_context);
     final actions = _ref.read(actionRunnerProvider);
     final closed = closes && trigger == Trigger.press;
-    if (closed) navigator.pop();
-    final screen = _Screen(navigator, _ref, inPopup && !closed);
+    // A folder is closed as it is opened: by its variable.
+    void close() {
+      if (popup case final id?) {
+        _ref.read(runtimeVarsProvider.notifier).set(id, openVar, false);
+      }
+    }
+
+    if (closed) close();
+    final screen = _Screen(navigator, closed ? () {} : close);
     for (final act in acts) {
       String? message;
       try {
         message = await actions.run(
-          act,
+          // What it is told, as that reads now.
+          Act(act.name, {
+            for (final MapEntry(:key, :value) in act.args.entries)
+              key: value is String && value.contains('{{')
+                  ? readTemplate(_ref.read, value, scope)
+                  : value,
+          }),
           subject: subject,
           screen: screen,
           held: held,
@@ -95,29 +115,10 @@ class TileActions {
 }
 
 class _Screen implements ActionScreen {
-  _Screen(this._navigator, this._ref, this._inPopup);
+  _Screen(this._navigator, this._close);
 
   final NavigatorState _navigator;
-  final WidgetRef _ref;
-  bool _inPopup;
-
-  @override
-  Future<void> openPanel(String panelId, {Entity? subject}) async {
-    if (!_navigator.mounted) return;
-    if (subject != null) {
-      // A menu with nothing in it for this entity is not shown at all.
-      final view = _ref.read(layoutViewProvider).value?.panels[panelId];
-      if (view == null ||
-          offeredFor(
-            view.root,
-            subject,
-            _ref.read(actionRunnerProvider),
-          ).isEmpty) {
-        return;
-      }
-    }
-    await showPanelPopup(_navigator.context, panelId, subject: subject);
-  }
+  final VoidCallback _close;
 
   @override
   Future<void> openSettings() async {
@@ -126,7 +127,6 @@ class _Screen implements ActionScreen {
 
   @override
   void close() {
-    if (_inPopup && _navigator.mounted) _navigator.pop();
-    _inPopup = false;
+    _close();
   }
 }

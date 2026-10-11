@@ -23,27 +23,10 @@ class EntityEntry extends Entry {
   final Entity entity;
 }
 
-/// An entity that opens a popup: a folder, or any other panel.
-class PanelEntry extends Entry {
-  const PanelEntry(
-    super.item,
-    this.panel, {
-    this.preview = const [],
-    this.icon,
-  });
-
-  final Panel panel;
-
-  /// The first few entities inside, for drawing the folder's face.
-  final List<Entity> preview;
-
-  /// A picture the user chose for it, as an absolute path.
-  final String? icon;
-
-  String get label => panel.title.isEmpty ? 'Folder' : panel.title;
-
-  /// The key of a panel entity's picture in `LauncherConfig.iconOverrides`.
-  static String iconKey(String panelId) => 'panel:$panelId';
+/// An instance of a prefab that is drawn from something other than an
+/// entity: from a folder, or from nothing at all.
+class PrefabEntry extends Entry {
+  const PrefabEntry(super.item);
 }
 
 class WidgetEntry extends Entry {
@@ -104,8 +87,6 @@ class LayoutView {
   Iterable<PanelView> get bars => [for (final id in Layout.barIds) ?panels[id]];
 }
 
-const _previewCount = 4;
-
 /// [layout] matched to the [entities] there are: what is drawn from one
 /// that is gone is dropped, and those of a kind that is put on the screen
 /// of itself, placed nowhere, are in the inbox.
@@ -124,25 +105,14 @@ LayoutView resolveLayout(List<Entity> entities, LauncherConfig config) {
   final byId = {for (final entity in entities) entity.id: entity};
   final layout = layoutWith(config.layout, entities);
 
-  List<Entity> preview(Panel panel) => [
-    for (final item in panel.items)
-      if (item.kind == ItemKind.prefab) byId[item.source]!,
-  ].take(_previewCount).toList();
-
   late PaneView Function(Pane) view;
   Entry entry(LayoutItem item) => switch (item.kind) {
-    ItemKind.prefab => EntityEntry(item, byId[item.source]!),
+    ItemKind.prefab => switch (byId[item.source]) {
+      null => PrefabEntry(item),
+      final entity => EntityEntry(item, entity),
+    },
     ItemKind.widget => WidgetEntry(item),
     ItemKind.pane => PaneEntry(item, view(item.pane!)),
-    ItemKind.panel => () {
-      final panel = layout.panel(item.ref)!;
-      return PanelEntry(
-        item,
-        panel,
-        preview: preview(panel),
-        icon: config.iconOverrides[PanelEntry.iconKey(panel.id)],
-      );
-    }(),
   };
   // Drawn as the pane would have them: see [Pane.shown].
   view = (pane) {

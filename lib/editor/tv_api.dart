@@ -124,8 +124,7 @@ class TvApi {
             iconOverrides: {
               for (final MapEntry(:key, :value)
                   in (json['panelIcons'] as Map).entries)
-                PanelEntry.iconKey(key as String): _at(value as String)
-                    .toString(),
+                Panel.iconKey(key as String): _at(value as String).toString(),
             },
           ),
       widgets: [

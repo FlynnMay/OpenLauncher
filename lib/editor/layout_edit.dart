@@ -250,7 +250,9 @@ Layout removeItem(Layout layout, String id) {
       ...rest.removed,
       for (final item in gone)
         if (item.source case final source?
-            when item.kind == ItemKind.prefab && !placed.contains(source))
+            when item.kind == ItemKind.prefab &&
+                !placed.contains(source) &&
+                rest.panel(source) == null)
           source,
     },
   );
@@ -347,6 +349,25 @@ Layout reshapeItem(
       : next;
 });
 
+/// [pane] with the rule called [key] set to [value], as it is saved; null
+/// for the usual. How it places things and how many columns it has take
+/// what is in it with them.
+Pane withRule(Pane pane, String key, Object? value) => switch (key) {
+  'mode' => withMode(pane, PaneMode.values.asNameMap()[value] ?? PaneMode.flow),
+  'columns' => withColumns(
+    pane,
+    value is num ? value.toInt() : Pane.defaultColumns,
+  ),
+  _ => Pane.fromJson(
+    {...pane.toJson(), key: value}..removeWhere((_, value) => value == null),
+  ),
+};
+
+/// The same for a panel: a sidebar's rules, a folder's.
+Panel withPanelRule(Panel panel, String key, Object? value) => Panel.fromJson(
+  {...panel.toJson(), key: value}..removeWhere((_, value) => value == null),
+);
+
 /// [pane] placing its items the [mode] way, each staying where it was as
 /// far as that way allows.
 Pane withMode(Pane pane, PaneMode mode) {
@@ -433,7 +454,8 @@ Layout removePanel(Layout layout, String id) {
     ),
     (_, items) => [
       for (final item in items)
-        if (item.kind != ItemKind.panel || item.ref != id) item,
+        // What opened it has nothing left to open.
+        if (item.kind != ItemKind.prefab || item.source != id) item,
     ],
   );
   final placed = placedCounts(rest);
@@ -444,7 +466,9 @@ Layout removePanel(Layout layout, String id) {
       ...rest.removed,
       for (final item in panel.items)
         if (item.source case final source?
-            when item.kind == ItemKind.prefab && !placed.containsKey(source))
+            when item.kind == ItemKind.prefab &&
+                !placed.containsKey(source) &&
+                rest.panel(source) == null)
           source,
     },
   );

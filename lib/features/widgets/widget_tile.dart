@@ -23,6 +23,7 @@ class WidgetTile extends StatelessWidget {
     WidgetKind.meter => MeterWidget(options: options),
     WidgetKind.button => ButtonWidget(options: options),
     WidgetKind.icon => IconWidget(options: options),
+    WidgetKind.folder => FolderPicture(options: options),
     // Needs the item it is, which the device knows it by; and what was
     // made by a newer version of the launcher.
     WidgetKind.android || null => const SizedBox.shrink(),

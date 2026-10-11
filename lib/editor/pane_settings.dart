@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/corner_settings.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/option_fields.dart';
+import 'package:openlauncher/editor/trigger_settings.dart';
+import 'package:openlauncher/editor/variables_settings.dart';
 
 /// How one or more panes arrange what is in them: the same settings for a
 /// pane on the screen and for the screen itself, which is a pane too.
@@ -17,6 +21,7 @@ class PaneSettings extends StatelessWidget {
     this.shaped = true,
     this.children = const [],
     this.prefabs = const {},
+    this.usualOn,
   });
 
   /// The heading the settings go under.
@@ -37,6 +42,11 @@ class PaneSettings extends StatelessWidget {
   /// with none given, rules are not offered.
   final Map<String, Prefab> prefabs;
 
+  /// What the pane does when it is revealed and hidden where it says
+  /// nothing itself, for a pane that is: a sidebar's, a folder's. With
+  /// none given, that is not offered.
+  final Triggers? usualOn;
+
   /// More settings, shown after these.
   final List<Widget> children;
 
@@ -45,78 +55,39 @@ class PaneSettings extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _arrangement,
-      _spacing,
       if (shaped) _corners,
       _entities,
       if (prefabs.isNotEmpty) _rules,
+      if (usualOn case final usual? when panes.length == 1)
+        TriggerSettings(
+          title: 'When it is shown and hidden',
+          triggers: const [Trigger.reveal, Trigger.hide],
+          set: panes.single.on,
+          usual: usual,
+          onChanged: (on) => onChanged((pane) => pane.copyWith(on: on)),
+        ),
+      // What everything in the pane can read; one pane at a time.
+      if (panes.length == 1)
+        VariablesSettings(
+          variables: panes.single.vars,
+          onChanged: (vars) => onChanged((pane) => pane.copyWith(vars: vars)),
+        ),
     ],
   );
 
+  /// Its rules, each drawn from what describes it. With several panes
+  /// they show the first one's, and a change is made to them all.
   Widget get _arrangement => Section(title, [
-    if (named && panes.length == 1)
-      CommitField(
-        label: 'Title',
-        value: panes.single.title,
-        onChanged: (title) => onChanged((pane) => pane.copyWith(title: title)),
-      ),
-    LabelledRow(
-      'Placement',
-      ChoiceBox<PaneMode>(
-        value: shared(panes.map((pane) => pane.mode)),
-        choices: const {
-          PaneMode.flow: 'In order',
-          PaneMode.grid: 'On cells',
-          PaneMode.free: 'Anywhere',
-        },
-        onChanged: (mode) => onChanged((pane) => withMode(pane, mode)),
-      ),
-    ),
-    NumberStepper(
-      label: 'Columns',
-      value: shared(panes.map((pane) => pane.columns * 1.0)),
-      min: 1,
-      max: Pane.maxColumns,
-      onChanged: (columns) => onChanged((pane) => withColumns(pane, columns)),
-    ),
-    NumberStepper(
-      label: 'Row height',
-      value: shared(panes.map((pane) => pane.rowHeight ?? -1)),
-      usual: 'By shape',
-      min: Pane.minRowHeight.round(),
-      max: Pane.maxRowHeight.round(),
-      step: 4,
-      onChanged: (height) => onChanged(
-        (pane) => pane.copyWith(
-          rowHeight: height < Pane.minRowHeight ? null : height * 1.0,
-        ),
-      ),
+    ...ruleFields(
+      options: [
+        for (final rule in paneRules)
+          if (rule.key != 'title' || named && panes.length == 1) rule,
+      ],
+      json: panes.first.toJson(),
+      onChanged: (key, value) =>
+          onChanged((pane) => withRule(pane, key, value)),
     ),
     ...children,
-  ]);
-
-  Widget get _spacing => Section('Spacing', [
-    NumberStepper(
-      label: 'Spacing',
-      value: shared(panes.map((pane) => pane.spacing ?? -1)),
-      usual: 'Usual',
-      min: 0,
-      max: Pane.maxSpacing.round(),
-      step: 2,
-      onChanged: (spacing) => onChanged(
-        (pane) => pane.copyWith(spacing: spacing < 0 ? null : spacing * 1.0),
-      ),
-    ),
-    NumberStepper(
-      label: 'Padding',
-      value: shared(panes.map((pane) => pane.padding ?? -1)),
-      usual: 'Usual',
-      min: 0,
-      max: Pane.maxPadding.round(),
-      step: 2,
-      onChanged: (padding) => onChanged(
-        (pane) => pane.copyWith(padding: padding < 0 ? null : padding * 1.0),
-      ),
-    ),
   ]);
 
   Widget get _corners => Section('Corners', open: false, [

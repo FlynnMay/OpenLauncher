@@ -6,9 +6,6 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 /// What only the screen an action was set off on can do. There is none
 /// where there is no screen, and such actions then do nothing.
 abstract interface class ActionScreen {
-  /// Shows the popup [panelId]; with a [subject], as that entity's menu.
-  Future<void> openPanel(String panelId, {Entity? subject});
-
   Future<void> openSettings();
 
   /// Closes the popup the action was set off in.

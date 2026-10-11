@@ -134,8 +134,7 @@ class ConfigApi {
   ) async {
     final layout = (await _ref.read(configProvider.future)).layout;
     final isPanel = layout.panels.any(
-      (panel) =>
-          panel.kind == PanelKind.popup && PanelEntry.iconKey(panel.id) == id,
+      (panel) => panel.kind == PanelKind.popup && Panel.iconKey(panel.id) == id,
     );
     return isPanel ? action(id!) : _withEntity(id, action);
   }
@@ -147,10 +146,10 @@ class ConfigApi {
     // Pictures of popups that no longer exist have nothing to show on.
     final config = await _ref.read(configProvider.future);
     final kept = {
-      for (final panel in config.layout.panels) PanelEntry.iconKey(panel.id),
+      for (final panel in config.layout.panels) Panel.iconKey(panel.id),
     };
     for (final key in config.iconOverrides.keys.toList()) {
-      if (key.startsWith(PanelEntry.iconKey('')) && !kept.contains(key)) {
+      if (key.startsWith(Panel.iconKey('')) && !kept.contains(key)) {
         await _ref.read(customIconsProvider).clear(key);
       }
     }

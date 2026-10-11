@@ -69,6 +69,16 @@ class Layout {
     return null;
   }
 
+  /// The id of the folder [item] is drawn from, where it is an instance of
+  /// a prefab whose source is one: what opens a folder.
+  String? folderOf(LayoutItem item) => switch (item.source) {
+    final source?
+        when item.kind == ItemKind.prefab &&
+            panel(source)?.kind == PanelKind.popup =>
+      source,
+    _ => null,
+  };
+
   /// Throws a [FormatException] if [json] is not shaped like a layout. The
   /// result still needs [normalised].
   ///

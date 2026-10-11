@@ -5,7 +5,11 @@ enum Trigger {
   press('Pressed'),
   hold('Held down'),
   focus('The focus arrives'),
-  blur('The focus leaves');
+  blur('The focus leaves'),
+
+  /// For what is shown and hidden: a sidebar, a folder.
+  reveal('It is revealed'),
+  hide('It is hidden');
 
   const Trigger(this.label);
 

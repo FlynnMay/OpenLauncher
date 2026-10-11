@@ -1,8 +1,11 @@
 /// What kind of thing a widget's option is, which is what decides how the
 /// editor lets it be set.
 enum OptionKind {
-  /// Text that values can be written into (`{{time}}`).
+  /// Text that values can be written into (`{{clock.time}}`).
   template,
+
+  /// Plain text.
+  text,
   number,
   toggle,
 

@@ -1,4 +1,3 @@
-import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
 
 /// The prefab an entity is an instance of unless it names another, and the
@@ -9,7 +8,6 @@ const folderPrefabId = 'folder-card';
 // What an instance says of itself is kept in its item's options, under
 // these names: which prefab, which of its layouts, and, by part, the
 // values it sets differently (`hidden` among them).
-const prefabOption = 'prefab';
 const layoutOption = 'layout';
 const partsOption = 'parts';
 
@@ -17,15 +15,7 @@ const partsOption = 'parts';
 const hiddenOption = 'hidden';
 
 /// The id of the prefab [item] is an instance of.
-String prefabIdOf(LayoutItem item) => switch (item.kind) {
-  // An instance names its prefab; a card that opens a folder is one of
-  // the folder prefab unless it says otherwise.
-  ItemKind.prefab => item.ref,
-  _ => switch (item.options[prefabOption]) {
-    final String id => id,
-    _ => folderPrefabId,
-  },
-};
+String prefabIdOf(LayoutItem item) => item.ref;
 
 /// [options] as they are under [rule], which a pane sets for every
 /// instance of a prefab in it: its layout, and whatever it says of a part,
