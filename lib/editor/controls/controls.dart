@@ -8,6 +8,7 @@ export 'dialogs.dart';
 export 'file_pick.dart';
 export 'fill_field.dart';
 export 'gradient_bar.dart';
+export 'id_label.dart';
 export 'image_carousel.dart';
 export 'labelled_row.dart';
 export 'number_field.dart';

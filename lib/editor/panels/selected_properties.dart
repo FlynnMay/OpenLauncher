@@ -167,6 +167,12 @@ class SelectedProperties extends ConsumerWidget {
           ),
         if (allFolders)
           Section('Folder', [
+            // The pane's own id, apart from its card's.
+            if (single != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IdLabel(folders.keys.single),
+              ),
             if (single != null)
               Wrap(
                 spacing: 8,

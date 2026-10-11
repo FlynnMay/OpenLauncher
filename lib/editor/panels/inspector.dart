@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/panels/global_properties.dart';
 import 'package:openlauncher/editor/panels/object_tree.dart';
@@ -31,15 +32,30 @@ class Inspector extends ConsumerWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  switch (found.length) {
-                    0 => 'Launcher',
-                    1 => name(found.single),
-                    final count => '$count selected',
-                  },
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        switch (found.length) {
+                          0 => 'Launcher',
+                          1 => name(found.single),
+                          final count => '$count selected',
+                        },
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // What templates and actions name it by.
+                    if (found.length == 1) ...[
+                      const SizedBox(width: 8),
+                      Flexible(child: IdLabel(found.single.item.id)),
+                    ],
+                  ],
                 ),
               ),
               if (found.isNotEmpty)

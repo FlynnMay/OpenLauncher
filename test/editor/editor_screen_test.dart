@@ -78,6 +78,23 @@ void main() {
     final picked = ref.read(selectedProvider).single;
     expect(picked.item.handed.firstOrNull, 'app:a');
 
+    // Its id is beside its name, and a press copies it.
+    final id = find.text('(ID: ${picked.item.id})');
+    expect(id, findsOneWidget);
+    final copied = <Object?>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') copied.add(call.arguments);
+        return null;
+      },
+    );
+    await tester.tap(id);
+    await tester.pumpAndSettle();
+    expect(copied, [
+      {'text': picked.item.id},
+    ]);
+
     await tester.tap(inTree('Home screen'));
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), isEmpty);
