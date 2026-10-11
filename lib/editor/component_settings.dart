@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_kind.dart';
+import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
@@ -26,11 +26,11 @@ class ComponentSettings extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final options = item.options;
     final state = ref.watch(tvStateProvider).value;
-    final kind = ComponentKind.named(item.kind);
+    final kind = ComponentRegistry.named(item.kind);
     final settings = [
       // Fields that need more than a generated one.
       ...switch (kind) {
-        ComponentKind.android => [
+        ComponentRegistry.android => [
           LabelledRow(
             'Shows',
             ChoiceBox<String>(

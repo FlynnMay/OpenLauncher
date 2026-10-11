@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/components/component_kind.dart';
+import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
@@ -182,7 +182,7 @@ class Component {
   /// Unique in the layout, or within its prefab.
   final String id;
 
-  /// A `ComponentKind` name or [paneKind]. Empty for an instance.
+  /// A `ComponentRegistry` name or [paneKind]. Empty for an instance.
   final String kind;
 
   /// The prefab this is an instance of, if any. An instance stores only what
@@ -290,7 +290,7 @@ class Component {
   /// Style properties that apply to this component.
   List<String> get styleKeys => [
     ...boxStyle,
-    ...ComponentKind.named(kind)?.style ?? textStyle,
+    ...ComponentRegistry.named(kind)?.style ?? textStyle,
   ];
 
   /// Whether the pane overrides anything on its children.

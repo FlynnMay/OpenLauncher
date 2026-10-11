@@ -26,7 +26,7 @@ void main() {
                   redraw = setState;
                   return Column(
                     children: optionFields(
-                      options: ComponentKind.text.options,
+                      options: ComponentRegistry.text.options,
                       values: values,
                       onChanged: (next) => setState(() => values = next),
                     ),
@@ -105,7 +105,7 @@ void main() {
   test(
     'every kind of component says what can be set, each under its own key',
     () {
-      for (final kind in ComponentKind.values) {
+      for (final kind in ComponentRegistry.values) {
         final keys = [for (final option in kind.options) option.key];
         expect(keys.toSet(), hasLength(keys.length), reason: kind.name);
       }

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/actions/action_kind.dart';
+import 'package:openlauncher/core/actions/action_registry.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 
@@ -9,7 +9,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 const entityArg = 'entity';
 
 /// Every action, once per name. All belong to some entity category.
-List<ActionKind> get actionKinds {
+List<ActionRegistry> get actionRegistries {
   final names = <String>{};
   return [
     for (final kind in entityRegistries)
@@ -24,13 +24,13 @@ List<ComponentOption> actOptions(
   Map<String, Object?> act, {
   Map<String, String> entities = const {},
 }) {
-  final kind = actionKind('${act['do']}');
+  final kind = actionRegistry('${act['do']}');
   return [
     ComponentOption(
       'do',
       'Does',
       OptionKind.choice,
-      choices: {for (final kind in actionKinds) kind.name: kind.label},
+      choices: {for (final kind in actionRegistries) kind.name: kind.label},
     ),
     if (kind != null && actionNeedsEntity(kind.name) && entities.isNotEmpty)
       ComponentOption(
@@ -57,15 +57,15 @@ List<ComponentOption> actOptions(
   ];
 }
 
-ActionKind? actionKind(String name) =>
-    actionKinds.where((kind) => kind.name == name).firstOrNull;
+ActionRegistry? actionRegistry(String name) =>
+    actionRegistries.where((kind) => kind.name == name).firstOrNull;
 
-ActionKind? _among(Iterable<ActionKind>? actions, String name) =>
+ActionRegistry? _among(Iterable<ActionRegistry>? actions, String name) =>
     actions?.where((action) => action.name == name).firstOrNull;
 
 /// The single-entity category that presents [name], so the action needs no
 /// entity named. Null if only multi-entity categories have it.
-({Entity entity, ActionKind action})? ownerOf(String name) {
+({Entity entity, ActionRegistry action})? ownerOf(String name) {
   for (final kind in entityRegistries) {
     if ((kind.one, _among(kind.actions, name)) case (
       final entity?,
@@ -81,7 +81,7 @@ ActionKind? _among(Iterable<ActionKind>? actions, String name) =>
 bool actionNeedsEntity(String name) => ownerOf(name) == null;
 
 /// [name] as [entity]'s category presents it, else as its single owner does.
-ActionKind? actionFor(String name, Entity? entity) =>
+ActionRegistry? actionFor(String name, Entity? entity) =>
     _among(entityRegistry(entity?.category ?? '')?.actions, name) ??
     ownerOf(name)?.action;
 
@@ -132,5 +132,5 @@ class ActionRunner {
   /// Runs [kind] locally. The web editor overrides this to forward device
   /// actions to the TV.
   @protected
-  Future<String?> carryOut(ActionKind kind, ActionRun run) => kind.run(run);
+  Future<String?> carryOut(ActionRegistry kind, ActionRun run) => kind.run(run);
 }

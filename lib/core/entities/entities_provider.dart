@@ -61,7 +61,7 @@ class TvInputsNotifier extends _DeviceListNotifier<TvInput> {
 final entitiesProvider = FutureProvider<List<Entity>>((ref) async {
   final config = await ref.watch(configProvider.future);
   return arrangeEntities([
-    for (final kind in entityRegistries) ...await kind.list(ref),
+    for (final registry in entityRegistries) ...await registry.list(ref),
   ], config);
 });
 

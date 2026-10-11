@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/components/component_kind.dart';
+import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
@@ -187,7 +187,7 @@ class ComponentView extends ConsumerWidget {
         );
       }
       final styled = StyledBox(style: box, child: content);
-      if (!acts && c.kind != ComponentKind.button.name) return styled;
+      if (!acts && c.kind != ComponentRegistry.button.name) return styled;
       return FocusTile(
         autofocus: focus?.take() ?? false,
         focusedScale: 1.03,

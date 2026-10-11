@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_kind.dart';
+import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -85,7 +85,7 @@ class _StageState extends ConsumerState<Stage> {
     if (!item.isInstance) {
       return DragHandle(
         data: dragged(
-          ComponentKind.named(item.kind)?.label ?? item.kind,
+          ComponentRegistry.named(item.kind)?.label ?? item.kind,
           const SymbolArt(Icons.widgets_outlined),
         ),
         child: still,

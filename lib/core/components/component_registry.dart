@@ -1,8 +1,8 @@
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/style/style.dart';
 
-/// The primitive component kinds.
-enum ComponentKind {
+/// The primitive components.
+enum ComponentRegistry {
   text('Text', 2, 1),
   picture('Picture', 2, 2),
   meter('Meter', 2, 1),
@@ -19,7 +19,7 @@ enum ComponentKind {
   /// An Android app widget; the `provider` option says which.
   android('App widget', 2, 2);
 
-  const ComponentKind(this.label, this.defaultW, this.defaultH);
+  const ComponentRegistry(this.label, this.defaultW, this.defaultH);
 
   final String label;
 
@@ -132,5 +132,5 @@ enum ComponentKind {
     folder || android => const [],
   };
 
-  static ComponentKind? named(String name) => values.asNameMap()[name];
+  static ComponentRegistry? named(String name) => values.asNameMap()[name];
 }

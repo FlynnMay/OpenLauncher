@@ -9,10 +9,10 @@ import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/variables_settings.dart';
 
 List<ComponentOption> _optionsOf(Component part) =>
-    ComponentKind.named(part.kind)?.options ?? const [];
+    ComponentRegistry.named(part.kind)?.options ?? const [];
 
 List<String> _styleOf(Component part) =>
-    ComponentKind.named(part.kind)?.style ?? const [];
+    ComponentRegistry.named(part.kind)?.style ?? const [];
 
 /// An instance's own settings: its prefab, variant, and per-part visibility,
 /// options and style. Only differences from the prefab are stored.

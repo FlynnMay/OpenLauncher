@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_kind.dart';
+import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -24,7 +24,7 @@ String objectName(Component item, Layout? layout, List<Entity> entities) {
   if (item.isPane) return item.title.isEmpty ? 'Pane' : item.title;
   return switch (item.options['label']) {
     final String label when label.isNotEmpty && !label.contains('{{') => label,
-    _ => ComponentKind.named(item.kind)?.label ?? 'Component',
+    _ => ComponentRegistry.named(item.kind)?.label ?? 'Component',
   };
 }
 

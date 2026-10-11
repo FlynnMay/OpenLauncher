@@ -5,8 +5,8 @@ import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 
-/// Action chains per trigger. Offered actions come from `actionKinds`; chains
-/// equal to [usual] are not stored.
+/// Action chains per trigger. Offered actions come from `actionRegistries`;
+/// chains equal to [usual] are not stored.
 class TriggerSettings extends StatelessWidget {
   const TriggerSettings({
     super.key,
@@ -57,7 +57,7 @@ class TriggerSettings extends StatelessWidget {
               trigger.name,
               acts.isEmpty ? 'Add an action' : 'Then another',
               OptionKind.list,
-              blank: {'do': actionKinds.first.name},
+              blank: {'do': actionRegistries.first.name},
               fields: (act) => actOptions(act, entities: entities),
             ),
             records: [for (final act in acts) act.toJson()],

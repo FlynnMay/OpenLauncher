@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/action_kind.dart';
+import 'package:openlauncher/core/actions/action_registry.dart';
 import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
@@ -49,7 +49,7 @@ class EntityRegistry {
   /// Lists the current entities; re-run when what it watches changes.
   final Future<List<Entity>> Function(Ref ref) list;
 
-  final List<ActionKind> actions;
+  final List<ActionRegistry> actions;
 
   /// Live data merged over [Entity.data]; `text` is the whole-value form.
   final Object? Function(Ref ref, Entity entity)? data;
@@ -81,7 +81,7 @@ final List<EntityRegistry> entityRegistries = [
         ),
     ],
     actions: [
-      ActionKind(
+      ActionRegistry(
         name: 'open',
         label: 'Open',
         icon: 'play',
@@ -115,7 +115,7 @@ final List<EntityRegistry> entityRegistries = [
         ),
     ],
     actions: [
-      ActionKind(
+      ActionRegistry(
         name: 'open',
         label: 'Open',
         icon: 'play',
@@ -125,7 +125,7 @@ final List<EntityRegistry> entityRegistries = [
           return null;
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'info',
         onDevice: true,
         label: 'App info',
@@ -135,7 +135,7 @@ final List<EntityRegistry> entityRegistries = [
           return null;
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'forceStop',
         onDevice: true,
         label: 'Force stop',
@@ -151,7 +151,7 @@ final List<EntityRegistry> entityRegistries = [
               'to stop apps straight from the menu.';
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'uninstall',
         onDevice: true,
         label: 'Uninstall',
@@ -170,7 +170,7 @@ final List<EntityRegistry> entityRegistries = [
     placed: true,
     list: (ref) async => const [Entity.settings],
     actions: [
-      ActionKind(
+      ActionRegistry(
         name: 'open',
         label: 'Open',
         icon: 'play',
@@ -273,7 +273,7 @@ final List<EntityRegistry> entityRegistries = [
         (MediaCommand.next, 'Next', 'next'),
         (MediaCommand.previous, 'Previous', 'previous'),
       ])
-        ActionKind(
+        ActionRegistry(
           name: command.name,
           label: label,
           icon: icon,
@@ -290,7 +290,7 @@ final List<EntityRegistry> entityRegistries = [
     label: 'System',
     actions: [
       // The message's first line is its heading.
-      ActionKind(
+      ActionRegistry(
         name: 'setup',
         label: 'Set up automatically',
         icon: 'settings',
@@ -332,7 +332,7 @@ final List<EntityRegistry> entityRegistries = [
           };
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'homeButton',
         label: 'Switch the Home button',
         icon: 'home',
@@ -351,7 +351,7 @@ final List<EntityRegistry> entityRegistries = [
           return null;
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'tvSettings',
         label: 'TV settings',
         icon: 'tv',
@@ -368,7 +368,7 @@ final List<EntityRegistry> entityRegistries = [
     label: 'Layers',
     data: (ref, entity) => {'count': ref.watch(layersProvider).length},
     actions: [
-      ActionKind(
+      ActionRegistry(
         name: 'newLayer',
         label: 'Create a new layer',
         icon: 'apps',
@@ -396,7 +396,7 @@ final List<EntityRegistry> entityRegistries = [
           return null;
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'toLayer',
         label: 'Move to the top layer',
         icon: 'apps',
@@ -408,7 +408,7 @@ final List<EntityRegistry> entityRegistries = [
           return null;
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'closeLayer',
         label: 'Take its layer away',
         icon: 'close',
@@ -420,7 +420,7 @@ final List<EntityRegistry> entityRegistries = [
           return null;
         },
       ),
-      ActionKind(
+      ActionRegistry(
         name: 'close',
         label: 'Close the popup',
         icon: 'close',
@@ -436,7 +436,7 @@ final List<EntityRegistry> entityRegistries = [
     label: 'Variables',
     actions: [
       // Runtime only; not saved.
-      ActionKind(
+      ActionRegistry(
         name: 'set',
         label: 'Set a variable',
         icon: 'star',
@@ -467,7 +467,7 @@ final List<EntityRegistry> entityRegistries = [
     name: 'layout',
     label: 'Layout',
     actions: [
-      ActionKind(
+      ActionRegistry(
         name: 'remove',
         label: 'Remove',
         icon: 'remove',
@@ -521,11 +521,11 @@ Place? _place(Ref ref) =>
     ref.watch(configProvider.select((config) => config.value?.place));
 
 EntityRegistry? entityRegistry(String name) =>
-    entityRegistries.where((kind) => kind.name == name).firstOrNull;
+    entityRegistries.where((registry) => registry.name == name).firstOrNull;
 
 /// Sort position of [name]; unknown categories go last.
 int entityRegistryIndex(String name) =>
-    switch (entityRegistries.indexWhere((kind) => kind.name == name)) {
+    switch (entityRegistries.indexWhere((registry) => registry.name == name)) {
       -1 => entityRegistries.length,
       final index => index,
     };

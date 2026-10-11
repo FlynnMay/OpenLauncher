@@ -16,7 +16,7 @@ enum Trigger {
   final String label;
 }
 
-/// One saved action: an `ActionKind` name plus its arguments, such as the
+/// One saved action: an `ActionRegistry` name plus its arguments, such as the
 /// `entity` that does it.
 @immutable
 class Act {

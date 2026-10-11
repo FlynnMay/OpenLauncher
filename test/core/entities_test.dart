@@ -327,7 +327,7 @@ void main() {
       const app = Entity(id: 'app:a', category: appCategory, label: 'A');
       const input = Entity(id: 'input:x', category: inputCategory, label: 'X');
       Set<String> presents(Entity entity) => {
-        for (final action in actionKinds)
+        for (final action in actionRegistries)
           if (actionFor(action.name, entity) case final found?
               when actionNeedsEntity(found.name))
             found.name,
@@ -343,7 +343,7 @@ void main() {
       expect(ownerOf('newLayer')?.entity.id, 'layers');
       expect(ownerOf('set')?.entity.id, 'variables');
       expect(ownerOf('remove')?.entity.id, 'layout');
-      for (final action in actionKinds) {
+      for (final action in actionRegistries) {
         expect(
           entityRegistries.any((kind) => kind.actions.contains(action)),
           isTrue,
@@ -365,7 +365,7 @@ void main() {
           Entity(id: 'lamp:desk', category: 'lamp', label: 'Desk'),
         ],
         actions: [
-          ActionKind(
+          ActionRegistry(
             name: 'toggle',
             label: 'Switch',
             icon: 'light',
@@ -409,7 +409,7 @@ void main() {
       });
       // What it presents is offered and done; what apps present is not.
       final actions = container.read(actionRunnerProvider);
-      expect(actionKinds.map((kind) => kind.name), contains('toggle'));
+      expect(actionRegistries.map((kind) => kind.name), contains('toggle'));
       expect(actions.applies(const Act('toggle'), desk), isTrue);
       expect(actions.applies(const Act('uninstall'), desk), isFalse);
       expect(

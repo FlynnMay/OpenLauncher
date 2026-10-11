@@ -2,6 +2,6 @@
 library;
 
 export 'act.dart';
-export 'action_kind.dart';
-export 'action_kinds.dart';
+export 'action_registry.dart';
+export 'action_runner.dart';
 export 'defaults.dart';

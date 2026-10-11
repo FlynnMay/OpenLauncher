@@ -114,7 +114,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       ],
       // One button per action.
       'Buttons': [
-        for (final kind in actionKinds)
+        for (final kind in actionRegistries)
           // Actions of a single entity are listed below, already targeted.
           if (!standing.any(
             (entity) =>

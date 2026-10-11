@@ -98,7 +98,7 @@ class TileActions {
           component: component,
         );
       } on Object catch (error) {
-        final what = actionKind(act.name)?.label.toLowerCase() ?? act.name;
+        final what = actionRegistry(act.name)?.label.toLowerCase() ?? act.name;
         message = [
           'Could not $what',
           if (subject case final entity?) ' ${entity.label}',

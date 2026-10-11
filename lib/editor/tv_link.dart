@@ -109,7 +109,7 @@ class TvActionRunner extends ActionRunner {
   final TvApi _api;
 
   @override
-  Future<String?> carryOut(ActionKind kind, ActionRun run) => kind.onDevice
+  Future<String?> carryOut(ActionRegistry kind, ActionRun run) => kind.onDevice
       ? _api.act(
           Act(run.act.name, {
             ...run.act.args,

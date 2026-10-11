@@ -140,7 +140,8 @@ class TvApi {
               w: (component['w'] as num).toDouble(),
               h: (component['h'] as num).toDouble(),
               options: {
-                ...?ComponentKind.named(component['type'] as String)?.starter,
+                ...?ComponentRegistry.named(component['type'] as String)
+                    ?.starter,
                 'provider': ?provider?['id'],
               },
             ),

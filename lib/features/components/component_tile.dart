@@ -18,22 +18,22 @@ class ComponentTile extends StatelessWidget {
     String kind,
     Map<String, Object?> options, {
     bool shrink = false,
-  }) => switch (ComponentKind.named(kind)) {
-    ComponentKind.text => TextComponent(options: options, shrink: shrink),
-    ComponentKind.picture => PictureComponent(options: options),
-    ComponentKind.meter => MeterComponent(options: options),
-    ComponentKind.button => ButtonComponent(options: options),
-    ComponentKind.icon => IconComponent(options: options),
-    ComponentKind.folder => FolderPicture(options: options),
+  }) => switch (ComponentRegistry.named(kind)) {
+    ComponentRegistry.text => TextComponent(options: options, shrink: shrink),
+    ComponentRegistry.picture => PictureComponent(options: options),
+    ComponentRegistry.meter => MeterComponent(options: options),
+    ComponentRegistry.button => ButtonComponent(options: options),
+    ComponentRegistry.icon => IconComponent(options: options),
+    ComponentRegistry.folder => FolderPicture(options: options),
     // App widgets need their component's id; unknown kinds draw nothing.
-    ComponentKind.android || null => const SizedBox.shrink(),
+    ComponentRegistry.android || null => const SizedBox.shrink(),
   };
 
   @override
-  Widget build(BuildContext context) => switch (ComponentKind.named(
+  Widget build(BuildContext context) => switch (ComponentRegistry.named(
     item.kind,
   )) {
-    ComponentKind.android => AppWidgetView(item: item),
+    ComponentRegistry.android => AppWidgetView(item: item),
     _ => of(item.kind, {...item.options, 'style': item.style}, shrink: shrink),
   };
 }

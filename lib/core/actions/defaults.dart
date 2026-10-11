@@ -1,7 +1,7 @@
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/actions/action_kind.dart';
-import 'package:openlauncher/core/actions/action_kinds.dart';
-import 'package:openlauncher/core/components/component_kind.dart';
+import 'package:openlauncher/core/actions/action_registry.dart';
+import 'package:openlauncher/core/actions/action_runner.dart';
+import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
@@ -33,12 +33,12 @@ Triggers panelTriggersOf(Panel panel) => {
 /// A button that runs [kind], optionally on [entity].
 Component actionButton(
   String id,
-  ActionKind kind, {
+  ActionRegistry kind, {
   String? entity,
   Map<String, Object?> args = const {},
 }) => Component(
   id: id,
-  kind: ComponentKind.button.name,
+  kind: ComponentRegistry.button.name,
   options: {'label': kind.label, 'icon': kind.icon},
   on: {
     Trigger.press: [
@@ -62,7 +62,7 @@ Panel usualMenuPanel() => Panel(
     vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
     children: [
       for (final name in usualMenu)
-        if (actionKind(name) case final kind?)
+        if (actionRegistry(name) case final kind?)
           actionButton(
             '${Layout.menuId}-${kind.name.toLowerCase()}',
             kind,

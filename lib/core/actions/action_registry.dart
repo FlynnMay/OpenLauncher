@@ -37,8 +37,8 @@ class ActionRun {
 }
 
 /// An action an entity category presents.
-class ActionKind {
-  const ActionKind({
+class ActionRegistry {
+  const ActionRegistry({
     required this.name,
     required this.label,
     required this.icon,

@@ -72,9 +72,9 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
           panel.id: _iconUrl(Panel.iconKey(panel.id), path),
     },
     'components': [
-      for (final kind in ComponentKind.values)
+      for (final kind in ComponentRegistry.values)
         // App widgets only where some exist.
-        if (kind != ComponentKind.android || providers.isNotEmpty)
+        if (kind != ComponentRegistry.android || providers.isNotEmpty)
           {
             'type': kind.name,
             'label': kind.label,
