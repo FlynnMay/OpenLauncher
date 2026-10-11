@@ -60,15 +60,16 @@ From a phone or computer:
 
 ```bash
 flutter pub get
-tool/build_editor.sh
-flutter build apk --release --target-platform android-arm
+tool/build_for_release.sh
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-`tool/build_editor.sh` builds the editor for the web and puts it in
-`assets/editor/`, which is not kept in git. Run it before building the app,
-and again after changing anything the editor uses, or the TV will serve an
-old editor or none.
+`tool/build_for_release.sh` builds the editor for the web, then one APK for
+32- and 64-bit ARM. `tool/build_for_dev.sh` does the same as a debug build
+(`app-debug.apk`, 32-bit ARM only, assertions on).
+
+Both run `tool/build_editor.sh`, which puts the editor in `assets/editor/`,
+not kept in git. An APK built without it serves an old editor or none.
 
 Use `--target-platform android-arm64` if your device is 64-bit.
 
@@ -161,7 +162,7 @@ lib/
   server/      web API, file uploads, and serving the editor
   editor/      the editor: the launcher itself as a web app, plus editing
 web/           the editor's web shell
-tool/          build_editor.sh, which builds the editor into the app
+tool/          build scripts: the editor into the app, release and dev APKs
 pigeons/       definition of the Dart <-> Kotlin bridge
 android/       Kotlin: app list, inputs, Home button service, setup,
                notifications and media, app widgets
