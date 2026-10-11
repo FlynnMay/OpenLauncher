@@ -17,7 +17,7 @@ class FirstFocus {
 /// The sizes of a pane's cells when its grid is [width] wide.
 @immutable
 class PaneMetrics {
-  PaneMetrics(Pane pane, double width)
+  PaneMetrics(Component pane, double width)
     : gapX = pane.spacingX,
       gapY = pane.spacingY,
       cellWidth = (width - (pane.columns - 1) * pane.spacingX) / pane.columns,
@@ -53,7 +53,7 @@ class PaneMetrics {
 class PaneFrame extends InheritedWidget {
   const PaneFrame({super.key, required this.wrap, required super.child});
 
-  final Widget Function(Pane pane, Widget grid) wrap;
+  final Widget Function(Component pane, Widget grid) wrap;
 
   @override
   bool updateShouldNotify(PaneFrame oldWidget) => wrap != oldWidget.wrap;
@@ -62,21 +62,23 @@ class PaneFrame extends InheritedWidget {
 /// Lays a pane's entries out on its cell grid, filling the width given and
 /// as tall as they need.
 class PaneGrid extends StatelessWidget {
-  const PaneGrid({super.key, required this.view, required this.tile});
+  const PaneGrid({super.key, required this.pane, required this.tile});
 
-  final PaneView view;
-  final Widget Function(Entry entry) tile;
+  final Component pane;
+  final Widget Function(Component component) tile;
 
   /// Width over height of one cell, label included.
   static const cellRatio = 1.45;
 
   @override
   Widget build(BuildContext context) {
-    final pane = view.pane;
+    final pane = this.pane;
+    // As the pane would have them: see [Component.shown].
+    final shown = pane.shown;
     final grid = LayoutBuilder(
       builder: (context, constraints) {
         final metrics = PaneMetrics(pane, constraints.maxWidth);
-        final placements = placeItems(pane.items, pane.columns, pane.mode);
+        final placements = placeItems(shown, pane.columns, pane.mode);
         final rows = rowCount(placements);
         return SizedBox(
           height: rows == 0 ? 0 : metrics.down(rows),
@@ -87,12 +89,13 @@ class PaneGrid extends StatelessWidget {
               // Focused tiles grow past their cell.
               clipBehavior: Clip.none,
               children: [
-                for (final (index, entry) in view.entries.indexed)
-                  Positioned.fromRect(
-                    key: ValueKey(entry.item.id),
-                    rect: metrics.rectOf(placements[index]),
-                    child: tile(entry),
-                  ),
+                for (final (index, child) in shown.indexed)
+                  if (!child.hidden)
+                    Positioned.fromRect(
+                      key: ValueKey(child.id),
+                      rect: metrics.rectOf(placements[index]),
+                      child: tile(child),
+                    ),
               ],
             ),
           ),
@@ -129,14 +132,14 @@ class PaneGrid extends StatelessWidget {
 /// pane's own edge. What does not fit the pane's height is reached by moving
 /// the focus down.
 class PaneBox extends ConsumerWidget {
-  const PaneBox({super.key, required this.view, required this.tile});
+  const PaneBox({super.key, required this.pane, required this.tile});
 
-  final PaneView view;
-  final Widget Function(Entry entry) tile;
+  final Component pane;
+  final Widget Function(Component component) tile;
 
   /// The outline of [pane]: each corner as round as its look says.
-  static BorderRadius shapeOf(Pane pane) =>
-      styleShape(pane.box, Pane.defaultCorner);
+  static BorderRadius shapeOf(Component pane) =>
+      styleShape(pane.box, Component.defaultCorner);
 
   /// The gap between a title and what is under it.
   static const _underTitle = 10.0;
@@ -147,15 +150,15 @@ class PaneBox extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pane = view.pane;
+    final pane = this.pane;
     final box = BoxStyle.of(
       readStyle(ref.watch, pane.style, TemplateScope.of(context)),
     );
-    final padding = box.padding ?? Pane.defaultPadding;
+    final padding = box.padding ?? Component.defaultPadding;
     final titled = pane.title.isNotEmpty;
     final fill = styleFill(box);
     final border = box.border;
-    final shape = styleShape(box, Pane.defaultCorner);
+    final shape = styleShape(box, Component.defaultCorner);
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -173,7 +176,7 @@ class PaneBox extends ConsumerWidget {
               padding,
               padding,
             ),
-            child: PaneGrid(view: view, tile: tile),
+            child: PaneGrid(pane: pane, tile: tile),
           ),
         ),
       ],

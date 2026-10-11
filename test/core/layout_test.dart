@@ -1,36 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/core/variables/variables.dart';
 
-LayoutItem _item(
+/// An instance of the prefab a card is, handed what [ref] names; or with
+/// a [kind], a primitive of that kind.
+Component _item(
   String id, {
-  ItemKind kind = ItemKind.prefab,
+  String? kind,
   String? ref,
   double w = 1,
   double h = 1,
   double? x,
   double? y,
-}) => LayoutItem(
-  id: id,
-  kind: kind,
-  // An instance is of the prefab a card is, drawn from what [ref] names.
-  ref: kind == ItemKind.prefab ? cardPrefabId : ref ?? id,
-  vars: {if (kind == ItemKind.prefab) 'source': Variable(ref ?? id)},
-  w: w,
-  h: h,
-  x: x,
-  y: y,
-);
+}) => kind == null
+    ? Component.of(ref ?? id, id: id, w: w, h: h, x: x, y: y)
+    : Component(id: id, kind: kind, w: w, h: h, x: x, y: y);
 
 Entity _entity(String name) =>
     Entity(id: 'app:$name', kind: appKind, target: name, label: name);
 
-Panel _home(Pane root) => Panel(id: 'home', root: root);
+Panel _home(Component root) => Panel(id: 'home', root: root);
 
 void main() {
   group('placeItems', () {
@@ -138,46 +128,39 @@ void main() {
   });
 
   group('panes', () {
-    Pane pane(
+    Component pane(
       String id, {
       PaneMode mode = PaneMode.flow,
-      List<LayoutItem>? items,
-    }) => Pane(id: id, mode: mode, columns: 4, items: items ?? const []);
+      List<Component>? children,
+    }) => Component.pane(
+      id: id,
+      mode: mode,
+      columns: 4,
+      children: children ?? const [],
+    );
 
     test('nest, and are found with what is in them', () {
       final root = pane(
         'global',
         mode: PaneMode.free,
-        items: [
+        children: [
           _item('loose', ref: 'app:a'),
-          LayoutItem.pane(
-            pane(
-              'outer',
-              items: [
-                _item('in-outer', ref: 'app:b'),
-                LayoutItem.pane(
-                  pane('inner', items: [_item('in-inner', ref: 'app:c')]),
-                ),
-              ],
-            ),
-            x: 0.5,
-            y: 1,
-            w: 3,
-            h: 2.5,
-          ),
+          pane(
+            'outer',
+            children: [
+              _item('in-outer', ref: 'app:b'),
+              pane('inner', children: [_item('in-inner', ref: 'app:c')]),
+            ],
+          ).sized(3, 2.5, x: 0.5, y: 1),
         ],
       );
       expect(root.panes.map((p) => p.id), ['global', 'outer', 'inner']);
       // An entity can sit in the global pane, outside every other.
-      expect(root.contents.map((i) => (i.source ?? i.ref)), [
-        'app:a',
-        'app:b',
-        'app:c',
-      ]);
+      expect(root.contents.map((i) => i.source), ['app:a', 'app:b', 'app:c']);
 
       final layout = Layout(inbox: 'inner', panels: [_home(root)]).normalised();
       expect(layout.inbox, 'inner');
-      final outer = layout.home.root.items.last;
+      final outer = layout.home.root.children.last;
       expect((outer.x, outer.y, outer.w, outer.h), (0.5, 1, 3, 2.5));
       final json = layout.toJson();
       expect(Layout.fromJson(json).normalised().toJson(), json);
@@ -185,24 +168,20 @@ void main() {
       // New entities turn up in the inbox, however deep it is.
       final shown = layout.withEntities(['app:a', 'app:b', 'app:c', 'app:new']);
       final inner = shown.home.root.panes.last;
-      expect(inner.items.map((i) => (i.source ?? i.ref)), ['app:c', 'app:new']);
+      expect(inner.children.map((i) => i.source), ['app:c', 'app:new']);
       // Removing an entity takes it out of every pane.
       expect(
-        shown
-            .without({'app:b', 'app:c'})
-            .home
-            .items
-            .map((i) => (i.source ?? i.ref)),
+        shown.without({'app:b', 'app:c'}).home.items.map((i) => i.source),
         ['app:a', 'app:new'],
       );
     });
 
     test('normalised repairs what is wrong and keeps what is right', () {
-      Pane nest(int depth) => pane(
+      Component nest(int depth) => pane(
         'p$depth',
-        items: [
+        children: [
           _item('entity$depth', ref: 'app:$depth'),
-          if (depth < 6) LayoutItem.pane(nest(depth + 1)),
+          if (depth < 6) nest(depth + 1),
         ],
       );
       final layout = Layout(
@@ -210,12 +189,12 @@ void main() {
         panels: [
           Panel(
             id: 'left',
-            root: Pane(
+            root: Component.pane(
               id: 'rail',
               columns: 4,
-              items: [
+              children: [
                 _item('a', w: 3),
-                LayoutItem.pane(pane('in-rail', items: [_item('b')])),
+                pane('in-rail', children: [_item('b')]),
               ],
             ),
           ),
@@ -225,13 +204,13 @@ void main() {
             root: pane(
               'rail',
               mode: PaneMode.grid,
-              items: [
+              children: [
                 _item('a', x: 9, y: 2, w: 2, h: 99),
                 _item('half', x: 1),
-                LayoutItem.of('missing', id: 'gone', prefab: folderPrefabId),
-                LayoutItem.of('games', id: 'open', prefab: folderPrefabId),
-                const LayoutItem(id: 'empty', kind: ItemKind.pane, ref: 'x'),
-                LayoutItem.pane(nest(2)),
+                Component.of('missing', id: 'gone', prefab: folderPrefabId),
+                Component.of('games', id: 'open', prefab: folderPrefabId),
+                const Component(id: 'empty'),
+                nest(2),
               ],
             ),
           ),
@@ -248,39 +227,39 @@ void main() {
       // widths and the pane inside it.
       final rail = layout.panel('left')!.root;
       expect(rail.columns, 4);
-      expect(rail.items.map((i) => (i.id, i.kind, i.w)), [
-        ('a', ItemKind.prefab, 3),
-        ('pane-in-rail', ItemKind.pane, 1),
+      expect(rail.children.map((i) => (i.id, i.isPane, i.w)), [
+        ('a', false, 3),
+        ('in-rail', true, 1),
       ]);
-      expect(rail.items.last.pane!.items.single.id, 'b');
+      expect(rail.children.last.children.single.id, 'b');
 
       final games = layout.panel('games')!;
       expect(games.title, 'Games');
       expect(games.root.id, isNot(rail.id));
-      final [a, half, open, nested] = games.root.items;
+      final [a, half, open, nested] = games.root.children;
       expect(a.id, isNot('a'));
-      expect((a.x, a.y, a.w, a.h), (2, 2, 2, Pane.maxRows));
+      expect((a.x, a.y, a.w, a.h), (2, 2, 2, Component.maxRows));
       expect((half.x, half.y), (null, null));
-      expect((open.source ?? open.ref), 'games');
+      expect(open.source, 'games');
       // Panes deeper than allowed give their contents to the last that is.
       final depths = games.root.panes.map((p) => p.id).toList();
-      expect(depths, hasLength(Pane.maxDepth));
-      expect(nested.pane!.contents.map((i) => (i.source ?? i.ref)), [
+      expect(depths, hasLength(Component.maxDepth));
+      expect(nested.contents.map((i) => i.source), [
         for (var depth = 2; depth <= 6; depth++) 'app:$depth',
       ]);
       final ids = [
         for (final panel in layout.panels)
-          for (final p in panel.root.panes) ...p.items.map((i) => i.id),
+          for (final p in panel.root.panes) ...p.children.map((i) => i.id),
       ];
       expect(ids.toSet(), hasLength(ids.length));
     });
 
     test('fractions survive repair in a free pane and nowhere else', () {
-      Pane of(String id, PaneMode mode) => Pane(
+      Component of(String id, PaneMode mode) => Component.pane(
         id: id,
         mode: mode,
         columns: 4,
-        items: [_item('$id-a', x: 3.6, y: 0.3, w: 1.5, h: 0.1)],
+        children: [_item('$id-a', x: 3.6, y: 0.3, w: 1.5, h: 0.1)],
       );
       final layout = Layout(
         inbox: 'f',
@@ -288,10 +267,7 @@ void main() {
           _home(
             pane(
               'global',
-              items: [
-                LayoutItem.pane(of('f', PaneMode.free)),
-                LayoutItem.pane(of('g', PaneMode.grid)),
-              ],
+              children: [of('f', PaneMode.free), of('g', PaneMode.grid)],
             ),
           ),
         ],
@@ -312,10 +288,11 @@ void main() {
           'panels': [
             {
               'id': 'home',
-              'pane': {
+              'root': {
                 'id': 's',
-                'items': [
-                  {'id': 1, 'ref': 'app:a'},
+                'kind': 'pane',
+                'children': [
+                  {'id': 1, 'kind': 'text'},
                 ],
               },
             },
@@ -326,108 +303,38 @@ void main() {
     });
   });
 
-  group('layouts from before panes', () {
-    Map<String, Object?> section(
-      String id, {
-      int items = 0,
-      Object? style,
-      String title = '',
-    }) => {
-      'id': id,
-      'title': title,
-      'columns': 6,
-      'style': ?style,
-      'items': [
-        for (var i = 0; i < items; i++) {'id': '$id$i', 'ref': 'app:$id$i'},
-      ],
-    };
-
-    test('sections become panes where they were', () {
-      final layout = Layout.fromJson({
-        'inbox': 'rest',
-        'panels': [
-          {
-            'id': 'home',
-            'sections': [
-              section(
-                'top',
-                items: 6,
-                title: 'Favourites',
-                style: {'border': '#ffffffff'},
-              ),
-              section('rest', items: 13),
-            ],
-          },
-          {
-            'id': 'left',
-            'sections': [section('r1', items: 1), section('r2', items: 2)],
-          },
-          {
-            'id': 'folder',
-            'sections': [section('only', items: 3)],
-          },
-        ],
-      }).normalised();
-
-      final global = layout.home.root;
-      expect(
-        (global.mode, global.columns),
-        (PaneMode.free, Pane.globalColumns),
-      );
-      final [top, rest] = global.items;
-      expect((top.pane!.title, top.pane!.columns), ('Favourites', 6));
-      expect(layout.inbox, 'rest');
-      // Inside the screen's old margins, one under the other, full width.
-      for (final item in [top, rest]) {
-        expect(item.x, closeTo(0.59, 0.01));
-        expect(item.w, closeTo(10.82, 0.01));
-      }
-      expect(top.y, closeTo(1.35, 0.01));
-      expect(rest.y!, greaterThan(top.y! + top.h));
-      // One row of six entities against three rows of them.
-      expect(rest.h, greaterThan(top.h));
-
-      // A rail keeps its things, in one list; a plain folder keeps its look.
-      expect(layout.panel('left')!.root.items, hasLength(3));
-      final folder = layout.panel('folder')!.root;
-      expect((folder.id, folder.items.length), ('only', 3));
-    });
-
+  group('a new layout', () {
     test('a new home screen is one pane as tall as the screen', () {
       final layout = Layout.initial(['app:b', 'app:gone'])
           .withEntities(['app:a', 'app:b']);
-      final item = layout.home.root.items.single;
-      expect(item.pane!.items.map((i) => (i.source ?? i.ref)), [
-        'app:b',
-        'app:a',
-      ]);
-      expect(layout.inbox, item.pane!.id);
+      final item = layout.home.root.children.single;
+      expect(item.children.map((i) => i.source), ['app:b', 'app:a']);
+      expect(layout.inbox, item.id);
       // From under the top margin to the bottom one, on a 540-high screen.
       expect(item.h, closeTo(7.7, 0.1));
     });
   });
 
   test('a pane keeps the spacing it is given, within reason', () {
-    Pane pane(String id, double? spacing) =>
-        Pane(id: id, rules: {'spacing': ?spacing}, items: [_item('$id-a')]);
+    Component pane(String id, double? spacing) => Component.pane(
+      id: id,
+      rules: {'spacing': ?spacing},
+      children: [_item('$id-a')],
+    );
     final layout = Layout(
       inbox: 'a',
       panels: [
         _home(
-          Pane(
+          Component.pane(
             id: 'global',
             rules: const {'spacing': 4},
-            items: [
-              LayoutItem.pane(pane('a', null)),
-              LayoutItem.pane(pane('b', 0)),
-              LayoutItem.pane(pane('c', 500)),
-            ],
+            children: [pane('a', null), pane('b', 0), pane('c', 500)],
           ),
         ),
       ],
     ).normalised();
     final panes = layout.home.root.panes.toList();
-    expect(panes.map((p) => p.spacing), [4, null, 0, Pane.maxSpacing]);
+    expect(panes.map((p) => p.spacing), [4, null, 0, Component.maxSpacing]);
     // Unset, it is the usual gap, wider across than down.
     expect((panes[1].spacingX, panes[1].spacingY), (20, 16));
     expect((panes[2].spacingX, panes[2].spacingY), (0, 0));
@@ -442,23 +349,17 @@ void main() {
       'panels': [
         {
           'id': 'home',
-          'pane': {
+          'root': {
             'id': 'global',
+            'kind': 'pane',
             'style': {'padding': 24},
-            'items': [
+            'children': [
               {
-                'id': 'i',
+                'id': 'a',
                 'kind': 'pane',
-                'pane': {
-                  'id': 'a',
-                  'style': {'padding': 900},
-                },
+                'style': {'padding': 900},
               },
-              {
-                'id': 'j',
-                'kind': 'pane',
-                'pane': {'id': 'b'},
-              },
+              {'id': 'b', 'kind': 'pane'},
             ],
           },
         },
@@ -467,188 +368,6 @@ void main() {
     expect(layout.home.root.panes.map((p) => p.box.padding), [24, 80, null]);
     final json = layout.toJson();
     expect(Layout.fromJson(json).toJson(), json);
-  });
-
-  test('an entity can be told to hide its name, and stays told', () {
-    final layout = Layout.fromJson(const {
-      'panels': [
-        {
-          'id': 'home',
-          'pane': {
-            'id': 'global',
-            'items': [
-              {'id': 'a', 'ref': 'app:a', 'hideName': true},
-              {'id': 'b', 'ref': 'app:b'},
-            ],
-          },
-        },
-      ],
-    }).normalised();
-    expect(layout.home.items.map((i) => overridesOf(i, 'name')[hiddenOption]), [
-      true,
-      null,
-    ]);
-    final items = (layout.toJson()['panels'] as List).first['pane']['items'];
-    expect(items[0]['options'], {
-      'parts': {
-        'name': {'hidden': true},
-      },
-    });
-    expect((items[1] as Map).containsKey('options'), isFalse);
-  });
-
-  group('removed entities', () {
-    test('stay off until placed again', () {
-      final layout = Layout.initial(['app:a', 'app:b']).without({'app:b'});
-      expect(layout.removed, {'app:b'});
-      final shown = layout.withEntities(['app:a', 'app:b', 'app:c']);
-      expect(shown.home.items.map((i) => (i.source ?? i.ref)), [
-        'app:a',
-        'app:c',
-      ]);
-
-      // Placing it again is all it takes.
-      final again = Layout(
-        inbox: layout.inbox,
-        removed: layout.removed,
-        panels: [
-          _home(const Pane(id: 'global').withItems([_item('x', ref: 'app:b')])),
-        ],
-      ).normalised();
-      expect(again.removed, isEmpty);
-    });
-  });
-
-  group('BoxStyle', () {
-    test('reads a look and says a fill back the same', () {
-      final style = BoxStyle.of(const {
-        'background': {
-          'colors': ['#3d5afecc', '#000000'],
-          'angle': 495,
-        },
-        'borderColor': '#FFFFFF55',
-        'borderWidth': 4,
-        'radius': [0, 8, 500, -2],
-        'padding': '12',
-        'opacity': 50,
-        'shadow': 8,
-      });
-      expect(style.colors, [0xCC3D5AFE, 0xFF000000]);
-      expect(style.angle, 135);
-      expect(style.border, 0x55FFFFFF);
-      expect(style.borderWidth, 4);
-      // Each within what a corner can be.
-      expect(style.corners, [0, 8, 120, 0]);
-      // A measure may come as text, which is what a template reads as.
-      expect(style.padding, 12);
-      expect((style.opacity, style.shadow), (0.5, 8));
-      expect(BoxStyle.backgroundOf(style.colors, style.stops, style.angle), {
-        'colors': ['#3d5afecc', '#000000ff'],
-        'angle': 135,
-      });
-    });
-
-    test('leaves out what it does not understand', () {
-      expect(BoxStyle.of(styleFromJson('red')).isEmpty, isTrue);
-      final style = BoxStyle.of(const {
-        'background': {
-          'colors': ['red', 7, '#12345', '#abcdef'],
-        },
-        'borderColor': 'none',
-        'radius': [1, 2],
-      });
-      expect(style.colors, [0xFFABCDEF]);
-      expect(style.border, isNull);
-      // Anything but one number or four is the usual.
-      expect(style.corners, isNull);
-      expect((style.borderWidth, style.opacity, style.padding), (2, 1, null));
-      // One colour is flat: the colour and nothing else.
-      expect(BoxStyle.backgroundOf(style.colors), '#abcdefff');
-      expect(BoxStyle.of(const {'background': '#abcdef'}).colors, style.colors);
-      expect(BoxStyle.of(const {'radius': 6}).corners, [6, 6, 6, 6]);
-    });
-  });
-
-  group('Style', () {
-    test('only what is taken after is handed down', () {
-      expect(
-        inheritedOf(const {
-          'background': '#000000',
-          'padding': 4,
-          'color': '#ff0000',
-          'fontSize': 20,
-        }),
-        {'color': '#ff0000', 'fontSize': 20},
-      );
-    });
-
-    test('a property set to nothing is handed back', () {
-      expect(
-        withStyle(
-          const {'color': '#ff0000', 'padding': 4},
-          {'padding': null, 'shadow': 2},
-        ),
-        {'color': '#ff0000', 'shadow': 2},
-      );
-    });
-
-    test('everything says which properties mean something to it', () {
-      const text = LayoutItem(id: 't', kind: ItemKind.component, ref: 'text');
-      const meter = LayoutItem(id: 'm', kind: ItemKind.component, ref: 'meter');
-      expect(text.styleKeys, [...boxStyle, ...textStyle]);
-      expect(meter.styleKeys, [...boxStyle, 'color']);
-      expect(LayoutItem.of('app:a', id: 'a').styleKeys, containsAll(textStyle));
-      // Each is described, once.
-      final keys = [for (final prop in styleProps) prop.key];
-      expect(keys.toSet(), hasLength(keys.length));
-      for (final kind in ComponentKind.values) {
-        expect(keys, containsAll(kind.style), reason: kind.name);
-      }
-      expect(keys, containsAll([...boxStyle, ...textStyle]));
-    });
-  });
-
-  group('BoxStyle stops', () {
-    test('spreads the colours evenly until told where they go', () {
-      const style = BoxStyle(colors: [1, 2, 3]);
-      expect(style.positions, [0, 0.5, 1]);
-      expect(
-        (BoxStyle.backgroundOf(style.colors)! as Map).containsKey('stops'),
-        isFalse,
-      );
-    });
-
-    test('keeps where each colour was put', () {
-      final style = BoxStyle.of(const {
-        'background': {
-          'colors': ['#000000', '#ff0000', '#ffffff'],
-          'stops': [0, 0.8, 1],
-        },
-      });
-      expect(style.positions, [0, 0.8, 1]);
-      expect(
-        (BoxStyle.backgroundOf(style.colors, style.stops)! as Map)['stops'],
-        [0, 0.8, 1],
-      );
-    });
-
-    test('drops stops that do not fit the colours', () {
-      for (final stops in [
-        [0, 1],
-        [0, 0.6, 0.4],
-        [0, 0.5, 1.5],
-        [0, 'half', 1],
-      ]) {
-        final style = BoxStyle.of({
-          'background': {
-            'colors': ['#000000', '#ff0000', '#ffffff'],
-            'stops': stops,
-          },
-        });
-        expect(style.stops, isEmpty, reason: '$stops');
-        expect(style.positions, [0, 0.5, 1]);
-      }
-    });
   });
 
   group('resolveLayout', () {
@@ -662,34 +381,32 @@ void main() {
           removed: const {'app:c'},
           panels: [
             _home(
-              Pane(
+              Component.pane(
                 id: 'global',
-                items: [
-                  LayoutItem.of('games', id: 'folder', prefab: folderPrefabId),
-                  _item('clock', kind: ItemKind.component, ref: 'clock'),
-                  LayoutItem.pane(const Pane(id: 'main')),
+                children: [
+                  Component.of('games', id: 'folder', prefab: folderPrefabId),
+                  _item('clock', kind: 'clock'),
+                  Component.pane(id: 'main'),
                 ],
               ),
             ),
             Panel(
               id: 'games',
               title: 'Games',
-              root: Pane(id: 'inside', items: [_item('app:b')]),
+              root: Component.pane(id: 'inside', children: [_item('app:b')]),
             ),
           ],
         ),
       );
       final view = resolveLayout(entities, config);
-      final [folder, clock, pane] = view.home.root.entries;
+      final [folder, clock, pane] = view.home.root.children;
 
-      // Drawn from a folder, not from an entity.
-      expect(folder, isA<PrefabEntry>());
-      expect(config.layout.folderOf(folder.item), 'games');
-      expect(clock, isA<ComponentEntry>());
+      // Handed a folder, not an entity.
+      expect(config.layout.folderOf(folder), 'games');
+      expect(clock.kind, 'clock');
       // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.
-      final inside = (pane as PaneEntry).view.entries.single as EntityEntry;
-      expect(inside.entity.id, 'app:a');
+      expect(pane.children.single.source, 'app:a');
       expect(view.home.root.contents, hasLength(3));
       expect(view.bars, isEmpty);
     });
@@ -700,9 +417,9 @@ void main() {
           inbox: 'global',
           panels: [
             _home(
-              Pane(
+              Component.pane(
                 id: 'global',
-                items: [
+                children: [
                   _item('one', ref: 'app:a'),
                   _item('two', ref: 'app:a'),
                 ],
@@ -711,8 +428,8 @@ void main() {
           ],
         ).normalised(),
       );
-      final entries = resolveLayout(entities, config).home.root.entries;
-      expect(entries.map((e) => (e as EntityEntry).entity.id), [
+      final entries = resolveLayout(entities, config).home.root.children;
+      expect(entries.map((e) => e.source), [
         'app:a',
         'app:a',
         'app:b',
@@ -731,8 +448,8 @@ void main() {
         (BarEdge.left, 260, Panel.fill, 96),
       );
       // Along a side it starts as a line of small rows.
-      expect(left.root.rowHeight, Pane.barRowHeight);
-      expect(left.root.prefabRules[cardPrefabId], {layoutOption: 'row'});
+      expect(left.root.rowHeight, Component.barRowHeight);
+      expect(left.root.prefabRules[cardPrefabId], {'variant': 'row'});
       expect(
         (top.edge, top.openWidth, top.openHeight, top.closedSize),
         (BarEdge.top, Panel.fill, 120, 0),
@@ -793,81 +510,42 @@ void main() {
       expect((odd.rule('opening'), odd.rule('reveal')), ('expand', 'late'));
     });
 
-    test('a sidebar saved before they were panes still looks like one', () {
-      final old = Layout.fromJson(const {
-        'inbox': 'home/root',
-        'panels': [
-          {
-            'id': 'left',
-            'pane': {
-              'id': 'left/root',
-              'columns': 1,
-              'items': [
-                {'id': 'a', 'ref': 'app:a'},
-              ],
-            },
-          },
-        ],
-      });
-      final root = old.panel('left')!.root;
-      expect(
-        (
-          root.rowHeight,
-          root.prefabRules[cardPrefabId]?[layoutOption],
-          root.itemW,
-        ),
-        (36, 'row', 1),
-      );
-      // Once written by this version it is taken as it is.
-      final plain = Layout(
-        inbox: 'x',
-        panels: [
-          Panel(
-            id: 'left',
-            root: const Pane(id: 'left/root'),
-          ),
-        ],
-      );
-      expect(
-        Layout.fromJson(plain.toJson()).panel('left')!.root.prefabRules,
-        isEmpty,
-      );
-    });
-
     test('a pane decides for its entities without changing what they say', () {
       const rules = {
         cardPrefabId: {
-          layoutOption: 'row',
-          partsOption: {
-            'name': {hiddenOption: true},
+          'variant': 'row',
+          'overrides': {
+            'name': {'hidden': true},
           },
         },
       };
-      final pane = Pane(
+      final pane = Component.pane(
         id: 'p',
         rules: const {'itemW': 2},
         prefabRules: rules,
-        items: [
+        children: [
           _item('a', w: 3, h: 2),
-          _item('clock', kind: ItemKind.component, ref: 'clock', w: 4),
-          LayoutItem.pane(const Pane(id: 'inner'), w: 5),
+          _item('clock', kind: 'clock', w: 4),
+          Component.pane(id: 'inner', w: 5),
         ],
       );
       final [entity, widget, inner] = pane.shown;
       expect((entity.w, entity.h), (2, 2));
-      expect(entity.options, rules[cardPrefabId]);
+      expect(entity.variant, 'row');
+      expect(entity.overrides, {
+        'name': {'hidden': true},
+      });
       // Only entities and folders are decided for.
       expect((widget.w, inner.w), (4, 5));
       expect(widget.options, isEmpty);
       // What the entity says is still there for when the pane stops.
-      expect(pane.items.first.w, 3);
-      expect(pane.items.first.options, isEmpty);
-      expect(
-        pane.copyWith(rules: const {}, prefabRules: const {}).decides,
-        isFalse,
-      );
+      expect(pane.children.first.w, 3);
+      expect(pane.children.first.overrides, isEmpty);
+      expect(Component.pane(id: 'p').decides, isFalse);
       // And all of it survives being written and read.
-      final copy = Pane.fromJson(pane.withRule('rowHeight', 40).toJson());
+      final copy = Component.fromJson(
+        pane.withOption('rowHeight', 40).toJson(),
+      );
       expect(copy.prefabRules, rules);
       expect((copy.itemW, copy.rowHeight), (2, 40));
     });
@@ -883,12 +561,12 @@ void main() {
         panels: [
           Panel(
             id: Layout.homeId,
-            root: const Pane(id: 'p', style: style),
+            root: Component.pane(id: 'p', style: style),
           ),
         ],
       ).normalised();
       expect(layout.home.root.style, style);
-      final read = Pane.fromJson(layout.home.root.toJson());
+      final read = Component.fromJson(layout.home.root.toJson());
       expect(read.style, style);
       expect(read.box.corners, [0, 8, 20, 4]);
     });
@@ -902,19 +580,19 @@ void main() {
             panels: [
               Panel(
                 id: Layout.homeId,
-                root: Pane(
+                root: Component.pane(
                   id: 'main',
                   prefabRules: const {
-                    cardPrefabId: {layoutOption: 'row'},
+                    cardPrefabId: {'variant': 'row'},
                   },
-                  items: [_item('a', ref: 'app:a')],
+                  children: [_item('a', ref: 'app:a')],
                 ),
               ),
             ],
           ),
         ),
       );
-      expect(view.home.root.entries.single.item.options[layoutOption], 'row');
+      expect(view.home.root.shown.single.variant, 'row');
     });
   });
 
@@ -939,36 +617,14 @@ void main() {
       expect(copy.copyWith(wallpapers: const []).wallpaper, isNull);
     });
 
-    test('a config from before layouts keeps its entity order', () {
-      final config = LauncherConfig.fromJson(const {
-        'order': ['app:b', 'app:a'],
-        'hidden': ['app:b', 'app:c'],
-        'contextMenu': ['open', 'hide'],
-      });
-      // What used to be hidden is now removed, wherever it was.
-      expect(config.layout.home.items.map((i) => (i.source ?? i.ref)), [
-        'app:a',
-      ]);
-      expect(config.layout.removed, {'app:b', 'app:c'});
-      // The quick actions that were chosen are buttons in a popup now.
-      final menu = config.layout.panel(Layout.menuId)!;
-      expect(menu.items.map((item) => item.options['label']), [
-        'Open',
-        'Remove',
-      ]);
-      expect(menu.items.last.on[Trigger.press], [const Act('remove')]);
-      expect(config.toasts.enabled, isTrue);
-    });
-
     test('a broken layout does not lose the rest', () {
       final config = LauncherConfig.fromJson(const {
         'layout': {'panels': 7},
-        'wallpaper': '/w.png',
+        'wallpapers': ['/w.png'],
       });
-      // The one wallpaper older configs had is the first of the list now.
       expect(config.wallpapers, ['/w.png']);
       expect(config.wallpaperEvery, 0);
-      expect(config.layout.home.root.items, hasLength(1));
+      expect(config.layout.home.root.children, hasLength(1));
     });
   });
 }

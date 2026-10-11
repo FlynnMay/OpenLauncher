@@ -1,19 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 
-LayoutItem entity(
+Component entity(
   String id, {
   double w = 1,
   double h = 1,
   double? x,
   double? y,
-}) => LayoutItem(
+}) => Component(
   id: id,
-  kind: ItemKind.prefab,
-  ref: cardPrefabId,
+  prefab: cardPrefabId,
   vars: {'source': Variable('app:$id')},
   w: w,
   h: h,
@@ -21,19 +19,19 @@ LayoutItem entity(
   y: y,
 );
 
-Layout home(Pane root, {Set<String> removed = const {}}) => Layout(
+Layout home(Component root, {Set<String> removed = const {}}) => Layout(
   inbox: root.id,
   removed: removed,
   panels: [Panel(id: Layout.homeId, root: root)],
 );
 
 List<String> ids(Layout layout, String pane) => [
-  for (final item in findPane(layout, pane)!.pane.items) item.id,
+  for (final item in findPane(layout, pane)!.pane.children) item.id,
 ];
 
 (double?, double?) at(Layout layout, String id) {
   for (final pane in layout.home.root.panes) {
-    for (final item in pane.items) {
+    for (final item in pane.children) {
       if (item.id == id) return (item.x, item.y);
     }
   }
@@ -76,7 +74,10 @@ void main() {
 
   group('dropItem', () {
     final flow = home(
-      Pane(id: 'p', items: [entity('a'), entity('b'), entity('c')]),
+      Component.pane(
+        id: 'p',
+        children: [entity('a'), entity('b'), entity('c')],
+      ),
     );
 
     test('goes in front of an item of a pane that flows, or to its end', () {
@@ -99,11 +100,11 @@ void main() {
 
     test('takes the asked cell of a grid and pushes aside what was there', () {
       final grid = home(
-        Pane(
+        Component.pane(
           id: 'p',
           mode: PaneMode.grid,
           columns: 4,
-          items: [entity('a', x: 1, y: 0)],
+          children: [entity('a', x: 1, y: 0)],
         ),
       );
       final dropped = dropItem(grid, entity('n'), const Drop('p', x: 1, y: 0));
@@ -115,11 +116,11 @@ void main() {
 
     test('lands where asked in a free pane, kept inside its width', () {
       final free = home(
-        Pane(
+        Component.pane(
           id: 'p',
           mode: PaneMode.free,
           columns: 4,
-          items: [entity('a', x: 0, y: 0)],
+          children: [entity('a', x: 0, y: 0)],
         ),
       );
       final dropped = dropItem(
@@ -134,21 +135,21 @@ void main() {
 
     test('moves an item from one pane into another inside it', () {
       final nested = home(
-        Pane(
+        Component.pane(
           id: 'p',
-          items: [
+          children: [
             entity('a'),
-            LayoutItem.pane(const Pane(id: 'inner'), w: 3, h: 2),
+            Component.pane(id: 'inner', w: 3, h: 2),
           ],
         ),
       );
       final moved = dropItem(nested, entity('a'), const Drop('inner'));
-      expect(ids(moved, 'p'), ['pane-inner']);
+      expect(ids(moved, 'p'), ['inner']);
       expect(ids(moved, 'inner'), ['a']);
     });
 
     test('an entity that is placed is no longer removed', () {
-      final layout = home(const Pane(id: 'p'), removed: {'app:n', 'app:z'});
+      final layout = home(Component.pane(id: 'p'), removed: {'app:n', 'app:z'});
       expect(dropItem(layout, entity('n'), const Drop('p')).removed, {'app:z'});
     });
 
@@ -156,11 +157,11 @@ void main() {
       final folder = Panel(
         id: 'f',
         title: 'Games',
-        root: const Pane(id: 'f/root'),
+        root: Component.pane(id: 'f/root'),
       );
       final dropped = dropItem(
         flow,
-        LayoutItem.of('f', id: 'i', prefab: folderPrefabId),
+        Component.of('f', id: 'i', prefab: folderPrefabId),
         const Drop('p'),
         panel: folder,
       );
@@ -171,28 +172,25 @@ void main() {
   });
 
   group('refusal', () {
-    Pane nest(int levels, String id) => Pane(
+    Component nest(int levels, String id) => Component.pane(
       id: id,
-      items: [if (levels > 1) LayoutItem.pane(nest(levels - 1, '$id+'))],
+      children: [if (levels > 1) nest(levels - 1, '$id+')],
     );
 
     test('only panes are ever refused', () {
-      final layout = home(nest(Pane.maxDepth, 'p'));
+      final layout = home(nest(Component.maxDepth, 'p'));
       expect(refusal(layout, entity('a'), 'p+++'), isNull);
     });
 
     test('a pane cannot go inside itself or deeper than panes go', () {
-      final layout = home(nest(Pane.maxDepth, 'p'));
-      final inner = layout.home.root.items.single;
+      final layout = home(nest(Component.maxDepth, 'p'));
+      final inner = layout.home.root.children.single;
       expect(refusal(layout, inner, 'p++'), contains('inside itself'));
       expect(
-        refusal(layout, LayoutItem.pane(const Pane(id: 'new')), 'p+++'),
+        refusal(layout, Component.pane(id: 'new'), 'p+++'),
         contains('nested'),
       );
-      expect(
-        refusal(layout, LayoutItem.pane(const Pane(id: 'new')), 'p++'),
-        isNull,
-      );
+      expect(refusal(layout, Component.pane(id: 'new'), 'p++'), isNull);
     });
 
     test('a sidebar takes panes like anywhere else', () {
@@ -201,17 +199,13 @@ void main() {
         panels: [
           Panel(
             id: Layout.homeId,
-            root: const Pane(id: 'p'),
+            root: Component.pane(id: 'p'),
           ),
           Panel.empty(Layout.leftId),
         ],
       );
       expect(
-        refusal(
-          layout,
-          LayoutItem.pane(const Pane(id: 'new')),
-          Panel.rootId(Layout.leftId),
-        ),
+        refusal(layout, Component.pane(id: 'new'), Panel.rootId(Layout.leftId)),
         isNull,
       );
     });
@@ -220,14 +214,13 @@ void main() {
   group('removeItem', () {
     test('notes an entity as removed once it is nowhere', () {
       final layout = home(
-        Pane(
+        Component.pane(
           id: 'p',
-          items: [
+          children: [
             entity('a'),
-            const LayoutItem(
+            const Component(
               id: 'again',
-              kind: ItemKind.prefab,
-              ref: cardPrefabId,
+              prefab: cardPrefabId,
               vars: {'source': Variable('app:a')},
             ),
           ],
@@ -241,17 +234,15 @@ void main() {
 
     test('a pane goes with everything in it', () {
       final layout = home(
-        Pane(
+        Component.pane(
           id: 'p',
-          items: [
+          children: [
             entity('a'),
-            LayoutItem.pane(
-              Pane(id: 'inner', items: [entity('b'), entity('c')]),
-            ),
+            Component.pane(id: 'inner', children: [entity('b'), entity('c')]),
           ],
         ),
       );
-      final removed = removeItem(layout, 'pane-inner');
+      final removed = removeItem(layout, 'inner');
       expect(ids(removed, 'p'), ['a']);
       expect(removed.removed, {'app:b', 'app:c'});
     });
@@ -259,15 +250,16 @@ void main() {
 
   group('editing what is selected', () {
     final layout = home(
-      Pane(
+      Component.pane(
         id: 'p',
         mode: PaneMode.grid,
         columns: 4,
-        items: [
+        children: [
           entity('a', x: 0, y: 0),
           entity('b', x: 1, y: 0),
-          LayoutItem.pane(
-            Pane(id: 'inner', items: [entity('c'), entity('d', w: 2)]),
+          Component.pane(
+            id: 'inner',
+            children: [entity('c'), entity('d', w: 2)],
             w: 4,
             h: 2,
             x: 0,
@@ -358,28 +350,28 @@ void main() {
     });
 
     test('a pane keeps things where they were when its placement changes', () {
-      final inner = layout.home.root.items.last.pane!;
+      final inner = layout.home.root.children.last;
       final grid = withMode(inner, PaneMode.grid);
       expect(
-        [for (final item in grid.items) (item.id, item.x, item.y)],
+        [for (final item in grid.children) (item.id, item.x, item.y)],
         [('c', 0, 0), ('d', 1, 0)],
       );
       // And back in order by where they are, not by how they were listed.
       final swapped = grid.copyWith(
-        items: [
-          grid.items[1].sized(2, 1, x: 0, y: 0),
-          grid.items[0].sized(1, 1, x: 2, y: 0),
+        children: [
+          grid.children[1].sized(2, 1, x: 0, y: 0),
+          grid.children[0].sized(1, 1, x: 2, y: 0),
         ],
       );
       expect(
-        [for (final item in withMode(swapped, PaneMode.flow).items) item.id],
+        [for (final item in withMode(swapped, PaneMode.flow).children) item.id],
         ['d', 'c'],
       );
     });
 
     test('fewer columns narrow and move what no longer fits', () {
       final narrowed = withColumns(layout.home.root, 2);
-      final inner = narrowed.items.last;
+      final inner = narrowed.children.last;
       expect((inner.w, inner.x), (2, 0));
       expect(narrowed.columns, 2);
     });
@@ -391,24 +383,23 @@ void main() {
       panels: [
         Panel(
           id: Layout.homeId,
-          root: Pane(
+          root: Component.pane(
             id: 'p',
-            items: [
+            children: [
               entity('a'),
-              LayoutItem.of('f', id: 'opens', prefab: folderPrefabId),
+              Component.of('f', id: 'opens', prefab: folderPrefabId),
             ],
           ),
         ),
         Panel(
           id: 'f',
-          root: Pane(
+          root: Component.pane(
             id: 'f/root',
-            items: [
+            children: [
               entity('b'),
-              const LayoutItem(
+              const Component(
                 id: 'a2',
-                kind: ItemKind.prefab,
-                ref: cardPrefabId,
+                prefab: cardPrefabId,
                 vars: {'source': Variable('app:a')},
               ),
             ],
@@ -426,17 +417,16 @@ void main() {
 
   test('counts how often each entity is on the TV', () {
     final layout = home(
-      Pane(
+      Component.pane(
         id: 'p',
-        items: [
+        children: [
           entity('a'),
-          const LayoutItem(
+          const Component(
             id: 'again',
-            kind: ItemKind.prefab,
-            ref: cardPrefabId,
+            prefab: cardPrefabId,
             vars: {'source': Variable('app:a')},
           ),
-          const LayoutItem(id: 'w', kind: ItemKind.component, ref: 'clock'),
+          const Component(id: 'w', kind: 'clock'),
         ],
       ),
     );
@@ -451,11 +441,10 @@ void main() {
         'left',
         (panel) => panel.withRoot(
           panel.root.copyWith(
-            items: const [
-              LayoutItem(
+            children: const [
+              Component(
                 id: 'a',
-                kind: ItemKind.prefab,
-                ref: cardPrefabId,
+                prefab: cardPrefabId,
                 vars: {'source': Variable('x')},
               ),
             ],

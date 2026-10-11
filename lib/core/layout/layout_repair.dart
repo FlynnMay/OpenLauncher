@@ -1,14 +1,12 @@
 import 'package:openlauncher/core/actions/defaults.dart';
+import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
-import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
-import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/layout/panel.dart';
 import 'package:openlauncher/core/layout/rules.dart';
-import 'package:openlauncher/core/prefabs/instance_options.dart';
 
 /// [rules] with those in [sound] as they are there, a number written
 /// without a fraction where it has none; one that is null is left out.
@@ -25,7 +23,7 @@ Map<String, Object?> _kept(
 extension LayoutRepair on Layout {
   /// A copy with everything the rest of the app relies on made true: a home
   /// panel, unique ids, sizes and positions that fit their pane, panes
-  /// nested no deeper than [Pane.maxDepth], links
+  /// nested no deeper than [Component.maxDepth], links
   /// only to popups that exist, and a valid [inbox].
   Layout normalised() {
     final panelIds = <String>{};
@@ -37,72 +35,69 @@ extension LayoutRepair on Layout {
       unique.insert(0, Panel.empty(Layout.homeId));
     }
 
-    final paneIds = <String>{};
-    final itemIds = <String>{};
-    String fresh(Set<String> used, String wanted, String fallback) {
-      final id = freeId(wanted.isEmpty ? fallback : wanted, used);
-      used.add(id);
+    // One set of ids for everything: a pane is a component like the rest.
+    final ids = <String>{};
+    String fresh(String wanted, String fallback) {
+      final id = freeId(wanted.isEmpty ? fallback : wanted, ids);
+      ids.add(id);
       return id;
     }
 
-    late Pane Function(Pane, PanelKind, int) repair;
+    late Component Function(Component, PanelKind, int) repair;
 
-    /// The item made to fit a pane [columns] wide; several when it is a pane
-    /// that cannot stay one, and none when it points at nothing.
-    Iterable<LayoutItem> fitted(
-      LayoutItem item,
-      int columns,
-      PaneMode mode,
+    /// [item] made to fit [parent]; several when it is a pane that cannot
+    /// stay one, and none when it is nothing.
+    Iterable<Component> fitted(
+      Component item,
+      Component parent,
       PanelKind kind,
       int depth,
     ) sync* {
-      final inner = item.pane;
-      if (item.kind == ItemKind.pane) {
-        if (inner == null) return;
+      if (item.isPane) {
         // Too deep: what is in it moves up a level.
-        if (depth >= Pane.maxDepth) {
-          for (final entry in inner.items) {
-            yield* fitted(entry, columns, mode, kind, depth);
+        if (depth >= Component.maxDepth) {
+          for (final child in item.children) {
+            yield* fitted(child, parent, kind, depth);
           }
           return;
         }
-      } else if (item.ref.isEmpty ||
+      } else if (item.kind.isEmpty && !item.isInstance ||
           // What opened a folder that is gone has nothing left to open.
-          item.kind == ItemKind.prefab &&
-              item.ref == folderPrefabId &&
-              !panelIds.contains(item.source)) {
+          item.prefab == folderPrefabId && !panelIds.contains(item.source)) {
         return;
       }
+      final repaired = item.isPane ? repair(item, kind, depth + 1) : item;
+      // In a line its transform is not in cells.
+      if (parent.mode.inLine) {
+        yield repaired.isPane
+            ? repaired
+            : repaired.copyWith(id: fresh(item.id, 'item'));
+        return;
+      }
+      final columns = parent.columns;
       // Only a free pane keeps fractions of a cell.
-      final free = mode == PaneMode.free;
+      final free = parent.mode == PaneMode.free;
       double fit(double value, num low, num high) =>
           ((free ? value : value.roundToDouble()).clamp(low, high)).toDouble();
-      final smallest = free ? Pane.minFreeSpan : 1;
+      final smallest = free ? Component.minFreeSpan : 1;
       final w = fit(item.w.isFinite ? item.w : 1, smallest, columns);
       final x = item.x, y = item.y;
       // A position is only kept whole; half of one means nothing.
       final placed = x != null && y != null && x.isFinite && y.isFinite;
-      final repaired = inner == null ? null : repair(inner, kind, depth + 1);
-      yield LayoutItem(
-        id: fresh(itemIds, item.id, 'item'),
-        kind: item.kind,
-        ref: repaired?.id ?? item.ref,
-        vars: item.vars,
-        w: w,
-        h: fit(item.h.isFinite ? item.h : 1, smallest, Pane.maxRows),
-        x: placed ? fit(x, 0, columns - w) : null,
-        y: placed ? fit(y, 0, 999) : null,
-        options: item.options,
-        style: item.style,
-        on: item.on,
-        pane: repaired,
-      );
+      yield repaired
+          .sized(
+            w,
+            fit(item.h.isFinite ? item.h : 1, smallest, Component.maxRows),
+            x: placed ? fit(x, 0, columns - w) : null,
+            y: placed ? fit(y, 0, 999) : null,
+          )
+          .copyWith(id: repaired.isPane ? null : fresh(item.id, 'item'));
     }
 
     repair = (pane, kind, depth) {
-      final columns = pane.columns.clamp(1, Pane.maxColumns);
+      final columns = pane.columns.clamp(1, Component.maxColumns);
       // The pane's own id first, so that nothing inside can take it.
-      final id = fresh(paneIds, pane.id, 'pane');
+      final id = fresh(pane.id, 'pane');
       // A measure that means something, kept within what is allowed.
       double? within(double? value, num low, num high) =>
           value != null && value.isFinite
@@ -110,33 +105,30 @@ extension LayoutRepair on Layout {
           : null;
       final free = pane.mode == PaneMode.free;
       double? cells(double? value, num most) =>
-          switch (within(value, free ? Pane.minFreeSpan : 1, most)) {
+          switch (within(value, free ? Component.minFreeSpan : 1, most)) {
             final span? when !free => span.roundToDouble(),
             final span => span,
           };
-      return Pane(
+      final sound = pane.copyWith(
         id: id,
-        title: pane.title,
-        mode: pane.mode,
-        columns: columns,
-        items: [
-          for (final entry in pane.items)
-            ...fitted(entry, columns, pane.mode, kind, depth),
-        ],
-        style: pane.style,
-        rules: _kept(pane.rules, {
-          'spacing': within(pane.spacing, 0, Pane.maxSpacing),
+        options: _kept(pane.options, {
+          'mode': pane.mode.name,
+          'columns': columns,
+          'spacing': within(pane.spacing, 0, Component.maxSpacing),
           'rowHeight': within(
             pane.rowHeight,
-            Pane.minRowHeight,
-            Pane.maxRowHeight,
+            Component.minRowHeight,
+            Component.maxRowHeight,
           ),
           'itemW': cells(pane.itemW, columns),
-          'itemH': cells(pane.itemH, Pane.maxRows),
+          'itemH': cells(pane.itemH, Component.maxRows),
         }),
-        prefabRules: pane.prefabRules,
-        vars: pane.vars,
-        on: pane.on,
+      );
+      return sound.copyWith(
+        children: [
+          for (final child in pane.children)
+            ...fitted(child, sound, kind, depth),
+        ],
       );
     };
 
@@ -165,7 +157,7 @@ extension LayoutRepair on Layout {
     final placed = {
       for (final panel in result)
         for (final item in panel.items)
-          if (item.kind == ItemKind.prefab) ?item.source,
+          if (item.isInstance) ?item.source,
     };
     return Layout(
       panels: result,
@@ -194,32 +186,32 @@ extension LayoutRepair on Layout {
     final kept = rebuild(
       (_, items) => [
         for (final item in items)
-          if (item.kind != ItemKind.prefab || there.contains(item.source)) item,
+          if (!item.isInstance ||
+              item.source == null ||
+              there.contains(item.source))
+            item,
       ],
     );
     final placed = {...removed};
     final itemIds = <String>{};
     for (final panel in kept.panels) {
-      for (final pane in panel.root.panes) {
-        for (final item in pane.items) {
-          itemIds.add(item.id);
-          if (item.source case final source?
-              when item.kind == ItemKind.prefab) {
-            placed.add(source);
-          }
+      for (final item in panel.root.all) {
+        itemIds.add(item.id);
+        if (item.source case final source? when item.isInstance) {
+          placed.add(source);
         }
       }
     }
     // Named after the entity, by what it is called if that is known.
     String autoId(String entityId) {
-      final id = freeId(LayoutItem.autoId(entityId, names[entityId]), itemIds);
+      final id = freeId(Component.autoId(entityId, names[entityId]), itemIds);
       itemIds.add(id);
       return id;
     }
 
     final unplaced = [
       for (final id in entityIds)
-        if (placed.add(id)) LayoutItem.of(id, id: autoId(id)),
+        if (placed.add(id)) Component.of(id, id: autoId(id)),
     ];
     final filled = kept.rebuild(
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,

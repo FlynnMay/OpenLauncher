@@ -24,10 +24,10 @@ class PaneSettings extends StatelessWidget {
 
   /// The heading the settings go under.
   final String title;
-  final List<Pane> panes;
+  final List<Component> panes;
 
   /// Called with how each of the panes is to change.
-  final void Function(Pane Function(Pane pane) change) onChanged;
+  final void Function(Component Function(Component pane) change) onChanged;
 
   /// Whether a pane's own title is among its settings.
   final bool named;
@@ -76,7 +76,7 @@ class PaneSettings extends StatelessWidget {
         for (final rule in paneRules)
           if (rule.key != 'title' || named && panes.length == 1) rule,
       ],
-      json: {...panes.first.toJson(), ...panes.first.rules},
+      json: panes.first.options,
       onChanged: (key, value) =>
           onChanged((pane) => withRule(pane, key, value)),
     ),
@@ -85,16 +85,20 @@ class PaneSettings extends StatelessWidget {
 
   /// This pane's rule for [prefab] with [key] set to [value]; null takes
   /// it away, and a rule with nothing left in it goes too.
-  static Pane _ruled(Pane pane, String prefab, String key, Object? value) {
+  static Component _ruled(
+    Component pane,
+    String prefab,
+    String key,
+    Object? value,
+  ) {
     final rule = {...?pane.prefabRules[prefab], key: value}
       ..removeWhere((_, value) => value == null);
-    return pane.copyWith(
-      prefabRules: {
-        for (final MapEntry(:key, :value) in pane.prefabRules.entries)
-          if (key != prefab) key: value,
-        if (rule.isNotEmpty) prefab: rule,
-      },
-    );
+    final rules = {
+      for (final MapEntry(:key, :value) in pane.prefabRules.entries)
+        if (key != prefab) key: value,
+      if (rule.isNotEmpty) prefab: rule,
+    };
+    return pane.withOption('prefabRules', rules.isEmpty ? null : rules);
   }
 
   static bool _builtIn(Prefab prefab) =>
@@ -113,7 +117,7 @@ class PaneSettings extends StatelessWidget {
     ];
     final addable = [
       for (final prefab in prefabs.values)
-        if (!shown.contains(prefab) && prefab.layouts.isNotEmpty) prefab,
+        if (!shown.contains(prefab) && prefab.variants.isNotEmpty) prefab,
     ];
     return Section('Prefab rules', open: false, [
       const Padding(
@@ -130,13 +134,13 @@ class PaneSettings extends StatelessWidget {
           child: PopupMenuButton<Prefab>(
             tooltip: 'Add a rule for a prefab',
             // A rule has to say something to be one: it starts with the
-            // prefab's first layout.
+            // prefab's first variant.
             onSelected: (prefab) => onChanged(
               (pane) => _ruled(
                 pane,
                 prefab.id,
-                layoutOption,
-                prefab.layouts.keys.first,
+                'variant',
+                prefab.variants.keys.first,
               ),
             ),
             itemBuilder: (context) => [
@@ -156,57 +160,51 @@ class PaneSettings extends StatelessWidget {
     ]);
   }
 
-  /// The rule for [prefab]: its layout, and whether each part shows.
+  /// The rule for [prefab]: its variant, and whether each part shows.
   List<Widget> _rule(Prefab prefab) => [
     LabelledRow(
       prefab.name,
       ChoiceBox<String>(
         value: shared(
           panes.map(
-            (pane) => switch (pane.prefabRules[prefab.id]?[layoutOption]) {
-              final String layout when prefab.layouts.containsKey(layout) =>
-                layout,
+            (pane) => switch (pane.prefabRules[prefab.id]?['variant']) {
+              final String variant when prefab.variants.containsKey(variant) =>
+                variant,
               _ => _each,
             },
           ),
         ),
         choices: {
-          // The launcher's own may leave it to each entity; a rule that
+          // The launcher's own may leave it to each instance; a rule that
           // was added says which, or is taken away.
-          // One that says no layout, as a save may, can be given one.
+          // One that says no variant, as a save may, can be given one.
           if (_builtIn(prefab) ||
               panes.any(
-                (pane) => pane.prefabRules[prefab.id]?[layoutOption] == null,
+                (pane) => pane.prefabRules[prefab.id]?['variant'] == null,
               ))
             _each: 'As each says',
-          for (final MapEntry(:key, :value) in prefab.layouts.entries)
+          for (final MapEntry(:key, :value) in prefab.variants.entries)
             key: value.label.isEmpty ? key : value.label,
         },
-        onChanged: (layout) => onChanged(
+        onChanged: (variant) => onChanged(
           (pane) => _ruled(
             pane,
             prefab.id,
-            layoutOption,
-            layout == _each ? null : layout,
+            'variant',
+            variant == _each ? null : variant,
           ),
         ),
       ),
     ),
-    for (final part in prefab.parts.keys)
+    for (final part in prefab.parts)
       LabelledRow(
-        '  $part',
+        '  ${part.id}',
         ChoiceBox<String>(
           value: shared(
             panes.map(
-              (pane) => switch (overridesOf(
-                LayoutItem(
-                  id: '',
-                  kind: ItemKind.prefab,
-                  ref: '',
-                  options: pane.prefabRules[prefab.id] ?? const {},
-                ),
-                part,
-              )[hiddenOption]) {
+              (pane) => switch (overridesFromJson(
+                pane.prefabRules[prefab.id]?['overrides'],
+              )[part.id]?['hidden']) {
                 true => 'hidden',
                 false => 'shown',
                 _ => _each,
@@ -219,18 +217,23 @@ class PaneSettings extends StatelessWidget {
             'hidden': 'Hidden',
           },
           onChanged: (shown) => onChanged((pane) {
-            final rule = withOverrides(
-              pane.prefabRules[prefab.id] ?? const {},
-              part,
+            final overrides = withOverride(
+              overridesFromJson(pane.prefabRules[prefab.id]?['overrides']),
+              part.id,
               {
-                hiddenOption: switch (shown) {
+                'hidden': switch (shown) {
                   'shown' => false,
                   'hidden' => true,
                   _ => null,
                 },
               },
             );
-            return _ruled(pane, prefab.id, partsOption, rule[partsOption]);
+            return _ruled(
+              pane,
+              prefab.id,
+              'overrides',
+              overrides.isEmpty ? null : overrides,
+            );
           }),
         ),
       ),
@@ -238,14 +241,13 @@ class PaneSettings extends StatelessWidget {
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
-          onPressed: () => onChanged(
-            (pane) => pane.copyWith(
-              prefabRules: {
-                for (final MapEntry(:key, :value) in pane.prefabRules.entries)
-                  if (key != prefab.id) key: value,
-              },
-            ),
-          ),
+          onPressed: () => onChanged((pane) {
+            final rules = {
+              for (final MapEntry(:key, :value) in pane.prefabRules.entries)
+                if (key != prefab.id) key: value,
+            };
+            return pane.withOption('prefabRules', rules.isEmpty ? null : rules);
+          }),
           icon: const Icon(Icons.delete_outline, size: 18),
           label: Text('Take the rule for ${prefab.name} away'),
         ),
@@ -259,8 +261,8 @@ class PaneSettings extends StatelessWidget {
       value: shared(panes.map((pane) => pane.itemW != null)),
       onChanged: (same) => onChanged(
         (pane) => pane
-            .withRule('itemW', same ? pane.itemW ?? 1 : null)
-            .withRule('itemH', same ? pane.itemH ?? 1 : null),
+            .withOption('itemW', same ? pane.itemW ?? 1 : null)
+            .withOption('itemH', same ? pane.itemH ?? 1 : null),
       ),
     ),
     if (panes.every((pane) => pane.itemW != null)) ...[
@@ -269,14 +271,14 @@ class PaneSettings extends StatelessWidget {
         value: shared(panes.map((pane) => pane.itemW!)),
         min: 1,
         max: panes.map((pane) => pane.columns).reduce((a, b) => a < b ? a : b),
-        onChanged: (w) => onChanged((pane) => pane.withRule('itemW', w)),
+        onChanged: (w) => onChanged((pane) => pane.withOption('itemW', w)),
       ),
       NumberStepper(
         label: 'Cells tall',
         value: shared(panes.map((pane) => pane.itemH ?? 1)),
         min: 1,
-        max: Pane.maxRows,
-        onChanged: (h) => onChanged((pane) => pane.withRule('itemH', h)),
+        max: Component.maxRows,
+        onChanged: (h) => onChanged((pane) => pane.withOption('itemH', h)),
       ),
     ],
   ]);

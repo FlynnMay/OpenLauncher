@@ -24,9 +24,7 @@ final widgetCleanupProvider = Provider<void>((ref) {
     ref.read(launcherPlatformProvider).pruneWidgets([
       for (final panel in layout.panels)
         for (final item in panel.items)
-          if (item.kind == ItemKind.component &&
-              item.ref == ComponentKind.android.name)
-            item.id,
+          if (item.kind == ComponentKind.android.name) item.id,
     ]);
   }, fireImmediately: true);
 });
@@ -38,7 +36,7 @@ final widgetCleanupProvider = Provider<void>((ref) {
 class AppWidgetView extends ConsumerWidget {
   const AppWidgetView({super.key, required this.item});
 
-  final LayoutItem item;
+  final Component item;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

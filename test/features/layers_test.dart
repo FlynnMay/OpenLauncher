@@ -6,7 +6,6 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/home/popup_panel.dart';
@@ -64,22 +63,24 @@ void main() {
                     panels: [
                       Panel(
                         id: Layout.homeId,
-                        root: Pane(
+                        root: Component.pane(
                           id: 'main',
                           // In line with the sidebar's row and clear of it
                           // when it is open, so that going right from it
                           // leads here.
                           mode: PaneMode.grid,
-                          items: [LayoutItem.of('app:a', id: 'a', x: 3, y: 0)],
+                          children: [
+                            Component.of('app:a', id: 'a', x: 3, y: 0),
+                          ],
                         ),
                       ),
                       Panel(
                         id: Layout.leftId,
-                        root: const Pane(id: 'left/root', columns: 1)
+                        root: Component.pane(id: 'left/root', columns: 1)
                             .asBar()
                             .copyWith(
                               on: on,
-                              items: [LayoutItem.of('app:b', id: 'b')],
+                              children: [Component.of('app:b', id: 'b')],
                             ),
                       ),
                     ],
@@ -163,10 +164,10 @@ void main() {
                   panels: [
                     Panel(
                       id: Layout.homeId,
-                      root: Pane(
+                      root: Component.pane(
                         id: 'main',
-                        items: [
-                          LayoutItem.of(
+                        children: [
+                          Component.of(
                             'games',
                             id: 'f',
                             prefab: folderPrefabId,
@@ -177,9 +178,9 @@ void main() {
                     Panel(
                       id: 'games',
                       title: 'Games',
-                      root: Pane(
+                      root: Component.pane(
                         id: 'games/root',
-                        items: [LayoutItem.of('app:b', id: 'b')],
+                        children: [Component.of('app:b', id: 'b')],
                       ),
                     ),
                   ],

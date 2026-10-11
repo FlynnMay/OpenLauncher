@@ -1,8 +1,8 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
-import 'package:openlauncher/core/layout/layout_item.dart';
 
 /// The cells an item covers: column and row from zero, and its size. Whole
 /// numbers except in a [PaneMode.free] section.
@@ -35,9 +35,9 @@ class Placement {
 /// have no position, or whose position is taken, fill the first free space.
 /// In [PaneMode.free] items are simply where they say, overlapping or
 /// not; any without a position line up below those.
-List<Placement> placeItems(List<LayoutItem> items, int columns, PaneMode mode) {
+List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
   if (mode == PaneMode.free) {
-    double width(LayoutItem item) => min(item.w, columns * 1.0);
+    double width(Component item) => min(item.w, columns * 1.0);
     // What has no position yet, such as a newly installed app, goes in rows
     // under everything that has one, rather than on top of it.
     final below = items
@@ -95,12 +95,14 @@ List<Placement> placeItems(List<LayoutItem> items, int columns, PaneMode mode) {
   }
 
   // The flow cursor only moves forward, which keeps items in their order.
+  // A line has no cells: asked for all the same, it answers as a flow.
+  final flow = mode != PaneMode.grid;
   var cursorX = 0, cursorY = 0;
   for (final (index, item) in items.indexed) {
     if (placed[index] != null) continue;
     final w = min(item.w.round(), columns), h = item.h.round();
-    var x = mode == PaneMode.flow ? cursorX : 0;
-    var y = mode == PaneMode.flow ? cursorY : 0;
+    var x = flow ? cursorX : 0;
+    var y = flow ? cursorY : 0;
     while (!free(x, y, w, h)) {
       x++;
       if (x + w > columns) {

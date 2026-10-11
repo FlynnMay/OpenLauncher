@@ -15,7 +15,7 @@ void main() {
       id: 'big-entity',
       name: 'Big entity',
     );
-    var pane = const Pane(id: 'p');
+    var pane = Component.pane(id: 'p');
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -48,7 +48,7 @@ void main() {
     await tester.tap(find.text('Big entity').last);
     await tester.pumpAndSettle();
     expect(pane.prefabRules, {
-      'big-entity': {layoutOption: 'stacked'},
+      'big-entity': {'variant': 'stacked'},
     });
     expect(find.text('Add a rule'), findsNothing);
 

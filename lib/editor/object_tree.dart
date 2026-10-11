@@ -9,35 +9,30 @@ import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tree_view.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 
-/// What the thing [item] places is called: an entity by its name, a pane by
-/// its title, a folder entity by the folder it opens.
-String objectName(LayoutItem item, Layout? layout, List<Entity> entities) =>
-    switch (item.kind) {
-      ItemKind.prefab =>
-        entities.byId(item.source)?.label ??
-            // Drawn from a folder, it goes by the folder's name.
-            switch (layout?.panel(item.source ?? '')?.title) {
-              null => 'Prefab',
-              '' => 'Folder',
-              final title => title,
-            },
-      // A button by what it says, where that is plain to read.
-      ItemKind.component => switch (item.options['label']) {
-        final String label when label.isNotEmpty && !label.contains('{{') =>
-          label,
-        _ => ComponentKind.named(item.ref)?.label ?? 'Component',
-      },
-      ItemKind.pane => switch (item.pane?.title) {
-        null || '' => 'Pane',
-        final title => title,
-      },
-    };
+/// What [item] is called: an instance by the name of the entity it was
+/// handed, or of the folder it opens; a pane by its title; a button by
+/// what it says, where that is plain to read.
+String objectName(Component item, Layout? layout, List<Entity> entities) {
+  if (item.isInstance) {
+    return entities.byId(item.source)?.label ??
+        switch (layout?.panel(item.source ?? '')?.title) {
+          null => 'Prefab',
+          '' => 'Folder',
+          final title => title,
+        };
+  }
+  if (item.isPane) return item.title.isEmpty ? 'Pane' : item.title;
+  return switch (item.options['label']) {
+    final String label when label.isNotEmpty && !label.contains('{{') => label,
+    _ => ComponentKind.named(item.kind)?.label ?? 'Component',
+  };
+}
 
-IconData objectIcon(ItemKind kind) => switch (kind) {
-  ItemKind.prefab => Icons.crop_16_9,
-  ItemKind.component => Icons.widgets_outlined,
-  ItemKind.pane => Icons.dashboard_outlined,
-};
+IconData objectIcon(Component item) => item.isInstance
+    ? Icons.crop_16_9
+    : item.isPane
+    ? Icons.dashboard_outlined
+    : Icons.widgets_outlined;
 
 /// Everything on the TV as a tree: the home screen, each sidebar and each
 /// folder, and under them the panes, entities and components as they are nested.
@@ -59,17 +54,14 @@ class ObjectTree extends ConsumerWidget {
     final selection = ref.watch(selectionProvider);
     final bar = ref.watch(barProvider);
 
-    List<TreeNode<String>> under(Pane pane) => [
-      for (final item in pane.items)
+    List<TreeNode<String>> under(Component pane) => [
+      for (final item in pane.children)
         TreeNode(
           id: item.id,
           value: item.id,
           label: objectName(item, layout, entities),
-          leading: _icon(objectIcon(item.kind)),
-          children: switch (item.pane) {
-            null => const [],
-            final inner => under(inner),
-          },
+          leading: _icon(objectIcon(item)),
+          children: under(item),
         ),
     ];
     TreeNode<String> panel(Panel panel, String label, IconData icon) =>
@@ -89,7 +81,7 @@ class ObjectTree extends ConsumerWidget {
             panel(layout.home, 'Home screen', Icons.tv_outlined),
             for (final id in Layout.barIds)
               if (layout.panel(id) case final sidebar?
-                  when sidebar.root.items.isNotEmpty || id == bar)
+                  when sidebar.root.children.isNotEmpty || id == bar)
                 panel(
                   sidebar,
                   '${barName(id)} sidebar',

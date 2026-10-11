@@ -1,4 +1,3 @@
-import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 
 /// Where a panel is shown. Decided by the panel's id: [Layout.homeId] is the
@@ -17,21 +16,16 @@ enum PaneMode {
   /// Each item anywhere, at any size, measured in cells but not held to
   /// them. Items may overlap; later ones are drawn on top.
   free,
-}
 
-enum ItemKind {
-  /// An instance of a prefab: [LayoutItem.ref] is the prefab's id and
-  /// [LayoutItem.source] the id of the entity it is drawn from. What used
-  /// to be called a card is one of these, of the prefab `app-card`; what
-  /// opens a folder is one of `folder-card`, drawn from the folder.
-  prefab,
+  /// Side by side in a line, each taking the room its transform says:
+  /// what a card is made with.
+  row,
 
-  /// One of the launcher's own components; [LayoutItem.ref] is the
-  /// `ComponentKind` name.
-  component,
+  /// The same, one under the other.
+  column;
 
-  /// A pane inside this one, held in [LayoutItem.pane].
-  pane,
+  /// Whether it puts things in a line rather than on cells.
+  bool get inLine => this == row || this == column;
 }
 
 /// The edge of the screen a sidebar is on.

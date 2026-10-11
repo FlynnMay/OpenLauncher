@@ -1,19 +1,7 @@
 import 'dart:convert';
 
 import 'package:openlauncher/core/config/migrations/save_json.dart';
-import 'package:openlauncher/core/config/migrations/v10_to_v11.dart';
-import 'package:openlauncher/core/config/migrations/v11_to_v12.dart';
-import 'package:openlauncher/core/config/migrations/v12_to_v13.dart';
-import 'package:openlauncher/core/config/migrations/v13_to_v14.dart';
-import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
-import 'package:openlauncher/core/config/migrations/v3_to_v4.dart';
-import 'package:openlauncher/core/config/migrations/v4_to_v5.dart';
-import 'package:openlauncher/core/config/migrations/v5_to_v6.dart';
-import 'package:openlauncher/core/config/migrations/v6_to_v7.dart';
-import 'package:openlauncher/core/config/migrations/v7_to_v8.dart';
-import 'package:openlauncher/core/config/migrations/v8_to_v9.dart';
-import 'package:openlauncher/core/config/migrations/v9_to_v10.dart';
+import 'package:openlauncher/core/config/migrations/v14_to_v15.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -30,7 +18,12 @@ export 'save_json.dart' show Device, Json;
 ///
 /// A step that has shipped is never changed: saves that went through it
 /// are out there. What it got wrong, a later step puts right.
-const saveVersion = 14;
+const saveVersion = 15;
+
+/// The oldest version there are still steps from. A save from before it
+/// cannot be brought up to date: the steps that did were taken out when
+/// everything on the screen became one kind of thing, a component.
+const oldestVersion = 14;
 
 /// One thing a [Migration] does to a save, by changing [save] in place. It
 /// finds what it is for and leaves the rest be, whatever shape that is in:
@@ -64,118 +57,22 @@ class Migration {
 /// any version follows them from where it is to [saveVersion].
 const migrations = [
   Migration(
-    from: 1,
-    to: 2,
+    from: 14,
+    to: 15,
     what:
-        'Panels hold a pane in place of sections, sidebars are panels like '
-        'any other, there can be several wallpapers, and hidden entities are '
-        'removed ones.',
-    rules: [
-      wallpaperToWallpapers,
-      orderToLayout,
-      sectionsToPanes,
-      sidebarsAsRows,
-      hiddenToRemoved,
-    ],
-  ),
-  Migration(
-    from: 2,
-    to: 3,
-    what: 'Items, panes and folders go by ids that say what they are.',
-    rules: [readableIds],
-    needsDevice: true,
-  ),
-  Migration(
-    from: 3,
-    to: 4,
-    what:
-        'The quick actions are a popup of buttons in the layout, not a '
-        'list of names beside it.',
-    rules: [menuAsPanel],
-  ),
-  Migration(
-    from: 4,
-    to: 5,
-    what:
-        'How an entity is drawn is what it sets differently from its prefab, '
-        'and what a pane makes of its entities is a rule for each prefab.',
-    rules: [cardLooksAsOverrides, paneLooksAsRules],
-  ),
-  Migration(
-    from: 5,
-    to: 6,
-    what:
-        'A card is an instance of a prefab drawn from an entity, and says '
-        'so; an action is done to an entity.',
-    rules: [cardsAsInstances, prefabActsOnEntities],
-  ),
-  Migration(
-    from: 6,
-    to: 7,
-    what:
-        'The time, the date and what plays are entities, read by their '
-        'ids, and the media player presents its own actions.',
-    rules: [valuesAsEntities],
-  ),
-  Migration(
-    from: 7,
-    to: 8,
-    what:
-        'The clock, the weather and what plays are instances of prefabs '
-        'drawn from their entities, not widgets of kinds of their own.',
-    rules: [widgetsAsPrefabs],
-  ),
-  Migration(
-    from: 8,
-    to: 9,
-    what:
-        'What an instance is drawn from is one of its variables, as any '
-        'component may have variables.',
-    rules: [sourceAsVariable],
-  ),
-  Migration(
-    from: 9,
-    to: 10,
-    what: 'A folder is opened by setting its variable `open`.',
-    rules: [foldersOpenByVariable],
-  ),
-  Migration(
-    from: 10,
-    to: 11,
-    what: 'What opens a folder is an instance of a prefab, drawn from it.',
-    rules: [foldersAsInstances],
-  ),
-  Migration(
-    from: 11,
-    to: 12,
-    what:
-        'Everything has one look, a style of named properties, in place '
-        'of a box\'s colours, a pane\'s corners and padding and each '
-        'widget\'s own options.',
-    rules: [stylesAsOne],
-  ),
-  Migration(
-    from: 12,
-    to: 13,
-    what: 'A text, a picture, a button and the like are components.',
-    rules: [widgetsAsComponents],
-  ),
-  Migration(
-    from: 13,
-    to: 14,
-    what:
-        'How a folder or a sidebar opens and a pane\'s measures are its '
-        'rules, kept together; its rules for prefabs are named for that.',
-    rules: [settingsAsRules],
+        'Everything on the screen is a component, a pane among them, and '
+        'a prefab is a component that was saved, with variants in place '
+        'of layouts.',
+    rules: [everythingAComponent, prefabsAsComponents],
   ),
 ];
 
-/// The version [save] is: what it says, or for a config from before
-/// configs said, what its layout says. From before either did, the first.
+/// The version [save] is: what it says, or failing that what its layout
+/// says. One that says nothing is taken to be written as things are now.
 int versionOf(Map<Object?, Object?> save) => switch (save) {
   {'v': final num version} => version.toInt(),
   {'layout': {'v': final num version}} => version.toInt(),
-  _ => 1,
+  _ => saveVersion,
 };
 
 /// The steps [save] has yet to go through.
@@ -193,8 +90,13 @@ bool needsDevice(Map<Object?, Object?> save) =>
 /// from a later version than this, is given back as it is.
 ///
 /// Throws a [FormatException] where a rule cannot make sense of what it is
-/// there to change.
+/// there to change, and for a save from before [oldestVersion].
 Json migrate(Map<Object?, Object?> save, {Device device = Device.unknown}) {
+  if (versionOf(save) < oldestVersion) {
+    throw FormatException(
+      'Saved by a version too old to read (${versionOf(save)})',
+    );
+  }
   final steps = pending(save).toList();
   if (steps.isEmpty) return save is Json ? save : save.cast();
   // A copy all of whose parts can be changed, whatever was handed in.
@@ -217,7 +119,7 @@ Json migrateLayout(
 }) {
   final version = switch (layout['v']) {
     final num version => version.toInt(),
-    _ => 1,
+    _ => saveVersion,
   };
   if (version >= saveVersion) return layout is Json ? layout : layout.cast();
   return migrate({'v': version, 'layout': layout}, device: device)['layout']!

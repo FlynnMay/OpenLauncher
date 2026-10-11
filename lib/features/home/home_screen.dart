@@ -7,7 +7,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/popup_host.dart';
@@ -59,13 +59,12 @@ class HomeScreen extends ConsumerWidget {
     });
     // The same sidebar wherever it is drawn, so that moving between layers
     // keeps how far open it is and where the focus is in it.
-    Widget sidebar(PanelView view) => KeyedSubtree(
-      key: keys.putIfAbsent(view.panel.id, GlobalKey.new),
+    Widget sidebar(Panel panel) => KeyedSubtree(
+      key: keys.putIfAbsent(panel.id, GlobalKey.new),
       child: Sidebar(
-        view: view,
-        onOpen: (open) => ref
-            .read(runtimeVarsProvider.notifier)
-            .set(view.panel.id, openVar, open),
+        panel: panel,
+        onOpen: (open) =>
+            ref.read(runtimeVarsProvider.notifier).set(panel.id, openVar, open),
       ),
     );
     return PopScope(
@@ -132,9 +131,9 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         ),
                       for (final bar in layout.bars)
-                        if (layer.holds.contains(bar.panel.id)) sidebar(bar),
+                        if (layer.holds.contains(bar.id)) sidebar(bar),
                       for (final id in layer.holds)
-                        if (layout.panels[id]?.panel.kind == PanelKind.popup)
+                        if (layout.panel(id)?.kind == PanelKind.popup)
                           Positioned.fill(
                             key: ValueKey('folder $id'),
                             child: PanelPopup(
@@ -161,18 +160,20 @@ class HomeScreen extends ConsumerWidget {
                                 // included.
                                 SingleChildScrollView(
                                   padding: EdgeInsets.all(
-                                    layout.home.root.pane.box.padding ?? 0,
+                                    layout.home.root.box.padding ?? 0,
                                   ),
                                   child: PaneGrid(
-                                    view: layout.home.root,
-                                    tile: (entry) =>
-                                        EntryTile(entry: entry, focus: focus),
+                                    pane: layout.home.root,
+                                    tile: (entry) => ComponentView(
+                                      component: entry,
+                                      focus: focus,
+                                    ),
                                   ),
                                 ),
                               // Over the home screen, each from its own edge:
                               // those that are on no layer of their own.
                               for (final bar in layout.bars)
-                                if (layerOf(layers, bar.panel.id) == null)
+                                if (layerOf(layers, bar.id) == null)
                                   sidebar(bar),
                               Positioned(
                                 top: _padding.top,
@@ -203,11 +204,8 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// Whether the Settings entity is somewhere the user can get to.
-  static bool _hasSettings(LayoutView layout) => layout.panels.values.any(
-    (view) => view.panel.items.any(
-      (item) =>
-          item.kind == ItemKind.prefab && item.source == Entity.settings.id,
-    ),
+  static bool _hasSettings(Layout layout) => layout.panels.any(
+    (panel) => panel.items.any((item) => item.source == Entity.settings.id),
   );
 }
 

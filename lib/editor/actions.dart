@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/selection.dart';
@@ -44,7 +45,11 @@ Future<void> placeDragged(
     final name = await askName(context, panel.title);
     if (name == null || !context.mounted) return;
     panel = Panel.empty(layout.panelIdFor(name), title: name);
-    item = item.copyWith(id: layout.itemIdFor(name), ref: panel.id);
+    // Handed the folder it opens, by the id that goes with its name.
+    item = item.copyWith(
+      id: layout.itemIdFor(name),
+      vars: {...item.vars, Component.sourceVar: Variable(panel.id)},
+    );
   }
   await changeLayout(
     context,

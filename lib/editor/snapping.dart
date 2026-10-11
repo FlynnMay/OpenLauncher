@@ -19,7 +19,7 @@ const freeStep = 0.05;
 /// The steps, in cells, that a place or a size in [pane] goes by: whole
 /// cells, or with [snap] off in a pane that lets things be anywhere, small
 /// fractions of one.
-double stepIn(Pane pane, {required bool snap}) =>
+double stepIn(Component pane, {required bool snap}) =>
     pane.mode == PaneMode.free && !snap ? freeStep : 1;
 
 /// [value] at the nearest multiple of [step], to the hundredth the layout

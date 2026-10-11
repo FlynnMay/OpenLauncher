@@ -6,12 +6,12 @@ void main() {
   test(
     'only an "Anywhere" pane with snapping off goes by less than a cell',
     () {
-      const free = Pane(id: 'p', mode: PaneMode.free);
-      const grid = Pane(id: 'p', mode: PaneMode.grid);
+      final free = Component.pane(id: 'p', mode: PaneMode.free);
+      final grid = Component.pane(id: 'p', mode: PaneMode.grid);
       expect(stepIn(free, snap: true), 1);
       expect(stepIn(free, snap: false), freeStep);
       expect(stepIn(grid, snap: false), 1);
-      expect(stepIn(const Pane(id: 'p'), snap: false), 1);
+      expect(stepIn(Component.pane(id: 'p'), snap: false), 1);
     },
   );
 

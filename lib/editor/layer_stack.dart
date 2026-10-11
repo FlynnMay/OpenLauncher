@@ -7,7 +7,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/after_frame.dart';
 import 'package:openlauncher/editor/layers.dart';
 import 'package:openlauncher/editor/selection.dart';
-import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 
 /// Where the focus goes from one place when the D-pad is pressed one way.
@@ -88,9 +88,8 @@ class _LayerStackState extends ConsumerState<LayerStack> {
                 spot.rect,
                 target.rect,
                 spot.id.context
-                    ?.findAncestorWidgetOfExactType<EntryTile>()
-                    ?.entry
-                    .item
+                    ?.findAncestorWidgetOfExactType<ComponentView>()
+                    ?.component
                     .id,
               ),
     ];

@@ -1,8 +1,8 @@
 import 'dart:math';
 
+import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
-import 'package:openlauncher/core/layout/pane.dart';
 
 // The rules of a pane, and of the panes that are shown and hidden: each
 // one setting, described once, under the name it is saved by. The editor
@@ -14,7 +14,26 @@ import 'package:openlauncher/core/layout/pane.dart';
 /// mean something else in another: [parents] are the panes of what is
 /// being set, and only what means something in all of them is offered. A
 /// pane that places things in order gives none of them a place.
-List<ComponentOption> transformOptions(Iterable<Pane> parents) {
+List<ComponentOption> transformOptions(Iterable<Component> parents) {
+  // In a line there are no cells: a share of the room, or a shape.
+  if (parents.every((pane) => pane.mode.inLine)) {
+    return const [
+      ComponentOption(
+        'flex',
+        'Share of the room',
+        OptionKind.number,
+        max: 12,
+        unset: 'What it needs',
+      ),
+      ComponentOption(
+        'aspect',
+        'Shape (width for a height of 1)',
+        OptionKind.number,
+        max: 10,
+        unset: 'Any',
+      ),
+    ];
+  }
   final columns = parents.map((pane) => pane.columns).reduce(min);
   return [
     ComponentOption('w', 'Cells wide', OptionKind.number, min: 1, max: columns),
@@ -23,7 +42,7 @@ List<ComponentOption> transformOptions(Iterable<Pane> parents) {
       'Cells tall',
       OptionKind.number,
       min: 1,
-      max: Pane.maxRows,
+      max: Component.maxRows,
     ),
     if (parents.every((pane) => pane.mode != PaneMode.flow)) ...[
       ComponentOption(
@@ -52,34 +71,76 @@ final List<ComponentOption> paneRules = [
     'Placement',
     OptionKind.choice,
     usual: 'flow',
-    choices: {'flow': 'In order', 'grid': 'On cells', 'free': 'Anywhere'},
+    choices: {
+      'flow': 'In order',
+      'grid': 'On cells',
+      'free': 'Anywhere',
+      'row': 'In a row',
+      'column': 'In a column',
+    },
   ),
   const ComponentOption(
     'columns',
     'Columns',
     OptionKind.number,
-    usual: Pane.defaultColumns,
+    usual: Component.defaultColumns,
     min: 1,
-    max: Pane.maxColumns,
+    max: Component.maxColumns,
+    when: _onCells,
   ),
   ComponentOption(
     'rowHeight',
     'Row height',
     OptionKind.number,
-    min: Pane.minRowHeight.round(),
-    max: Pane.maxRowHeight.round(),
+    min: Component.minRowHeight.round(),
+    max: Component.maxRowHeight.round(),
     step: 4,
     unset: 'By shape',
+    when: _onCells,
   ),
   ComponentOption(
     'spacing',
     'Spacing',
     OptionKind.number,
-    max: Pane.maxSpacing.round(),
+    max: Component.maxSpacing.round(),
     step: 2,
     unset: 'Usual',
+    when: _onCells,
+  ),
+  // What a line has in place of cells.
+  const ComponentOption(
+    'gap',
+    'Gap',
+    OptionKind.number,
+    max: 80,
+    step: 2,
+    usual: 0,
+    when: _inLine,
+  ),
+  const ComponentOption(
+    'fit',
+    'Made to fill its box',
+    OptionKind.toggle,
+    when: _inLine,
+  ),
+  const ComponentOption(
+    'align',
+    'Across',
+    OptionKind.choice,
+    unset: 'Usual',
+    choices: {
+      'start': 'At the start',
+      'center': 'In the middle',
+      'end': 'At the end',
+      'stretch': 'Filling it',
+    },
+    when: _inLine,
   ),
 ];
+
+bool _inLine(Map<String, Object?> options) =>
+    options['mode'] == 'row' || options['mode'] == 'column';
+bool _onCells(Map<String, Object?> options) => !_inLine(options);
 
 /// What a pane that is shown and hidden says of how: a sidebar's rules,
 /// and a folder's. They differ only in these.

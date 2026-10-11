@@ -7,11 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/prefab_tile.dart';
 import 'package:openlauncher/features/home/sidebar.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
@@ -73,23 +72,22 @@ void main() {
 
     /// A home screen of [panes] one under another, each five rows tall,
     /// with room on the left for a rail.
-    Panel home(List<Pane> panes) => Panel(
+    Panel home(List<Component> panes) => Panel(
       id: Layout.homeId,
-      root: Pane(
+      root: Component.pane(
         id: 'global',
         mode: PaneMode.grid,
         columns: 12,
-        items: [
+        children: [
           for (final (index, pane) in panes.indexed)
-            LayoutItem.pane(pane, x: 2, y: index * 5, w: 10, h: 5),
+            pane.sized(10, 5, x: 2, y: index * 5.0),
         ],
       ),
     );
 
-    LayoutItem entity(String package) => LayoutItem(
+    Component entity(String package) => Component(
       id: 'i-$package',
-      kind: ItemKind.prefab,
-      ref: cardPrefabId,
+      prefab: cardPrefabId,
       vars: {'source': Variable('app:$package')},
     );
 
@@ -128,37 +126,39 @@ void main() {
             inbox: 'main',
             panels: [
               home([
-                Pane(
+                Component.pane(
                   id: 'top',
                   title: 'Favourites',
                   mode: PaneMode.grid,
                   columns: 4,
-                  items: [
-                    LayoutItem.of(
+                  children: [
+                    Component.of(
                       'games',
                       id: 'folder',
                       prefab: folderPrefabId,
                       x: 1,
                       y: 0,
                     ),
-                    LayoutItem.of(
+                    Component.of(
                       'clock',
                       id: 'clock',
                       prefab: 'clock',
                       w: 2,
                       x: 2,
                       y: 1,
-                      options: {'date': false},
+                      overrides: const {
+                        'date': {'hidden': true},
+                      },
                     ),
                   ],
                 ),
-                const Pane(id: 'main'),
+                Component.pane(id: 'main'),
               ]),
               Panel(
                 id: 'games',
                 title: 'Games',
                 rules: const {'position': 'bottom'},
-                root: Pane(id: 'in', items: [entity('pkg.b')]),
+                root: Component.pane(id: 'in', children: [entity('pkg.b')]),
               ),
             ],
           ).normalised(),
@@ -191,7 +191,7 @@ void main() {
             inbox: 'main',
             panels: [
               home([
-                Pane(
+                Component.pane(
                   id: 'main',
                   style: const {
                     'background': {
@@ -200,11 +200,10 @@ void main() {
                     },
                     'borderColor': '#ffffff55',
                   },
-                  items: [
-                    const LayoutItem(
+                  children: [
+                    const Component(
                       id: 'a',
-                      kind: ItemKind.prefab,
-                      ref: cardPrefabId,
+                      prefab: cardPrefabId,
                       vars: {'source': Variable('app:pkg.a')},
                       style: {'background': '#b71c1c'},
                     ),
@@ -260,18 +259,15 @@ void main() {
             inbox: 'main',
             panels: [
               home([
-                const Pane(
+                Component.pane(
                   id: 'main',
-                  items: [
-                    LayoutItem(
+                  children: [
+                    Component(
                       id: 'a',
-                      kind: ItemKind.prefab,
-                      ref: cardPrefabId,
+                      prefab: cardPrefabId,
                       vars: {'source': Variable('app:pkg.a')},
-                      options: {
-                        'parts': {
-                          'name': {'hidden': true},
-                        },
+                      overrides: {
+                        'name': {'hidden': true},
                       },
                     ),
                   ],
@@ -314,8 +310,12 @@ void main() {
     testWidgets('a pane pads the same with or without a background', (
       tester,
     ) async {
-      Pane pane(String id, String package, Style style) =>
-          Pane(id: id, columns: 2, style: style, items: [entity(package)]);
+      Component pane(String id, String package, Style style) => Component.pane(
+        id: id,
+        columns: 2,
+        style: style,
+        children: [entity(package)],
+      );
       await pumpApp(
         tester,
         LauncherConfig(
@@ -339,7 +339,10 @@ void main() {
         find
             .ancestor(
               of: find.text(name).first,
-              matching: find.byType(PrefabTile),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is ComponentView && widget.component.isInstance,
+              ),
             )
             .first,
       );
@@ -357,8 +360,11 @@ void main() {
         (alpha, box('Alpha')),
         (beta, box('Beta')),
       ]) {
-        expect(entity.left - pane.left, closeTo(Pane.defaultPadding, 1e-6));
-        expect(entity.top - pane.top, closeTo(Pane.defaultPadding, 1e-6));
+        expect(
+          entity.left - pane.left,
+          closeTo(Component.defaultPadding, 1e-6),
+        );
+        expect(entity.top - pane.top, closeTo(Component.defaultPadding, 1e-6));
       }
     });
 
@@ -374,19 +380,17 @@ void main() {
             panels: [
               Panel(
                 id: Layout.homeId,
-                root: Pane(
+                root: Component.pane(
                   id: 'global',
                   mode: PaneMode.grid,
                   columns: 12,
-                  items: [
+                  children: [
                     // One row tall, but its two columns make entities far
                     // taller than that.
-                    LayoutItem.pane(
-                      Pane(
-                        id: 'short',
-                        columns: 2,
-                        items: [entity('pkg.a'), entity('pkg.b')],
-                      ),
+                    Component.pane(
+                      id: 'short',
+                      columns: 2,
+                      children: [entity('pkg.a'), entity('pkg.b')],
                       x: 2,
                       y: 1,
                       w: 8,
@@ -402,7 +406,12 @@ void main() {
       Rect of(Finder finder) => tester.getRect(finder.first);
       final pane = of(find.byType(PaneBox));
       Rect tile(String name) => of(
-        find.ancestor(of: find.text(name), matching: find.byType(PrefabTile)),
+        find.ancestor(
+          of: find.text(name),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is ComponentView && widget.component.isInstance,
+          ),
+        ),
       );
       expect(tile('Alpha').height, greaterThan(pane.height));
       // Whichever has the focus, its top is inside the pane with room to
@@ -436,9 +445,10 @@ void main() {
           layout: Layout(
             inbox: 'main',
             panels: [
-              home([const Pane(id: 'main')]),
+              home([Component.pane(id: 'main')]),
               Panel.empty(Layout.leftId).withRoot(
-                Panel.empty(Layout.leftId).root.withItems([entity('pkg.c')]),
+                Panel.empty(Layout.leftId).root
+                    .copyWith(children: [entity('pkg.c')]),
               ),
             ],
           ).normalised(),
@@ -485,13 +495,13 @@ void main() {
               layout: Layout(
                 inbox: 'main',
                 panels: [
-                  home([const Pane(id: 'main')]),
+                  home([Component.pane(id: 'main')]),
                   Panel.empty(
                     Layout.leftId,
                     rules: {'opening': opening, 'reveal': reveal},
                   ).withRoot(
                     Panel.empty(Layout.leftId).root
-                        .withItems([entity('pkg.c')]),
+                        .copyWith(children: [entity('pkg.c')]),
                   ),
                 ],
               ).normalised(),
@@ -535,9 +545,10 @@ void main() {
           layout: Layout(
             inbox: 'main',
             panels: [
-              home([const Pane(id: 'main')]),
+              home([Component.pane(id: 'main')]),
               Panel.empty(Layout.topId).withRoot(
-                Panel.empty(Layout.topId).root.withItems([entity('pkg.c')]),
+                Panel.empty(Layout.topId).root
+                    .copyWith(children: [entity('pkg.c')]),
               ),
             ],
           ).normalised(),

@@ -15,7 +15,7 @@ class ComponentSettings extends ConsumerWidget {
     required this.onChanged,
   });
 
-  final LayoutItem item;
+  final Component item;
 
   /// Called with the component's options as they are to be.
   final void Function(Map<String, Object?> options) onChanged;
@@ -28,7 +28,7 @@ class ComponentSettings extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final options = item.options;
     final state = ref.watch(tvStateProvider).value;
-    final kind = ComponentKind.named(item.ref);
+    final kind = ComponentKind.named(item.kind);
     final settings = [
       // What takes more than a plain setting: a search, a list the TV has.
       ...switch (kind) {

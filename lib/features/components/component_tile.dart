@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/instance_options.dart';
 import 'package:openlauncher/features/components/app_widget.dart';
 import 'package:openlauncher/features/components/primitives.dart';
 
 /// Draws the component a layout item stands for. Components have no entity behind
 /// them: they sit straight on the wallpaper.
 class ComponentTile extends StatelessWidget {
-  const ComponentTile({super.key, required this.item});
+  const ComponentTile({super.key, required this.item, this.shrink = false});
 
-  final LayoutItem item;
+  final Component item;
+
+  /// True to take only the room it needs, where its kind can.
+  final bool shrink;
 
   /// The component of the kind called [kind], set up by [options]. [shrink]
   /// has one that can take only the room it needs do so.
@@ -31,9 +33,11 @@ class ComponentTile extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) => switch (ComponentKind.named(item.ref)) {
+  Widget build(BuildContext context) => switch (ComponentKind.named(
+    item.kind,
+  )) {
     ComponentKind.android => AppWidgetView(item: item),
     // Its look is its item's.
-    _ => of(item.ref, {...item.options, styleOption: item.style}),
+    _ => of(item.kind, {...item.options, 'style': item.style}, shrink: shrink),
   };
 }

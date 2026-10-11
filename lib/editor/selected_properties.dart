@@ -22,14 +22,6 @@ import 'package:openlauncher/editor/variables_settings.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
-Style _styleOf(LayoutItem item) => item.pane?.style ?? item.style;
-
-/// A pane's look is its own; anything else's is the item's.
-LayoutItem _withStyle(LayoutItem item, Style style) => switch (item.pane) {
-  null => item.copyWith(style: style),
-  final pane => item.withPane(pane.copyWith(style: style)),
-};
-
 /// The settings of what is picked out on the screen. With several things
 /// picked out, only what every one of them has is offered, and a change is
 /// made to them all; what belongs to one thing alone, such as an entity's name
@@ -47,14 +39,14 @@ class SelectedProperties extends ConsumerWidget {
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     void change(Layout Function(Layout layout) how) =>
         changeLayout(context, ref, how);
-    void each(LayoutItem Function(LayoutItem item) how) =>
+    void each(Component Function(Component item) how) =>
         change((layout) => changeItems(layout, ids, (item, _) => how(item)));
 
     // What every one of the selected things is decides what is offered.
-    final allPanes = items.every((item) => item.kind == ItemKind.pane);
+    final allPanes = items.every((item) => item.isPane);
     final folders = ref.watch(selectedPanelsProvider);
     final allFolders =
-        items.every((item) => item.kind == ItemKind.prefab) &&
+        items.every((item) => item.isInstance) &&
         folders.length == items.length;
     void eachFolder(Panel Function(Panel panel) how) => change(
       (layout) => folders.keys.fold(
@@ -68,6 +60,8 @@ class SelectedProperties extends ConsumerWidget {
       'h': [for (final item in items) item.h],
       'x': [for (final item in items) item.x],
       'y': [for (final item in items) item.y],
+      'flex': [for (final item in items) item.flex],
+      'aspect': [for (final item in items) item.aspect],
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -75,7 +69,7 @@ class SelectedProperties extends ConsumerWidget {
         // What it is called and its picture are an app's or an input's to
         // have changed; the clock has neither.
         if (single != null &&
-            single.kind == ItemKind.prefab &&
+            single.isInstance &&
             (entityKind(entities.byId(single.source)?.kind ?? '')?.placed ??
                 false))
           _EntityDetails(entityId: single.source ?? ''),
@@ -85,14 +79,14 @@ class SelectedProperties extends ConsumerWidget {
             onRenamed: (title) =>
                 eachFolder((panel) => withPanelRule(panel, 'title', title)),
           ),
-        if (single != null && single.kind == ItemKind.component)
+        if (single != null && !single.isInstance && !single.isPane)
           ComponentSettings(
             item: single,
             onChanged: (options) =>
                 each((item) => item.copyWith(options: options)),
           ),
-        if (single != null && single.kind == ItemKind.prefab) ...[
-          if (found.single.parent.prefabRules.containsKey(prefabIdOf(single)))
+        if (single != null && single.isInstance) ...[
+          if (found.single.parent.prefabRules.containsKey(single.prefab))
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
@@ -104,30 +98,23 @@ class SelectedProperties extends ConsumerWidget {
           InstanceSettings(
             prefabs: ref.watch(prefabsProvider),
             item: single,
-            onChanged: (options) =>
-                each((item) => item.copyWith(options: options)),
-            onPrefab: single.kind == ItemKind.prefab
-                ? (id) => each((item) => item.copyWith(ref: id))
-                : null,
+            onChanged: (next) => each((_) => next),
           ),
         ],
-        if (single != null && single.kind != ItemKind.pane)
+        if (single != null && !single.isPane)
           VariablesSettings(
             variables: single.vars,
-            note: single.kind == ItemKind.prefab
+            note: single.isInstance
                 ? 'Its own, set over those its prefab has, which are '
                       'under Prefabs.'
                 : null,
             onChanged: (vars) => each((item) => item.copyWith(vars: vars)),
           ),
-        if (single != null && single.kind != ItemKind.pane)
+        if (single != null && !single.isPane)
           TriggerSettings(
             set: single.on,
             // An entity's are its prefab's.
-            usual: {
-              if (single.kind == ItemKind.prefab)
-                ...?ref.watch(prefabsProvider)[single.ref]?.on,
-            },
+            usual: {...?ref.watch(prefabsProvider)[single.prefab]?.on},
             entities: {
               for (final entity
                   in ref.watch(entitiesProvider).value ?? const <Entity>[])
@@ -159,26 +146,26 @@ class SelectedProperties extends ConsumerWidget {
           keys: items
               .map((item) => item.styleKeys.toSet())
               .reduce((all, own) => all.intersection(own)),
-          style: _styleOf(items.first),
-          corner: allPanes ? Pane.defaultCorner : 10,
+          style: items.first.style,
+          corner: allPanes ? Component.defaultCorner : 10,
           onChanged: (key, value) => each(
-            (item) => _withStyle(item, withStyle(_styleOf(item), {key: value})),
+            (item) => item.copyWith(style: withStyle(item.style, {key: value})),
           ),
         ),
         if (allPanes)
           PaneSettings(
             title: 'Pane',
             prefabs: ref.watch(prefabsProvider),
-            panes: [for (final item in items) item.pane!],
-            onChanged: (how) => each((item) => item.withPane(how(item.pane!))),
+            panes: items,
+            onChanged: each,
             children: [
               if (single != null && found.single.panel.kind == PanelKind.home)
                 TickBox(
                   label: 'New apps go here',
-                  value: ref.watch(inboxProvider) == single.pane!.id,
+                  value: ref.watch(inboxProvider) == single.id,
                   onChanged: (here) {
                     if (here) {
-                      change((layout) => withInbox(layout, single.pane!.id));
+                      change((layout) => withInbox(layout, single.id));
                     }
                   },
                 ),

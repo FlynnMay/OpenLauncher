@@ -1,6 +1,4 @@
-import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
-import 'package:openlauncher/core/layout/pane.dart';
 
 /// [name] as an id that can be read: in small letters, its words joined by
 /// dashes. [fallback] when nothing of it is left, as with a name in another
@@ -53,15 +51,13 @@ String freeId(String wanted, Set<String> used) {
 
 /// The ids a layout's things go by, made to say what each thing is.
 extension LayoutIds on Layout {
-  Iterable<Pane> get _panes => panels.expand((panel) => panel.root.panes);
-
-  /// The ids taken by items, by panes and by panels; the sidebars' and the
-  /// home screen's count as taken whether or not they are there.
+  /// The ids taken by components, panes among them, and by panels; the
+  /// sidebars' and the home screen's count as taken whether or not they
+  /// are there.
   Set<String> get itemIds => {
-    for (final pane in _panes)
-      for (final item in pane.items) item.id,
+    for (final panel in panels)
+      for (final component in panel.root.all) component.id,
   };
-  Set<String> get paneIds => {for (final pane in _panes) pane.id};
   Set<String> get panelIds => {
     Layout.homeId,
     Layout.menuId,
@@ -70,12 +66,12 @@ extension LayoutIds on Layout {
   };
 
   /// An id for a new item called [name]: a folder's name, the kind of
-  /// component, or for an entity what [LayoutItem.autoId] makes of it.
+  /// component, or for an entity what `Component.autoId` makes of it.
   String itemIdFor(String name) => freeId(slugOf(name), itemIds);
 
   /// An id for a new pane.
   String paneIdFor([String title = '']) =>
-      freeId(slugOf(title, 'pane'), paneIds);
+      freeId(slugOf(title, 'pane'), itemIds);
 
   /// An id for a new popup called [title].
   String panelIdFor(String title) => freeId(slugOf(title, 'folder'), panelIds);

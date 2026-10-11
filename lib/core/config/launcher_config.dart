@@ -194,10 +194,8 @@ class LauncherConfig {
     } on FormatException catch (e) {
       // A broken layout must not take the wallpaper and pictures with it.
       debugPrint('Saved layout unreadable, starting a new one: $e');
-      return migrate(
-        {...saved, 'v': versionOf(saved)}..remove('layout'),
-        device: device,
-      );
+      // The rest is read as it stands.
+      return {...saved, 'v': saveVersion}..remove('layout');
     }
   }
 
@@ -263,11 +261,7 @@ class LauncherConfig {
       // A broken layout must not take the wallpaper and pictures with it.
       debugPrint('Saved layout unreadable, starting a new one: $e');
     }
-    // In the order the entities were in, where a config still says.
-    return Layout.initial([
-      if (json['order'] case final List<Object?> order)
-        ...order.whereType<String>(),
-    ]);
+    return Layout.initial();
   }
 
   Map<String, dynamic> toJson() => {

@@ -8,19 +8,19 @@ import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// Where the item [id] is placed in [pane]: where it is drawn, which is as
 /// its pane would have it.
-Placement placementIn(Pane pane, String id) => placeItems(
+Placement placementIn(Component pane, String id) => placeItems(
   pane.shown,
   pane.columns,
   pane.mode,
-)[pane.items.indexWhere((item) => item.id == id)];
+)[pane.children.indexWhere((item) => item.id == id)];
 
 /// Where [item] would go in [pane] if let go of [at] a point of its grid,
 /// places and sizes going by [step] cells.
 Drop dropAt(
-  Pane pane,
+  Component pane,
   PaneMetrics metrics,
   Offset at,
-  LayoutItem item,
+  Component item,
   double step,
 ) {
   if (pane.mode == PaneMode.flow) {
@@ -28,7 +28,7 @@ Drop dropAt(
     // across and then down.
     final placed = placeItems(pane.shown, pane.columns, pane.mode);
     String? before;
-    for (final (index, other) in pane.items.indexed) {
+    for (final (index, other) in pane.children.indexed) {
       if (other.id == item.id) continue;
       final rect = metrics.rectOf(placed[index]);
       if (at.dy < rect.top - metrics.gapY / 2 ||
@@ -44,10 +44,10 @@ Drop dropAt(
   // it is let go. Only there does it keep a size that is not whole.
   final free = pane.mode == PaneMode.free;
   final w = (free ? item.w : item.w.roundToDouble())
-      .clamp(free ? Pane.minFreeSpan : 1, pane.columns)
+      .clamp(free ? Component.minFreeSpan : 1, pane.columns)
       .toDouble();
   final h = (free ? item.h : item.h.roundToDouble())
-      .clamp(free ? Pane.minFreeSpan : 1, Pane.maxRows)
+      .clamp(free ? Component.minFreeSpan : 1, Component.maxRows)
       .toDouble();
   final cell = metrics.cellAt(
     at - Offset(metrics.across(w) / 2, metrics.down(h) / 2),
@@ -80,22 +80,20 @@ Rect barRect(Layout layout, String id, {double? thickness}) {
 }
 
 /// The smallest a thing can be made, in cells, when sizes go by [step].
-double leastSpan(double step) => step < 1 ? Pane.minFreeSpan : 1;
+double leastSpan(double step) => step < 1 ? Component.minFreeSpan : 1;
 
 /// The handles that can do something for a thing placed at [placed] in
 /// [pane]: an edge has one if it can go outwards, there being room in the
 /// pane, or inwards, the thing being more than a cell across; a corner
 /// has one if both its edges do.
 Set<ResizeHandle> resizeHandles(
-  LayoutItem item,
+  Component item,
   Placement placed,
-  Pane pane,
+  Component pane,
   double least,
 ) {
   // An entity whose size its pane decides has none to change.
-  final decided =
-      (pane.itemW != null || pane.itemH != null) &&
-      item.kind == ItemKind.prefab;
+  final decided = (pane.itemW != null || pane.itemH != null) && item.isInstance;
   if (decided) return const {};
   bool across(int side) =>
       side == 0 ||
@@ -104,7 +102,7 @@ Set<ResizeHandle> resizeHandles(
   bool down(int side) =>
       side == 0 ||
       placed.h > least ||
-      (side < 0 ? placed.y > 0 : placed.h < Pane.maxRows);
+      (side < 0 ? placed.y > 0 : placed.h < Component.maxRows);
   return {
     for (final handle in ResizeHandle.values)
       if (across(handle.dx) && down(handle.dy)) handle,
@@ -115,7 +113,7 @@ Set<ResizeHandle> resizeHandles(
 /// [handle] dragged [moved] from where it was taken hold of, places and
 /// sizes going by [step] cells.
 ({double x, double y, double w, double h}) resizedTo(
-  Pane pane,
+  Component pane,
   Placement placed,
   PaneMetrics metrics,
   ResizeHandle handle,
@@ -144,7 +142,7 @@ Set<ResizeHandle> resizeHandles(
       ? snapTo(
           placed.y + placed.h + by.dy,
           step,
-        ).clamp(top + least, top + Pane.maxRows)
+        ).clamp(top + least, top + Component.maxRows)
       : placed.y + placed.h;
   // Where things flow there is no place to keep or change, only a size:
   // any handle pulled outwards makes it bigger by that much.
@@ -156,7 +154,7 @@ Set<ResizeHandle> resizeHandles(
         ? (placed.w + handle.dx * columns).clamp(1, pane.columns) * 1.0
         : (right - left) * 1.0,
     h: flows
-        ? (placed.h + handle.dy * rows).clamp(1, Pane.maxRows) * 1.0
+        ? (placed.h + handle.dy * rows).clamp(1, Component.maxRows) * 1.0
         : (bottom - top) * 1.0,
   );
 }

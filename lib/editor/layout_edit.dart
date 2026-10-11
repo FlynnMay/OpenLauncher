@@ -26,15 +26,14 @@ class Drop {
 
 /// A pane, the panel it is on and how deep it is there; the pane that fills
 /// a panel is at depth 1.
-typedef FoundPane = ({Panel panel, Pane pane, int depth});
+typedef FoundPane = ({Panel panel, Component pane, int depth});
 
 FoundPane? findPane(Layout layout, String id) {
-  FoundPane? inside(Panel panel, Pane pane, int depth) {
+  FoundPane? inside(Panel panel, Component pane, int depth) {
     if (pane.id == id) return (panel: panel, pane: pane, depth: depth);
-    for (final item in pane.items) {
-      if (item.pane case final inner?) {
-        if (inside(panel, inner, depth + 1) case final found?) return found;
-      }
+    for (final inner in pane.children) {
+      if (!inner.isPane) continue;
+      if (inside(panel, inner, depth + 1) case final found?) return found;
     }
     return null;
   }
@@ -45,28 +44,24 @@ FoundPane? findPane(Layout layout, String id) {
   return null;
 }
 
-int _deepest(Pane pane) =>
+int _deepest(Component pane) =>
     1 +
-    pane.items.fold(
+    pane.children.fold(
       0,
-      (most, item) => switch (item.pane) {
-        null => most,
-        final inner => max(most, _deepest(inner)),
-      },
+      (most, inner) => inner.isPane ? max(most, _deepest(inner)) : most,
     );
 
 /// Why [item] cannot go into the pane [paneId], or null if it can. Only a
 /// pane is ever refused.
-String? refusal(Layout layout, LayoutItem item, String paneId) {
+String? refusal(Layout layout, Component item, String paneId) {
   final found = findPane(layout, paneId);
   if (found == null) return 'That pane is gone.';
-  final inner = item.pane;
-  if (inner == null) return null;
-  if (inner.panes.any((pane) => pane.id == paneId)) {
+  if (!item.isPane) return null;
+  if (item.panes.any((pane) => pane.id == paneId)) {
     return 'A pane cannot go inside itself.';
   }
-  if (found.depth + _deepest(inner) > Pane.maxDepth) {
-    return 'Panes can be nested ${Pane.maxDepth - 1} deep.';
+  if (found.depth + _deepest(item) > Component.maxDepth) {
+    return 'Panes can be nested ${Component.maxDepth - 1} deep.';
   }
   return null;
 }
@@ -75,12 +70,12 @@ String? refusal(Layout layout, LayoutItem item, String paneId) {
 /// cell of its own. [fixed], if given, gets exactly the cell it asks for;
 /// the others keep theirs when they can and otherwise take the nearest free
 /// one, or the first if they asked for none.
-List<LayoutItem> settle(List<LayoutItem> items, int columns, {String? fixed}) {
+List<Component> settle(List<Component> items, int columns, {String? fixed}) {
   final taken = <(int, int)>{};
-  final settled = <String, LayoutItem>{};
-  int wide(LayoutItem item) => item.w.round().clamp(1, columns);
-  int tall(LayoutItem item) => max(1, item.h.round());
-  bool free(LayoutItem item, int x, int y) {
+  final settled = <String, Component>{};
+  int wide(Component item) => item.w.round().clamp(1, columns);
+  int tall(Component item) => max(1, item.h.round());
+  bool free(Component item, int x, int y) {
     if (x < 0 || y < 0 || x + wide(item) > columns) return false;
     for (var row = y; row < y + tall(item); row++) {
       for (var column = x; column < x + wide(item); column++) {
@@ -90,7 +85,7 @@ List<LayoutItem> settle(List<LayoutItem> items, int columns, {String? fixed}) {
     return true;
   }
 
-  void take(LayoutItem item, int x, int y) {
+  void take(Component item, int x, int y) {
     for (var row = y; row < y + tall(item); row++) {
       for (var column = x; column < x + wide(item); column++) {
         taken.add((column, row));
@@ -112,7 +107,7 @@ List<LayoutItem> settle(List<LayoutItem> items, int columns, {String? fixed}) {
       max(0, item.y?.round() ?? 0),
     );
   }
-  final homeless = <LayoutItem>[];
+  final homeless = <Component>[];
   for (final item in items) {
     if (settled.containsKey(item.id)) continue;
     final x = item.x?.round(), y = item.y?.round();
@@ -146,7 +141,7 @@ List<LayoutItem> settle(List<LayoutItem> items, int columns, {String? fixed}) {
 
 Layout _rebuilt(
   Layout layout,
-  List<LayoutItem> Function(Pane pane, List<LayoutItem> items) change, {
+  List<Component> Function(Component pane, List<Component> items) change, {
   Set<String>? removed,
   Panel? added,
 }) => Layout(
@@ -162,22 +157,26 @@ Layout _rebuilt(
 /// was before if it was anywhere. [panel] is a new popup that comes with it,
 /// when the item is an entity that opens one. The caller has made sure that
 /// [refusal] has nothing against it.
-Layout dropItem(Layout layout, LayoutItem item, Drop drop, {Panel? panel}) {
+Layout dropItem(Layout layout, Component item, Drop drop, {Panel? panel}) {
   final found = findPane(layout, drop.pane)!;
   final target = found.pane;
   final whole = target.mode != PaneMode.free;
   final columns = target.columns * 1.0;
   final w = min(whole ? max(1.0, item.w.roundToDouble()) : item.w, columns);
   final h = whole
-      ? item.h.roundToDouble().clamp(1.0, Pane.maxRows * 1.0)
+      ? item.h.roundToDouble().clamp(1.0, Component.maxRows * 1.0)
       : item.h;
 
-  List<LayoutItem> into(List<LayoutItem> items) {
+  List<Component> into(List<Component> items) {
     switch (target.mode) {
       case PaneMode.flow:
         final index = items.indexWhere((other) => other.id == drop.before);
         return [...items]
           ..insert(index < 0 ? items.length : index, item.sized(w, h));
+      // A line takes it as it is, in its turn.
+      case PaneMode.row || PaneMode.column:
+        final index = items.indexWhere((other) => other.id == drop.before);
+        return [...items]..insert(index < 0 ? items.length : index, item);
       case PaneMode.grid:
         return settle(
           [...items, item.sized(w, h, x: drop.x, y: drop.y)],
@@ -219,7 +218,7 @@ Layout dropItem(Layout layout, LayoutItem item, Drop drop, {Panel? panel}) {
 /// on no panel are noted as removed, so the TV does not put them back as if
 /// they were new apps.
 Layout removeItem(Layout layout, String id) {
-  final gone = <LayoutItem>[];
+  final gone = <Component>[];
   final rest = _rebuilt(
     layout,
     (_, items) => [
@@ -228,20 +227,14 @@ Layout removeItem(Layout layout, String id) {
     ],
   );
   for (final panel in layout.panels) {
-    for (final pane in panel.root.panes) {
-      for (final item in pane.items) {
-        if (item.id != id) continue;
-        gone.addAll(switch (item.pane) {
-          null => [item],
-          final inner => inner.contents,
-        });
-      }
+    for (final item in panel.root.all) {
+      if (item.id == id) gone.addAll(item.isPane ? item.contents : [item]);
     }
   }
   final placed = {
     for (final panel in rest.panels)
       for (final item in panel.items)
-        if (item.kind == ItemKind.prefab) ?item.source,
+        if (item.isInstance) ?item.source,
   };
   return Layout(
     inbox: rest.inbox,
@@ -250,7 +243,7 @@ Layout removeItem(Layout layout, String id) {
       ...rest.removed,
       for (final item in gone)
         if (item.source case final source?
-            when item.kind == ItemKind.prefab &&
+            when item.isInstance &&
                 !placed.contains(source) &&
                 rest.panel(source) == null)
           source,
@@ -260,14 +253,14 @@ Layout removeItem(Layout layout, String id) {
 
 /// An item of the layout with where it is: the pane it is in and the panel
 /// that pane is on.
-typedef Found = ({LayoutItem item, Pane parent, Panel panel});
+typedef Found = ({Component item, Component parent, Panel panel});
 
 /// The items [ids] name, in the order they are in [layout]; ids of things
 /// that are no longer there are left out.
 List<Found> findItems(Layout layout, Set<String> ids) => [
   for (final panel in layout.panels)
     for (final pane in panel.root.panes)
-      for (final item in pane.items)
+      for (final item in pane.children)
         if (ids.contains(item.id)) (item: item, parent: pane, panel: panel),
 ];
 
@@ -276,7 +269,7 @@ List<Found> findItems(Layout layout, Set<String> ids) => [
 Layout changeItems(
   Layout layout,
   Set<String> ids,
-  LayoutItem Function(LayoutItem item, Pane parent) change,
+  Component Function(Component item, Component parent) change,
 ) => _rebuilt(
   layout,
   (pane, items) => [
@@ -290,7 +283,7 @@ Layout changeItems(
 Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
     _rebuilt(layout, (pane, items) {
       final whole = pane.mode != PaneMode.free;
-      final least = whole ? 1.0 : Pane.minFreeSpan;
+      final least = whole ? 1.0 : Component.minFreeSpan;
       double fit(double value, double most) =>
           (whole ? value.roundToDouble() : value).clamp(least, most);
       var next = [
@@ -300,7 +293,7 @@ Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
               final wide = fit(w ?? item.w, pane.columns * 1.0);
               return item.sized(
                 wide,
-                fit(h ?? item.h, Pane.maxRows * 1.0),
+                fit(h ?? item.h, Component.maxRows * 1.0),
                 // Kept inside the pane's width.
                 x: item.x?.clamp(0, pane.columns - wide).toDouble(),
                 y: item.y,
@@ -350,7 +343,7 @@ Layout reshapeItem(
 });
 
 /// [layout] with one part of the transform of the items [ids] set: [key]
-/// is `w`, `h`, `x` or `y`, as an item saves them. A place is a column and
+/// is `w`, `h`, `x`, `y`, `flex` or `aspect`, as a component saves them. A place is a column and
 /// a row together, so setting one of them where there was neither starts
 /// the other at nought, and taking one away ([value] null) takes both.
 Layout transformItems(
@@ -359,6 +352,14 @@ Layout transformItems(
   String key,
   double? value,
 ) => switch (key) {
+  // In a line: a share of the room, or a shape. None is said as nought.
+  'flex' || 'aspect' => changeItems(
+    layout,
+    ids,
+    (item, _) => item.overridden({
+      'transform': {key: value ?? 0},
+    }),
+  ),
   'w' => resizeItems(layout, ids, w: value),
   'h' => resizeItems(layout, ids, h: value),
   _ when value == null => changeItems(
@@ -382,14 +383,13 @@ Layout transformItems(
 /// [pane] with the rule called [key] set to [value], as it is saved; null
 /// for the usual. How it places things and how many columns it has take
 /// what is in it with them.
-Pane withRule(Pane pane, String key, Object? value) => switch (key) {
+Component withRule(Component pane, String key, Object? value) => switch (key) {
   'mode' => withMode(pane, PaneMode.values.asNameMap()[value] ?? PaneMode.flow),
   'columns' => withColumns(
     pane,
-    value is num ? value.toInt() : Pane.defaultColumns,
+    value is num ? value.toInt() : Component.defaultColumns,
   ),
-  'title' => pane.copyWith(title: value is String ? value : ''),
-  _ => pane.withRule(key, value),
+  _ => pane.withOption(key, value == '' ? null : value),
 };
 
 /// The same for a panel: a sidebar's rules, a folder's.
@@ -399,11 +399,13 @@ Panel withPanelRule(Panel panel, String key, Object? value) => key == 'title'
 
 /// [pane] placing its items the [mode] way, each staying where it was as
 /// far as that way allows.
-Pane withMode(Pane pane, PaneMode mode) {
-  final placed = placeItems(pane.items, pane.columns, pane.mode);
+Component withMode(Component pane, PaneMode mode) {
+  // A line keeps what is in it as it is, in the order it was.
+  if (mode.inLine) return pane.withOption('mode', mode.name);
+  final placed = placeItems(pane.children, pane.columns, pane.mode);
   final whole = mode != PaneMode.free;
   double size(double value) => whole ? max(1.0, value.roundToDouble()) : value;
-  final List<LayoutItem> items;
+  final List<Component> items;
   if (mode == PaneMode.flow) {
     // In reading order of where they were.
     final order = [for (var i = 0; i < placed.length; i++) i]
@@ -413,15 +415,15 @@ Pane withMode(Pane pane, PaneMode mode) {
       });
     items = [
       for (final index in order)
-        pane.items[index].sized(
-          size(pane.items[index].w),
-          size(pane.items[index].h),
+        pane.children[index].sized(
+          size(pane.children[index].w),
+          size(pane.children[index].h),
         ),
     ];
   } else {
     double place(double value) => whole ? value.roundToDouble() : value;
     items = [
-      for (final (index, item) in pane.items.indexed)
+      for (final (index, item) in pane.children.indexed)
         item.sized(
           size(item.w),
           size(item.h),
@@ -430,16 +432,17 @@ Pane withMode(Pane pane, PaneMode mode) {
         ),
     ];
   }
-  return pane.copyWith(
-    mode: mode,
-    items: mode == PaneMode.grid ? settle(items, pane.columns) : items,
-  );
+  return pane
+      .withOption('mode', mode.name)
+      .copyWith(
+        children: mode == PaneMode.grid ? settle(items, pane.columns) : items,
+      );
 }
 
 /// [pane] with [columns] cells across; what no longer fits is made to.
-Pane withColumns(Pane pane, int columns) {
+Component withColumns(Component pane, int columns) {
   final items = [
-    for (final item in pane.items)
+    for (final item in pane.children)
       () {
         final w = min(item.w, columns * 1.0);
         return item.sized(
@@ -450,10 +453,11 @@ Pane withColumns(Pane pane, int columns) {
         );
       }(),
   ];
-  return pane.copyWith(
-    columns: columns,
-    items: pane.mode == PaneMode.grid ? settle(items, columns) : items,
-  );
+  return pane
+      .withOption('columns', columns)
+      .copyWith(
+        children: pane.mode == PaneMode.grid ? settle(items, columns) : items,
+      );
 }
 
 /// [layout] with the panel [id] replaced by what [change] makes of it.
@@ -484,7 +488,7 @@ Layout removePanel(Layout layout, String id) {
     (_, items) => [
       for (final item in items)
         // What opened it has nothing left to open.
-        if (item.kind != ItemKind.prefab || item.source != id) item,
+        if (!item.isInstance || item.source != id) item,
     ],
   );
   final placed = placedCounts(rest);
@@ -495,7 +499,7 @@ Layout removePanel(Layout layout, String id) {
       ...rest.removed,
       for (final item in panel.items)
         if (item.source case final source?
-            when item.kind == ItemKind.prefab &&
+            when item.isInstance &&
                 !placed.containsKey(source) &&
                 rest.panel(source) == null)
           source,
@@ -516,7 +520,7 @@ Layout withBar(Layout layout, String id) => layout.panel(id) != null
 /// there, or the one that was has nothing in it.
 List<String> freeEdges(Layout layout) => [
   for (final id in Layout.barIds)
-    if (layout.panel(id)?.root.items.isEmpty ?? true) id,
+    if (layout.panel(id)?.root.children.isEmpty ?? true) id,
 ];
 
 /// The edge [among] those given that the point ([x], [y]) is nearest to on
@@ -556,7 +560,7 @@ Map<String, int> placedCounts(Layout layout) {
   final counts = <String, int>{};
   for (final panel in layout.panels) {
     for (final item in panel.items) {
-      if (item.source case final source? when item.kind == ItemKind.prefab) {
+      if (item.source case final source? when item.isInstance) {
         counts[source] = (counts[source] ?? 0) + 1;
       }
     }

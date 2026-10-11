@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
-import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
-import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/layout/rules.dart';
 
 /// A surface: the home screen, a sidebar on one of its edges, or a popup.
@@ -33,7 +32,7 @@ class Panel {
   final String title;
 
   /// The pane that fills the panel, edge to edge.
-  final Pane root;
+  final Component root;
 
   /// What it is set to as a pane that is shown and hidden, each under the
   /// name [panelRules] describes it by: where a folder opens and how big,
@@ -105,29 +104,33 @@ class Panel {
   /// gave what opens the folder [panelId].
   static String iconKey(String panelId) => 'panel:$panelId';
 
-  static Pane _emptyRoot(String panelId) => switch (kindOf(panelId)) {
-    PanelKind.home => Pane(
+  static Component _emptyRoot(String panelId) => switch (kindOf(panelId)) {
+    PanelKind.home => Component.pane(
       id: rootId(panelId),
       mode: PaneMode.grid,
-      columns: Pane.globalColumns,
+      columns: Component.globalColumns,
     ),
     // A side bar is one column of rows; one along the top or bottom is a
     // row of entities.
     PanelKind.sidebar => switch (edgeOf(panelId)) {
-      BarEdge.top || BarEdge.bottom => Pane(id: rootId(panelId), columns: 8),
-      _ => Pane(id: rootId(panelId), columns: 1).asBar(),
+      BarEdge.top ||
+      BarEdge.bottom => Component.pane(id: rootId(panelId), columns: 8),
+      _ => Component.pane(id: rootId(panelId), columns: 1).asBar(),
     },
-    PanelKind.popup => Pane(id: rootId(panelId), columns: 4),
+    PanelKind.popup => Component.pane(id: rootId(panelId), columns: 4),
   };
 
   /// Everything on the panel, other than the panes themselves.
-  Iterable<LayoutItem> get items => root.contents;
+  Iterable<Component> get items => root.contents;
 
-  Panel withRoot(Pane root) => copyWith(root: root);
+  /// Whether there is nothing on it.
+  bool get isEmpty => root.isEmpty;
+
+  Panel withRoot(Component root) => copyWith(root: root);
 
   Panel copyWith({
     String? id,
-    Pane? root,
+    Component? root,
     String? title,
     Map<String, Object?>? rules,
   }) => Panel(
@@ -142,8 +145,8 @@ class Panel {
     return Panel(
       id: id,
       title: jsonOptional<String>(json, 'title') ?? '',
-      root: switch (jsonOptional<Map<Object?, Object?>>(json, 'pane')) {
-        final pane? => Pane.fromJson(pane),
+      root: switch (jsonOptional<Map<Object?, Object?>>(json, 'root')) {
+        final pane? => Component.fromJson(pane),
         null => _emptyRoot(id),
       },
       rules: {...?jsonOptional<Map<Object?, Object?>>(json, 'rules')?.cast()},
@@ -154,6 +157,6 @@ class Panel {
     'id': id,
     'title': title,
     if (rules.isNotEmpty) 'rules': rules,
-    'pane': root.toJson(),
+    'root': root.toJson(),
   };
 }

@@ -108,14 +108,17 @@ void main() {
   ];
 
   /// The ids of the entities on the TV's home screen, in order.
-  Future<List<String>> onTv() async => [
-    for (final entry in (await container.read(
-      layoutViewProvider.future,
-    )).home.root.contents)
-      if (entry is EntityEntry &&
-          (entry.entity.kind == appKind || entry.entity.kind == inputKind))
-        entry.entity.id,
-  ];
+  Future<List<String>> onTv() async {
+    final all = await container.read(entitiesProvider.future);
+    return [
+      for (final item in (await container.read(
+        layoutViewProvider.future,
+      )).home.root.contents)
+        if (all.byId(item.source) case final entity?
+            when entity.kind == appKind || entity.kind == inputKind)
+          entity.id,
+    ];
+  }
 
   test('state lists every entity in display order', () async {
     expect((await entities()).map((c) => c['id']), [
@@ -153,12 +156,14 @@ void main() {
     final page = await state();
     // Nothing has been arranged yet, so every entity is in the one section.
     // It sits in the screen's global pane.
-    final section = page['layout']['panels'][0]['pane']['items'].single['pane'];
+    final section = page['layout']['panels'][0]['root']['children'].single;
     expect(page['layout']['inbox'], section['id']);
-    expect(
-      (section['items'] as List).map((i) => i['vars']?['source'] ?? i['ref']),
-      ['input:tv/HW1', 'app:a', 'app:b', 'launcher:settings'],
-    );
+    expect((section['children'] as List).map((i) => i['vars']?['source']), [
+      'input:tv/HW1',
+      'app:a',
+      'app:b',
+      'launcher:settings',
+    ]);
     // No app on this device offers widgets, so that kind is not offered.
     expect((page['components'] as List).map((w) => w['type']), [
       'text',
@@ -172,7 +177,7 @@ void main() {
     final menu = (page['layout']['panels'] as List).firstWhere(
       (panel) => panel['id'] == Layout.menuId,
     );
-    expect(menu['pane']['items'], hasLength(usualMenu.length));
+    expect(menu['root']['children'], hasLength(usualMenu.length));
     expect(page['config']['toasts'], const ToastOptions().toJson());
     expect(page['notificationAccess'], isTrue);
   });
@@ -280,39 +285,62 @@ void main() {
         'panels': [
           {
             'id': 'home',
-            'sections': [
-              {
-                'id': 'top',
-                'title': 'Favourites',
-                'mode': 'grid',
-                'columns': 4,
-                'items': [
-                  {'id': 'i1', 'ref': 'app:b', 'x': 2, 'y': 0, 'w': 9},
-                  {'id': 'i2', 'kind': 'panel', 'ref': 'games'},
-                  {'id': 'i3', 'kind': 'panel', 'ref': 'nothing'},
-                  {
-                    'id': 'i4',
-                    'kind': 'widget',
-                    'ref': 'weather',
-                    'options': {'place': 'Perth'},
+            'root': {
+              'id': 'home/root',
+              'kind': 'pane',
+              'options': {'mode': 'free', 'columns': 12},
+              'children': [
+                {
+                  'id': 'top',
+                  'kind': 'pane',
+                  'options': {
+                    'title': 'Favourites',
+                    'mode': 'grid',
+                    'columns': 4,
                   },
-                ],
-              },
-              {'id': 'rest'},
-            ],
+                  'children': [
+                    {
+                      'id': 'i1',
+                      'prefab': 'app-card',
+                      'vars': {'source': 'app:b'},
+                      'transform': {'x': 2, 'y': 0, 'w': 9},
+                    },
+                    {
+                      'id': 'i2',
+                      'prefab': 'folder-card',
+                      'vars': {'source': 'games'},
+                    },
+                    {
+                      'id': 'i3',
+                      'prefab': 'folder-card',
+                      'vars': {'source': 'nothing'},
+                    },
+                    {
+                      'id': 'i4',
+                      'prefab': 'weather',
+                      'vars': {'source': 'weather'},
+                    },
+                  ],
+                },
+                {'id': 'rest', 'kind': 'pane'},
+              ],
+            },
           },
           {
             'id': 'games',
             'title': 'Games',
-            'position': 'bottom',
-            'sections': [
-              {
-                'id': 'in',
-                'items': [
-                  {'id': 'i5', 'ref': 'app:a'},
-                ],
-              },
-            ],
+            'rules': {'position': 'bottom'},
+            'root': {
+              'id': 'in',
+              'kind': 'pane',
+              'children': [
+                {
+                  'id': 'i5',
+                  'prefab': 'app-card',
+                  'vars': {'source': 'app:a'},
+                },
+              ],
+            },
           },
         ],
       },
@@ -320,36 +348,33 @@ void main() {
     expect(response.statusCode, 200);
 
     final saved = store.config.layout;
-    // The sections an older page sends arrive as panes in the global pane.
-    final [top, rest] = saved.home.root.items.map((i) => i.pane!).toList();
+    final [top, rest] = saved.home.root.children;
     expect((top.mode, top.columns), (PaneMode.grid, 4));
     expect((top.title, saved.inbox), ('Favourites', rest.id));
-    // Too wide for the section, and a link to a panel that does not exist.
-    expect(top.items.map((i) => i.id), ['i1', 'i2', 'i4']);
-    expect((top.items.first.w, top.items.first.x), (4, 0));
-    // What was a weather widget is the weather prefab, of the weather.
-    expect((top.items.last.ref, top.items.last.source), ('weather', 'weather'));
+    // Too wide for the pane, and a link to a panel that does not exist.
+    expect(top.children.map((i) => i.id), ['i1', 'i2', 'i4']);
+    expect((top.children.first.w, top.children.first.x), (4, 0));
+    expect(
+      (top.children.last.prefab, top.children.last.source),
+      ('weather', 'weather'),
+    );
     expect(saved.panel('games')!.rule('position'), 'bottom');
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
-    // which was placed nowhere, in the section for new entities.
+    // which was placed nowhere, in the pane for new entities.
     expect(await onTv(), ['app:b', 'input:tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
     final folder = view.home.root.contents.elementAt(1);
-    expect(folder, isA<PrefabEntry>());
+    expect(folder.prefab, folderPrefabId);
     expect(
-      view.panels[folder.item.source]!.root.contents.map(
-        (entry) => entry.item.source,
-      ),
+      view.panel(folder.source!)!.root.contents.map((entry) => entry.source),
       ['app:a'],
     );
-    final shown = (await state())['layout']['panels'][0]['pane']['items'][1];
-    expect(
-      (shown['pane']['items'] as List).map(
-        (i) => i['vars']?['source'] ?? i['ref'],
-      ),
-      ['input:tv/HW1', 'launcher:settings'],
-    );
+    final shown = (await state())['layout']['panels'][0]['root']['children'][1];
+    expect((shown['children'] as List).map((i) => i['vars']?['source']), [
+      'input:tv/HW1',
+      'launcher:settings',
+    ]);
   });
 
   test('a folder entity can have a picture, removed with the folder', () async {
@@ -522,10 +547,10 @@ void main() {
   test('entities left out of the layout are removed, not put back', () async {
     final page = await state();
     final layout = page['layout'] as Map<String, dynamic>;
-    final section = layout['panels'][0]['pane']['items'][0]['pane'];
+    final section = layout['panels'][0]['root']['children'][0];
     // What the page does to remove an entity: drop its item and say so.
-    (section['items'] as List).removeWhere(
-      (i) => (i['vars']?['source'] ?? i['ref']) == 'input:tv/HW1',
+    (section['children'] as List).removeWhere(
+      (i) => i['vars']?['source'] == 'input:tv/HW1',
     );
     layout['removed'] = ['input:tv/HW1'];
     expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
@@ -541,9 +566,13 @@ void main() {
 
     // Adding it again, twice: an entity can be in more than one place.
     final again = after['layout'] as Map<String, dynamic>;
-    (again['panels'][0]['pane']['items'][0]['pane']['items'] as List).addAll([
-      {'id': 'x1', 'ref': 'input:tv/HW1'},
-      {'id': 'x2', 'ref': 'input:tv/HW1'},
+    (again['panels'][0]['root']['children'][0]['children'] as List).addAll([
+      for (final id in ['x1', 'x2'])
+        {
+          'id': id,
+          'prefab': 'app-card',
+          'vars': {'source': 'input:tv/HW1'},
+        },
     ]);
     await call('PUT', '/api/layout', body: again);
     expect(await onTv(), ['app:a', 'app:b', 'input:tv/HW1', 'input:tv/HW1']);

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
@@ -36,25 +36,18 @@ class PanelPopup extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watched, so edits made on the web page show while the popup is open.
-    final view = ref.watch(layoutViewProvider).value?.panels[panelId];
-    if (view == null) return const SizedBox.shrink();
-    final panel = view.panel;
+    final panel = ref.watch(layoutViewProvider).value?.panel(panelId);
+    if (panel == null) return const SizedBox.shrink();
     final subject = this.subject;
     final root = subject == null
-        ? view.root
-        : () {
-            final offered = offeredFor(
-              view.root,
+        ? panel.root
+        : panel.root.copyWith(
+            children: offeredFor(
+              panel.root,
               subject,
               ref.watch(actionRunnerProvider),
-            );
-            return PaneView(
-              view.root.pane.withItems([
-                for (final entry in offered) entry.item,
-              ]),
-              offered,
-            );
-          }();
+            ),
+          );
     final title = switch (panel.title) {
       '' =>
         subject?.label ?? (panel.id == Layout.menuId ? 'Quick actions' : ''),
@@ -108,11 +101,14 @@ class PanelPopup extends ConsumerWidget {
                     ),
                   // The popup's global pane fills it, inside its margins.
                   Padding(
-                    padding: EdgeInsets.all(view.root.pane.box.padding ?? 0),
+                    padding: EdgeInsets.all(panel.root.box.padding ?? 0),
                     child: PaneGrid(
-                      view: root,
-                      tile: (entry) =>
-                          EntryTile(entry: entry, focus: focus, popup: panelId),
+                      pane: root,
+                      tile: (entry) => ComponentView(
+                        component: entry,
+                        focus: focus,
+                        popup: panelId,
+                      ),
                     ),
                   ),
                 ],

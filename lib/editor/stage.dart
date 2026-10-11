@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/after_frame.dart';
@@ -13,8 +14,8 @@ import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/editor/stage_geometry.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
+import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
-import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/sidebar.dart';
@@ -49,65 +50,63 @@ class _StageState extends ConsumerState<Stage> {
         _ => null,
       };
 
-  Widget _grid(Pane pane, Widget grid) => KeyedSubtree(
+  Widget _grid(Component pane, Widget grid) => KeyedSubtree(
     key: _grids.putIfAbsent(pane.id, GlobalKey.new),
     child: grid,
   );
 
-  Widget _plainTile(Entry entry, Widget tile) => tile;
+  Widget _plainTile(Component item, Widget tile) => tile;
 
-  Widget _editTile(Entry entry, Widget tile) {
+  Widget _editTile(Component item, Widget tile) {
     Dragged dragged(String label, Widget picture) =>
-        Dragged(item: entry.item, placed: true, label: label, picture: picture);
+        Dragged(item: item, placed: true, label: label, picture: picture);
     // The tile's own taps and holds are the remote's; absorbed, not
     // ignored, so that a tap or a drag starts where the tile is touched.
     final still = _Selectable(
-      id: entry.item.id,
+      id: item.id,
       child: AbsorbPointer(child: tile),
     );
-    switch (entry) {
-      case PaneEntry(view: PaneView(:final pane)):
-        return KeyedSubtree(
-          key: _boxes.putIfAbsent(pane.id, GlobalKey.new),
-          child: DragHandle(
-            data: dragged(
-              pane.title.isEmpty ? 'Pane' : pane.title,
-              const SymbolArt(Icons.dashboard_outlined),
-            ),
-            // Outlined, so that a pane with no background can be seen and
-            // picked up or picked out by any part of it.
-            child: _Selectable(
-              id: entry.item.id,
-              shape: PaneBox.shapeOf(pane),
-              resting: Colors.white24,
-              child: tile,
-            ),
-          ),
-        );
-      case EntityEntry(:final entity):
-        return DragHandle(
-          data: dragged(entity.label, EntityArt(entity: entity, padding: 4)),
-          child: still,
-        );
-      // Drawn from a folder, or from nothing: by what it is drawn from.
-      case PrefabEntry(:final item):
-        final folder = item.source ?? '';
-        return DragHandle(
+    if (item.isPane) {
+      return KeyedSubtree(
+        key: _boxes.putIfAbsent(item.id, GlobalKey.new),
+        child: DragHandle(
           data: dragged(
-            folder.isEmpty ? 'Prefab' : folder,
-            FolderArt(folder: folder),
+            item.title.isEmpty ? 'Pane' : item.title,
+            const SymbolArt(Icons.dashboard_outlined),
           ),
-          child: still,
-        );
-      case ComponentEntry(:final item):
-        return DragHandle(
-          data: dragged(
-            ComponentKind.named(item.ref)?.label ?? item.ref,
-            const SymbolArt(Icons.widgets_outlined),
+          // Outlined, so that a pane with no background can be seen and
+          // picked up or picked out by any part of it.
+          child: _Selectable(
+            id: item.id,
+            shape: PaneBox.shapeOf(item),
+            resting: Colors.white24,
+            child: tile,
           ),
-          child: still,
-        );
+        ),
+      );
     }
+    if (!item.isInstance) {
+      return DragHandle(
+        data: dragged(
+          ComponentKind.named(item.kind)?.label ?? item.kind,
+          const SymbolArt(Icons.widgets_outlined),
+        ),
+        child: still,
+      );
+    }
+    // An instance goes by what it was handed: an entity, a folder, or
+    // nothing.
+    final source = item.source ?? '';
+    final entity = ref.read(entitiesProvider).value?.byId(source);
+    return DragHandle(
+      data: entity != null
+          ? dragged(entity.label, EntityArt(entity: entity, padding: 4))
+          : dragged(
+              source.isEmpty ? 'Prefab' : source,
+              FolderArt(folder: source),
+            ),
+      child: still,
+    );
   }
 
   /// Where [dragged] would go if let go of at [pointer], and where on the
@@ -158,15 +157,15 @@ class _StageState extends ConsumerState<Stage> {
     // A sidebar something is held over opens, to show where it would go.
     if (bar != _over) setState(() => _over = bar);
     // The innermost pane under the pointer, other than the one dragged.
-    for (Pane? inner = pane; inner != null;) {
+    for (Component? inner = pane; inner != null;) {
       pane = inner;
       inner = null;
-      for (final other in pane.items) {
-        final box = _box(_boxes[other.pane?.id]);
+      for (final other in pane.children) {
+        final box = other.isPane ? _box(_boxes[other.id]) : null;
         if (other.id != item.id &&
             box != null &&
             (Offset.zero & box.size).contains(box.globalToLocal(pointer))) {
-          inner = other.pane;
+          inner = other;
         }
       }
     }

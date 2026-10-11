@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-LayoutItem _entity(String id, String ref) => LayoutItem.of(ref, id: id);
+Component _entity(String id, String ref) => Component.of(ref, id: id);
 
 void main() {
   test('a name becomes an id that can be read', () {
@@ -18,11 +18,11 @@ void main() {
       panels: [
         Panel(
           id: 'home',
-          root: Pane(
+          root: Component.pane(
             id: 'home/root',
-            items: [
+            children: [
               _entity('youtube', 'app:yt'),
-              LayoutItem.pane(const Pane(id: 'pane')),
+              Component.pane(id: 'pane'),
             ],
           ),
         ),

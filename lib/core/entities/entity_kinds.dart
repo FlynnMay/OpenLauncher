@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/action_kind.dart';
+import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/input_artwork.dart';
-import 'package:openlauncher/core/prefabs/instance_options.dart';
 import 'package:openlauncher/core/values/data_source.dart';
 import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/value_providers.dart';

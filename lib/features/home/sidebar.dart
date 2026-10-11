@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
@@ -27,9 +27,9 @@ class SidebarHold extends InheritedWidget {
 /// It is always laid out at its open size, whatever of it shows, so nothing
 /// in it moves about as it opens.
 class Sidebar extends StatefulWidget {
-  const Sidebar({super.key, required this.view, this.onOpen});
+  const Sidebar({super.key, required this.panel, this.onOpen});
 
-  final PanelView view;
+  final Panel panel;
 
   /// Told when it starts to open (true) and to close: what its `open`
   /// variable is kept by.
@@ -54,7 +54,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   /// What was last told of it.
   bool? _told;
 
-  Panel get _panel => widget.view.panel;
+  Panel get _panel => widget.panel;
 
   /// How long the sidebar itself takes to open.
   /// How it comes open and how what is in it appears, as its rules name
@@ -154,7 +154,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final panel = _panel;
     // With nothing in it there is nothing to show or to go to.
-    if (widget.view.isEmpty && !_held) return const SizedBox.shrink();
+    if (widget.panel.isEmpty && !_held) return const SizedBox.shrink();
     final edge = panel.edge!;
     final alignment = switch (edge) {
       BarEdge.left => Alignment.centerLeft,
@@ -162,7 +162,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
       BarEdge.top => Alignment.topCenter,
       BarEdge.bottom => Alignment.bottomCenter,
     };
-    final root = widget.view.root;
+    final root = widget.panel.root;
     return LayoutBuilder(
       builder: (context, screen) {
         // As big as it is set to be, and no bigger than the screen.
@@ -182,8 +182,9 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
                 ? TextDirection.rtl
                 : TextDirection.ltr,
             child: PaneBox(
-              view: root,
-              tile: (entry) => _appearing(EntryTile(entry: entry), alignment),
+              pane: root,
+              tile: (entry) =>
+                  _appearing(ComponentView(component: entry), alignment),
             ),
           ),
         );
@@ -216,7 +217,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
                   // Fades into the home screen on the side it opens
                   // towards, unless the pane has a background of its own.
                   decoration: BoxDecoration(
-                    gradient: root.pane.box.isEmpty
+                    gradient: root.box.isEmpty
                         ? LinearGradient(
                             begin: alignment,
                             end: -alignment,

@@ -76,7 +76,7 @@ void main() {
     await tester.tap(inTree('Alpha'));
     await tester.pumpAndSettle();
     final picked = ref.read(selectedProvider).single;
-    expect((picked.item.source ?? picked.item.ref), 'app:a');
+    expect(picked.item.source, 'app:a');
 
     await tester.tap(inTree('Home screen'));
     await tester.pumpAndSettle();

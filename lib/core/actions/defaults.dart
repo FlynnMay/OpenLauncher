@@ -35,11 +35,10 @@ Triggers panelTriggersOf(Panel panel) => {
 /// A button that does [kind], as the quick actions have them and the
 /// editor offers them: to whatever it is set off from, or to [entity] by
 /// its id.
-LayoutItem actionButton(String id, ActionKind kind, {String? entity}) =>
-    LayoutItem(
+Component actionButton(String id, ActionKind kind, {String? entity}) =>
+    Component(
       id: id,
-      kind: ItemKind.component,
-      ref: ComponentKind.button.name,
+      kind: ComponentKind.button.name,
       options: {'label': kind.label, 'icon': kind.icon},
       on: {
         Trigger.press: [
@@ -56,11 +55,11 @@ const usualMenu = ['open', 'info', 'forceStop', 'uninstall', 'remove'];
 Panel usualMenuPanel() => Panel(
   id: Layout.menuId,
   rules: const {'size': 'small'},
-  root: Pane(
+  root: Component.pane(
     id: Panel.rootId(Layout.menuId),
     columns: 1,
     rules: const {'rowHeight': 40, 'spacing': 4},
-    items: [
+    children: [
       for (final name in usualMenu)
         if (actionKind(name) case final kind?)
           actionButton('${Layout.menuId}-${kind.name.toLowerCase()}', kind),

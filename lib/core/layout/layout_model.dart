@@ -1,10 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
-import 'package:openlauncher/core/layout/layout_item.dart';
-import 'package:openlauncher/core/layout/legacy_sections.dart';
-import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/layout/panel.dart';
 
 /// Everything about where things are on screen.
@@ -31,21 +29,32 @@ class Layout {
   static const _firstPane = 'main';
 
   /// The home screen with one pane showing [order] first and then every
-  /// other entity.
+  /// other entity. The pane is placed to leave the screen's margins and
+  /// the room at the top, and reaches the bottom: new apps turn up in it,
+  /// and it scrolls when they do not fit.
   factory Layout.initial([List<String> order = const []]) => Layout(
     inbox: _firstPane,
     panels: [
       Panel(
         id: homeId,
-        root: paneFromSections(homeId, [
-          Pane(
-            id: _firstPane,
-            items: [
-              for (final id in order)
-                LayoutItem.of(id, id: LayoutItem.autoId(id)),
-            ],
-          ),
-        ]),
+        root: Component.pane(
+          id: Panel.rootId(homeId),
+          mode: PaneMode.free,
+          columns: Component.globalColumns,
+          children: [
+            Component.pane(
+              id: _firstPane,
+              x: 0.59,
+              y: 1.35,
+              w: 10.82,
+              h: 7.69,
+              children: [
+                for (final id in order)
+                  Component.of(id, id: Component.autoId(id)),
+              ],
+            ),
+          ],
+        ),
       ),
     ],
   );
@@ -69,12 +78,14 @@ class Layout {
     return null;
   }
 
-  /// The id of the folder [item] is drawn from, where it is an instance of
-  /// a prefab whose source is one: what opens a folder.
-  String? folderOf(LayoutItem item) => switch (item.source) {
+  /// The sidebars there are, whether or not anything is in them.
+  Iterable<Panel> get bars => [for (final id in barIds) ?panel(id)];
+
+  /// The id of the folder [item] was handed, where it is an instance of a
+  /// prefab handed one: what opens a folder.
+  String? folderOf(Component item) => switch (item.source) {
     final source?
-        when item.kind == ItemKind.prefab &&
-            panel(source)?.kind == PanelKind.popup =>
+        when item.isInstance && panel(source)?.kind == PanelKind.popup =>
       source,
     _ => null,
   };
@@ -106,7 +117,7 @@ class Layout {
   /// A copy in which the items of every pane on every panel have been
   /// replaced by what [change] returns for them.
   Layout rebuild(
-    List<LayoutItem> Function(Pane pane, List<LayoutItem> items) change, {
+    List<Component> Function(Component pane, List<Component> items) change, {
     Set<String>? removed,
   }) => Layout(
     inbox: inbox,
@@ -121,8 +132,7 @@ class Layout {
   Layout without(Set<String> entityIds) => rebuild(
     (_, items) => [
       for (final item in items)
-        if (item.kind != ItemKind.prefab || !entityIds.contains(item.source))
-          item,
+        if (!item.isInstance || !entityIds.contains(item.source)) item,
     ],
     removed: {...removed, ...entityIds},
   );

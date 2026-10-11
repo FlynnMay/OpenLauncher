@@ -9,7 +9,7 @@ import 'package:openlauncher/features/home/tile_actions.dart';
 /// The entity the folder [id] is about, where its `source` variable says
 /// one: what makes it that entity's menu.
 Entity? subjectOf(WidgetRef ref, String id) => switch (ref.watch(
-  runtimeVarsProvider.select((all) => all[id]?[LayoutItem.sourceVar]),
+  runtimeVarsProvider.select((all) => all[id]?[Component.sourceVar]),
 )) {
   final String source => ref.watch(entitiesProvider).value?.byId(source),
   _ => null,
@@ -48,19 +48,19 @@ class _PopupHostState extends ConsumerState<PopupHost> {
     final panels = ref.read(layoutViewProvider).value?.panels;
     if (panels == null || !mounted) return;
     final vars = ref.read(runtimeVarsProvider.notifier);
-    for (final view in panels.values) {
-      final id = view.panel.id;
+    for (final panel in panels) {
+      final id = panel.id;
       final open = all[id]?[openVar] == true;
       if (open == (_was[id] ?? false)) continue;
       // A menu with nothing in it for what it is about is not shown at all.
       if (open) {
-        final subject = switch (all[id]?[LayoutItem.sourceVar]) {
+        final subject = switch (all[id]?[Component.sourceVar]) {
           final String source => ref.read(entitiesProvider).value?.byId(source),
           _ => null,
         };
         if (subject != null &&
             offeredFor(
-              view.root,
+              panel.root,
               subject,
               ref.read(actionRunnerProvider),
             ).isEmpty) {
@@ -69,7 +69,7 @@ class _PopupHostState extends ConsumerState<PopupHost> {
         }
       }
       _was[id] = open;
-      _fire(view.panel, open);
+      _fire(panel, open);
     }
   }
 

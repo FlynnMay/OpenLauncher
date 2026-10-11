@@ -45,13 +45,13 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         // As the prefab its kind is shown with, at that prefab's size.
         item: () {
           final prefab = prefabs[entityKind(entity.kind)?.prefab];
-          return LayoutItem.of(
+          return Component.of(
             entity.id,
             prefab: prefab?.id ?? cardPrefabId,
-            w: prefab?.w ?? 1,
-            h: prefab?.h ?? 1,
+            w: prefab?.root.w ?? 1,
+            h: prefab?.root.h ?? 1,
             id: layout.itemIdFor(
-              LayoutItem.autoId(entity.id, entity.sourceLabel),
+              Component.autoId(entity.id, entity.sourceLabel),
             ),
           );
         }(),
@@ -74,14 +74,14 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       'Layout': [
         _Offer(
           Dragged(
-            item: LayoutItem.pane(Pane(id: layout.paneIdFor()), w: 6, h: 3),
+            item: Component.pane(id: layout.paneIdFor(), w: 6, h: 3),
             label: 'Pane',
             picture: const SymbolArt(Icons.dashboard_outlined),
           ),
         ),
         _Offer(
           Dragged(
-            item: LayoutItem.of(
+            item: Component.of(
               folder.id,
               prefab: folderPrefabId,
               id: layout.itemIdFor(folder.title),
@@ -102,10 +102,9 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         for (final component in components)
           _Offer(
             Dragged(
-              item: LayoutItem(
+              item: Component(
                 id: layout.itemIdFor(component.type),
-                kind: ItemKind.component,
-                ref: component.type,
+                kind: component.type,
                 w: component.w,
                 h: component.h,
                 options: component.options,
@@ -153,7 +152,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           if (panel.kind == PanelKind.popup && panel.id != Layout.menuId)
             _Offer(
               Dragged(
-                item: LayoutItem.of(
+                item: Component.of(
                   panel.id,
                   prefab: folderPrefabId,
                   id: layout.itemIdFor(

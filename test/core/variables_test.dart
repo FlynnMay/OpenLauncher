@@ -8,7 +8,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/entry_tile.dart';
+import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -118,21 +118,20 @@ void main() {
       return c;
     }
 
-    Layout layout(List<LayoutItem> items) => Layout(
+    Layout layout(List<Component> items) => Layout(
       inbox: 'main',
       panels: [
         Panel(
           id: Layout.homeId,
-          root: Pane(id: 'main', items: items),
+          root: Component.pane(id: 'main', children: items),
         ),
       ],
     );
 
     test('who may read a variable is as it says', () async {
-      final item = LayoutItem(
+      final item = Component(
         id: 'box',
-        kind: ItemKind.component,
-        ref: 'text',
+        kind: 'text',
         vars: const {
           'secret': Variable('s', access: VarAccess.private),
           'handed': Variable('h'),
@@ -172,10 +171,9 @@ void main() {
     });
 
     test('set while the launcher runs, what reads it follows', () async {
-      final item = LayoutItem(
+      final item = Component(
         id: 'lamp',
-        kind: ItemKind.component,
-        ref: 'button',
+        kind: 'button',
         vars: const {'on': Variable(false, access: VarAccess.public)},
       );
       final c = container(layout([item]));
@@ -231,7 +229,7 @@ void main() {
           artist: 'Band',
           playing: true,
         );
-      final item = LayoutItem.of('media', id: 'np', prefab: 'now-playing');
+      final item = Component.of('media', id: 'np', prefab: 'now-playing');
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -251,7 +249,7 @@ void main() {
                         ?.where((entity) => entity.id == 'media')
                         .firstOrNull) {
                       null => const SizedBox(),
-                      final media => EntryTile(entry: EntityEntry(item, media)),
+                      _ => ComponentView(component: item),
                     },
                   ),
                 ),
@@ -285,22 +283,22 @@ void main() {
           panels: [
             Panel(
               id: Layout.homeId,
-              root: Pane(
+              root: Component.pane(
                 id: 'main',
                 title: 'Apps',
                 vars: const {
                   'tint': Variable('red', access: VarAccess.public),
                   'kept': Variable('x'),
                 },
-                items: [LayoutItem.of('app:a', id: 'a')],
+                children: [Component.of('app:a', id: 'a')],
               ),
             ),
             Panel(
               id: 'games',
               title: 'Games',
-              root: Pane(
+              root: Component.pane(
                 id: 'games/root',
-                items: [LayoutItem.of('app:a', id: 'g')],
+                children: [Component.of('app:a', id: 'g')],
               ),
             ),
           ],
@@ -345,20 +343,19 @@ void main() {
           panels: [
             Panel(
               id: Layout.homeId,
-              root: Pane(
+              root: Component.pane(
                 id: 'main',
                 columns: 2,
                 rules: const {'rowHeight': 200},
                 vars: const {'greeting': Variable('Hello')},
-                items: [
-                  const LayoutItem(
+                children: [
+                  const Component(
                     id: 't',
-                    kind: ItemKind.component,
-                    ref: 'text',
+                    kind: 'text',
                     options: {'text': '{{greeting}} there'},
                     style: {'fontSize': 14},
                   ),
-                  LayoutItem.of('games', id: 'f', prefab: folderPrefabId),
+                  Component.of('games', id: 'f', prefab: folderPrefabId),
                 ],
               ),
             ),
@@ -366,11 +363,11 @@ void main() {
               id: 'games',
               title: 'Games',
               rules: const {'position': 'inline'},
-              root: Pane(
+              root: Component.pane(
                 id: 'games/root',
                 columns: 1,
                 rules: const {'rowHeight': 60},
-                items: [LayoutItem.of('app:a', id: 'g')],
+                children: [Component.of('app:a', id: 'g')],
               ),
             ),
           ],
@@ -396,7 +393,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Hello there'), findsOneWidget);
       final held = find.byWidgetPredicate(
-        (widget) => widget is PaneGrid && widget.view.pane.id == 'games/root',
+        (widget) => widget is PaneGrid && widget.pane.id == 'games/root',
       );
       // Shut, the folder is its name; what it holds is not laid out.
       expect(find.text('Games'), findsOneWidget);

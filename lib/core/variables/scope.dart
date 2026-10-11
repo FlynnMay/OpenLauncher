@@ -91,10 +91,8 @@ Scope scopeOf(
 
 /// The variables [item] has: its prefab's, where it is an instance of
 /// one, with its own over them.
-Variables variablesOf(LayoutItem item, Map<String, Prefab> prefabs) => {
-  if (item.kind == ItemKind.prefab) ...?prefabs[item.ref]?.vars,
-  ...item.vars,
-};
+Variables variablesOf(Component item, Map<String, Prefab> prefabs) =>
+    resolved(item, prefabs).vars;
 
 /// The variable that says a folder, or anything else that is shown and
 /// hidden, is showing.
@@ -113,13 +111,11 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
     configProvider.select((config) {
       for (final panel in config.value?.layout.panels ?? const <Panel>[]) {
         if (panel.id == id) return (panel: panel, pane: panel.root, item: null);
-        for (final pane in panel.root.panes) {
-          if (pane.id == id) return (panel: null, pane: pane, item: null);
-          for (final item in pane.items) {
-            if (item.id == id && item.pane == null) {
-              return (panel: null, pane: null, item: item);
-            }
-          }
+        for (final component in panel.root.all) {
+          if (component.id != id) continue;
+          return component.isPane
+              ? (panel: null, pane: component, item: null)
+              : (panel: null, pane: null, item: component);
         }
       }
       return null;

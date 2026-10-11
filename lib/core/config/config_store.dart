@@ -58,6 +58,11 @@ class FileConfigStore implements ConfigStore {
       final json =
           jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       final version = versionOf(json);
+      if (version < oldestVersion) {
+        // Too old to bring up to date: kept beside, and a fresh start.
+        await file.copy(p.join(file.parent.path, 'config.v$version.json'));
+        return LauncherConfig();
+      }
       final config = LauncherConfig.fromJson(
         json,
         device: needsDevice(json) ? await _device() : Device.unknown,

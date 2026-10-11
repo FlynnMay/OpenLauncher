@@ -23,12 +23,16 @@ class ActionSubject extends InheritedWidget {
 
 /// The things in [root] that are offered when it is [subject]'s menu:
 /// all but those that are pressed to do what cannot be done to it.
-List<Entry> offeredFor(PaneView root, Entity subject, ActionRunner actions) => [
-  for (final entry in root.entries)
-    if ((entry.item.on[Trigger.press] ?? const []).every(
+List<Component> offeredFor(
+  Component root,
+  Entity subject,
+  ActionRunner actions,
+) => [
+  for (final item in root.children)
+    if ((item.on[Trigger.press] ?? const []).every(
       (act) => actions.applies(act, subject),
     ))
-      entry,
+      item,
 ];
 
 /// What a tile does on this screen, by what sets it off.

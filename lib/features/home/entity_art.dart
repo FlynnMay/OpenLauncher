@@ -85,16 +85,12 @@ class FolderArt extends ConsumerWidget {
         errorBuilder: (_, _, _) => SvgPicture.string(_outline),
       );
     }
+    final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final preview = [
-      for (final entry
-          in ref
-                  .watch(layoutViewProvider)
-                  .value
-                  ?.panels[folder]
-                  ?.root
-                  .contents ??
-              const <Entry>[])
-        if (entry is EntityEntry) entry.entity,
+      for (final item
+          in ref.watch(layoutViewProvider).value?.panel(folder)?.items ??
+              const <Component>[])
+        ?entities.byId(item.source),
     ].take(_shown).toList();
     if (preview.isEmpty) return SvgPicture.string(_outline);
     return Padding(

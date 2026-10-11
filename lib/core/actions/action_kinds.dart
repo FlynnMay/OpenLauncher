@@ -26,7 +26,7 @@ final List<ActionKind> entityActions = [
       // The quick actions are a pane like any folder: told what they are
       // about, and opened, by its variables.
       run.ref.read(runtimeVarsProvider.notifier)
-        ..set(Layout.menuId, LayoutItem.sourceVar, run.entity!.id)
+        ..set(Layout.menuId, Component.sourceVar, run.entity!.id)
         ..set(Layout.menuId, openVar, true);
       return null;
     },

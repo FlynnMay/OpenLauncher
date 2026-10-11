@@ -107,12 +107,17 @@ void main() {
 
     /// The apps and inputs on the home screen, in order. The launcher's
     /// own Settings entity is there too, after them.
-    Future<List<Entity>> entities() async => [
-      for (final entry in (await container.read(
-        layoutViewProvider.future,
-      )).home.root.contents)
-        if ((entry as EntityEntry).entity.kind != launcherKind) entry.entity,
-    ];
+    Future<List<Entity>> entities() async {
+      final all = await container.read(entitiesProvider.future);
+      return [
+        for (final item in (await container.read(
+          layoutViewProvider.future,
+        )).home.root.contents)
+          if (all.byId(item.source) case final entity?
+              when entity.kind != launcherKind)
+            entity,
+      ];
+    }
 
     Future<List<String>> ids() async =>
         (await entities()).map((c) => c.id).toList();
@@ -123,7 +128,7 @@ void main() {
       final config = container.read(configProvider.notifier);
       await config.setLayout(Layout.initial(['app:b', 'app:a']));
       expect(await ids(), ['app:b', 'app:a']);
-      expect(store.config.layout.home.items.map((i) => (i.source ?? i.ref)), [
+      expect(store.config.layout.home.items.map((i) => i.source), [
         'app:b',
         'app:a',
       ]);
@@ -188,7 +193,7 @@ void main() {
         Future<List<String>> offered(Entity entity) async {
           final view = await container.read(layoutViewProvider.future);
           return [
-            for (final item in view.panels[Layout.menuId]!.panel.items)
+            for (final item in view.panel(Layout.menuId)!.items)
               if (item.on[Trigger.press]!.every(
                 (act) => actions.applies(act, entity),
               ))
@@ -245,21 +250,20 @@ void main() {
     );
 
     test('a thing does what was set for it, else the usual for its kind', () {
-      const entity = LayoutItem(
+      const entity = Component(
         id: 'a',
-        kind: ItemKind.prefab,
-        ref: cardPrefabId,
+        prefab: cardPrefabId,
         vars: {'source': Variable('app:a')},
       );
       // What an instance does is its prefab's to say, unless it says.
-      Triggers does(LayoutItem item) =>
-          instanceOf(builtInPrefabs.first, item)!.triggers(item);
+      Triggers does(Component item) =>
+          resolved(item, {cardPrefabId: builtInPrefabs.first}).on;
       expect(entity.on, isEmpty);
       expect(does(entity), {
         Trigger.press: [const Act('open')],
         Trigger.hold: [const Act('menu')],
       });
-      final quiet = LayoutItem.fromJson({
+      final quiet = Component.fromJson({
         ...entity.toJson(),
         'on': {
           'hold': <Object?>[],
@@ -279,7 +283,7 @@ void main() {
           const Act('media', {'command': 'pause'}),
         ],
       });
-      expect(LayoutItem.fromJson(quiet.toJson()).on, quiet.on);
+      expect(Component.fromJson(quiet.toJson()).on, quiet.on);
       expect(entity.toJson().containsKey('on'), isFalse);
     });
   });
@@ -374,7 +378,7 @@ void main() {
       expect(all.last.id, 'lamp:desk');
       final view = await container.read(layoutViewProvider.future);
       expect(
-        view.home.root.contents.map((entry) => entry.item.source),
+        view.home.root.contents.map((entry) => entry.source),
         contains('lamp:desk'),
       );
       // What it provides is read like anything else's.
@@ -442,7 +446,7 @@ void main() {
       ]);
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);
-      expect(view.home.root.contents.map((entry) => entry.item.source), [
+      expect(view.home.root.contents.map((entry) => entry.source), [
         'app:a',
         'launcher:settings',
       ]);

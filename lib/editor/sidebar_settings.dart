@@ -100,7 +100,7 @@ class SidebarSettings extends ConsumerWidget {
     if (panel == null) return const SizedBox.shrink();
     void change(Panel Function(Panel panel) how) =>
         changeLayout(context, ref, (layout) => changePanel(layout, id, how));
-    void pane(Pane Function(Pane pane) how) =>
+    void pane(Component Function(Component pane) how) =>
         change((panel) => panel.withRoot(how(panel.root)));
     // What the edge would give, were nothing set.
     final usual = Panel.empty(id);
@@ -197,7 +197,7 @@ class SidebarSettings extends ConsumerWidget {
         StyleSettings(
           keys: const [...boxStyle, ...textStyle],
           style: panel.root.style,
-          corner: Pane.defaultCorner,
+          corner: Component.defaultCorner,
           onChanged: (key, value) => pane(
             (pane) => pane.copyWith(style: withStyle(pane.style, {key: value})),
           ),
