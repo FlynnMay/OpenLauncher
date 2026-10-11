@@ -110,7 +110,10 @@ const _previewCount = 4;
 /// nowhere appear in the inbox pane, unless the user removed them.
 LayoutView resolveLayout(List<LauncherCard> cards, LauncherConfig config) {
   final byId = {for (final card in cards) card.id: card};
-  final layout = config.layout.withCards(byId.keys);
+  final layout = config.layout.withCards(
+    byId.keys,
+    names: {for (final card in cards) card.id: card.sourceLabel},
+  );
 
   List<LauncherCard> preview(Panel panel) => [
     for (final item in panel.items)

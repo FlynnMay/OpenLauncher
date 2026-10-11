@@ -19,10 +19,11 @@ class LauncherCard {
     required this.kind,
     required this.target,
     required this.label,
+    String? sourceLabel,
     this.iconPath,
     this.wideIcon = false,
     this.svg,
-  });
+  }) : sourceLabel = sourceLabel ?? label;
 
   /// Stable key used by config and the command API, e.g. `app:com.example`.
   final String id;
@@ -32,6 +33,11 @@ class LauncherCard {
   /// TV input id for [CardKind.input].
   final String target;
   final String label;
+
+  /// What the device calls it, whatever the user has named it since. The
+  /// ids of cards that are not apps are made from this in the layout, so
+  /// that they say what the thing is.
+  final String sourceLabel;
 
   /// Absolute path of the image to show, or null to fall back to the label.
   final String? iconPath;
@@ -69,6 +75,7 @@ class LauncherCard {
     kind: kind,
     target: target,
     label: label,
+    sourceLabel: sourceLabel,
     iconPath: iconPath,
     wideIcon: wideIcon,
     svg: svg,
@@ -80,6 +87,7 @@ class LauncherCard {
     kind: kind,
     target: target,
     label: label,
+    sourceLabel: sourceLabel,
     iconPath: other.iconPath,
     wideIcon: other.wideIcon,
     svg: other.svg,
@@ -92,11 +100,20 @@ class LauncherCard {
       other.kind == kind &&
       other.target == target &&
       other.label == label &&
+      other.sourceLabel == sourceLabel &&
       other.iconPath == iconPath &&
       other.wideIcon == wideIcon &&
       other.svg == svg;
 
   @override
-  int get hashCode =>
-      Object.hash(id, kind, target, label, iconPath, wideIcon, svg);
+  int get hashCode => Object.hash(
+    id,
+    kind,
+    target,
+    label,
+    sourceLabel,
+    iconPath,
+    wideIcon,
+    svg,
+  );
 }

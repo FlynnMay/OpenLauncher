@@ -39,16 +39,17 @@ Future<void> placeDragged(
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
     return;
   }
-  var panel = dragged.panel;
+  var panel = dragged.panel, item = dragged.item;
   if (panel != null) {
     final name = await _askName(context, panel.title);
     if (name == null || !context.mounted) return;
-    panel = Panel(id: panel.id, title: name, root: panel.root);
+    panel = Panel.empty(layout.panelIdFor(name), title: name);
+    item = item.copyWith(id: layout.itemIdFor(name), ref: panel.id);
   }
   await changeLayout(
     context,
     ref,
-    (layout) => dropItem(layout, dragged.item, drop, panel: panel),
+    (layout) => dropItem(layout, item, drop, panel: panel),
   );
 }
 

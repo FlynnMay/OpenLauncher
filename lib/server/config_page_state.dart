@@ -45,6 +45,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
           'id': card.id,
           'kind': card.kind.name,
           'label': card.label,
+          // What the device calls it; ids in the layout are made from it.
+          'sourceLabel': card.sourceLabel,
           // Whether the user chose the name, rather than the device.
           'renamed': config.names.containsKey(card.id),
           // An uploaded picture, or another card's.
@@ -64,7 +66,12 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     ],
     // Exactly what the TV arranges: cards placed nowhere are already in
     // their section, and cards that are gone are left out.
-    'layout': config.layout.withCards(cards.map((card) => card.id)).toJson(),
+    'layout': config.layout
+        .withCards(
+          cards.map((card) => card.id),
+          names: {for (final card in cards) card.id: card.sourceLabel},
+        )
+        .toJson(),
     // Pictures the user gave to cards that open a popup, by panel id.
     'panelIcons': {
       for (final panel in config.layout.panels)

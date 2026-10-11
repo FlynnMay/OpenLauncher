@@ -3,7 +3,6 @@ import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
-import 'package:openlauncher/core/layout/legacy_sections.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 
 /// A surface: the home screen, a sidebar on one of its edges, or a popup.
@@ -124,6 +123,7 @@ class Panel {
   /// This panel with some of its settings changed. [width], [height] and
   /// [closed] may be given as null, for the usual ones.
   Panel copyWith({
+    String? id,
     Pane? root,
     String? title,
     PopupPosition? position,
@@ -134,7 +134,7 @@ class Panel {
     BarOpening? opening,
     BarReveal? reveal,
   }) => Panel(
-    id: id,
+    id: id ?? this.id,
     root: root ?? this.root,
     title: title ?? this.title,
     position: position ?? this.position,
@@ -154,24 +154,15 @@ class Panel {
         _ => null,
       };
 
-  /// [barsFromBefore] is true for a layout saved when a sidebar was always
-  /// a list of small rows: its pane is set up to look that way still.
-  factory Panel.fromJson(
-    Map<Object?, Object?> json, {
-    bool barsFromBefore = false,
-  }) {
+  factory Panel.fromJson(Map<Object?, Object?> json) {
     final id = jsonRequired<String>(json, 'id');
-    final root = switch (jsonOptional<Map<Object?, Object?>>(json, 'pane')) {
-      final pane? => Pane.fromJson(pane),
-      // Layouts from before panes had a list of sections.
-      null => paneFromSections(id, jsonList(json, 'sections', Pane.fromJson)),
-    };
     return Panel(
       id: id,
       title: jsonOptional<String>(json, 'title') ?? '',
-      root: barsFromBefore && kindOf(id) == PanelKind.sidebar
-          ? root.asBar()
-          : root,
+      root: switch (jsonOptional<Map<Object?, Object?>>(json, 'pane')) {
+        final pane? => Pane.fromJson(pane),
+        null => _emptyRoot(id),
+      },
       position: jsonNamed(
         PopupPosition.values,
         jsonOptional<String>(json, 'position'),

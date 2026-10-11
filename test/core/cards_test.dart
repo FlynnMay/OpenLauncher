@@ -68,6 +68,8 @@ void main() {
       ], LauncherConfig(names: {'app:alpha': 'Zebra'}));
       expect(cards.map((c) => c.label), ['Plex', 'Zebra']);
       expect(cards.last.id, 'app:alpha');
+      // What the device calls it is kept, for ids in the layout.
+      expect(cards.map((c) => c.sourceLabel), ['Plex', 'alpha']);
     });
   });
 

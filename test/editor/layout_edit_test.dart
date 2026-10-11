@@ -38,12 +38,6 @@ List<String> ids(Layout layout, String pane) => [
 }
 
 void main() {
-  test('new ids start as asked and do not repeat', () {
-    final made = {for (var i = 0; i < 200; i++) newId('i')};
-    expect(made, hasLength(200));
-    expect(made.every((id) => id.startsWith('i') && id.length == 8), isTrue);
-  });
-
   group('settle', () {
     test('the fixed item gets its cell and what was there moves aside', () {
       final settled = settle(
@@ -140,7 +134,7 @@ void main() {
         ),
       );
       final moved = dropItem(nested, card('a'), const Drop('inner'));
-      expect(ids(moved, 'p'), ['pane:inner']);
+      expect(ids(moved, 'p'), ['pane-inner']);
       expect(ids(moved, 'inner'), ['a']);
     });
 
@@ -241,7 +235,7 @@ void main() {
           ],
         ),
       );
-      final removed = removeItem(layout, 'pane:inner');
+      final removed = removeItem(layout, 'pane-inner');
       expect(ids(removed, 'p'), ['a']);
       expect(removed.removed, {'app:b', 'app:c'});
     });

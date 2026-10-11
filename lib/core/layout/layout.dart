@@ -4,6 +4,7 @@ library;
 
 export 'box_style.dart';
 export 'layout_enums.dart';
+export 'layout_ids.dart';
 export 'layout_item.dart';
 export 'layout_model.dart';
 export 'layout_repair.dart';

@@ -1,4 +1,5 @@
 import 'package:openlauncher/core/layout/layout_enums.dart';
+import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/pane.dart';
@@ -27,11 +28,9 @@ extension LayoutRepair on Layout {
 
     final paneIds = <String>{};
     final itemIds = <String>{};
-    String fresh(Set<String> used, String wanted, String prefix) {
-      var id = wanted;
-      for (var n = used.length; id.isEmpty || !used.add(id); n++) {
-        id = '$prefix$n';
-      }
+    String fresh(Set<String> used, String wanted, String fallback) {
+      final id = freeId(wanted.isEmpty ? fallback : wanted, used);
+      used.add(id);
       return id;
     }
 
@@ -71,7 +70,7 @@ extension LayoutRepair on Layout {
       final placed = x != null && y != null && x.isFinite && y.isFinite;
       final repaired = inner == null ? null : repair(inner, kind, depth + 1);
       yield LayoutItem(
-        id: fresh(itemIds, item.id, 'i'),
+        id: fresh(itemIds, item.id, 'item'),
         kind: item.kind,
         ref: repaired?.id ?? item.ref,
         w: w,
@@ -89,7 +88,7 @@ extension LayoutRepair on Layout {
     repair = (pane, kind, depth) {
       final columns = pane.columns.clamp(1, Pane.maxColumns);
       // The pane's own id first, so that nothing inside can take it.
-      final id = fresh(paneIds, pane.id, 'p');
+      final id = fresh(paneIds, pane.id, 'pane');
       // A measure that means something, kept within what is allowed.
       double? within(double? value, num low, num high) =>
           value != null && value.isFinite
@@ -166,8 +165,12 @@ extension LayoutRepair on Layout {
 
   /// A copy holding only cards in [cardIds]: items for cards that no longer
   /// exist are dropped, and cards placed nowhere are added to the end of the
-  /// [inbox] pane, in the order given, unless the user [removed] them.
-  Layout withCards(Iterable<String> cardIds) {
+  /// [inbox] pane, in the order given, unless the user [removed] them. Each
+  /// gets an id after what the device calls it, in [names] by card id.
+  Layout withCards(
+    Iterable<String> cardIds, {
+    Map<String, String> names = const {},
+  }) {
     final known = cardIds.toSet();
     final kept = rebuild(
       (_, items) => [
@@ -185,18 +188,17 @@ extension LayoutRepair on Layout {
         }
       }
     }
+    // Named after the card, by what it is called if that is known.
+    String autoId(String cardId) {
+      final id = freeId(LayoutItem.autoId(cardId, names[cardId]), itemIds);
+      itemIds.add(id);
+      return id;
+    }
+
     final unplaced = [
       for (final id in cardIds)
         if (placed.add(id))
-          LayoutItem(
-            // Normally free; only taken if the card was once placed under
-            // this id and then swapped for another.
-            id: itemIds.add(LayoutItem.autoId(id))
-                ? LayoutItem.autoId(id)
-                : '${LayoutItem.autoId(id)}:${itemIds.length}',
-            kind: ItemKind.card,
-            ref: id,
-          ),
+          LayoutItem(id: autoId(id), kind: ItemKind.card, ref: id),
     ];
     return kept.rebuild(
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,

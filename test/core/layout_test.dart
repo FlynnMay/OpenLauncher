@@ -232,7 +232,7 @@ void main() {
       expect(rail.columns, 4);
       expect(rail.items.map((i) => (i.id, i.kind, i.w)), [
         ('a', ItemKind.card, 3),
-        ('pane:in-rail', ItemKind.pane, 1),
+        ('pane-in-rail', ItemKind.pane, 1),
       ]);
       expect(rail.items.last.pane!.items.single.id, 'b');
 

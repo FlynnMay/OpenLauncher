@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
@@ -24,9 +25,6 @@ class Layout {
   /// The ids of the sidebars there can be, one for each edge.
   static const barIds = [leftId, rightId, topId, bottomId];
 
-  /// What a layout written now says it is; one that says less was saved
-  /// when sidebars were not yet panes like any other.
-  static const _version = 2;
   static const _firstPane = 'main';
 
   /// The home screen with one pane showing [order] first and then every
@@ -74,23 +72,23 @@ class Layout {
 
   /// Throws a [FormatException] if [json] is not shaped like a layout. The
   /// result still needs [normalised].
-  factory Layout.fromJson(Map<Object?, Object?> json) => Layout(
-    panels: jsonList(
-      json,
-      'panels',
-      (panel) => Panel.fromJson(
-        panel,
-        barsFromBefore: (jsonOptional<num>(json, 'v') ?? 1) < _version,
-      ),
-    ),
-    inbox: jsonOptional<String>(json, 'inbox') ?? '',
-    removed: {
-      ...?jsonOptional<List<Object?>>(json, 'removed')?.whereType<String>(),
-    },
-  );
+  ///
+  /// A layout saved by an older version is brought up to date first, by
+  /// the steps in `core/config/migrations`; only what is written now is
+  /// read here.
+  factory Layout.fromJson(Map<Object?, Object?> saved) {
+    final json = migrateLayout(saved);
+    return Layout(
+      panels: jsonList(json, 'panels', Panel.fromJson),
+      inbox: jsonOptional<String>(json, 'inbox') ?? '',
+      removed: {
+        ...?jsonOptional<List<Object?>>(json, 'removed')?.whereType<String>(),
+      },
+    );
+  }
 
   Map<String, Object?> toJson() => {
-    'v': _version,
+    'v': saveVersion,
     'inbox': inbox,
     'removed': removed.toList(),
     'panels': [for (final panel in panels) panel.toJson()],

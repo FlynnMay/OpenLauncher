@@ -2,14 +2,6 @@ import 'dart:math';
 
 import 'package:openlauncher/core/layout/layout.dart';
 
-final _random = Random();
-
-/// An id nothing else has, starting with [prefix]: `i` for an item, `s` for
-/// a pane, `p` for a popup, as the first config page wrote them.
-String newId(String prefix) =>
-    prefix +
-    List.generate(7, (_) => _random.nextInt(36).toRadixString(36)).join();
-
 /// Where in the layout something is put: into [pane], and there in front of
 /// the item [before] (a pane that flows), or at the cell [x], [y] (a pane
 /// with places). With neither, wherever there is room.

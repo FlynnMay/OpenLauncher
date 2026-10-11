@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
 enum ToastPosition { topLeft, topRight, bottomLeft, bottomRight }
@@ -104,8 +105,29 @@ class LauncherConfig {
     toasts: toasts ?? this.toasts,
   );
 
-  factory LauncherConfig.fromJson(Map<String, dynamic> json) => LauncherConfig(
-    layout: _layout(json),
+  /// Reads a saved config of any version: an older one is brought up to
+  /// date first, by the steps in `migrations`, which do better for knowing
+  /// the [device]. Only what is written now is read here.
+  factory LauncherConfig.fromJson(
+    Map<String, dynamic> saved, {
+    Device device = Device.unknown,
+  }) => LauncherConfig._current(_upToDate(saved, device));
+
+  static Json _upToDate(Json saved, Device device) {
+    try {
+      return migrate(saved, device: device);
+    } on FormatException catch (e) {
+      // A broken layout must not take the wallpaper and pictures with it.
+      debugPrint('Saved layout unreadable, starting a new one: $e');
+      return migrate(
+        {...saved, 'v': versionOf(saved)}..remove('layout'),
+        device: device,
+      );
+    }
+  }
+
+  factory LauncherConfig._current(Json json) => LauncherConfig(
+    layout: _savedLayout(json),
     iconOverrides: {
       ...?(json['iconOverrides'] as Map?)?.cast<String, String>(),
     },
@@ -113,8 +135,7 @@ class LauncherConfig {
     names: _strings(json['names']),
     wallpapers: switch (json['wallpapers']) {
       final List<Object?> paths => paths.whereType<String>().toList(),
-      // Configs from before there could be several had the one.
-      _ => [?(json['wallpaper'] as String?)],
+      _ => const [],
     },
     wallpaperEvery: switch (json['wallpaperEvery']) {
       final num minutes => minutes.toInt().clamp(0, maxWallpaperEvery),
@@ -147,19 +168,15 @@ class LauncherConfig {
       // A broken layout must not take the wallpaper and pictures with it.
       debugPrint('Saved layout unreadable, starting a new one: $e');
     }
-    // Configs from before layouts existed only had a card order.
-    return Layout.initial([...?(json['order'] as List?)?.cast<String>()]);
-  }
-
-  /// The layout in [json]. Cards that older configs listed as hidden were
-  /// still placed, just not shown; they become removed cards.
-  static Layout _layout(Map<String, dynamic> json) {
-    final hidden = {...?(json['hidden'] as List?)?.whereType<String>()};
-    final layout = _savedLayout(json);
-    return hidden.isEmpty ? layout : layout.without(hidden).normalised();
+    // In the order the cards were in, where a config still says.
+    return Layout.initial([
+      if (json['order'] case final List<Object?> order)
+        ...order.whereType<String>(),
+    ]);
   }
 
   Map<String, dynamic> toJson() => {
+    'v': saveVersion,
     'layout': layout.toJson(),
     'iconOverrides': iconOverrides,
     'iconSources': iconSources,

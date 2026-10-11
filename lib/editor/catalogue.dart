@@ -23,22 +23,20 @@ class Catalogue extends ConsumerStatefulWidget {
 class _CatalogueState extends ConsumerState<Catalogue> {
   String _query = '';
 
-  LayoutItem _item(ItemKind kind, String ref) =>
-      LayoutItem(id: newId('i'), kind: kind, ref: ref);
-
   /// What there is to add, under the heading it is listed under.
   Map<String, List<_Offer>> _offers(Layout layout) {
     final all = ref.watch(allCardsProvider).value ?? const [];
     final widgets = ref.watch(tvStateProvider).value?.widgets ?? const [];
     final counts = placedCounts(layout);
-    final folder = Panel(
-      id: newId('p'),
-      title: 'Folder',
-      root: Pane(id: newId('s'), columns: 4),
-    );
+    // Named, and given the id that goes with its name, when it is placed.
+    final folder = Panel.empty(layout.panelIdFor('Folder'), title: 'Folder');
     _Offer card(LauncherCard card) => _Offer(
       Dragged(
-        item: _item(ItemKind.card, card.id),
+        item: LayoutItem(
+          id: layout.itemIdFor(LayoutItem.autoId(card.id, card.sourceLabel)),
+          kind: ItemKind.card,
+          ref: card.id,
+        ),
         label: card.label,
         picture: CardArt(card: card, padding: 4),
       ),
@@ -58,14 +56,18 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       'Layout': [
         _Offer(
           Dragged(
-            item: LayoutItem.pane(Pane(id: newId('s')), w: 6, h: 3),
+            item: LayoutItem.pane(Pane(id: layout.paneIdFor()), w: 6, h: 3),
             label: 'Pane',
             picture: const SymbolArt(Icons.dashboard_outlined),
           ),
         ),
         _Offer(
           Dragged(
-            item: _item(ItemKind.panel, folder.id),
+            item: LayoutItem(
+              id: layout.itemIdFor(folder.title),
+              kind: ItemKind.panel,
+              ref: folder.id,
+            ),
             panel: folder,
             label: 'New folder',
             picture: const SymbolArt(Icons.create_new_folder_outlined),
@@ -83,7 +85,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           _Offer(
             Dragged(
               item: LayoutItem(
-                id: newId('i'),
+                id: layout.itemIdFor(widget.type),
                 kind: ItemKind.widget,
                 ref: widget.type,
                 w: widget.w,
@@ -100,7 +102,13 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           if (panel.kind == PanelKind.popup)
             _Offer(
               Dragged(
-                item: _item(ItemKind.panel, panel.id),
+                item: LayoutItem(
+                  id: layout.itemIdFor(
+                    panel.title.isEmpty ? 'folder' : panel.title,
+                  ),
+                  kind: ItemKind.panel,
+                  ref: panel.id,
+                ),
                 label: panel.title.isEmpty ? 'Folder' : panel.title,
                 picture: const SymbolArt(Icons.folder_outlined),
               ),

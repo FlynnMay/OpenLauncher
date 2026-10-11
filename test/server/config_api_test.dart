@@ -119,6 +119,7 @@ void main() {
       'id': 'input:tv/HW1',
       'kind': 'input',
       'label': 'HDMI 1',
+      'sourceLabel': 'HDMI 1',
       'renamed': false,
       'customIcon': false,
       'iconFrom': null,

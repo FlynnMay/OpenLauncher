@@ -193,6 +193,7 @@ class TvApi {
       kind: CardKind.values.byName(json['kind'] as String),
       target: json['id'] as String,
       label: json['label'] as String,
+      sourceLabel: json['sourceLabel'] as String?,
       // On the TV this is a file; here it is where the TV serves that file.
       iconPath: bare || icon == null ? null : _at(icon).toString(),
       wideIcon: json['wide'] == true,

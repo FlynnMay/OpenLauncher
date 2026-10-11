@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/layout/box_style.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
+import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 
 /// One thing placed in a pane.
@@ -24,7 +25,7 @@ class LayoutItem {
 
   /// A pane as an item of the pane around it.
   LayoutItem.pane(Pane this.pane, {this.w = 1, this.h = 1, this.x, this.y})
-    : id = 'pane:${pane.id}',
+    : id = paneItemId(pane.id),
       kind = ItemKind.pane,
       ref = pane.id,
       options = const {},
@@ -62,8 +63,18 @@ class LayoutItem {
   /// The pane this item is, for [ItemKind.pane].
   final Pane? pane;
 
-  /// The id given to a card that is shown without having been placed.
-  static String autoId(String cardId) => 'auto:$cardId';
+  /// The id wanted for the item that holds the pane [paneId]: one that says
+  /// it is a pane, once.
+  static String paneItemId(String paneId) =>
+      paneId.startsWith('pane') ? paneId : 'pane-$paneId';
+
+  /// The id wanted for the card [cardId]: an app's after its package,
+  /// which says what it is whatever it is called; any other after the
+  /// [name] the device has for it, or failing that the end of its own id.
+  static String autoId(String cardId, [String? name]) =>
+      cardId.startsWith('app:')
+      ? packageSlug(cardId.substring(4))
+      : slugOf(name ?? '', slugOf(cardId.split(RegExp('[:/.]')).last));
 
   LayoutItem withPane(Pane pane) => LayoutItem(
     id: id,
@@ -82,6 +93,8 @@ class LayoutItem {
 
   /// This item looking or set up otherwise.
   LayoutItem copyWith({
+    String? id,
+    String? ref,
     BoxStyle? style,
     bool? hideName,
     TileLook? look,
@@ -89,9 +102,9 @@ class LayoutItem {
     double? w,
     double? h,
   }) => LayoutItem(
-    id: id,
+    id: id ?? this.id,
     kind: kind,
-    ref: ref,
+    ref: ref ?? this.ref,
     w: w ?? this.w,
     h: h ?? this.h,
     x: x,

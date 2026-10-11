@@ -131,6 +131,7 @@ class Pane {
   /// This pane with some of its settings changed. [spacing] and [padding]
   /// may be given as null, for the usual ones.
   Pane copyWith({
+    String? id,
     String? title,
     PaneMode? mode,
     int? columns,
@@ -145,7 +146,7 @@ class Pane {
     Object? itemH = _keep,
     Object? itemNames = _keep,
   }) => Pane(
-    id: id,
+    id: id ?? this.id,
     title: title ?? this.title,
     mode: mode ?? this.mode,
     columns: columns ?? this.columns,
