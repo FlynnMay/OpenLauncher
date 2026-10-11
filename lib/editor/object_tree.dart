@@ -11,29 +11,27 @@ import 'package:openlauncher/editor/tv_screen.dart';
 
 /// What the thing [item] places is called: an entity by its name, a pane by
 /// its title, a folder entity by the folder it opens.
-String objectName(
-  LayoutItem item,
-  Layout? layout,
-  List<Entity> entities,
-) => switch (item.kind) {
-  ItemKind.prefab =>
-    entities.where((entity) => entity.id == item.source).firstOrNull?.label ??
-        // Drawn from a folder, it goes by the folder's name.
-        switch (layout?.panel(item.source ?? '')?.title) {
-          null => 'Prefab',
-          '' => 'Folder',
-          final title => title,
-        },
-  // A button by what it says, where that is plain to read.
-  ItemKind.component => switch (item.options['label']) {
-    final String label when label.isNotEmpty && !label.contains('{{') => label,
-    _ => ComponentKind.named(item.ref)?.label ?? 'Component',
-  },
-  ItemKind.pane => switch (item.pane?.title) {
-    null || '' => 'Pane',
-    final title => title,
-  },
-};
+String objectName(LayoutItem item, Layout? layout, List<Entity> entities) =>
+    switch (item.kind) {
+      ItemKind.prefab =>
+        entities.byId(item.source)?.label ??
+            // Drawn from a folder, it goes by the folder's name.
+            switch (layout?.panel(item.source ?? '')?.title) {
+              null => 'Prefab',
+              '' => 'Folder',
+              final title => title,
+            },
+      // A button by what it says, where that is plain to read.
+      ItemKind.component => switch (item.options['label']) {
+        final String label when label.isNotEmpty && !label.contains('{{') =>
+          label,
+        _ => ComponentKind.named(item.ref)?.label ?? 'Component',
+      },
+      ItemKind.pane => switch (item.pane?.title) {
+        null || '' => 'Pane',
+        final title => title,
+      },
+    };
 
 IconData objectIcon(ItemKind kind) => switch (kind) {
   ItemKind.prefab => Icons.crop_16_9,

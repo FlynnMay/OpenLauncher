@@ -76,13 +76,7 @@ class SelectedProperties extends ConsumerWidget {
         // have changed; the clock has neither.
         if (single != null &&
             single.kind == ItemKind.prefab &&
-            (entityKind(
-                  entities
-                          .where((entity) => entity.id == single.source)
-                          .firstOrNull
-                          ?.kind ??
-                      '',
-                )?.placed ??
+            (entityKind(entities.byId(single.source)?.kind ?? '')?.placed ??
                 false))
           _EntityDetails(entityId: single.source ?? ''),
         if (single != null && allFolders)
@@ -210,7 +204,12 @@ class SelectedProperties extends ConsumerWidget {
                   ),
                   TextButton.icon(
                     onPressed: () async {
-                      if (await _sure(context) && context.mounted) {
+                      if (await sureToRemove(
+                            context,
+                            'Delete the folder?',
+                            'Delete',
+                          ) &&
+                          context.mounted) {
                         ref.read(selectionProvider.notifier).clear();
                         change((layout) => removePanel(layout, single.source!));
                       }
@@ -234,29 +233,6 @@ class SelectedProperties extends ConsumerWidget {
       ],
     );
   }
-
-  static Future<bool> _sure(BuildContext context) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Delete the folder?'),
-          content: const Text(
-            'What is in it comes off the TV with it. The apps can be added '
-            'again anywhere.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
 }
 
 /// What an entity is called and what it looks like, wherever it is placed.
@@ -275,15 +251,10 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
   Widget build(BuildContext context) {
     final api = ref.watch(tvApiProvider);
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    final entity = entities
-        .where((entity) => entity.id == widget.entityId)
-        .firstOrNull;
+    final entity = entities.byId(widget.entityId);
     if (entity == null) return const SizedBox.shrink();
     final details = ref.watch(tvStateProvider).value?.details[entity.id];
-    final borrowed = switch (details?.iconFrom) {
-      null => null,
-      final from => entities.where((other) => other.id == from).firstOrNull,
-    };
+    final borrowed = entities.byId(details?.iconFrom);
     return Section('Source', [
       CommitField(
         label: 'Name',

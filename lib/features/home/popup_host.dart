@@ -11,12 +11,7 @@ import 'package:openlauncher/features/home/tile_actions.dart';
 Entity? subjectOf(WidgetRef ref, String id) => switch (ref.watch(
   runtimeVarsProvider.select((all) => all[id]?[LayoutItem.sourceVar]),
 )) {
-  final String source =>
-    ref
-        .watch(entitiesProvider)
-        .value
-        ?.where((entity) => entity.id == source)
-        .firstOrNull,
+  final String source => ref.watch(entitiesProvider).value?.byId(source),
   _ => null,
 };
 
@@ -60,12 +55,7 @@ class _PopupHostState extends ConsumerState<PopupHost> {
       // A menu with nothing in it for what it is about is not shown at all.
       if (open) {
         final subject = switch (all[id]?[LayoutItem.sourceVar]) {
-          final String source =>
-            ref
-                .read(entitiesProvider)
-                .value
-                ?.where((entity) => entity.id == source)
-                .firstOrNull,
+          final String source => ref.read(entitiesProvider).value?.byId(source),
           _ => null,
         };
         if (subject != null &&

@@ -316,7 +316,7 @@ class ActionRunner {
     var entity = subject;
     if (act.arg(entityArg) case final id?) {
       final entities = await _ref.read(entitiesProvider.future);
-      entity = entities.where((entity) => entity.id == id).firstOrNull;
+      entity = entities.byId(id);
       // Named, and not there: nothing to do it to.
       if (entity == null) return null;
     }

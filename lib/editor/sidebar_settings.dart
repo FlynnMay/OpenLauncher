@@ -86,29 +86,6 @@ class ExtentBox extends StatelessWidget {
   }
 }
 
-Future<bool> _sure(BuildContext context) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove the sidebar?'),
-        content: const Text(
-          'What is in it comes off the TV with it. The apps can be added '
-          'again anywhere.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    ) ??
-    false;
-
 /// The settings of one sidebar: how big it is open and closed, and, since
 /// inside it is a pane like any other, everything a pane has.
 class SidebarSettings extends ConsumerWidget {
@@ -152,7 +129,12 @@ class SidebarSettings extends ConsumerWidget {
                     onPressed: () async {
                       // Emptied, it is simply gone; with things in it, they
                       // come off the TV with it.
-                      if (panel.items.isNotEmpty && !await _sure(context)) {
+                      if (panel.items.isNotEmpty &&
+                          !await sureToRemove(
+                            context,
+                            'Remove the sidebar?',
+                            'Remove',
+                          )) {
                         return;
                       }
                       if (!context.mounted) return;

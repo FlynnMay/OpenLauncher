@@ -345,3 +345,32 @@ mixin Busy<T extends StatefulWidget> on State<T> {
     }
   }
 }
+
+/// Asks before something is taken away with what is in it: [title] is the
+/// question and [does] what the button that goes ahead says.
+Future<bool> sureToRemove(
+  BuildContext context,
+  String title,
+  String does,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: const Text(
+          'What is in it comes off the TV with it. The apps can be added '
+          'again anywhere.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(does),
+          ),
+        ],
+      ),
+    ) ??
+    false;

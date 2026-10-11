@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
+import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/entity_kinds.dart';
 
 /// What the entity [id] provides now, for whatever shows it: what every
@@ -12,10 +13,7 @@ final entityDataProvider = Provider.autoDispose.family<Object?, String>((
   id,
 ) {
   final entity = ref.watch(
-    entitiesProvider.select(
-      (entities) =>
-          entities.value?.where((entity) => entity.id == id).firstOrNull,
-    ),
+    entitiesProvider.select((entities) => entities.value?.byId(id)),
   );
   if (entity == null) return null;
   final own = entityKind(entity.kind)?.data?.call(ref, entity);

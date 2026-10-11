@@ -116,3 +116,8 @@ class Entity {
     svg,
   );
 }
+
+extension EntitiesById on Iterable<Entity> {
+  /// The one called [id], if it is among them.
+  Entity? byId(String? id) => where((entity) => entity.id == id).firstOrNull;
+}

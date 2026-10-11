@@ -232,9 +232,7 @@ class ConfigApi {
     Entity? entity;
     if (body.containsKey(entityArg)) {
       final entities = await _ref.read(entitiesProvider.future);
-      entity = entities
-          .where((entity) => entity.id == act.arg(entityArg))
-          .firstOrNull;
+      entity = entities.byId(act.arg(entityArg));
       if (entity == null) return _error(404, 'Unknown entity');
     }
     if (actionFor(act.name, entity) == null) {
@@ -302,7 +300,7 @@ class ConfigApi {
     final entities = await _ref.read(entitiesProvider.future);
     final config = await _ref.read(configProvider.future);
     // Null for the entity of a popup, which only has a picture if given one.
-    final entity = entities.where((entity) => entity.id == id).firstOrNull;
+    final entity = entities.byId(id);
     final path = entity == null ? config.iconOverrides[id] : entity.iconPath;
     if (entity?.svg case final svg? when path == null) {
       return Response.ok(
