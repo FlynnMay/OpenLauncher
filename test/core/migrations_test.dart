@@ -468,11 +468,12 @@ void main() {
         'ref': 'app-card',
         'w': 1,
         'h': 1,
-        'source': 'app:a',
+        'vars': {'source': 'app:a'},
       });
+      // What was a widget of its own is an instance too, by a later step.
       expect(
         (clock.kind, clock.ref, clock.source),
-        (ItemKind.widget, 'clock', null),
+        (ItemKind.prefab, 'clock', 'clock'),
       );
     });
 
@@ -565,6 +566,119 @@ void main() {
           {'do': 'open'},
         ],
       );
+    });
+  });
+
+  group('from 7 to 8', () {
+    Json widget(String ref, [Json? options]) => {
+      'id': ref,
+      'kind': 'widget',
+      'ref': ref,
+      'w': 3,
+      'h': 2,
+      'options': ?options,
+    };
+    final save = migrate({
+      'v': 7,
+      'layout': {
+        'v': 7,
+        'inbox': 'main',
+        'panels': [
+          {
+            'id': 'home',
+            'pane': {
+              'id': 'main',
+              'items': [
+                widget('clock', {
+                  'hour24': false,
+                  'seconds': true,
+                  'date': false,
+                }),
+                {...widget('clock'), 'id': 'plain'},
+                widget('weather', {
+                  'place': 'Perth',
+                  'latitude': -31.95,
+                  'longitude': 115.86,
+                  'fahrenheit': true,
+                }),
+                widget('media'),
+                widget('text', {'text': 'Hi'}),
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final [clock, plain, weather, media, text] = Layout.fromJson(
+      save['layout']! as Json,
+    ).home.items.toList();
+
+    test('each is an instance of a prefab drawn from its entity', () {
+      expect(
+        (clock.kind, clock.ref, clock.source),
+        (ItemKind.prefab, 'clock', 'clock'),
+      );
+      expect((weather.ref, weather.source), ('weather', 'weather'));
+      expect((media.ref, media.source), ('now-playing', 'media'));
+      // As big as it was.
+      expect((clock.w, clock.h), (3, 2));
+      // Any other widget is what it was.
+      expect((text.kind, text.ref), (ItemKind.widget, 'text'));
+      expect(text.options, {'text': 'Hi'});
+      // And there is a prefab for each to be an instance of.
+      for (final item in [clock, weather, media]) {
+        final prefab = builtInPrefabs.firstWhere((p) => p.id == item.ref);
+        expect(instanceOf(prefab, item), isNotNull);
+      }
+    });
+
+    test('what a widget was set to is what its instance sets', () {
+      expect(overridesOf(clock, 'time'), {
+        'text': '{{source | format:h:mm:ss a}}',
+      });
+      expect(overridesOf(clock, 'date'), {'hidden': true});
+      expect(plain.options, isEmpty);
+      expect(overridesOf(weather, 'temperature'), {
+        'text': '{{source.temperature | times:1.8 | plus:32 | round}}°',
+      });
+      // The place the weather widget had is the launcher's now.
+      expect(LauncherConfig.fromJson(save).place?.name, 'Perth');
+    });
+  });
+
+  group('from 8 to 9', () {
+    test('what an instance is drawn from is one of its variables', () {
+      final save = migrate({
+        'v': 8,
+        'layout': {
+          'v': 8,
+          'inbox': 'main',
+          'panels': [
+            {
+              'id': 'home',
+              'pane': {
+                'id': 'main',
+                'items': [
+                  {
+                    'id': 'a',
+                    'kind': 'prefab',
+                    'ref': 'app-card',
+                    'source': 'app:a',
+                    'vars': {'tint': 'red'},
+                  },
+                  {'id': 't', 'kind': 'widget', 'ref': 'text'},
+                ],
+              },
+            },
+          ],
+        },
+      });
+      final [a, t] = Layout.fromJson(save['layout']! as Json).home.items
+          .toList();
+      expect(a.source, 'app:a');
+      expect(a.toJson()['vars'], {'tint': 'red', 'source': 'app:a'});
+      expect(a.toJson().containsKey('source'), isFalse);
+      expect(t.vars, isEmpty);
     });
   });
 }

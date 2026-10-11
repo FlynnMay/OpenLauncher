@@ -8,6 +8,7 @@ import 'package:openlauncher/app.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/prefab_tile.dart';
@@ -89,7 +90,7 @@ void main() {
       id: 'i-$package',
       kind: ItemKind.prefab,
       ref: cardPrefabId,
-      source: 'app:$package',
+      vars: {'source': Variable('app:$package')},
     );
 
     testWidgets('holding OK offers quick actions instead of opening', (
@@ -140,10 +141,10 @@ void main() {
                       x: 1,
                       y: 0,
                     ),
-                    const LayoutItem(
+                    LayoutItem.of(
+                      'clock',
                       id: 'clock',
-                      kind: ItemKind.widget,
-                      ref: 'clock',
+                      prefab: 'clock',
                       w: 2,
                       x: 2,
                       y: 1,
@@ -202,7 +203,7 @@ void main() {
                       id: 'a',
                       kind: ItemKind.prefab,
                       ref: cardPrefabId,
-                      source: 'app:pkg.a',
+                      vars: {'source': Variable('app:pkg.a')},
                       style: BoxStyle(colors: [0xFFB71C1C]),
                     ),
                   ],
@@ -264,7 +265,7 @@ void main() {
                       id: 'a',
                       kind: ItemKind.prefab,
                       ref: cardPrefabId,
-                      source: 'app:pkg.a',
+                      vars: {'source': Variable('app:pkg.a')},
                       options: {
                         'parts': {
                           'name': {'hidden': true},

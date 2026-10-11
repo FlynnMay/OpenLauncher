@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/prefabs/instance_options.dart';
+import 'package:openlauncher/core/variables/variable.dart';
 
 /// One primitive a prefab is made of: a kind of widget (`picture`, `text`,
 /// ...) and its options, in which `{{source.label}}` and the like are what
@@ -35,10 +36,20 @@ class PrefabSlot {
     this.aspect,
     this.keep = false,
     this.options = const {},
+    this.group,
   });
 
-  /// The id of the part.
+  /// Several parts arranged among themselves, taking this place together.
+  const PrefabSlot.group(PrefabLayout this.group, {this.flex, this.aspect})
+    : part = '',
+      keep = false,
+      options = const {};
+
+  /// The id of the part; empty for a [group].
   final String part;
+
+  /// The parts that take this place together, arranged as it says.
+  final PrefabLayout? group;
   final double? flex, aspect;
 
   /// True to keep the part's room when it is hidden, so that hiding it
@@ -49,16 +60,19 @@ class PrefabSlot {
   final Map<String, Object?> options;
 
   static PrefabSlot? fromJson(Object? json) => switch (json) {
+    {'group': final Map<Object?, Object?> group} =>
+      switch (PrefabLayout.fromJson(group)) {
+        null => null,
+        final layout => PrefabSlot.group(
+          layout,
+          flex: _positive(json['flex']),
+          aspect: _positive(json['aspect']),
+        ),
+      },
     {'part': final String part} => PrefabSlot(
       part,
-      flex: switch (json['flex']) {
-        final num flex when flex > 0 => flex.toDouble(),
-        _ => null,
-      },
-      aspect: switch (json['aspect']) {
-        final num aspect when aspect > 0 => aspect.toDouble(),
-        _ => null,
-      },
+      flex: _positive(json['flex']),
+      aspect: _positive(json['aspect']),
       keep: json['keep'] == true,
       options: switch (json['options']) {
         final Map<Object?, Object?> options => options.cast(),
@@ -68,8 +82,13 @@ class PrefabSlot {
     _ => null,
   };
 
+  static double? _positive(Object? json) => switch (json) {
+    final num number when number > 0 => number.toDouble(),
+    _ => null,
+  };
+
   Map<String, Object?> toJson() => {
-    'part': part,
+    if (group case final group?) 'group': group.toJson() else 'part': part,
     'flex': ?flex,
     'aspect': ?aspect,
     if (keep) 'keep': true,
@@ -86,11 +105,22 @@ class PrefabLayout {
     required this.slots,
     this.row = false,
     this.gap = 0,
+    this.fit = false,
+    this.align,
   });
 
   final String label;
   final bool row;
   final double gap;
+
+  /// True for parts that each take the room they need and are then made,
+  /// together, as big as the box allows: a clock, whatever its box.
+  final bool fit;
+
+  /// Where the parts sit across the way they run: `start`, `center`,
+  /// `end` or `stretch`. Unsaid, in the middle of a row and filling the
+  /// width of a column.
+  final String? align;
   final List<PrefabSlot> slots;
 
   static PrefabLayout? fromJson(Object? json) => switch (json) {
@@ -100,6 +130,11 @@ class PrefabLayout {
         _ => '',
       },
       row: json['direction'] == 'row',
+      fit: json['fit'] == true,
+      align: switch (json['align']) {
+        final String align => align,
+        _ => null,
+      },
       gap: switch (json['gap']) {
         final num gap when gap >= 0 => gap.toDouble(),
         _ => 0,
@@ -113,6 +148,8 @@ class PrefabLayout {
     'label': label,
     'direction': row ? 'row' : 'column',
     'gap': gap,
+    if (fit) 'fit': true,
+    'align': ?align,
     'parts': [for (final slot in slots) slot.toJson()],
   };
 }
@@ -133,9 +170,21 @@ class Prefab {
     this.on = const {},
     this.parts = const {},
     this.layouts = const {},
+    this.vars = const {},
+    this.w = 1,
+    this.h = 1,
   });
 
   final String id, name;
+
+  /// The variables an instance has unless it sets them otherwise, which
+  /// its parts read by name. This is how a prefab is handed what it is to
+  /// show: the launcher's own each have a `source`, the entity an
+  /// instance is drawn from.
+  final Variables vars;
+
+  /// The size, in cells, a new instance starts with.
+  final double w, h;
 
   /// What an instance does, by what sets it off, unless it says otherwise.
   final Triggers on;
@@ -146,14 +195,21 @@ class Prefab {
   /// The ways they can be arranged, by name; the first is the usual one.
   final Map<String, PrefabLayout> layouts;
 
-  Prefab copyWith({String? id, String? name, Map<String, PrefabPart>? parts}) =>
-      Prefab(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        on: on,
-        parts: parts ?? this.parts,
-        layouts: layouts,
-      );
+  Prefab copyWith({
+    String? id,
+    String? name,
+    Map<String, PrefabPart>? parts,
+    Variables? vars,
+  }) => Prefab(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    on: on,
+    parts: parts ?? this.parts,
+    layouts: layouts,
+    vars: vars ?? this.vars,
+    w: w,
+    h: h,
+  );
 
   static Prefab? fromJson(Object? json) => switch (json) {
     {'id': final String id} when id.isNotEmpty && id == slugOf(id, '') =>
@@ -164,6 +220,9 @@ class Prefab {
           _ => id,
         },
         on: triggersFromJson(json['on']),
+        vars: variablesFromJson(json['vars']),
+        w: PrefabSlot._positive(json['w']) ?? 1,
+        h: PrefabSlot._positive(json['h']) ?? 1,
         parts: {
           if (json['parts'] case final Map<Object?, Object?> parts)
             for (final MapEntry(:key, :value) in parts.entries)
@@ -198,6 +257,9 @@ class Prefab {
     'id': id,
     'name': name,
     if (on.isNotEmpty) 'on': triggersToJson(on),
+    if (vars.isNotEmpty) 'vars': variablesToJson(vars),
+    if (w != 1) 'w': w,
+    if (h != 1) 'h': h,
     'parts': {
       for (final MapEntry(:key, :value) in parts.entries) key: value.toJson(),
     },
@@ -241,6 +303,8 @@ final List<Prefab> builtInPrefabs = [
   Prefab(
     id: cardPrefabId,
     name: 'App card',
+    // What an instance is drawn from: an app, an input.
+    vars: const {'source': Variable(null)},
     on: const {
       Trigger.press: [Act('open')],
       Trigger.hold: [Act('menu')],
@@ -268,5 +332,147 @@ final List<Prefab> builtInPrefabs = [
       'name': _name,
     },
     layouts: _cardLayouts(),
+  ),
+  // What used to be widgets of their own: each some text and pictures
+  // reading an entity the launcher has, to be changed like any prefab.
+  Prefab(
+    id: 'clock',
+    name: 'Clock',
+    w: 2,
+    vars: const {'source': Variable('clock')},
+    parts: const {
+      'time': PrefabPart('text', {'text': '{{source.time}}', 'size': 44}),
+      'date': PrefabPart('text', {
+        'text': '{{source.date}}',
+        'size': 14,
+        'colour': '#ffffffb3',
+      }),
+    },
+    layouts: const {
+      'stacked': PrefabLayout(
+        label: 'Date under the time',
+        fit: true,
+        align: 'center',
+        slots: [PrefabSlot('time'), PrefabSlot('date')],
+      ),
+    },
+  ),
+  Prefab(
+    id: 'weather',
+    name: 'Weather',
+    w: 2,
+    vars: const {
+      'source': Variable('weather'),
+      // Which of the launcher's small pictures stands for the sky: told
+      // by what the weather says of it, as any variable may be told.
+      'icon': Variable(
+        null,
+        when: '{{source.sky}}',
+        cases: [
+          VarCase(VarTest.equals, 'clear', 'sun'),
+          VarCase(VarTest.equals, 'partlyCloudy', 'partly'),
+          VarCase(VarTest.equals, 'cloudy', 'cloud'),
+          VarCase(VarTest.equals, 'fog', 'fog'),
+          VarCase(VarTest.equals, 'snow', 'snow'),
+          VarCase(VarTest.equals, 'storm', 'storm'),
+        ],
+        otherwise: 'rain',
+      ),
+    },
+    parts: const {
+      'icon': PrefabPart('icon', {'icon': '{{icon}}', 'size': 46}),
+      'temperature': PrefabPart('text', {
+        'text': '{{source | default:Choose a place in the editor}}',
+        'size': 38,
+      }),
+      'summary': PrefabPart('text', {
+        'text': '{{source.summary}}',
+        'size': 14,
+        'colour': '#ffffffb3',
+      }),
+      'place': PrefabPart('text', {
+        'text': '{{source.place}}',
+        'size': 14,
+        'colour': '#ffffff8a',
+      }),
+    },
+    layouts: const {
+      'row': PrefabLayout(
+        label: 'Beside its picture',
+        row: true,
+        fit: true,
+        gap: 14,
+        slots: [
+          PrefabSlot('icon'),
+          PrefabSlot.group(
+            PrefabLayout(
+              label: '',
+              fit: true,
+              align: 'start',
+              slots: [
+                PrefabSlot('temperature'),
+                PrefabSlot('summary'),
+                PrefabSlot('place'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    },
+  ),
+  Prefab(
+    id: 'now-playing',
+    name: 'Now playing',
+    w: 2,
+    vars: const {
+      'source': Variable('media'),
+      // What a press would do next.
+      'stateIcon': Variable(
+        null,
+        when: '{{source.playing}}',
+        cases: [VarCase(VarTest.equals, 'true', 'pause')],
+        otherwise: 'play',
+      ),
+      // Said the short way: one of two things by a comparison.
+      'summary': Variable(
+        "{{source.artist == '' ? source.app : source.byline}}",
+      ),
+    },
+    on: const {
+      Trigger.press: [Act('playPause')],
+    },
+    parts: const {
+      'cover': PrefabPart('picture', {'source': '{{source.art}}', 'round': 6}),
+      'title': PrefabPart('text', {
+        'text': '{{source.title | default:Nothing is playing}}',
+        'size': 15,
+        'weight': 'medium',
+      }),
+      'summary': PrefabPart('text', {
+        'text': '{{summary}}',
+        'size': 13,
+        'colour': '#ffffffb3',
+      }),
+      'state': PrefabPart('icon', {'icon': '{{stateIcon}}', 'size': 24}),
+    },
+    layouts: const {
+      'row': PrefabLayout(
+        label: 'Beside its cover',
+        row: true,
+        gap: 12,
+        slots: [
+          PrefabSlot('cover', aspect: 1),
+          PrefabSlot.group(
+            PrefabLayout(
+              label: '',
+              align: 'start',
+              slots: [PrefabSlot('title'), PrefabSlot('summary')],
+            ),
+            flex: 1,
+          ),
+          PrefabSlot('state'),
+        ],
+      ),
+    },
   ),
 ];

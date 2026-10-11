@@ -1,9 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 
-LayoutItem _entity(String id, String ref) =>
-    LayoutItem(id: id, kind: ItemKind.prefab, ref: cardPrefabId, source: ref);
+LayoutItem _entity(String id, String ref) => LayoutItem.of(ref, id: id);
 
 void main() {
   test('a name becomes an id that can be read', () {

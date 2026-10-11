@@ -17,7 +17,14 @@ abstract interface class ActionScreen {
 
 /// One action as it is being carried out.
 class ActionRun {
-  const ActionRun(this.ref, this.act, this.entity, this.screen, this.held);
+  const ActionRun(
+    this.ref,
+    this.act,
+    this.entity,
+    this.screen,
+    this.held, [
+    this.component,
+  ]);
 
   final Ref ref;
   final Act act;
@@ -26,6 +33,9 @@ class ActionRun {
   final Entity? entity;
   final ActionScreen? screen;
   final bool held;
+
+  /// The id of the component it was set off from, if it was from one.
+  final String? component;
 
   LauncherPlatform get platform => ref.read(launcherPlatformProvider);
 }

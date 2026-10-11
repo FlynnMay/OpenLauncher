@@ -4,6 +4,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 
 LayoutItem _item(
   String id, {
@@ -18,7 +19,7 @@ LayoutItem _item(
   kind: kind,
   // An instance is of the prefab a card is, drawn from what [ref] names.
   ref: kind == ItemKind.prefab ? cardPrefabId : ref ?? id,
-  source: kind == ItemKind.prefab ? ref ?? id : null,
+  vars: {if (kind == ItemKind.prefab) 'source': Variable(ref ?? id)},
   w: w,
   h: h,
   x: x,

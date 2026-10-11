@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 
 LayoutItem entity(
@@ -13,7 +14,7 @@ LayoutItem entity(
   id: id,
   kind: ItemKind.prefab,
   ref: cardPrefabId,
-  source: 'app:$id',
+  vars: {'source': Variable('app:$id')},
   w: w,
   h: h,
   x: x,
@@ -227,7 +228,7 @@ void main() {
               id: 'again',
               kind: ItemKind.prefab,
               ref: cardPrefabId,
-              source: 'app:a',
+              vars: {'source': Variable('app:a')},
             ),
           ],
         ),
@@ -384,7 +385,7 @@ void main() {
                 id: 'a2',
                 kind: ItemKind.prefab,
                 ref: cardPrefabId,
-                source: 'app:a',
+                vars: {'source': Variable('app:a')},
               ),
             ],
           ),
@@ -409,7 +410,7 @@ void main() {
             id: 'again',
             kind: ItemKind.prefab,
             ref: cardPrefabId,
-            source: 'app:a',
+            vars: {'source': Variable('app:a')},
           ),
           const LayoutItem(id: 'w', kind: ItemKind.widget, ref: 'clock'),
         ],
@@ -431,7 +432,7 @@ void main() {
                 id: 'a',
                 kind: ItemKind.prefab,
                 ref: cardPrefabId,
-                source: 'x',
+                vars: {'source': Variable('x')},
               ),
             ],
           ),

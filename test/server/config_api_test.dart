@@ -112,7 +112,8 @@ void main() {
     for (final entry in (await container.read(
       layoutViewProvider.future,
     )).home.root.contents)
-      if (entry is EntityEntry && entry.entity.kind != launcherKind)
+      if (entry is EntityEntry &&
+          (entry.entity.kind == appKind || entry.entity.kind == inputKind))
         entry.entity.id,
   ];
 
@@ -154,20 +155,16 @@ void main() {
     // It sits in the screen's global pane.
     final section = page['layout']['panels'][0]['pane']['items'].single['pane'];
     expect(page['layout']['inbox'], section['id']);
-    expect((section['items'] as List).map((i) => i['source'] ?? i['ref']), [
-      'input:tv/HW1',
-      'app:a',
-      'app:b',
-      'launcher:settings',
-    ]);
+    expect(
+      (section['items'] as List).map((i) => i['vars']?['source'] ?? i['ref']),
+      ['input:tv/HW1', 'app:a', 'app:b', 'launcher:settings'],
+    );
     // No app on this device offers widgets, so that kind is not offered.
     expect((page['widgets'] as List).map((w) => w['type']), [
-      'clock',
-      'weather',
-      'media',
       'text',
       'picture',
       'meter',
+      'icon',
       'button',
     ]);
     // The quick actions are a popup in the layout like any folder.
@@ -321,7 +318,8 @@ void main() {
     // Too wide for the section, and a link to a panel that does not exist.
     expect(top.items.map((i) => i.id), ['i1', 'i2', 'i4']);
     expect((top.items.first.w, top.items.first.x), (4, 0));
-    expect(top.items.last.options, {'place': 'Perth'});
+    // What was a weather widget is the weather prefab, of the weather.
+    expect((top.items.last.ref, top.items.last.source), ('weather', 'weather'));
     expect(saved.panel('games')!.position, PopupPosition.bottom);
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
@@ -332,7 +330,9 @@ void main() {
     expect(folder.preview.single.id, 'app:a');
     final shown = (await state())['layout']['panels'][0]['pane']['items'][1];
     expect(
-      (shown['pane']['items'] as List).map((i) => i['source'] ?? i['ref']),
+      (shown['pane']['items'] as List).map(
+        (i) => i['vars']?['source'] ?? i['ref'],
+      ),
       ['input:tv/HW1', 'launcher:settings'],
     );
   });
@@ -510,7 +510,7 @@ void main() {
     final section = layout['panels'][0]['pane']['items'][0]['pane'];
     // What the page does to remove an entity: drop its item and say so.
     (section['items'] as List).removeWhere(
-      (i) => (i['source'] ?? i['ref']) == 'input:tv/HW1',
+      (i) => (i['vars']?['source'] ?? i['ref']) == 'input:tv/HW1',
     );
     layout['removed'] = ['input:tv/HW1'];
     expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);

@@ -17,6 +17,7 @@ import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/trigger_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
+import 'package:openlauncher/editor/variables_settings.dart';
 import 'package:openlauncher/editor/widget_settings.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
@@ -43,6 +44,7 @@ class SelectedProperties extends ConsumerWidget {
     final ids = {for (final one in found) one.item.id};
     final items = [for (final one in found) one.item];
     final single = items.length == 1 ? items.single : null;
+    final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final layout = ref.watch(configProvider).value?.layout;
     void change(Layout Function(Layout layout) how) =>
         changeLayout(context, ref, how);
@@ -77,7 +79,18 @@ class SelectedProperties extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (single != null && single.kind == ItemKind.prefab)
+        // What it is called and its picture are an app's or an input's to
+        // have changed; the clock has neither.
+        if (single != null &&
+            single.kind == ItemKind.prefab &&
+            (entityKind(
+                  entities
+                          .where((entity) => entity.id == single.source)
+                          .firstOrNull
+                          ?.kind ??
+                      '',
+                )?.placed ??
+                false))
           _EntityDetails(entityId: single.source ?? ''),
         if (single != null && allFolders)
           _FolderDetails(
@@ -113,6 +126,15 @@ class SelectedProperties extends ConsumerWidget {
                 : null,
           ),
         ],
+        if (single != null && single.kind != ItemKind.pane)
+          VariablesSettings(
+            variables: single.vars,
+            note: single.kind == ItemKind.prefab
+                ? 'Its own, set over those its prefab has, which are '
+                      'under Prefabs.'
+                : null,
+            onChanged: (vars) => each((item) => item.copyWith(vars: vars)),
+          ),
         if (single != null && single.kind != ItemKind.pane)
           TriggerSettings(
             set: single.on,
@@ -336,7 +358,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
                         // Those with a picture to lend: what is put on
                         // the screen as one.
                         if (other.id != entity.id &&
-                            entityKind(other.kind)?.prefab != null)
+                            (entityKind(other.kind)?.placed ?? false))
                           other,
                     ],
                   );

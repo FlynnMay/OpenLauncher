@@ -6,6 +6,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 Entity _entity(String name, {String? icon}) => Entity(
@@ -248,7 +249,7 @@ void main() {
         id: 'a',
         kind: ItemKind.prefab,
         ref: cardPrefabId,
-        source: 'app:a',
+        vars: {'source': Variable('app:a')},
       );
       // What an instance does is its prefab's to say, unless it says.
       Triggers does(LayoutItem item) =>
@@ -346,6 +347,7 @@ void main() {
         // Put on the screen of itself, as an app is, and with data of
         // its own beside its name.
         prefab: cardPrefabId,
+        placed: true,
         data: (ref, entity) => const {'on': true, 'brightness': 40},
         list: (ref) async => const [
           Entity(id: 'lamp:desk', kind: 'lamp', target: 'desk', label: 'Desk'),

@@ -4,6 +4,7 @@ import 'package:openlauncher/core/actions/action_kind.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/variables/scope.dart';
 
 /// The argument whose value is the id of a popup.
 const panelArg = 'panel';
@@ -56,6 +57,31 @@ final List<ActionKind> launcherActions = [
     icon: 'settings',
     run: (run) async {
       await run.screen?.openSettings();
+      return null;
+    },
+  ),
+  // Sets a variable while the launcher runs; whatever reads it follows.
+  ActionKind(
+    name: 'set',
+    label: 'Set a variable',
+    icon: 'star',
+    args: const {'var': [], 'value': [], 'of': []},
+    run: (run) async {
+      // On the component named, or the one this was set off from.
+      final component = run.act.arg('of') ?? run.component;
+      final name = run.act.arg('var');
+      if (component == null || name == null) return null;
+      final value = switch (run.act.args['value']) {
+        // What it comes to now, so one press can undo the last:
+        // `{{menu.open == true ? false : true}}`.
+        final String text when text.contains('{{') => readTemplate(
+          run.ref.read,
+          text,
+          const {},
+        ),
+        final value => value,
+      };
+      run.ref.read(runtimeVarsProvider.notifier).set(component, name, value);
       return null;
     },
   ),
@@ -128,6 +154,7 @@ class ActionRunner {
     Entity? subject,
     ActionScreen? screen,
     bool held = false,
+    String? component,
   }) async {
     var entity = subject;
     if (act.arg(entityArg) case final id?) {
@@ -138,6 +165,6 @@ class ActionRunner {
     }
     final kind = actionFor(act.name, entity);
     if (kind == null) return null;
-    return kind.run(ActionRun(_ref, act, entity, screen, held));
+    return kind.run(ActionRun(_ref, act, entity, screen, held, component));
   }
 }

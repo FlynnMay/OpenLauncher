@@ -34,8 +34,12 @@ class PrefabInstance {
   final String layoutName;
   final PrefabLayout layout;
 
-  /// In the order the layout has them.
+  /// In the order the layout has them, those inside groups in their turn.
   final List<InstancePart> parts;
+
+  /// The part in the place [slot], if the prefab has such a part.
+  InstancePart? part(PrefabSlot slot) =>
+      parts.where((part) => identical(part.slot, slot)).firstOrNull;
 
   /// What the instance does: the prefab's, but for each trigger [item] set
   /// itself.
@@ -56,8 +60,15 @@ PrefabInstance? instanceOf(Prefab prefab, LayoutItem item) {
     _ => prefab.layouts.keys.first,
   };
   final layout = prefab.layouts[name]!;
+  // Every place there is for a part, those inside groups among them.
+  Iterable<PrefabSlot> places(PrefabLayout layout) => layout.slots.expand(
+    (slot) => switch (slot.group) {
+      null => [slot],
+      final group => places(group),
+    },
+  );
   return PrefabInstance(prefab, name, layout, [
-    for (final slot in layout.slots)
+    for (final slot in places(layout))
       if (prefab.parts[slot.part] case final part?)
         () {
           final options = {

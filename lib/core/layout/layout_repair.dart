@@ -75,7 +75,7 @@ extension LayoutRepair on Layout {
         id: fresh(itemIds, item.id, 'item'),
         kind: item.kind,
         ref: repaired?.id ?? item.ref,
-        source: item.source,
+        vars: item.vars,
         w: w,
         h: fit(item.h.isFinite ? item.h : 1, smallest, Pane.maxRows),
         x: placed ? fit(x, 0, columns - w) : null,

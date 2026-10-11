@@ -29,6 +29,7 @@ class EntityKind {
     this.actions = const [],
     this.data,
     this.prefab,
+    this.placed = false,
   });
 
   /// How an [Entity] names it.
@@ -50,11 +51,15 @@ class EntityKind {
   /// it changes. None for a kind that provides nothing more.
   final Object? Function(Ref ref, Entity entity)? data;
 
-  /// The id of the prefab an entity of this kind is put on the screen as
-  /// when it turns up placed nowhere, as a newly installed app does. None
-  /// for a kind whose entities are only read and acted on, not placed of
-  /// themselves: the clock, the media player.
+  /// The id of the prefab an entity of this kind is put on the screen as,
+  /// when it is: what the editor offers it as. None for a kind there is no
+  /// ready way of showing.
   final String? prefab;
+
+  /// True for a kind whose entities go on the screen of themselves when
+  /// they turn up placed nowhere, as a newly installed app does. The rest,
+  /// such as the clock, are there only where the user puts them.
+  final bool placed;
 }
 
 final List<EntityKind> entityKinds = [
@@ -62,6 +67,7 @@ final List<EntityKind> entityKinds = [
     name: inputKind,
     label: 'Inputs',
     prefab: cardPrefabId,
+    placed: true,
     data: _pictured,
     list: (ref) async => [
       for (final input in await ref.watch(tvInputsProvider.future))
@@ -89,6 +95,7 @@ final List<EntityKind> entityKinds = [
     name: appKind,
     label: 'Apps',
     prefab: cardPrefabId,
+    placed: true,
     data: _pictured,
     list: (ref) async => [
       for (final app in await ref.watch(installedAppsProvider.future))
@@ -151,6 +158,7 @@ final List<EntityKind> entityKinds = [
     name: launcherKind,
     label: 'Launcher',
     prefab: cardPrefabId,
+    placed: true,
     data: _pictured,
     list: (ref) async => const [Entity.settings],
     actions: [
@@ -170,6 +178,7 @@ final List<EntityKind> entityKinds = [
   EntityKind(
     name: 'clock',
     label: 'Clock',
+    prefab: 'clock',
     list: (ref) async => const [
       Entity(id: 'clock', kind: 'clock', target: '', label: 'Clock'),
     ],
@@ -197,6 +206,7 @@ final List<EntityKind> entityKinds = [
   EntityKind(
     name: 'weather',
     label: 'Weather',
+    prefab: 'weather',
     list: (ref) async => const [
       Entity(id: 'weather', kind: 'weather', target: '', label: 'Weather'),
     ],
@@ -221,6 +231,14 @@ final List<EntityKind> entityKinds = [
         'high': weather.high,
         'low': weather.low,
         'description': weather.description,
+        // The sky, in a word; what to draw for it is the prefab's to say.
+        'sky': weather.sky.name,
+        'summary': [
+          weather.description,
+          if ((weather.high, weather.low) case (final high?, final low?))
+            '${high.round()}° / ${low.round()}°',
+        ].where((part) => part.isNotEmpty).join('  ·  '),
+        'place': place!.name,
       };
     },
   ),
@@ -244,12 +262,15 @@ final List<EntityKind> entityKinds = [
   EntityKind(
     name: 'media',
     label: 'Media Player',
+    prefab: 'now-playing',
     list: (ref) async => const [
       Entity(id: 'media', kind: 'media', target: '', label: 'Media Player'),
     ],
     data: (ref, entity) {
       final playing = ref.watch(nowPlayingProvider).value;
-      if (playing == null) return const {'text': null, 'playing': false};
+      if (playing == null) {
+        return const {'text': null, 'playing': false};
+      }
       return {
         'text': playing.title ?? playing.appLabel,
         'title': playing.title,
@@ -257,6 +278,7 @@ final List<EntityKind> entityKinds = [
         'app': playing.appLabel,
         'playing': playing.playing,
         'art': playing.artPath,
+        'byline': [?playing.artist, playing.appLabel].join(' · '),
       };
     },
     actions: [

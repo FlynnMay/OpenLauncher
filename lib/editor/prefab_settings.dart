@@ -5,6 +5,7 @@ import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
+import 'package:openlauncher/editor/variables_settings.dart';
 
 List<WidgetOption> _optionsOf(String kind) =>
     WidgetKind.named(kind)?.options ?? const [];
@@ -178,6 +179,11 @@ class PrefabsSettings extends StatelessWidget {
             ),
           ),
         ],
+        // What its parts read by name, and what an instance may set.
+        VariablesSettings(
+          variables: prefab.vars,
+          onChanged: (vars) => _put(prefab.copyWith(vars: vars)),
+        ),
         Wrap(
           spacing: 8,
           children: [

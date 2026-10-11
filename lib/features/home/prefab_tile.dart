@@ -7,15 +7,17 @@ import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 import 'package:openlauncher/features/widgets/widget_tile.dart';
 
 /// An instance of a prefab as a tile: its parts, arranged as its layout
-/// says, reading [source] for whatever they are written against. The part
-/// marked `frame` is the entity proper, which carries the background and
-/// shows the focus.
+/// says, reading its variables ([scope]) for whatever they are written
+/// against. One that
+/// does something when pressed or held can be landed on; the part marked
+/// `frame` is then what shows the focus, or the whole of it where no part
+/// is.
 class PrefabTile extends StatelessWidget {
   const PrefabTile({
     super.key,
     required this.instance,
-    required this.source,
-    required this.onSelect,
+    required this.scope,
+    this.onSelect,
     this.onMenu,
     this.onFocus,
     this.bare = false,
@@ -25,8 +27,13 @@ class PrefabTile extends StatelessWidget {
   });
 
   final PrefabInstance instance;
-  final Map<String, Object?> source;
-  final VoidCallback onSelect;
+
+  /// The variables its parts can read, by name.
+  final Map<String, Object?> scope;
+
+  /// What a press does; with neither this nor [onMenu] it is only looked
+  /// at, and the focus passes it by.
+  final VoidCallback? onSelect;
   final void Function(bool held)? onMenu;
   final void Function(bool focused)? onFocus;
 
@@ -42,13 +49,13 @@ class PrefabTile extends StatelessWidget {
   /// what only the launcher knows how to draw, such as a folder's face.
   final Map<String, Widget> custom;
 
-  Widget _framed(BuildContext context, bool focused, Widget child) {
+  Widget _framed(BuildContext context, bool focused, bool bare, Widget child) {
     final fill = styleFill(boxStyle);
     final outline = boxStyle.border;
     return AnimatedContainer(
       duration: FocusTile.duration,
       clipBehavior: Clip.antiAlias,
-      // The border is drawn over the artwork so the entity does not change
+      // The border is drawn over the artwork so the tile does not change
       // size when focused.
       foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
@@ -77,55 +84,102 @@ class PrefabTile extends StatelessWidget {
     );
   }
 
+  /// One place of [layout]: a part, or a group of them.
+  Widget? _place(
+    BuildContext context,
+    PrefabLayout layout,
+    PrefabSlot slot,
+    bool focused,
+  ) {
+    // Where everything takes only the room it needs, nothing is shared out.
+    final sized = !layout.fit && (slot.flex != null || slot.aspect != null);
+    Widget child;
+    if (slot.group case final group?) {
+      child = _arranged(context, group, focused, inner: true);
+    } else {
+      final part = instance.part(slot);
+      if (part == null || part.hidden && !slot.keep) return null;
+      child =
+          custom[part.kind] ??
+          WidgetTile.of(part.kind, part.options, shrink: !sized);
+      if (part.options['frame'] == true) {
+        child = _framed(context, focused, bare, child);
+      }
+      // Its room is kept either way, so hiding it does not change the size
+      // of the rest.
+      if (slot.keep) {
+        child = Visibility.maintain(visible: !part.hidden, child: child);
+      }
+    }
+    if (layout.fit) return child;
+    if (slot.aspect case final aspect?) {
+      child = AspectRatio(aspectRatio: aspect, child: child);
+    }
+    return slot.flex == null
+        ? child
+        : Expanded(flex: slot.flex!.round(), child: child);
+  }
+
+  Widget _arranged(
+    BuildContext context,
+    PrefabLayout layout,
+    bool focused, {
+    bool inner = false,
+  }) {
+    final flex = Flex(
+      direction: layout.row ? Axis.horizontal : Axis.vertical,
+      mainAxisSize: layout.fit || inner ? MainAxisSize.min : MainAxisSize.max,
+      mainAxisAlignment: inner
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
+      crossAxisAlignment: switch (layout.align) {
+        'start' => CrossAxisAlignment.start,
+        'end' => CrossAxisAlignment.end,
+        'center' => CrossAxisAlignment.center,
+        'stretch' => CrossAxisAlignment.stretch,
+        // Stretching asks for all the room, which a fitted one has none of.
+        _ when layout.row || layout.fit => CrossAxisAlignment.center,
+        _ => CrossAxisAlignment.stretch,
+      },
+      spacing: layout.gap,
+      children: [
+        for (final slot in layout.slots)
+          ?_place(context, layout, slot, focused),
+      ],
+    );
+    // Made as big as the box allows, once and at the top.
+    return layout.fit && !inner ? FittedBox(child: flex) : flex;
+  }
+
   @override
   Widget build(BuildContext context) {
     final layout = instance.layout;
+    Widget content(bool focused) => TemplateScope(
+      values: scope,
+      child: _arranged(context, layout, focused),
+    );
+    if (onSelect == null && onMenu == null) return content(false);
+    final framed = instance.parts.any((part) => part.options['frame'] == true);
     return FocusTile(
       autofocus: autofocus,
-      onSelect: onSelect,
+      onSelect: onSelect ?? () {},
       onMenu: onMenu,
       onFocus: onFocus,
       focusedScale: layout.row ? 1.04 : 1.08,
       builder: (context, focused) => TileFocus(
         focused: focused,
-        child: TemplateScope(
-          values: {'source': source},
-          child: Flex(
-            direction: layout.row ? Axis.horizontal : Axis.vertical,
-            crossAxisAlignment: layout.row
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.stretch,
-            spacing: layout.gap,
-            children: [
-              for (final part in instance.parts)
-                if (!part.hidden || part.slot.keep)
-                  () {
-                    final slot = part.slot;
-                    final sized = slot.flex != null || slot.aspect != null;
-                    Widget child =
-                        custom[part.kind] ??
-                        WidgetTile.of(part.kind, part.options, shrink: !sized);
-                    if (part.options['frame'] == true) {
-                      child = _framed(context, focused, child);
-                    }
-                    // Its room is kept either way, so hiding it does not
-                    // change the size of the rest.
-                    if (slot.keep) {
-                      child = Visibility.maintain(
-                        visible: !part.hidden,
-                        child: child,
-                      );
-                    }
-                    if (slot.aspect case final aspect?) {
-                      child = AspectRatio(aspectRatio: aspect, child: child);
-                    }
-                    return slot.flex == null
-                        ? child
-                        : Expanded(flex: slot.flex!.round(), child: child);
-                  }(),
-            ],
-          ),
-        ),
+        // With no part to show the focus, the whole of it does.
+        child: framed
+            ? content(focused)
+            : _framed(
+                context,
+                focused,
+                true,
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: content(focused),
+                ),
+              ),
       ),
     );
   }

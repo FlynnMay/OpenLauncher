@@ -3,6 +3,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 
 void main() {
   final entity = builtInPrefabs.first;
@@ -10,7 +11,7 @@ void main() {
     id: 'a',
     kind: ItemKind.prefab,
     ref: cardPrefabId,
-    source: 'app:a',
+    vars: {'source': Variable('app:a')},
   );
   Map<String, Object?> part(PrefabInstance instance, String id) =>
       instance.parts.firstWhere((part) => part.id == id).options;
@@ -102,7 +103,9 @@ void main() {
   test('an entity that opens a folder is an instance too', () {
     const folder = LayoutItem(id: 'f', kind: ItemKind.panel, ref: 'games');
     expect(prefabIdOf(folder), folderPrefabId);
-    final prefab = builtInPrefabs.last;
+    final prefab = builtInPrefabs.firstWhere(
+      (prefab) => prefab.id == folderPrefabId,
+    );
     final instance = instanceOf(prefab, folder)!;
     expect(instance.parts.first.kind, 'folder');
     // What it does is open its folder, which no prefab can know.

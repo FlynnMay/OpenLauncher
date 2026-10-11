@@ -4,6 +4,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
@@ -29,24 +30,31 @@ class _CatalogueState extends ConsumerState<Catalogue> {
   Map<String, List<_Offer>> _offers(Layout layout) {
     final all = ref.watch(entitiesProvider).value ?? const [];
     final widgets = ref.watch(tvStateProvider).value?.widgets ?? const [];
+    final prefabs = ref.watch(prefabsProvider);
     final counts = placedCounts(layout);
     // The entities that are not placed of themselves, such as the media
     // player: what they do is offered as buttons that do it.
     final standing = [
       for (final entity in all)
-        if (entityKind(entity.kind) case final kind? when kind.prefab == null)
-          entity,
+        if (entityKind(entity.kind) case final kind? when !kind.placed) entity,
     ];
     // Named, and given the id that goes with its name, when it is placed.
     final folder = Panel.empty(layout.panelIdFor('Folder'), title: 'Folder');
     _Offer entity(Entity entity) => _Offer(
       Dragged(
-        item: LayoutItem.of(
-          entity.id,
-          id: layout.itemIdFor(
-            LayoutItem.autoId(entity.id, entity.sourceLabel),
-          ),
-        ),
+        // As the prefab its kind is shown with, at that prefab's size.
+        item: () {
+          final prefab = prefabs[entityKind(entity.kind)?.prefab];
+          return LayoutItem.of(
+            entity.id,
+            prefab: prefab?.id ?? cardPrefabId,
+            w: prefab?.w ?? 1,
+            h: prefab?.h ?? 1,
+            id: layout.itemIdFor(
+              LayoutItem.autoId(entity.id, entity.sourceLabel),
+            ),
+          );
+        }(),
         label: entity.label,
         picture: EntityArt(entity: entity, padding: 4),
       ),
@@ -158,8 +166,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
       ],
       // Whatever kinds of entity there are, each under what it is called.
-      // Those that are put on the screen as something of their own; the
-      // rest are read and acted on by what is.
+      // Those there is a ready way of showing; the rest are read and
+      // acted on by what is put on the screen.
       for (final kind in entityKinds)
         if (kind.prefab != null)
           kind.label: entities((entity) => entity.kind == kind.name),

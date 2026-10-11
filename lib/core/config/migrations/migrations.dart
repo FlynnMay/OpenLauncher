@@ -7,6 +7,8 @@ import 'package:openlauncher/core/config/migrations/v3_to_v4.dart';
 import 'package:openlauncher/core/config/migrations/v4_to_v5.dart';
 import 'package:openlauncher/core/config/migrations/v5_to_v6.dart';
 import 'package:openlauncher/core/config/migrations/v6_to_v7.dart';
+import 'package:openlauncher/core/config/migrations/v7_to_v8.dart';
+import 'package:openlauncher/core/config/migrations/v8_to_v9.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -23,7 +25,7 @@ export 'save_json.dart' show Device, Json;
 ///
 /// A step that has shipped is never changed: saves that went through it
 /// are out there. What it got wrong, a later step puts right.
-const saveVersion = 7;
+const saveVersion = 9;
 
 /// One thing a [Migration] does to a save, by changing [save] in place. It
 /// finds what it is for and leaves the rest be, whatever shape that is in:
@@ -109,6 +111,22 @@ const migrations = [
         'The time, the date and what plays are entities, read by their '
         'ids, and the media player presents its own actions.',
     rules: [valuesAsEntities],
+  ),
+  Migration(
+    from: 7,
+    to: 8,
+    what:
+        'The clock, the weather and what plays are instances of prefabs '
+        'drawn from their entities, not widgets of kinds of their own.',
+    rules: [widgetsAsPrefabs],
+  ),
+  Migration(
+    from: 8,
+    to: 9,
+    what:
+        'What an instance is drawn from is one of its variables, as any '
+        'component may have variables.',
+    rules: [sourceAsVariable],
   ),
 ];
 

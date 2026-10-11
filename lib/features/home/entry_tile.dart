@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
@@ -11,6 +11,7 @@ import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/prefab_tile.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
+import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 import 'package:openlauncher/features/widgets/widget_tile.dart';
 
 /// Puts something around every tile drawn under it. The TV has none; the
@@ -81,9 +82,18 @@ class EntryTile extends ConsumerWidget {
       }(),
       _ => null,
     };
+    // Its variables as they stand: what it was handed by whatever it is
+    // inside, and its own (and its prefab's) on top.
+    final scope = scopeOf(
+      ref.watch,
+      entry.item.id,
+      variablesOf(entry.item, ref.watch(prefabsProvider)),
+      TemplateScope.of(context),
+    );
     final does = TileActions(
       context,
       ref,
+      component: entry.item.id,
       instance?.triggers(entry.item) ?? triggersOf(entry.item),
       subject: entry is EntityEntry ? entry.entity : menuOf,
       inPopup: inPopup,
@@ -102,24 +112,33 @@ class EntryTile extends ConsumerWidget {
         : null;
     switch (entry) {
       case EntityEntry(:final entity):
-        return PrefabTile(
+        final acts = does.has(Trigger.press) || hold != null;
+        final tile = PrefabTile(
           instance: instance!,
-          // Kept current, as anything an entity provides is.
-          source: switch (ref.watch(entityDataProvider(entity.id))) {
-            final Map<Object?, Object?> data => data.cast(),
-            _ => const {},
-          },
+          scope: scope.inner,
           bare: EntityArt.isBare(entity),
-          autofocus: focus?.take() ?? false,
+          // Only what does something is landed on; the rest is looked at.
+          autofocus: acts && (focus?.take() ?? false),
           boxStyle: entry.item.style,
-          onSelect: press,
+          onSelect: does.has(Trigger.press) ? press : null,
           onMenu: hold,
           onFocus: onFocus,
         );
+        // What is only looked at has no frame of its own to carry the
+        // look the user gave it.
+        return acts
+            ? tile
+            : StyledBox(
+                style: entry.item.style,
+                radius: 10,
+                padding: const EdgeInsets.all(8),
+                child: tile,
+              );
       case PanelEntry(:final panel):
         return PrefabTile(
           instance: instance!,
-          source: folderValues(panel),
+          // What it opens is what it is drawn from, unless it says.
+          scope: {'source': folderValues(panel), ...scope.inner},
           custom: {'folder': FolderArt(entry: entry)},
           bare: FolderArt.isBare(entry),
           autofocus: focus?.take() ?? false,
@@ -133,7 +152,11 @@ class EntryTile extends ConsumerWidget {
           style: item.style,
           radius: 10,
           padding: const EdgeInsets.all(8),
-          child: WidgetTile(item: item),
+          // A widget reads all its own variables, its private ones too.
+          child: TemplateScope(
+            values: scope.own,
+            child: WidgetTile(item: item),
+          ),
         );
         // Anything given something to do can be landed on and pressed.
         if (!does.has(Trigger.press) &&

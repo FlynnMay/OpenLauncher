@@ -6,6 +6,7 @@ import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/prefabs/instance_options.dart';
+import 'package:openlauncher/core/variables/variable.dart';
 
 /// One thing placed in a pane.
 @immutable
@@ -14,7 +15,7 @@ class LayoutItem {
     required this.id,
     required this.kind,
     required this.ref,
-    this.source,
+    this.vars = const {},
     this.w = 1,
     this.h = 1,
     this.x,
@@ -33,16 +34,28 @@ class LayoutItem {
       options = const {},
       style = BoxStyle.none,
       on = const {},
-      source = null;
+      vars = const {};
 
   /// Unique within the layout.
   final String id;
   final ItemKind kind;
   final String ref;
 
-  /// The id of the entity a prefab's instance is drawn from: what its
-  /// templates read as `{{source...}}`, and what its actions are done to.
-  final String? source;
+  /// The variables it has of its own, which what is inside it can read
+  /// and, where they are public, anything can by its id. Those of an
+  /// instance are set over its prefab's.
+  final Variables vars;
+
+  /// The id of the entity an instance of a prefab is drawn from, where
+  /// its prefab goes by one: its variable `source`, which is what the
+  /// launcher's own prefabs read as `{{source...}}` and do things to.
+  String? get source => switch (vars[sourceVar]?.value) {
+    final String id when id.isNotEmpty => id,
+    _ => null,
+  };
+
+  /// The variable an entity is handed to a prefab as.
+  static const sourceVar = 'source';
 
   /// Size in the cells of the pane it is in. Whole numbers except in
   /// [PaneMode.free] panes.
@@ -73,7 +86,7 @@ class LayoutItem {
 
   /// An instance of the prefab [prefab], which is the one a card is unless
   /// another is named, drawn from the entity [entityId].
-  const LayoutItem.of(
+  LayoutItem.of(
     String entityId, {
     required this.id,
     String prefab = cardPrefabId,
@@ -86,7 +99,7 @@ class LayoutItem {
     this.on = const {},
   }) : kind = ItemKind.prefab,
        ref = prefab,
-       source = entityId,
+       vars = {sourceVar: Variable(entityId)},
        pane = null;
 
   /// The id wanted for the entity [entityId]: an app's after its package,
@@ -101,6 +114,7 @@ class LayoutItem {
     id: id,
     kind: kind,
     ref: pane.id,
+    vars: vars,
     w: w,
     h: h,
     x: x,
@@ -117,6 +131,7 @@ class LayoutItem {
     String? ref,
     BoxStyle? style,
     Triggers? on,
+    Variables? vars,
     Map<String, Object?>? options,
     double? w,
     double? h,
@@ -124,7 +139,7 @@ class LayoutItem {
     id: id ?? this.id,
     kind: kind,
     ref: ref ?? this.ref,
-    source: source,
+    vars: vars ?? this.vars,
     w: w ?? this.w,
     h: h ?? this.h,
     x: x,
@@ -141,7 +156,7 @@ class LayoutItem {
     id: id,
     kind: kind,
     ref: ref,
-    source: source,
+    vars: vars,
     w: w,
     h: h,
     x: x,
@@ -168,7 +183,7 @@ class LayoutItem {
       id: jsonRequired<String>(json, 'id'),
       kind: kind,
       ref: pane?.id ?? jsonRequired<String>(json, 'ref'),
-      source: jsonOptional<String>(json, 'source'),
+      vars: variablesFromJson(json['vars']),
       w: jsonOptional<num>(json, 'w')?.toDouble() ?? 1,
       h: jsonOptional<num>(json, 'h')?.toDouble() ?? 1,
       x: jsonOptional<num>(json, 'x')?.toDouble(),
@@ -206,7 +221,7 @@ class LayoutItem {
         final String prefab => prefab,
         _ => cardPrefabId,
       },
-      source: jsonRequired<String>(json, 'ref'),
+      vars: {sourceVar: Variable(jsonRequired<String>(json, 'ref'))},
       w: jsonOptional<num>(json, 'w')?.toDouble() ?? 1,
       h: jsonOptional<num>(json, 'h')?.toDouble() ?? 1,
       x: jsonOptional<num>(json, 'x')?.toDouble(),
@@ -231,7 +246,7 @@ class LayoutItem {
       null => null,
       final y => tidy(y),
     },
-    'source': ?source,
+    if (vars.isNotEmpty) 'vars': variablesToJson(vars),
     if (options.isNotEmpty) 'options': options,
     if (!style.isEmpty) 'style': style.toJson(),
     if (on.isNotEmpty) 'on': triggersToJson(on),

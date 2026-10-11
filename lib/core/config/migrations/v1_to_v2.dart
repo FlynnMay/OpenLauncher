@@ -18,9 +18,10 @@ void wallpaperToWallpapers(Json save, Device device) {
 /// written then, a card that names what it shows as `ref`.
 void _asWritten(Json pane) {
   for (final item in itemsOf(pane)) {
-    if (item['kind'] == 'prefab' && item['source'] is String) {
+    if (item case {'kind': 'prefab', 'vars': {'source': final String source}}) {
       item['kind'] = 'card';
-      item['ref'] = item.remove('source');
+      item['ref'] = source;
+      item.remove('vars');
     }
   }
 }

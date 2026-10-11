@@ -3,16 +3,15 @@ import 'package:openlauncher/core/widgets/widget_option.dart';
 /// The widgets the launcher can show. A layout item of kind `widget` names
 /// one of these in its `ref`.
 enum WidgetKind {
-  clock('Clock', 2, 1),
-  weather('Weather', 2, 1),
-  media('Now playing', 2, 1),
-
   /// The three a widget of the user's own is put together from, in a pane:
   /// each shows what its options say, written as templates
   /// (`{{weather.temperature}}`).
   text('Text', 2, 1),
   picture('Picture', 2, 2),
   meter('Meter', 2, 1),
+
+  /// One of the launcher's small pictures, by name.
+  icon('Icon', 1, 1),
 
   /// Something to press: what it does is in the item's triggers.
   button('Button', 2, 1),
@@ -40,14 +39,6 @@ enum WidgetKind {
   /// line here and its use where the widget is drawn**: the editor's form
   /// is made from this list.
   List<WidgetOption> get options => switch (this) {
-    clock => const [
-      WidgetOption('hour24', '24-hour', OptionKind.toggle, usual: true),
-      WidgetOption('date', 'Show the date', OptionKind.toggle, usual: true),
-      WidgetOption('seconds', 'Show seconds', OptionKind.toggle, usual: false),
-    ],
-    weather => const [
-      WidgetOption('fahrenheit', 'Fahrenheit', OptionKind.toggle, usual: false),
-    ],
     text => [
       const WidgetOption('text', 'Text', OptionKind.template),
       const WidgetOption(
@@ -154,7 +145,20 @@ enum WidgetKind {
       WidgetOption('icon', 'Picture', OptionKind.icon),
       WidgetOption('colour', 'Colour', OptionKind.colour),
     ],
-    media || android => const [],
+    icon => const [
+      WidgetOption('icon', 'Which', OptionKind.template),
+      WidgetOption(
+        'size',
+        'Size',
+        OptionKind.number,
+        min: 8,
+        max: 200,
+        step: 2,
+        unset: 'Fills the box',
+      ),
+      WidgetOption('colour', 'Colour', OptionKind.colour),
+    ],
+    android => const [],
   };
 
   static WidgetKind? named(String name) => values.asNameMap()[name];

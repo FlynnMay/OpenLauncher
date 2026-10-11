@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 import 'package:openlauncher/features/widgets/marquee.dart';
@@ -20,13 +21,19 @@ Color _colour(Object? css, [Color otherwise = Colors.white]) =>
       final argb => Color(argb),
     };
 
-/// Values that are only there for the widgets below: what a prefab's
-/// instance reads as `{{source...}}`. Looked in before the launcher's own.
+/// The variables in reach of the widgets below, by name: those of every
+/// component around them that lets what is inside it read them. Looked in
+/// before what is read by its id.
 class TemplateScope extends InheritedWidget {
   const TemplateScope({super.key, required this.values, required super.child});
 
   /// By root name.
   final Map<String, Object?> values;
+
+  /// The variables in reach of [context]: none where nothing set any.
+  static Map<String, Object?> of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TemplateScope>()?.values ??
+      const {};
 
   @override
   bool updateShouldNotify(TemplateScope oldWidget) =>
@@ -50,18 +57,9 @@ class TileFocus extends InheritedWidget {
 /// A template as it reads now; nothing for no template.
 String _read(BuildContext context, WidgetRef ref, Object? template) {
   if (template is! String) return template == null ? '' : '$template';
-  final scope = context
-      .dependOnInheritedWidgetOfExactType<TemplateScope>()
-      ?.values;
-  if (scope == null) return ref.watch(templateProvider(template));
-  final parsed = Template.parse(template);
-  final values = {
-    for (final root in parsed.roots)
-      root: scope.containsKey(root)
-          ? scope[root]
-          : ref.watch(valueProvider(root)),
-  };
-  return parsed.render((root) => values[root]);
+  return valueText(
+    readTemplate(ref.watch, template, TemplateScope.of(context)),
+  );
 }
 
 /// Text made of values.
@@ -204,6 +202,30 @@ class ButtonWidget extends ConsumerWidget {
           ),
       ],
     );
+  }
+}
+
+/// One of the launcher's small pictures, by its name; a value can say
+/// which, as the weather says the sky's.
+///
+/// Options: `icon` (a template that reads as a name in `tileIcons`), `size`
+/// (none to fill the box), `colour`.
+class IconWidget extends ConsumerWidget {
+  const IconWidget({super.key, required this.options});
+
+  final Map<String, Object?> options;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final icon = tileIcons[_read(context, ref, options['icon']).trim()];
+    final size = options['size'];
+    final colour = _colour(options['colour']);
+    if (icon == null) {
+      return SizedBox.square(dimension: size is num ? size.toDouble() : null);
+    }
+    return size is num
+        ? Icon(icon, color: colour, size: size.toDouble())
+        : FittedBox(child: Icon(icon, color: colour));
   }
 }
 

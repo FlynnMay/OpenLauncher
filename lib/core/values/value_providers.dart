@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/entities/entity_data.dart';
 import 'package:openlauncher/core/values/data_source.dart';
 import 'package:openlauncher/core/values/template.dart';
+import 'package:openlauncher/core/variables/scope.dart';
 
 /// What time it is. Replaced in tests.
 final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
@@ -70,22 +71,18 @@ final sourceValueProvider = FutureProvider.autoDispose
       retry: (_, _) => null,
     );
 
-/// What the root [root] of a template is now: the data of the entity
-/// with that id, be it the launcher's own (`clock`, `media`...) or a value
-/// of the user's. Null while there is none.
+/// What can be read by the id [root]: the data of the entity with that
+/// id, or of the component with it that has variables anyone may read.
+/// Null while there is neither.
 final valueProvider = Provider.autoDispose.family<Object?, String>(
-  (ref, root) => ref.watch(entityDataProvider(root)),
+  (ref, root) =>
+      ref.watch(entityDataProvider(root)) ??
+      ref.watch(componentDataProvider(root)),
 );
 
-/// How the template [source] reads now. Whatever watches it is told only
-/// when that changes, however often the values under it do.
-final templateProvider = Provider.autoDispose.family<String, String>((
-  ref,
-  source,
-) {
-  final template = Template.parse(source);
-  final values = {
-    for (final root in template.roots) root: ref.watch(valueProvider(root)),
-  };
-  return template.render((root) => values[root]);
-});
+/// How the template [source] reads now, with nothing in reach but what
+/// can be read by its id. Whatever watches it is told only when that
+/// changes, however often the values under it do.
+final templateProvider = Provider.autoDispose.family<String, String>(
+  (ref, source) => valueText(readTemplate(ref.watch, source, const {})),
+);

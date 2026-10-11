@@ -37,6 +37,7 @@ class TileActions {
     this._context,
     this._ref,
     this.triggers, {
+    this.component,
     this.subject,
     this.inPopup = false,
     this.closes = false,
@@ -45,6 +46,9 @@ class TileActions {
   final BuildContext _context;
   final WidgetRef _ref;
   final Triggers triggers;
+
+  /// The id of the component these are the triggers of.
+  final String? component;
 
   /// The entity an action that names none is done to.
   final Entity? subject;
@@ -73,6 +77,7 @@ class TileActions {
           subject: subject,
           screen: screen,
           held: held,
+          component: component,
         );
       } on Object catch (error) {
         final what = actionKind(act.name)?.label.toLowerCase() ?? act.name;

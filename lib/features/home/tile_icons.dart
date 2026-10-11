@@ -20,4 +20,13 @@ const tileIcons = <String, IconData>{
   'star': Icons.star_outline,
   'power': Icons.power_settings_new,
   'light': Icons.lightbulb_outline,
+  'music': Icons.music_note_outlined,
+  // The sky, as the weather names it.
+  'sun': Icons.wb_sunny_outlined,
+  'partly': Icons.wb_cloudy_outlined,
+  'cloud': Icons.cloud_outlined,
+  'fog': Icons.foggy,
+  'rain': Icons.water_drop_outlined,
+  'snow': Icons.ac_unit,
+  'storm': Icons.thunderstorm_outlined,
 };
