@@ -205,7 +205,8 @@ class HomeScreen extends ConsumerWidget {
 
   /// Whether the Settings entity is somewhere the user can get to.
   static bool _hasSettings(Layout layout) => layout.panels.any(
-    (panel) => panel.items.any((item) => item.source == Entity.settings.id),
+    (panel) =>
+        panel.items.any((item) => item.handed.contains(Entity.settings.id)),
   );
 }
 

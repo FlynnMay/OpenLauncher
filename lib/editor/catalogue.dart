@@ -50,9 +50,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             prefab: prefab?.id ?? cardPrefabId,
             w: prefab?.root.w ?? 1,
             h: prefab?.root.h ?? 1,
-            id: layout.itemIdFor(
-              Component.autoId(entity.id, entity.sourceLabel),
-            ),
+            id: layout.itemIdFor(Component.autoId(entity.id, entity.name)),
           );
         }(),
         label: entity.label,

@@ -77,15 +77,11 @@ List<Entity> arrangeEntities(List<Entity> available, LauncherConfig config) {
     for (final entity in available)
       entity.id: switch (config.iconOverrides[entity.id]) {
         null => entity,
-        // Custom art is assumed to be drawn for the full entity.
-        final path => Entity(
-          id: entity.id,
-          kind: entity.kind,
-          target: entity.target,
-          label: entity.label,
-          iconPath: path,
-          wideIcon: true,
-        ),
+        // Custom art is assumed to be drawn for the whole frame.
+        final path => entity.withData({
+          Entity.icon: path,
+          Entity.shape: Entity.banner,
+        }),
       },
   };
   final entities = [
@@ -95,7 +91,10 @@ List<Entity> arrangeEntities(List<Entity> available, LauncherConfig config) {
         // borrows in turn is not followed, so there are no chains or loops.
         // An entity whose source is gone keeps its own until it is back.
         if (pictured[config.iconSources[entity.id]] case final source?) {
-          entity = entity.withPictureOf(source);
+          entity = entity.withData({
+            Entity.icon: source.data[Entity.icon],
+            Entity.shape: source.data[Entity.shape],
+          });
         }
         if (config.names[entity.id] case final name?) {
           entity = entity.withLabel(name);

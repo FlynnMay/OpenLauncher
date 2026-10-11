@@ -20,12 +20,7 @@ class _Tv extends TvApi {
   Future<void> setConfig(Map<String, Object?> changed) async {}
 }
 
-const _entity = Entity(
-  id: 'app:a',
-  kind: appKind,
-  target: 'app:a',
-  label: 'Alpha',
-);
+const _entity = Entity(id: 'app:a', kind: appKind, label: 'Alpha');
 
 void main() {
   Future<WidgetRef> pump(WidgetTester tester, Size size) async {
@@ -76,7 +71,7 @@ void main() {
     await tester.tap(inTree('Alpha'));
     await tester.pumpAndSettle();
     final picked = ref.read(selectedProvider).single;
-    expect(picked.item.source, 'app:a');
+    expect(picked.item.handed.firstOrNull, 'app:a');
 
     await tester.tap(inTree('Home screen'));
     await tester.pumpAndSettle();

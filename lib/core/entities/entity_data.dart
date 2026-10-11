@@ -24,12 +24,14 @@ final entityDataProvider = Provider.autoDispose.family<Object?, String>((
       'id': entity.id,
       'label': entity.label,
       'kind': entity.kind,
+      ...entity.data,
     },
     final Map<Object?, Object?> parts => {
       'text': entity.label,
       'id': entity.id,
       'label': entity.label,
       'kind': entity.kind,
+      ...entity.data,
       ...parts,
     },
     // What a value of the user's answered, which may be anything.

@@ -204,23 +204,25 @@ class TvApi {
   }
 
   Future<Entity> _entity(Map<Object?, Object?> json) async {
-    final icon = json['icon'] as String?;
-    final bare = json['bare'] == true && icon != null;
+    final data = (json['data'] as Map).cast<String, Object?>();
+    final icon = data[Entity.icon];
     return Entity(
       id: json['id'] as String,
       kind: json['kind'] as String,
-      target: json['id'] as String,
       label: json['label'] as String,
-      sourceLabel: json['sourceLabel'] as String?,
-      // On the TV this is a file; here it is where the TV serves that file.
-      iconPath: bare || icon == null ? null : _at(icon).toString(),
-      wideIcon: json['wide'] == true,
-      svg: bare
-          ? await _drawings.putIfAbsent(
-              icon,
-              () async => (await _client.get(_at(icon))).body,
-            )
-          : null,
+      name: json['name'] as String?,
+      data: {
+        ...data,
+        // On the TV its picture is a file, or the drawing itself; here it
+        // is where the TV serves that file, or the drawing fetched.
+        if (icon is String)
+          Entity.icon: data[Entity.shape] == Entity.lineArt
+              ? await _drawings.putIfAbsent(
+                  icon,
+                  () async => (await _client.get(_at(icon))).body,
+                )
+              : _at(icon).toString(),
+      },
     );
   }
 

@@ -114,7 +114,7 @@ void main() {
       for (final item in (await container.read(
         layoutViewProvider.future,
       )).home.root.contents)
-        if (all.byId(item.source) case final entity?
+        if (all.byId(item.handed.firstOrNull) case final entity?
             when entity.kind == appKind || entity.kind == inputKind)
           entity.id,
     ];
@@ -129,27 +129,26 @@ void main() {
     expect((await entities()).first, {
       'id': 'input:tv/HW1',
       'kind': 'input',
-      // What its kind presents, and what any entity has.
-      'actions': ['open', 'menu', 'remove'],
+      // What its kind presents.
+      'actions': ['open'],
       'label': 'HDMI 1',
-      'sourceLabel': 'HDMI 1',
+      'name': 'HDMI 1',
       'renamed': false,
       'customIcon': false,
       'iconFrom': null,
-      'wide': false,
-      'bare': true,
-      'icon': isA<String>(),
+      // What there is to read of it, its picture as where to fetch it.
+      'data': {'input': 'tv/HW1', 'icon': isA<String>(), 'shape': 'line'},
     });
 
     // Inputs get built-in line art, served to the page as SVG.
-    final icon = (await entities()).first['icon'] as String;
+    final icon = (await entities()).first['data']['icon'] as String;
     final response = await call('GET', icon);
     expect(response.headers['content-type'], 'image/svg+xml');
     expect(
       await response.readAsString(),
       inputArtworkSvg(TvInputKind.hdmi, 'HDMI 1'),
     );
-    expect((await entities()).last['icon'], isNull);
+    expect((await entities()).last['data']['icon'], isNull);
   });
 
   test('state offers the layout and what there is to choose from', () async {
@@ -158,12 +157,10 @@ void main() {
     // It sits in the screen's global pane.
     final section = page['layout']['panels'][0]['root']['children'].single;
     expect(page['layout']['inbox'], section['id']);
-    expect((section['children'] as List).map((i) => i['vars']?['source']), [
-      'input:tv/HW1',
-      'app:a',
-      'app:b',
-      'launcher:settings',
-    ]);
+    expect(
+      (section['children'] as List).map((i) => i['vars']?['source']?['value']),
+      ['input:tv/HW1', 'app:a', 'app:b', 'launcher:settings'],
+    );
     // No app on this device offers widgets, so that kind is not offered.
     expect((page['components'] as List).map((w) => w['type']), [
       'text',
@@ -302,23 +299,31 @@ void main() {
                     {
                       'id': 'i1',
                       'prefab': 'app-card',
-                      'vars': {'source': 'app:b'},
+                      'vars': {
+                        'source': {'value': 'app:b', 'type': 'entity'},
+                      },
                       'transform': {'x': 2, 'y': 0, 'w': 9},
                     },
                     {
                       'id': 'i2',
                       'prefab': 'folder-card',
-                      'vars': {'source': 'games'},
+                      'vars': {
+                        'source': {'value': 'games', 'type': 'entity'},
+                      },
                     },
                     {
                       'id': 'i3',
                       'prefab': 'folder-card',
-                      'vars': {'source': 'nothing'},
+                      'vars': {
+                        'source': {'value': 'nothing', 'type': 'entity'},
+                      },
                     },
                     {
                       'id': 'i4',
                       'prefab': 'weather',
-                      'vars': {'source': 'weather'},
+                      'vars': {
+                        'source': {'value': 'weather', 'type': 'entity'},
+                      },
                     },
                   ],
                 },
@@ -337,7 +342,9 @@ void main() {
                 {
                   'id': 'i5',
                   'prefab': 'app-card',
-                  'vars': {'source': 'app:a'},
+                  'vars': {
+                    'source': {'value': 'app:a', 'type': 'entity'},
+                  },
                 },
               ],
             },
@@ -355,7 +362,7 @@ void main() {
     expect(top.children.map((i) => i.id), ['i1', 'i2', 'i4']);
     expect((top.children.first.w, top.children.first.x), (4, 0));
     expect(
-      (top.children.last.prefab, top.children.last.source),
+      (top.children.last.prefab, top.children.last.handed.firstOrNull),
       ('weather', 'weather'),
     );
     expect(saved.panel('games')!.rule('position'), 'bottom');
@@ -367,14 +374,18 @@ void main() {
     final folder = view.home.root.contents.elementAt(1);
     expect(folder.prefab, folderPrefabId);
     expect(
-      view.panel(folder.source!)!.root.contents.map((entry) => entry.source),
+      view
+          .panel(folder.handed.firstOrNull!)!
+          .root
+          .contents
+          .map((entry) => entry.handed.firstOrNull),
       ['app:a'],
     );
     final shown = (await state())['layout']['panels'][0]['root']['children'][1];
-    expect((shown['children'] as List).map((i) => i['vars']?['source']), [
-      'input:tv/HW1',
-      'launcher:settings',
-    ]);
+    expect(
+      (shown['children'] as List).map((i) => i['vars']?['source']?['value']),
+      ['input:tv/HW1', 'launcher:settings'],
+    );
   });
 
   test('a folder entity can have a picture, removed with the folder', () async {
@@ -550,7 +561,7 @@ void main() {
     final section = layout['panels'][0]['root']['children'][0];
     // What the page does to remove an entity: drop its item and say so.
     (section['children'] as List).removeWhere(
-      (i) => i['vars']?['source'] == 'input:tv/HW1',
+      (i) => i['vars']?['source']?['value'] == 'input:tv/HW1',
     );
     layout['removed'] = ['input:tv/HW1'];
     expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
@@ -571,7 +582,9 @@ void main() {
         {
           'id': id,
           'prefab': 'app-card',
-          'vars': {'source': 'input:tv/HW1'},
+          'vars': {
+            'source': {'value': 'input:tv/HW1', 'type': 'entity'},
+          },
         },
     ]);
     await call('PUT', '/api/layout', body: again);
@@ -585,11 +598,11 @@ void main() {
 
     var entity = (await entities()).firstWhere((c) => c['id'] == 'app:a');
     expect(entity['customIcon'], isTrue);
-    expect(entity['wide'], isTrue);
+    expect(entity['data']['shape'], 'banner');
     final saved = File(store.config.iconOverrides['app:a']!);
     expect(saved.parent.path, tmp.path);
 
-    response = await call('GET', entity['icon'] as String);
+    response = await call('GET', entity['data']['icon'] as String);
     expect(response.headers['content-type'], 'image/png');
     expect(await response.read().expand((b) => b).toList(), _png);
 
@@ -623,7 +636,7 @@ void main() {
       expect(a['renamed'], isTrue);
       expect(a['iconFrom'], 'input:tv/HW1');
       expect(a['customIcon'], isTrue);
-      response = await call('GET', a['icon'] as String);
+      response = await call('GET', a['data']['icon'] as String);
       expect(response.headers['content-type'], 'image/svg+xml');
 
       // Leaving a key out leaves that part alone.
@@ -636,7 +649,10 @@ void main() {
       await call('PUT', '/api/icon?id=app:a', body: _png);
       expect(store.config.iconSources, isEmpty);
       await call('PUT', '/api/entity?id=app:b', body: {'iconFrom': 'app:a'});
-      response = await call('GET', (await entity('app:b'))['icon'] as String);
+      response = await call(
+        'GET',
+        (await entity('app:b'))['data']['icon'] as String,
+      );
       expect(await response.read().expand((b) => b).toList(), _png);
       await call('PUT', '/api/entity?id=app:a', body: {'iconFrom': 'app:b'});
       expect(store.config.iconOverrides, isEmpty);
@@ -872,8 +888,9 @@ void main() {
     final response = await request.close();
     expect(response.statusCode, 200);
     final state = jsonDecode(await response.transform(utf8.decoder).join());
-    // An input, two apps, the launcher's settings, and its own four: the
-    // clock, the weather, the place and the media player.
-    expect(state['entities'], hasLength(8));
+    // An input, two apps, the launcher's settings, and those there is one
+    // of: the clock, the weather, the place, the media player, the system,
+    // the layers, the variables and the layout.
+    expect(state['entities'], hasLength(12));
   });
 }

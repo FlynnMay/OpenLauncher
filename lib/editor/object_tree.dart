@@ -14,8 +14,9 @@ import 'package:openlauncher/editor/tv_screen.dart';
 /// what it says, where that is plain to read.
 String objectName(Component item, Layout? layout, List<Entity> entities) {
   if (item.isInstance) {
-    return entities.byId(item.source)?.label ??
-        switch (layout?.panel(item.source ?? '')?.title) {
+    final handed = item.handed.firstOrNull;
+    return entities.byId(handed)?.label ??
+        switch (layout?.panel(handed ?? '')?.title) {
           null => 'Prefab',
           '' => 'Folder',
           final title => title,

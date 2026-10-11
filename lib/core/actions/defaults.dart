@@ -3,6 +3,7 @@ import 'package:openlauncher/core/actions/action_kind.dart';
 import 'package:openlauncher/core/actions/action_kinds.dart';
 import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/variables/variable.dart';
 
 /// What a panel does when its pane does not say: a sidebar that is
 /// revealed is put on a layer of its own above the home screen, as is a
@@ -35,17 +36,21 @@ Triggers panelTriggersOf(Panel panel) => {
 /// A button that does [kind], as the quick actions have them and the
 /// editor offers them: to whatever it is set off from, or to [entity] by
 /// its id.
-Component actionButton(String id, ActionKind kind, {String? entity}) =>
-    Component(
-      id: id,
-      kind: ComponentKind.button.name,
-      options: {'label': kind.label, 'icon': kind.icon},
-      on: {
-        Trigger.press: [
-          Act(kind.name, {entityArg: ?entity}),
-        ],
-      },
-    );
+Component actionButton(
+  String id,
+  ActionKind kind, {
+  String? entity,
+  Map<String, Object?> args = const {},
+}) => Component(
+  id: id,
+  kind: ComponentKind.button.name,
+  options: {'label': kind.label, 'icon': kind.icon},
+  on: {
+    Trigger.press: [
+      Act(kind.name, {entityArg: ?entity, ...args}),
+    ],
+  },
+);
 
 /// The names of the actions the quick actions start with, in order.
 const usualMenu = ['open', 'info', 'forceStop', 'uninstall', 'remove'];
@@ -59,10 +64,18 @@ Panel usualMenuPanel() => Panel(
     id: Panel.rootId(Layout.menuId),
     columns: 1,
     rules: const {'rowHeight': 40, 'spacing': 4},
+    // What the menu is about: set when it is opened, and read by what is
+    // in it.
+    vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
     children: [
       for (final name in usualMenu)
         if (actionKind(name) case final kind?)
-          actionButton('${Layout.menuId}-${kind.name.toLowerCase()}', kind),
+          actionButton(
+            '${Layout.menuId}-${kind.name.toLowerCase()}',
+            kind,
+            // Taking something off is the layout's to do, told what.
+            args: {if (name == 'remove') 'what': '{{source.id}}'},
+          ),
     ],
   ),
 );

@@ -62,9 +62,18 @@ class PaneFrame extends InheritedWidget {
 /// Lays a pane's entries out on its cell grid, filling the width given and
 /// as tall as they need.
 class PaneGrid extends StatelessWidget {
-  const PaneGrid({super.key, required this.pane, required this.tile});
+  const PaneGrid({
+    super.key,
+    required this.pane,
+    required this.tile,
+    this.owner,
+  });
 
   final Component pane;
+
+  /// The id its variables are set under while the launcher runs, where
+  /// that is not its own: a folder's pane goes by the folder's.
+  final String? owner;
   final Widget Function(Component component) tile;
 
   /// Width over height of one cell, label included.
@@ -110,7 +119,7 @@ class PaneGrid extends StatelessWidget {
             builder: (context, ref, child) => TemplateScope(
               values: scopeOf(
                 ref.watch,
-                pane.id,
+                owner ?? pane.id,
                 pane.vars,
                 TemplateScope.of(context),
               ).inner,

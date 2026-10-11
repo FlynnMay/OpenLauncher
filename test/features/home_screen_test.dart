@@ -88,7 +88,7 @@ void main() {
     Component entity(String package) => Component(
       id: 'i-$package',
       prefab: cardPrefabId,
-      vars: {'source': Variable('app:$package')},
+      vars: {'source': Variable('app:$package', type: VarType.entity)},
     );
 
     testWidgets('holding OK offers quick actions instead of opening', (
@@ -114,6 +114,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(platform.appActions, ['uninstall pkg.a']);
       expect(find.text('Force stop'), findsNothing);
+    });
+
+    testWidgets('the quick actions take off what they were opened for', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      expect(find.text('Alpha'), findsWidgets);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+      await tester.pump(FocusTile.holdTime);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      // Removing is the layout's to do: the button names what the menu is
+      // about, which the menu says in a variable of its own.
+      for (var i = 0; i < 4; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(find.text('Force stop'), findsNothing);
+      expect(find.text('Alpha'), findsNothing);
+      expect(find.text('Beta'), findsWidgets);
     });
 
     testWidgets('a folder opens a popup that closes when an entity is opened', (
@@ -204,7 +225,9 @@ void main() {
                     const Component(
                       id: 'a',
                       prefab: cardPrefabId,
-                      vars: {'source': Variable('app:pkg.a')},
+                      vars: {
+                        'source': Variable('app:pkg.a', type: VarType.entity),
+                      },
                       style: {'background': '#b71c1c'},
                     ),
                   ],
@@ -265,7 +288,9 @@ void main() {
                     Component(
                       id: 'a',
                       prefab: cardPrefabId,
-                      vars: {'source': Variable('app:pkg.a')},
+                      vars: {
+                        'source': Variable('app:pkg.a', type: VarType.entity),
+                      },
                       overrides: {
                         'name': {'hidden': true},
                       },

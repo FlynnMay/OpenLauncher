@@ -104,6 +104,7 @@ class PanelPopup extends ConsumerWidget {
                     padding: EdgeInsets.all(panel.root.box.padding ?? 0),
                     child: PaneGrid(
                       pane: root,
+                      owner: panelId,
                       tile: (entry) => ComponentView(
                         component: entry,
                         focus: focus,

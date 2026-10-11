@@ -60,7 +60,8 @@ typedef Scope = ({
 
 /// Works out [variables], those of the component [id], on top of [outer],
 /// what it was handed by whatever it is inside. Each may read those before
-/// it. One whose value is the id of an entity stands for that entity.
+/// it. One that holds an entity stands for it: what its id names, among
+/// the entities there are and the components that are entities too.
 Scope scopeOf(
   Watch watch,
   String id,
@@ -76,7 +77,8 @@ Scope scopeOf(
         ? runtime[name]
         : variable.result((template) => readTemplate(watch, template, own));
     final value = switch (raw) {
-      final String text when text.isNotEmpty =>
+      final String text
+          when text.isNotEmpty && variable.type == VarType.entity =>
         watch(entityDataProvider(text)) ??
             watch(componentDataProvider(text)) ??
             raw,

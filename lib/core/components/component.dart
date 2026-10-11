@@ -147,7 +147,7 @@ class Component {
     this.on = const {},
   }) : kind = '',
        options = const {},
-       vars = {sourceVar: Variable(entityId)},
+       vars = {sourceVar: Variable(entityId, type: VarType.entity)},
        flex = null,
        aspect = null,
        keep = false,
@@ -187,7 +187,9 @@ class Component {
   /// How deep panes may be nested, counting the global one.
   static const maxDepth = 4;
 
-  /// The variable the launcher's own prefabs are handed an entity as.
+  /// The name of the variable the launcher's own prefabs are handed an
+  /// entity as. It is theirs alone: nothing treats a variable of this
+  /// name as anything but a variable.
   static const sourceVar = 'source';
 
   /// Unique within the layout; within its prefab, for one that is part of
@@ -250,12 +252,13 @@ class Component {
   bool get isPane => kind == paneKind;
   bool get isInstance => prefab != null;
 
-  /// The id of the entity it was handed as its variable `source`, which
-  /// is what the launcher's own prefabs read as `{{source...}}`.
-  String? get source => switch (vars[sourceVar]?.value) {
-    final String id when id.isNotEmpty => id,
-    _ => null,
-  };
+  /// The ids of the entities it was handed: what its variables that hold
+  /// an entity are set to, whatever they are called.
+  Iterable<String> get handed => [
+    for (final variable in vars.values)
+      if (variable.type == VarType.entity)
+        if (variable.value case final String id when id.isNotEmpty) id,
+  ];
 
   // What a pane's options say, each as what it is.
 

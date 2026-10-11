@@ -301,10 +301,14 @@ class ConfigApi {
     final config = await _ref.read(configProvider.future);
     // Null for the entity of a popup, which only has a picture if given one.
     final entity = entities.byId(id);
-    final path = entity == null ? config.iconOverrides[id] : entity.iconPath;
-    if (entity?.svg case final svg? when path == null) {
+    final path = switch (entity) {
+      null => config.iconOverrides[id],
+      _ => entity.data[Entity.icon] as String?,
+    };
+    // Line art is the drawing itself, not a file.
+    if (path != null && entity?.data[Entity.shape] == Entity.lineArt) {
       return Response.ok(
-        svg,
+        path,
         headers: {..._forGood, 'content-type': 'image/svg+xml'},
       );
     }

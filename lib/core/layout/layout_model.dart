@@ -83,12 +83,11 @@ class Layout {
 
   /// The id of the folder [item] was handed, where it is an instance of a
   /// prefab handed one: what opens a folder.
-  String? folderOf(Component item) => switch (item.source) {
-    final source?
-        when item.isInstance && panel(source)?.kind == PanelKind.popup =>
-      source,
-    _ => null,
-  };
+  String? folderOf(Component item) => !item.isInstance
+      ? null
+      : item.handed
+            .where((id) => panel(id)?.kind == PanelKind.popup)
+            .firstOrNull;
 
   /// Throws a [FormatException] if [json] is not shaped like a layout. The
   /// result still needs [normalised].
@@ -132,7 +131,7 @@ class Layout {
   Layout without(Set<String> entityIds) => rebuild(
     (_, items) => [
       for (final item in items)
-        if (!item.isInstance || !entityIds.contains(item.source)) item,
+        if (!item.isInstance || !item.handed.any(entityIds.contains)) item,
     ],
     removed: {...removed, ...entityIds},
   );

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 import 'package:openlauncher/core/config/migrations/v14_to_v15.dart';
+import 'package:openlauncher/core/config/migrations/v15_to_v16.dart';
+import 'package:openlauncher/core/config/migrations/v16_to_v17.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -18,7 +20,7 @@ export 'save_json.dart' show Device, Json;
 ///
 /// A step that has shipped is never changed: saves that went through it
 /// are out there. What it got wrong, a later step puts right.
-const saveVersion = 15;
+const saveVersion = 17;
 
 /// The oldest version there are still steps from. A save from before it
 /// cannot be brought up to date: the steps that did were taken out when
@@ -64,6 +66,22 @@ const migrations = [
         'a prefab is a component that was saved, with variants in place '
         'of layouts.',
     rules: [everythingAComponent, prefabsAsComponents],
+  ),
+  Migration(
+    from: 15,
+    to: 16,
+    what:
+        'Every action is some entity\'s: the quick actions are opened by '
+        'their variables, and what is removed is named to the layout.',
+    rules: [actionsOwned],
+  ),
+  Migration(
+    from: 16,
+    to: 17,
+    what:
+        'A variable says what sort of thing it holds; one that stands for '
+        'an entity says so.',
+    rules: [variablesTyped],
   ),
 ];
 

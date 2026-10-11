@@ -33,12 +33,7 @@ class _Tv extends TvApi {
   }
 }
 
-const _entity = Entity(
-  id: 'app:a',
-  kind: appKind,
-  target: 'app:a',
-  label: 'Alpha',
-);
+const _entity = Entity(id: 'app:a', kind: appKind, label: 'Alpha');
 
 TvState _state() => TvState(
   entities: const [_entity],
@@ -185,8 +180,9 @@ void main() {
       expect(tv.sent, [
         '{do: forceStop, entity: app:a}',
         '{do: info, entity: app:a}',
-        '{do: homeButton, enabled: false}',
-        '{do: setup}',
+        // What no entity was named for is the system's, and the TV is told.
+        '{do: homeButton, enabled: false, entity: system}',
+        '{do: setup, entity: system}',
       ]);
 
       // Setting a variable is the page's own business.

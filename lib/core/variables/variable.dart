@@ -65,9 +65,26 @@ class VarCase {
   }
 }
 
-/// A named value on a component: text, a number, the id of an entity (it
-/// then stands for that entity, and `{{name.label}}` reads it), or a
-/// template that reads other values. Having one makes the component an
+/// What sort of value a variable holds. One of no sort holds anything.
+enum VarType {
+  any('Anything'),
+  text('Text'),
+  number('A number'),
+  bool('Yes or no'),
+  colour('A colour'),
+
+  /// The id of an entity, or of a component that is one: the variable
+  /// then stands for it, and `{{name.label}}` reads it. This is how
+  /// something is handed to what is inside a component.
+  entity('An entity');
+
+  const VarType(this.label);
+
+  final String label;
+}
+
+/// A named value on a component, of some [type]: text, a number, a
+/// colour, an entity, or a template that reads other values. Having one makes the component an
 /// entity itself, read by its id by whoever the variable lets.
 ///
 /// One with a [when] is conditional: [when] is looked at, and it is the
@@ -77,6 +94,7 @@ class VarCase {
 class Variable {
   const Variable(
     this.value, {
+    this.type = VarType.any,
     this.access = VarAccess.protected,
     this.when,
     this.cases = const [],
@@ -85,7 +103,23 @@ class Variable {
 
   /// What it is, for one that is not conditional.
   final Object? value;
+  final VarType type;
   final VarAccess access;
+
+  /// This variable as one set over [under], the one of its name in the
+  /// prefab it is an instance of: what sort it is and who may read it are
+  /// the prefab's to say, where this says neither.
+  Variable over(Variable? under) =>
+      under == null || type != VarType.any || access != VarAccess.protected
+      ? this
+      : Variable(
+          value,
+          type: under.type,
+          access: under.access,
+          when: when,
+          cases: cases,
+          otherwise: otherwise,
+        );
 
   /// What a conditional one looks at: a template.
   final String? when;
@@ -101,6 +135,7 @@ class Variable {
     }
     return Variable(
       json['value'],
+      type: VarType.values.asNameMap()[json['type']] ?? VarType.any,
       access:
           VarAccess.values.asNameMap()[json['access']] ?? VarAccess.protected,
       when: switch (json['when']) {
@@ -115,7 +150,8 @@ class Variable {
     );
   }
 
-  Object? toJson() => !isConditional && access == VarAccess.protected
+  Object? toJson() =>
+      !isConditional && access == VarAccess.protected && type == VarType.any
       ? value
       : {
           if (isConditional) ...{
@@ -124,6 +160,7 @@ class Variable {
             'else': otherwise,
           } else
             'value': value,
+          if (type != VarType.any) 'type': type.name,
           if (access != VarAccess.protected) 'access': access.name,
         };
 
@@ -146,6 +183,7 @@ class Variable {
 typedef Variables = Map<String, Variable>;
 
 bool _conditional(Map<String, Object?> one) => one['conditional'] == true;
+bool _colour(Map<String, Object?> one) => one['type'] == VarType.colour.name;
 
 /// What there is to set about the variables of a component: the editor's
 /// form for them is made from this, over [variablesToForm].
@@ -157,6 +195,13 @@ final variableOptions = ComponentOption(
   asks: 'Name of the variable',
   blank: const {'name': 'name'},
   fields: (_) => [
+    ComponentOption(
+      'type',
+      'Holds',
+      OptionKind.choice,
+      usual: VarType.any.name,
+      choices: {for (final type in VarType.values) type.name: type.label},
+    ),
     ComponentOption(
       'access',
       'Read by',
@@ -175,7 +220,13 @@ final variableOptions = ComponentOption(
       'value',
       'Is',
       OptionKind.template,
-      when: (one) => !_conditional(one),
+      when: (one) => !_conditional(one) && !_colour(one),
+    ),
+    ComponentOption(
+      'value',
+      'Is',
+      OptionKind.colour,
+      when: (one) => !_conditional(one) && _colour(one),
     ),
     const ComponentOption(
       'when',
@@ -214,6 +265,7 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
   for (final MapEntry(key: name, value: variable) in variables.entries)
     {
       'name': name,
+      'type': variable.type.name,
       'access': variable.access.name,
       if (variable.isConditional) ...{
         'conditional': true,
@@ -239,6 +291,7 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
     final conditional = _conditional(one);
     variables[name] = Variable(
       conditional ? null : typedValue('${one['value'] ?? ''}'),
+      type: VarType.values.asNameMap()[one['type']] ?? VarType.any,
       access:
           VarAccess.values.asNameMap()[one['access']] ?? VarAccess.protected,
       when: conditional ? '${one['when'] ?? ''}' : null,

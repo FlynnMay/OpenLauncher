@@ -12,7 +12,7 @@ Component entity(
 }) => Component(
   id: id,
   prefab: cardPrefabId,
-  vars: {'source': Variable('app:$id')},
+  vars: {'source': Variable('app:$id', type: VarType.entity)},
   w: w,
   h: h,
   x: x,
@@ -221,7 +221,7 @@ void main() {
             const Component(
               id: 'again',
               prefab: cardPrefabId,
-              vars: {'source': Variable('app:a')},
+              vars: {'source': Variable('app:a', type: VarType.entity)},
             ),
           ],
         ),
@@ -400,7 +400,7 @@ void main() {
               const Component(
                 id: 'a2',
                 prefab: cardPrefabId,
-                vars: {'source': Variable('app:a')},
+                vars: {'source': Variable('app:a', type: VarType.entity)},
               ),
             ],
           ),
@@ -424,7 +424,7 @@ void main() {
           const Component(
             id: 'again',
             prefab: cardPrefabId,
-            vars: {'source': Variable('app:a')},
+            vars: {'source': Variable('app:a', type: VarType.entity)},
           ),
           const Component(id: 'w', kind: 'clock'),
         ],
@@ -445,7 +445,7 @@ void main() {
               Component(
                 id: 'a',
                 prefab: cardPrefabId,
-                vars: {'source': Variable('x')},
+                vars: {'source': Variable('x', type: VarType.entity)},
               ),
             ],
           ),

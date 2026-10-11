@@ -210,7 +210,7 @@ Layout dropItem(Layout layout, Component item, Drop drop, {Panel? panel}) {
     },
     added: panel,
     // An entity that is placed is no longer one the user took off.
-    removed: {...layout.removed}..remove(item.source),
+    removed: {...layout.removed}..removeAll(item.handed),
   );
 }
 
@@ -234,7 +234,7 @@ Layout removeItem(Layout layout, String id) {
   final placed = {
     for (final panel in rest.panels)
       for (final item in panel.items)
-        if (item.isInstance) ?item.source,
+        if (item.isInstance) ...item.handed,
   };
   return Layout(
     inbox: rest.inbox,
@@ -242,11 +242,9 @@ Layout removeItem(Layout layout, String id) {
     removed: {
       ...rest.removed,
       for (final item in gone)
-        if (item.source case final source?
-            when item.isInstance &&
-                !placed.contains(source) &&
-                rest.panel(source) == null)
-          source,
+        if (item.isInstance)
+          for (final source in item.handed)
+            if (!placed.contains(source) && rest.panel(source) == null) source,
     },
   );
 }
@@ -488,7 +486,7 @@ Layout removePanel(Layout layout, String id) {
     (_, items) => [
       for (final item in items)
         // What opened it has nothing left to open.
-        if (!item.isInstance || item.source != id) item,
+        if (!item.isInstance || !item.handed.contains(id)) item,
     ],
   );
   final placed = placedCounts(rest);
@@ -498,11 +496,10 @@ Layout removePanel(Layout layout, String id) {
     removed: {
       ...rest.removed,
       for (final item in panel.items)
-        if (item.source case final source?
-            when item.isInstance &&
-                !placed.containsKey(source) &&
-                rest.panel(source) == null)
-          source,
+        if (item.isInstance)
+          for (final source in item.handed)
+            if (!placed.containsKey(source) && rest.panel(source) == null)
+              source,
     },
   );
 }
@@ -560,7 +557,8 @@ Map<String, int> placedCounts(Layout layout) {
   final counts = <String, int>{};
   for (final panel in layout.panels) {
     for (final item in panel.items) {
-      if (item.source case final source? when item.isInstance) {
+      if (!item.isInstance) continue;
+      for (final source in item.handed) {
         counts[source] = (counts[source] ?? 0) + 1;
       }
     }

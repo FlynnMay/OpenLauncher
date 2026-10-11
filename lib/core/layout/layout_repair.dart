@@ -63,7 +63,8 @@ extension LayoutRepair on Layout {
         }
       } else if (item.kind.isEmpty && !item.isInstance ||
           // What opened a folder that is gone has nothing left to open.
-          item.prefab == folderPrefabId && !panelIds.contains(item.source)) {
+          item.prefab == folderPrefabId &&
+              !item.handed.any(panelIds.contains)) {
         return;
       }
       final repaired = item.isPane ? repair(item, kind, depth + 1) : item;
@@ -157,7 +158,7 @@ extension LayoutRepair on Layout {
     final placed = {
       for (final panel in result)
         for (final item in panel.items)
-          if (item.isInstance) ?item.source,
+          if (item.isInstance) ...item.handed,
     };
     return Layout(
       panels: result,
@@ -186,10 +187,7 @@ extension LayoutRepair on Layout {
     final kept = rebuild(
       (_, items) => [
         for (final item in items)
-          if (!item.isInstance ||
-              item.source == null ||
-              there.contains(item.source))
-            item,
+          if (!item.isInstance || item.handed.every(there.contains)) item,
       ],
     );
     final placed = {...removed};
@@ -197,9 +195,7 @@ extension LayoutRepair on Layout {
     for (final panel in kept.panels) {
       for (final item in panel.root.all) {
         itemIds.add(item.id);
-        if (item.source case final source? when item.isInstance) {
-          placed.add(source);
-        }
+        if (item.isInstance) placed.addAll(item.handed);
       }
     }
     // Named after the entity, by what it is called if that is known.

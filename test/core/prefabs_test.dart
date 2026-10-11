@@ -5,6 +5,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 
 void main() {
@@ -13,7 +14,7 @@ void main() {
   const plain = Component(
     id: 'a',
     prefab: cardPrefabId,
-    vars: {'source': Variable('app:a')},
+    vars: {'source': Variable('app:a', type: VarType.entity)},
   );
 
   /// The component [id] of [instance] as it is drawn.
@@ -47,10 +48,17 @@ void main() {
     expect(part(plain, 'name').options['text'], '{{source.label}}');
     expect(drawn.all.every((part) => !part.hidden), isTrue);
     // Its variables and triggers are the prefab's, with its own over them.
-    expect(drawn.source, 'app:a');
+    expect(drawn.handed.firstOrNull, 'app:a');
     expect(drawn.on, {
       Trigger.press: [const Act('open')],
-      Trigger.hold: [const Act('menu')],
+      Trigger.hold: [
+        const Act('set', {
+          'of': 'quick-actions',
+          'var': 'source',
+          'value': '{{source.id}}',
+        }),
+        const Act('set', {'of': 'quick-actions', 'var': 'open', 'value': true}),
+      ],
     });
     // What is not an instance is itself.
     expect(resolved(drawn, prefabs), same(drawn));
@@ -144,7 +152,7 @@ void main() {
     expect(resolved(folder, prefabs).on[Trigger.press], [
       const Act('set', {'var': 'open', 'value': true, 'of': '{{source.id}}'}),
     ]);
-    expect(folder.source, 'games');
+    expect(folder.handed.firstOrNull, 'games');
   });
 
   test('a prefab can be made of panes, and of other prefabs', () {
@@ -174,6 +182,45 @@ void main() {
     final all = {...prefabs, own.id: own};
     expect(resolved(loud, all).on.keys, contains(Trigger.press));
     expect(resolved(loud, all).children.last.style['fontSize'], 40);
+  });
+
+  test('a card works out how its picture sits from the sort it was handed', () {
+    Object? read(String template, Map<String, Object?> source) =>
+        Template.parse(template).evaluate((root) => {'source': source}[root]);
+    final picture = card.root.children.first.options;
+    final small = card.variants['row']!.overrides['picture']!['options'] as Map;
+    for (final (shape, fit, pad, tight, bare) in [
+      ('banner', 'cover', 0, 0, false),
+      ('icon', 'contain', 14, 4, false),
+      ('line', 'contain', 0, 0, true),
+      (null, 'contain', 0, 0, false),
+    ]) {
+      final source = {'shape': shape};
+      expect(read(picture['fit']! as String, source), fit, reason: '$shape');
+      expect(read(picture['pad']! as String, source), pad, reason: '$shape');
+      expect(read(small['pad'] as String, source), tight, reason: '$shape');
+      expect(read(picture['bare']! as String, source), bare, reason: '$shape');
+    }
+    // What the weather is like and who a song is by are worked out by
+    // their prefabs too, from what the entities say.
+    Object? told(String prefab, String name, Map<String, Object?> source) =>
+        prefabs[prefab]!.vars[name]!.result(
+          (template) => read(template, source),
+        );
+    expect(
+      told('weather', 'summary', {
+        'description': 'Sunny',
+        'high': 24.6,
+        'low': 9,
+      }),
+      'Sunny  ·  25° / 9°',
+    );
+    expect(told('weather', 'summary', {'description': 'Sunny'}), 'Sunny');
+    expect(
+      told('now-playing', 'summary', {'artist': 'Band', 'app': 'Player'}),
+      'Band · Player',
+    );
+    expect(told('now-playing', 'summary', {'app': 'Player'}), 'Player');
   });
 
   test("the user's prefabs are settings like any other", () {
@@ -239,7 +286,9 @@ void main() {
                           'ref': 'app-card',
                           'w': 1,
                           'h': 1,
-                          'vars': {'source': 'input:tv'},
+                          'vars': {
+                            'source': {'value': 'input:tv', 'type': 'entity'},
+                          },
                           'options': {
                             'layout': 'stacked',
                             'parts': {
@@ -290,7 +339,9 @@ void main() {
             'id': 'mine',
             'name': 'Mine',
             'w': 2,
-            'vars': {'source': 'clock'},
+            'vars': {
+              'source': {'value': 'clock', 'type': 'entity'},
+            },
             'on': {
               'press': [
                 {'do': 'settings'},
@@ -374,7 +425,7 @@ void main() {
 
       final [tv, label] = pane.children;
       expect(
-        (tv.prefab, tv.variant, tv.source),
+        (tv.prefab, tv.variant, tv.handed.firstOrNull),
         ('app-card', 'stacked', 'input:tv'),
       );
       expect(tv.overrides, {
@@ -402,8 +453,11 @@ void main() {
       final mine = LauncherConfig.fromJson(old()).prefabs.single;
       final root = mine.root;
       expect((root.mode, root.gap, root.w), (PaneMode.column, 4, 2));
-      expect(root.source, 'clock');
-      expect(root.on[Trigger.press], [const Act('settings')]);
+      expect(root.handed.firstOrNull, 'clock');
+      // What had no owner is said with an action an entity presents.
+      expect(root.on[Trigger.press], [
+        const Act('open', {'entity': 'launcher:settings'}),
+      ]);
       expect(root.style, {'color': '#ff0000'});
       // As its first layout had it, a group being a pane of its own.
       final [big, group] = root.children;
@@ -424,6 +478,101 @@ void main() {
       expect(wide.style, {'fontSize': 44, 'textAlign': 'left'});
       final small = drawn.all.firstWhere((part) => part.id == 'i/small');
       expect((small.flex, small.keep), (1, false));
+    });
+
+    test('what had no owner is said with what an entity presents', () {
+      final layout = LauncherConfig.fromJson({
+        'v': 15,
+        'layout': {
+          'v': 15,
+          'inbox': 'home/root',
+          'panels': [
+            {
+              'id': 'home',
+              'root': {
+                'id': 'home/root',
+                'kind': 'pane',
+                'children': [
+                  {
+                    'id': 'b',
+                    'kind': 'button',
+                    'on': {
+                      'press': [
+                        {'do': 'menu', 'entity': 'app:a'},
+                        {'do': 'forceStop', 'entity': 'app:a'},
+                      ],
+                      'hold': [
+                        {'do': 'remove'},
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+            {
+              'id': 'quick-actions',
+              'root': {'id': 'quick-actions/root', 'kind': 'pane'},
+            },
+          ],
+        },
+      }).layout;
+      final button = layout.home.root.children.single;
+      expect(button.on[Trigger.press], [
+        const Act('set', {
+          'of': 'quick-actions',
+          'var': 'source',
+          'value': 'app:a',
+        }),
+        const Act('set', {'of': 'quick-actions', 'var': 'open', 'value': true}),
+        const Act('forceStop', {'entity': 'app:a'}),
+      ]);
+      expect(button.on[Trigger.hold], [
+        const Act('remove', {'what': '{{source.id}}'}),
+      ]);
+      // The quick actions say what they are about, for what is in them.
+      expect(layout.panel(Layout.menuId)!.root.vars.keys, [
+        Component.sourceVar,
+      ]);
+    });
+
+    test('a variable that stood for an entity says it holds one', () {
+      final config = LauncherConfig.fromJson({
+        'v': 16,
+        'layout': {
+          'v': 16,
+          'inbox': 'home/root',
+          'panels': [
+            {
+              'id': 'home',
+              'root': {
+                'id': 'home/root',
+                'kind': 'pane',
+                'vars': {'room': 'Lounge'},
+                'children': [
+                  {
+                    'id': 'a',
+                    'prefab': 'app-card',
+                    'vars': {'source': 'app:a', 'note': 'app:a'},
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      final card = config.layout.home.root.children.single;
+      expect(card.handed, ['app:a']);
+      expect(card.vars['note']!.type, VarType.any);
+      expect(config.layout.home.root.vars['room']!.type, VarType.any);
+      // An instance that only sets a value takes what sort it is from
+      // its prefab.
+      const bare = Component(
+        id: 'b',
+        prefab: cardPrefabId,
+        vars: {'source': Variable('app:b')},
+      );
+      expect(bare.handed, isEmpty);
+      expect(resolved(bare, prefabs).handed, ['app:b']);
     });
 
     test('from before the oldest step there is, it is not read', () {

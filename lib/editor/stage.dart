@@ -96,7 +96,7 @@ class _StageState extends ConsumerState<Stage> {
     }
     // An instance goes by what it was handed: an entity, a folder, or
     // nothing.
-    final source = item.source ?? '';
+    final source = item.handed.firstOrNull ?? '';
     final entity = ref.read(entitiesProvider).value?.byId(source);
     return DragHandle(
       data: entity != null

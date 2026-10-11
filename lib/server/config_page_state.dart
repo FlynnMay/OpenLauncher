@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
@@ -47,15 +46,12 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
           'kind': entity.kind,
           // What can be done with it, by the names actions go by.
           'actions': [
-            for (final action in [
-              ...?entityKind(entity.kind)?.actions,
-              ...entityActions,
-            ])
+            for (final action in entityKind(entity.kind)?.actions ?? const [])
               action.name,
           ],
           'label': entity.label,
           // What the device calls it; ids in the layout are made from it.
-          'sourceLabel': entity.sourceLabel,
+          'name': entity.name,
           // Whether the user chose the name, rather than the device.
           'renamed': config.names.containsKey(entity.id),
           // An uploaded picture, or another entity's.
@@ -64,12 +60,12 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
               config.iconSources.containsKey(entity.id),
           // The entity whose picture this one shows, if any.
           'iconFrom': config.iconSources[entity.id],
-          'wide': entity.wideIcon,
-          // Line art, drawn straight on the wallpaper with no entity behind.
-          'bare': entity.iconPath == null && entity.svg != null,
-          'icon': switch (entity.iconPath ?? entity.svg) {
-            null => null,
-            final source => _iconUrl(entity.id, source),
+          // What there is to read of it, as the TV has it; its picture is
+          // a file here, so what is sent is where to fetch it.
+          'data': {
+            ...entity.data,
+            if (entity.data[Entity.icon] case final String source)
+              Entity.icon: _iconUrl(entity.id, source),
           },
         },
     ],

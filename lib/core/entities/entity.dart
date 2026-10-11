@@ -6,47 +6,46 @@ const appKind = 'app';
 const inputKind = 'input';
 const launcherKind = 'launcher';
 
-/// Something a prefab can be drawn from and do things to: an app, one of
-/// the TV's inputs, a screen of the launcher's own, and whatever other
-/// kinds there come to be. It says what it is called, what it looks like,
-/// and, through its kind, what can be done with it.
+/// Something that has actions a trigger can use and things to be read: an
+/// app, one of the TV's inputs, the clock, the weather, the launcher
+/// itself, and whatever other kinds there come to be. They are all the one
+/// shape: what it is called, and under [data] whatever its kind says of
+/// it. What can be done with it, and what it has that changes by itself,
+/// are its kind's to say (`entity_kinds.dart`).
 @immutable
 class Entity {
   const Entity({
     required this.id,
     required this.kind,
-    required this.target,
     required this.label,
-    String? sourceLabel,
-    this.iconPath,
-    this.wideIcon = false,
-    this.svg,
-  }) : sourceLabel = sourceLabel ?? label;
+    String? name,
+    this.data = const {},
+  }) : name = name ?? label;
 
   /// Stable key used by config and the command API, e.g. `app:com.example`.
   final String id;
 
   /// The name of its `EntityKind`.
   final String kind;
-
-  /// What its kind knows it by: an app's package name, a TV input's id.
-  final String target;
   final String label;
 
   /// What the device calls it, whatever the user has named it since. The
-  /// ids of entities that are not apps are made from this in the layout, so
-  /// that they say what the thing is.
-  final String sourceLabel;
+  /// ids of what is made from it in the layout come from this, so that
+  /// they say what the thing is.
+  final String name;
 
-  /// Absolute path of the image to show, or null to fall back to the label.
-  final String? iconPath;
+  /// What there is to read of it that only changes when it does, by name:
+  /// an app's `package`, its `icon` and the `shape` of that. Read as
+  /// `{{<id>.<name>}}` like anything else an entity has.
+  final Map<String, Object?> data;
 
-  /// True when [iconPath] is 16:9 artwork that should fill the entity.
-  final bool wideIcon;
+  /// Under these names in [data], for an entity that has a picture: the
+  /// picture (the path of an image, or SVG markup), and what sort it is.
+  static const icon = 'icon', shape = 'shape';
 
-  /// Built-in line art, as SVG markup, shown when there is no [iconPath].
-  /// Entities drawn this way have no background of their own.
-  final String? svg;
+  /// The sorts of picture: artwork made for the whole frame, an icon that
+  /// sits in it, and line art, which has no frame behind it.
+  static const banner = 'banner', lineArt = 'line';
 
   static String appId(String packageName) => 'app:$packageName';
   static String inputId(String tvInputId) => 'input:$tvInputId';
@@ -56,40 +55,31 @@ class Entity {
   static const settings = Entity(
     id: 'launcher:settings',
     kind: launcherKind,
-    target: 'settings',
     label: 'Settings',
-    // A cog, in the same line drawing as the input entities.
-    svg:
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90" '
-        'fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" '
-        'stroke-linejoin="round"><circle cx="80" cy="45" r="7"/>'
-        '<circle cx="80" cy="45" r="17"/><path d="M80 20v8m0 34v8M55 45h8'
-        'm34 0h8M62.3 27.3l5.7 5.7m24 24 5.7 5.7m0-35.4L92 33M68 57l-5.7 '
-        '5.7"/></svg>',
+    data: {
+      // A cog, in the same line drawing as the inputs.
+      icon:
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90" '
+          'fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" '
+          'stroke-linejoin="round"><circle cx="80" cy="45" r="7"/>'
+          '<circle cx="80" cy="45" r="17"/><path d="M80 20v8m0 34v8M55 45h8'
+          'm34 0h8M62.3 27.3l5.7 5.7m24 24 5.7 5.7m0-35.4L92 33M68 57l-5.7 '
+          '5.7"/></svg>',
+      shape: lineArt,
+    },
   );
 
   /// This entity under another name.
-  Entity withLabel(String label) => Entity(
-    id: id,
-    kind: kind,
-    target: target,
-    label: label,
-    sourceLabel: sourceLabel,
-    iconPath: iconPath,
-    wideIcon: wideIcon,
-    svg: svg,
-  );
+  Entity withLabel(String label) =>
+      Entity(id: id, kind: kind, label: label, name: name, data: data);
 
-  /// This entity looking like [other].
-  Entity withPictureOf(Entity other) => Entity(
+  /// This entity with [more] to be read of it, over what there was.
+  Entity withData(Map<String, Object?> more) => Entity(
     id: id,
     kind: kind,
-    target: target,
     label: label,
-    sourceLabel: sourceLabel,
-    iconPath: other.iconPath,
-    wideIcon: other.wideIcon,
-    svg: other.svg,
+    name: name,
+    data: {...data, ...more},
   );
 
   @override
@@ -97,24 +87,12 @@ class Entity {
       other is Entity &&
       other.id == id &&
       other.kind == kind &&
-      other.target == target &&
       other.label == label &&
-      other.sourceLabel == sourceLabel &&
-      other.iconPath == iconPath &&
-      other.wideIcon == wideIcon &&
-      other.svg == svg;
+      other.name == name &&
+      mapEquals(other.data, data);
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    kind,
-    target,
-    label,
-    sourceLabel,
-    iconPath,
-    wideIcon,
-    svg,
-  );
+  int get hashCode => Object.hash(id, kind, label, name);
 }
 
 extension EntitiesById on Iterable<Entity> {

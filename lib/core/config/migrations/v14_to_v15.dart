@@ -169,8 +169,7 @@ void prefabsAsComponents(Json save, Device device) {
       'kind': 'pane',
       if (transform.isNotEmpty) 'transform': transform,
       'options': _line(first),
-      for (final key in const ['vars', 'style', 'on'])
-        key: ?prefab.remove(key),
+      for (final key in const ['vars', 'style', 'on']) key: ?prefab.remove(key),
       'children': _slots(first, parts),
     };
     prefab

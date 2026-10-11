@@ -136,7 +136,13 @@ void main() {
           'secret': Variable('s', access: VarAccess.private),
           'handed': Variable('h'),
           'open': Variable('o', access: VarAccess.public),
-          'app': Variable('app:a', access: VarAccess.public),
+          'app': Variable(
+            'app:a',
+            type: VarType.entity,
+            access: VarAccess.public,
+          ),
+          // Text that happens to be an id is only text.
+          'said': Variable('app:a'),
         },
       );
       final c = container(layout([item]));
@@ -144,11 +150,21 @@ void main() {
       final held = c.listen(componentDataProvider('box'), (_, _) {});
       addTearDown(held.close);
       final scope = scopeOf(c.read, 'box', item.vars, const {'outer': 1});
-      expect(scope.own.keys, {'outer', 'secret', 'handed', 'open', 'app'});
-      expect(scope.inner.keys, {'outer', 'handed', 'open', 'app'});
+      expect(scope.own.keys, {
+        'outer',
+        'secret',
+        'handed',
+        'open',
+        'app',
+        'said',
+      });
+      expect(scope.inner.keys, {'outer', 'handed', 'open', 'app', 'said'});
       expect(scope.public.keys, {'open', 'app'});
-      // One that is the id of an entity stands for it.
+      // One that holds an entity stands for it; it is the variable that
+      // says so, not what it happens to be set to.
       expect((scope.own['app']! as Map)['label'], 'Alpha');
+      expect(scope.own['said'], 'app:a');
+      expect(item.handed, ['app:a']);
       // By its id, anything reads what is public and no more.
       String reads(String template) =>
           valueText(readTemplate(c.read, template, const {}));

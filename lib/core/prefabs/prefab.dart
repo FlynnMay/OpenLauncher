@@ -175,7 +175,11 @@ Component resolved(
     id: instance.id,
     kind: root.kind,
     options: {...root.options, ...instance.options},
-    vars: {...root.vars, ...instance.vars},
+    vars: {
+      ...root.vars,
+      for (final MapEntry(:key, :value) in instance.vars.entries)
+        key: value.over(root.vars[key]),
+    },
     style: {...root.style, ...instance.style},
     on: {...root.on, ...instance.on},
     w: instance.w,
@@ -251,16 +255,27 @@ final List<Prefab> builtInPrefabs = [
   Prefab(
     id: cardPrefabId,
     name: 'App card',
-    variants: _cardVariants(small: const {'pad': '{{source.padSmall}}'}),
+    variants: _cardVariants(
+      small: const {'pad': "{{source.shape == 'icon' ? 4 : 0}}"},
+    ),
     root: _line(
       'root',
       PaneMode.column,
       rules: const {'gap': 6},
       // What an instance is handed: an app, an input.
-      vars: const {'source': Variable(null)},
+      vars: const {'source': Variable(null, type: VarType.entity)},
       on: const {
         Trigger.press: [Act('open')],
-        Trigger.hold: [Act('menu')],
+        // The quick actions are a pane like any folder: told what they
+        // are about, and opened, by its variables.
+        Trigger.hold: [
+          Act('set', {
+            'of': 'quick-actions',
+            'var': 'source',
+            'value': '{{source.id}}',
+          }),
+          Act('set', {'of': 'quick-actions', 'var': 'open', 'value': true}),
+        ],
       },
       const [
         Component(
@@ -268,10 +283,15 @@ final List<Prefab> builtInPrefabs = [
           kind: 'picture',
           options: {
             'source': '{{source.icon}}',
-            'fit': '{{source.fit}}',
-            'pad': '{{source.pad}}',
+            // How it sits in its frame is this card's to say, from the
+            // sort of picture it was handed: artwork made for the whole
+            // frame fills it, an icon sits in it, and line art has no
+            // frame behind it at all.
+            'fit': "{{source.shape == 'banner' ? 'cover' : 'contain'}}",
+            'pad': "{{source.shape == 'icon' ? 14 : 0}}",
             'alt': '{{source.label}}',
             'frame': true,
+            'bare': "{{source.shape == 'line'}}",
           },
           style: {'radius': 0},
           flex: 1,
@@ -291,7 +311,7 @@ final List<Prefab> builtInPrefabs = [
       'root',
       PaneMode.column,
       rules: const {'gap': 6},
-      vars: const {'source': Variable(null)},
+      vars: const {'source': Variable(null, type: VarType.entity)},
       on: const {
         Trigger.press: [
           Act('set', {'var': 'open', 'value': true, 'of': '{{source.id}}'}),
@@ -301,7 +321,11 @@ final List<Prefab> builtInPrefabs = [
         Component(
           id: 'picture',
           kind: 'folder',
-          options: {'folder': '{{source.id}}', 'frame': true},
+          options: {
+            'folder': '{{source.id}}',
+            'frame': true,
+            'bare': '{{source.bare}}',
+          },
           flex: 1,
         ),
         _name,
@@ -319,7 +343,7 @@ final List<Prefab> builtInPrefabs = [
       PaneMode.column,
       w: 2,
       rules: const {'fit': true, 'align': 'center'},
-      vars: const {'source': Variable('clock')},
+      vars: const {'source': Variable('clock', type: VarType.entity)},
       const [
         Component(
           id: 'time',
@@ -346,7 +370,7 @@ final List<Prefab> builtInPrefabs = [
       w: 2,
       rules: const {'fit': true, 'gap': 14},
       vars: const {
-        'source': Variable('weather'),
+        'source': Variable('weather', type: VarType.entity),
         // Which of the launcher's small pictures stands for the sky: told
         // by what the weather says of it, as any variable may be told.
         'icon': Variable(
@@ -361,6 +385,15 @@ final List<Prefab> builtInPrefabs = [
             VarCase(VarTest.equals, 'storm', 'storm'),
           ],
           otherwise: 'rain',
+        ),
+        // What it is like, and with them the day's highest and lowest.
+        'summary': Variable(
+          null,
+          when: '{{source.high}}',
+          cases: [VarCase(VarTest.equals, '', '{{source.description}}')],
+          otherwise:
+              '{{source.description}}  ·  '
+              '{{source.high | round}}° / {{source.low | round}}°',
         ),
       },
       [
@@ -385,7 +418,7 @@ final List<Prefab> builtInPrefabs = [
             Component(
               id: 'summary',
               kind: 'text',
-              options: {'text': '{{source.summary}}'},
+              options: {'text': '{{summary}}'},
               style: {'fontSize': 14, 'color': '#ffffffb3'},
             ),
             Component(
@@ -409,7 +442,7 @@ final List<Prefab> builtInPrefabs = [
       w: 2,
       rules: const {'gap': 12},
       vars: const {
-        'source': Variable('media'),
+        'source': Variable('media', type: VarType.entity),
         // What a press would do next.
         'stateIcon': Variable(
           null,
@@ -417,9 +450,12 @@ final List<Prefab> builtInPrefabs = [
           cases: [VarCase(VarTest.equals, 'true', 'pause')],
           otherwise: 'play',
         ),
-        // Said the short way: one of two things by a comparison.
+        // Who it is by and what is playing it, or only the second.
         'summary': Variable(
-          "{{source.artist == '' ? source.app : source.byline}}",
+          null,
+          when: '{{source.artist}}',
+          cases: [VarCase(VarTest.equals, '', '{{source.app}}')],
+          otherwise: '{{source.artist}} · {{source.app}}',
         ),
       },
       on: const {

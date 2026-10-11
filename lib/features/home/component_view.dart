@@ -29,41 +29,32 @@ class TileFrame extends InheritedWidget {
 /// The look of the tile the components below are part of, for the one of
 /// them that shows its focus.
 class TileLook extends InheritedWidget {
-  const TileLook({
-    super.key,
-    required this.box,
-    required this.bare,
-    required super.child,
-  });
+  const TileLook({super.key, required this.box, required super.child});
 
   final BoxStyle box;
-
-  /// True for line art, which sits straight on the wallpaper with only a
-  /// faint wash to show focus.
-  final bool bare;
 
   static TileLook? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<TileLook>();
 
   @override
-  bool updateShouldNotify(TileLook oldWidget) =>
-      box != oldWidget.box || bare != oldWidget.bare;
+  bool updateShouldNotify(TileLook oldWidget) => box != oldWidget.box;
 }
 
 /// What shows that the tile it is part of has the focus: the frame behind
-/// a picture, or with [whole] the whole of a tile none of whose parts
-/// does.
+/// a picture, or the whole of a tile none of whose parts does.
 class FocusFrame extends StatelessWidget {
-  const FocusFrame({super.key, required this.child, this.whole = false});
+  const FocusFrame({super.key, required this.child, this.bare = false});
 
   final Widget child;
-  final bool whole;
+
+  /// True for no frame behind what is in it, only a faint wash to show
+  /// the focus: line art, which sits straight on the wallpaper.
+  final bool bare;
 
   @override
   Widget build(BuildContext context) {
     final look = TileLook.of(context);
     final box = look?.box ?? BoxStyle.none;
-    final bare = whole || (look?.bare ?? false);
     final focused = TileFocus.of(context) ?? false;
     final fill = styleFill(box);
     final outline = box.border;
@@ -159,12 +150,11 @@ class ComponentView extends ConsumerWidget {
     // now.
     final look = readStyle(ref.watch, c.style, scope.own);
     final box = BoxStyle.of(look);
-    final entity = switch (c.source) {
-      null => null,
-      final source => ref.watch(
-        entitiesProvider.select((all) => all.value?.byId(source)),
-      ),
-    };
+    // What it was handed, where that is one of the entities there are.
+    final handed = c.handed.firstOrNull;
+    final entity = handed == null
+        ? null
+        : ref.watch(entitiesProvider.select((all) => all.value?.byId(handed)));
     final does = TileActions(
       context,
       ref,
@@ -194,7 +184,17 @@ class ComponentView extends ConsumerWidget {
         values: scope.own,
         child: ComponentTile(item: c, shrink: shrink),
       );
-      if (c.options['frame'] == true) content = FocusFrame(child: content);
+      if (c.options['frame'] == true) {
+        // Whether it has a frame behind it is its own to say, as a value.
+        final bare = switch (c.options['bare']) {
+          final String template => readTemplate(ref.watch, template, scope.own),
+          final other => other,
+        };
+        content = FocusFrame(
+          bare: bare == true || bare == 'true',
+          child: content,
+        );
+      }
       final styled = StyledBox(style: box, child: content);
       if (!acts && c.kind != ComponentKind.button.name) return styled;
       return FocusTile(
@@ -223,7 +223,7 @@ class ComponentView extends ConsumerWidget {
 
     // Handed a folder that is set to open in place, it shows what the
     // folder holds where it is, for as long as `open` is set.
-    if (ref.watch(layoutViewProvider).value?.panel(c.source ?? '')
+    if (ref.watch(layoutViewProvider).value?.panel(handed ?? '')
         case final folder?
         when folder.kind == PanelKind.popup &&
             folder.rule('position') == 'inline' &&
@@ -239,10 +239,6 @@ class ComponentView extends ConsumerWidget {
       values: scope.inner,
       child: TileLook(
         box: box,
-        bare: switch (scope.own[Component.sourceVar]) {
-          {'bare': true} => true,
-          _ => false,
-        },
         child: LinePane(pane: c, inner: inLine, focus: focus, popup: popup),
       ),
     );
@@ -275,9 +271,8 @@ class ComponentView extends ConsumerWidget {
                 ? line
                 : TileLook(
                     box: box,
-                    bare: true,
                     child: FocusFrame(
-                      whole: true,
+                      bare: true,
                       child: Padding(
                         padding: EdgeInsets.all(box.padding ?? 8),
                         child: line,

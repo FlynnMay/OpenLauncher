@@ -70,9 +70,10 @@ class SelectedProperties extends ConsumerWidget {
         // have changed; the clock has neither.
         if (single != null &&
             single.isInstance &&
-            (entityKind(entities.byId(single.source)?.kind ?? '')?.placed ??
+            (entityKind(entities.byId(single.handed.firstOrNull)?.kind ?? '')
+                    ?.placed ??
                 false))
-          _EntityDetails(entityId: single.source ?? ''),
+          _EntityDetails(entityId: single.handed.firstOrNull ?? ''),
         if (single != null && allFolders)
           _FolderDetails(
             panel: folders.values.single,
@@ -185,7 +186,7 @@ class SelectedProperties extends ConsumerWidget {
                 spacing: 8,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () => TvScreen.openPopup(single.source!),
+                    onPressed: () => TvScreen.openPopup(folders.keys.single),
                     icon: const Icon(Icons.folder_open_outlined),
                     label: const Text('Open it'),
                   ),
@@ -198,7 +199,9 @@ class SelectedProperties extends ConsumerWidget {
                           ) &&
                           context.mounted) {
                         ref.read(selectionProvider.notifier).clear();
-                        change((layout) => removePanel(layout, single.source!));
+                        change(
+                          (layout) => removePanel(layout, folders.keys.single),
+                        );
                       }
                     },
                     icon: const Icon(Icons.folder_delete_outlined),

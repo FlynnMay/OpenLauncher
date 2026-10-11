@@ -48,7 +48,10 @@ Future<void> placeDragged(
     // Handed the folder it opens, by the id that goes with its name.
     item = item.copyWith(
       id: layout.itemIdFor(name),
-      vars: {...item.vars, Component.sourceVar: Variable(panel.id)},
+      vars: {
+        ...item.vars,
+        Component.sourceVar: Variable(panel.id, type: VarType.entity),
+      },
     );
   }
   await changeLayout(

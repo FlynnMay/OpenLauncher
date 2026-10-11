@@ -12,20 +12,17 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 Entity _entity(String name, {String? icon}) => Entity(
   id: 'app:$name',
   kind: appKind,
-  target: name,
   label: name,
-  iconPath: icon,
+  data: {
+    'package': name,
+    if (icon != null) ...{Entity.icon: icon, Entity.shape: 'icon'},
+  },
 );
 
 void main() {
   group('arrangeEntities', () {
     test('sorts inputs first, then apps, each alphabetically', () {
-      const hdmi = Entity(
-        id: 'input:x/HW1',
-        kind: inputKind,
-        target: 'x/HW1',
-        label: 'HDMI 1',
-      );
+      const hdmi = Entity(id: 'input:x/HW1', kind: inputKind, label: 'HDMI 1');
       final entities = arrangeEntities([
         _entity('Plex'),
         _entity('alpha'),
@@ -39,8 +36,8 @@ void main() {
       final entities = arrangeEntities([
         _entity('Plex', icon: '/auto.png'),
       ], LauncherConfig(iconOverrides: {'app:Plex': '/custom.png'}));
-      expect(entities.single.iconPath, '/custom.png');
-      expect(entities.single.wideIcon, isTrue);
+      expect(entities.single.data[Entity.icon], '/custom.png');
+      expect(entities.single.data[Entity.shape], Entity.banner);
     });
 
     test('an entity can show the picture of another', () {
@@ -57,18 +54,18 @@ void main() {
         ),
       );
       final shim = entities.firstWhere((c) => c.id == 'app:Shim');
-      expect(shim.iconPath, '/custom.png');
-      expect(shim.wideIcon, isTrue);
+      expect(shim.data[Entity.icon], '/custom.png');
+      expect(shim.data[Entity.shape], Entity.banner);
       expect(shim.label, 'Shim');
       expect(
-        entities.firstWhere((c) => c.id == 'app:Plex').iconPath,
+        entities.firstWhere((c) => c.id == 'app:Plex').data[Entity.icon],
         '/shim.png',
       );
 
       final alone = arrangeEntities([
         _entity('Shim', icon: '/shim.png'),
       ], LauncherConfig(iconSources: {'app:Shim': 'app:Gone'}));
-      expect(alone.single.iconPath, '/shim.png');
+      expect(alone.single.data[Entity.icon], '/shim.png');
     });
 
     test('a custom name replaces the label and decides the order', () {
@@ -79,7 +76,7 @@ void main() {
       expect(entities.map((c) => c.label), ['Plex', 'Zebra']);
       expect(entities.last.id, 'app:alpha');
       // What the device calls it is kept, for ids in the layout.
-      expect(entities.map((c) => c.sourceLabel), ['Plex', 'alpha']);
+      expect(entities.map((c) => c.name), ['Plex', 'alpha']);
     });
   });
 
@@ -113,7 +110,7 @@ void main() {
         for (final item in (await container.read(
           layoutViewProvider.future,
         )).home.root.contents)
-          if (all.byId(item.source) case final entity?
+          if (all.byId(item.handed.firstOrNull) case final entity?
               when entity.kind != launcherKind)
             entity,
       ];
@@ -128,7 +125,7 @@ void main() {
       final config = container.read(configProvider.notifier);
       await config.setLayout(Layout.initial(['app:b', 'app:a']));
       expect(await ids(), ['app:b', 'app:a']);
-      expect(store.config.layout.home.items.map((i) => i.source), [
+      expect(store.config.layout.home.items.map((i) => i.handed.firstOrNull), [
         'app:b',
         'app:a',
       ]);
@@ -244,7 +241,8 @@ void main() {
         await actions.run(const Act('open'), subject: app);
         expect(platform.launched.last, 'a');
 
-        await actions.run(const Act('remove'), subject: app);
+        // Taking it off the screen is the layout's to do, told what.
+        await actions.run(const Act('remove', {'what': 'app:a'}));
         expect(await ids(), ['input:tv/HW15', 'app:b']);
       },
     );
@@ -253,7 +251,7 @@ void main() {
       const entity = Component(
         id: 'a',
         prefab: cardPrefabId,
-        vars: {'source': Variable('app:a')},
+        vars: {'source': Variable('app:a', type: VarType.entity)},
       );
       // What an instance does is its prefab's to say, unless it says.
       Triggers does(Component item) =>
@@ -261,7 +259,18 @@ void main() {
       expect(entity.on, isEmpty);
       expect(does(entity), {
         Trigger.press: [const Act('open')],
-        Trigger.hold: [const Act('menu')],
+        Trigger.hold: [
+          const Act('set', {
+            'of': 'quick-actions',
+            'var': 'source',
+            'value': '{{source.id}}',
+          }),
+          const Act('set', {
+            'of': 'quick-actions',
+            'var': 'open',
+            'value': true,
+          }),
+        ],
       });
       final quiet = Component.fromJson({
         ...entity.toJson(),
@@ -311,33 +320,32 @@ void main() {
 
   group('kinds of entity', () {
     test('each presents its own actions, by the names actions go by', () {
-      const app = Entity(id: 'app:a', kind: appKind, target: 'a', label: 'A');
-      const input = Entity(
-        id: 'input:x',
-        kind: inputKind,
-        target: 'x',
-        label: 'X',
-      );
+      const app = Entity(id: 'app:a', kind: appKind, label: 'A');
+      const input = Entity(id: 'input:x', kind: inputKind, label: 'X');
       Set<String> presents(Entity entity) => {
         for (final action in actionKinds)
           if (actionFor(action.name, entity) case final found?
               when actionNeedsEntity(found.name))
             found.name,
       };
-      expect(presents(app), {
-        'open',
-        'info',
-        'forceStop',
-        'uninstall',
-        'menu',
-        'remove',
-      });
-      expect(presents(input), {'open', 'menu', 'remove'});
+      expect(presents(app), {'open', 'info', 'forceStop', 'uninstall'});
+      expect(presents(input), {'open'});
       // The same name, done as each kind does it.
       expect(actionFor('open', app), isNot(same(actionFor('open', input))));
-      // With no entity there is only what the launcher does of itself.
+      // Named no entity, an action is done only where there is one entity
+      // that presents it: the system, the layers. None belongs to nothing.
       expect(actionFor('open', null), isNull);
-      expect(actionFor('settings', null), isNotNull);
+      expect(ownerOf('setup')?.entity.id, 'system');
+      expect(ownerOf('newLayer')?.entity.id, 'layers');
+      expect(ownerOf('set')?.entity.id, 'variables');
+      expect(ownerOf('remove')?.entity.id, 'layout');
+      for (final action in actionKinds) {
+        expect(
+          entityKinds.any((kind) => kind.actions.contains(action)),
+          isTrue,
+          reason: action.name,
+        );
+      }
     });
 
     test('a new kind is one entry, and all the launcher needs', () async {
@@ -350,7 +358,7 @@ void main() {
         placed: true,
         data: (ref, entity) => const {'on': true, 'brightness': 40},
         list: (ref) async => const [
-          Entity(id: 'lamp:desk', kind: 'lamp', target: 'desk', label: 'Desk'),
+          Entity(id: 'lamp:desk', kind: 'lamp', label: 'Desk'),
         ],
         actions: [
           ActionKind(
@@ -378,7 +386,7 @@ void main() {
       expect(all.last.id, 'lamp:desk');
       final view = await container.read(layoutViewProvider.future);
       expect(
-        view.home.root.contents.map((entry) => entry.source),
+        view.home.root.contents.map((entry) => entry.handed.firstOrNull),
         contains('lamp:desk'),
       );
       // What it provides is read like anything else's.
@@ -443,10 +451,14 @@ void main() {
         'weather',
         'location',
         'media',
+        'system',
+        'layers',
+        'variables',
+        'layout',
       ]);
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);
-      expect(view.home.root.contents.map((entry) => entry.source), [
+      expect(view.home.root.contents.map((entry) => entry.handed.firstOrNull), [
         'app:a',
         'launcher:settings',
       ]);
@@ -454,10 +466,17 @@ void main() {
       expect((await data(c, 'clock'))['weekday'], 'Sunday');
     });
 
-    test('an app provides what it is drawn from', () async {
-      final app = await data(container(), 'app:a');
-      expect((app['label'], app['fit'], app['pad']), ('A', 'cover', 0));
-    });
+    test(
+      'an app says what it is, and leaves how it is shown to others',
+      () async {
+        final app = await data(container(), 'app:a');
+        expect((app['label'], app['kind']), ('A', appKind));
+        expect(app['package'], isA<String>());
+        // How its picture sits in a frame is the card's to work out.
+        expect(app.keys, isNot(contains('fit')));
+        expect(app.keys, isNot(contains('pad')));
+      },
+    );
 
     test('the media player says what plays and is told what to do', () async {
       final c = container();
@@ -481,13 +500,15 @@ void main() {
       final app = all.first;
       final actions = c.read(actionRunnerProvider);
       expect(actions.applies(const Act('next'), player), isTrue);
-      expect(actions.applies(const Act('next'), app), isFalse);
-      // Named by a button anywhere, whatever it was set off from.
+      // There is the one player, so it need not be named: a button
+      // anywhere does it, whatever it was set off from.
+      expect(actions.applies(const Act('next'), app), isTrue);
       await actions.run(const Act('next', {'entity': 'media'}), subject: app);
       await actions.run(const Act('playPause'), subject: player);
       await actions.run(const Act('playPause'), subject: app);
       expect(platform.mediaCommands, [
         MediaCommand.next,
+        MediaCommand.playPause,
         MediaCommand.playPause,
       ]);
     });

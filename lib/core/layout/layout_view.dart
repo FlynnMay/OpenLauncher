@@ -13,7 +13,7 @@ Layout layoutWith(Layout layout, List<Entity> entities) => layout.withEntities(
       if (entityKind(entity.kind)?.placed ?? false) entity.id,
   ],
   known: {for (final entity in entities) entity.id},
-  names: {for (final entity in entities) entity.id: entity.sourceLabel},
+  names: {for (final entity in entities) entity.id: entity.name},
 );
 
 /// [config]'s layout matched to the [entities] there are: what the TV

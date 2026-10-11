@@ -17,7 +17,7 @@ class EntityArt extends StatelessWidget {
 
   /// Whether [entity] is drawn as line art with no entity behind it.
   static bool isBare(Entity entity) =>
-      entity.iconPath == null && entity.svg != null;
+      entity.data[Entity.shape] == Entity.lineArt;
 
   @override
   Widget build(BuildContext context) {
@@ -33,20 +33,17 @@ class EntityArt extends StatelessWidget {
         ),
       ),
     );
-    final path = entity.iconPath;
-    if (path == null) {
-      return switch (entity.svg) {
-        null => fallback,
-        final svg => SvgPicture.string(svg, fit: BoxFit.contain),
-      };
-    }
+    final path = entity.data[Entity.icon];
+    if (path is! String) return fallback;
+    if (isBare(entity)) return SvgPicture.string(path, fit: BoxFit.contain);
+    final wide = entity.data[Entity.shape] == Entity.banner;
     final image = Image(
       image: pictureAt(path),
-      fit: entity.wideIcon ? BoxFit.cover : BoxFit.contain,
+      fit: wide ? BoxFit.cover : BoxFit.contain,
       gaplessPlayback: true,
       errorBuilder: (_, _, _) => fallback,
     );
-    return entity.wideIcon
+    return wide
         ? image
         : Padding(padding: EdgeInsets.all(padding), child: image);
   }
@@ -90,7 +87,7 @@ class FolderArt extends ConsumerWidget {
       for (final item
           in ref.watch(layoutViewProvider).value?.panel(folder)?.items ??
               const <Component>[])
-        ?entities.byId(item.source),
+        ?entities.byId(item.handed.firstOrNull),
     ].take(_shown).toList();
     if (preview.isEmpty) return SvgPicture.string(_outline);
     return Padding(

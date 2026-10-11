@@ -18,7 +18,7 @@ Component _item(
     : Component(id: id, kind: kind, w: w, h: h, x: x, y: y);
 
 Entity _entity(String name) =>
-    Entity(id: 'app:$name', kind: appKind, target: name, label: name);
+    Entity(id: 'app:$name', kind: appKind, label: name);
 
 Panel _home(Component root) => Panel(id: 'home', root: root);
 
@@ -156,7 +156,11 @@ void main() {
       );
       expect(root.panes.map((p) => p.id), ['global', 'outer', 'inner']);
       // An entity can sit in the global pane, outside every other.
-      expect(root.contents.map((i) => i.source), ['app:a', 'app:b', 'app:c']);
+      expect(root.contents.map((i) => i.handed.firstOrNull), [
+        'app:a',
+        'app:b',
+        'app:c',
+      ]);
 
       final layout = Layout(inbox: 'inner', panels: [_home(root)]).normalised();
       expect(layout.inbox, 'inner');
@@ -168,10 +172,17 @@ void main() {
       // New entities turn up in the inbox, however deep it is.
       final shown = layout.withEntities(['app:a', 'app:b', 'app:c', 'app:new']);
       final inner = shown.home.root.panes.last;
-      expect(inner.children.map((i) => i.source), ['app:c', 'app:new']);
+      expect(inner.children.map((i) => i.handed.firstOrNull), [
+        'app:c',
+        'app:new',
+      ]);
       // Removing an entity takes it out of every pane.
       expect(
-        shown.without({'app:b', 'app:c'}).home.items.map((i) => i.source),
+        shown
+            .without({'app:b', 'app:c'})
+            .home
+            .items
+            .map((i) => i.handed.firstOrNull),
         ['app:a', 'app:new'],
       );
     });
@@ -240,11 +251,11 @@ void main() {
       expect(a.id, isNot('a'));
       expect((a.x, a.y, a.w, a.h), (2, 2, 2, Component.maxRows));
       expect((half.x, half.y), (null, null));
-      expect(open.source, 'games');
+      expect(open.handed.firstOrNull, 'games');
       // Panes deeper than allowed give their contents to the last that is.
       final depths = games.root.panes.map((p) => p.id).toList();
       expect(depths, hasLength(Component.maxDepth));
-      expect(nested.contents.map((i) => i.source), [
+      expect(nested.contents.map((i) => i.handed.firstOrNull), [
         for (var depth = 2; depth <= 6; depth++) 'app:$depth',
       ]);
       final ids = [
@@ -308,7 +319,10 @@ void main() {
       final layout = Layout.initial(['app:b', 'app:gone'])
           .withEntities(['app:a', 'app:b']);
       final item = layout.home.root.children.single;
-      expect(item.children.map((i) => i.source), ['app:b', 'app:a']);
+      expect(item.children.map((i) => i.handed.firstOrNull), [
+        'app:b',
+        'app:a',
+      ]);
       expect(layout.inbox, item.id);
       // From under the top margin to the bottom one, on a 540-high screen.
       expect(item.h, closeTo(7.7, 0.1));
@@ -406,7 +420,7 @@ void main() {
       expect(clock.kind, 'clock');
       // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.
-      expect(pane.children.single.source, 'app:a');
+      expect(pane.children.single.handed.firstOrNull, 'app:a');
       expect(view.home.root.contents, hasLength(3));
       expect(view.bars, isEmpty);
     });
@@ -429,7 +443,7 @@ void main() {
         ).normalised(),
       );
       final entries = resolveLayout(entities, config).home.root.children;
-      expect(entries.map((e) => e.source), [
+      expect(entries.map((e) => e.handed.firstOrNull), [
         'app:a',
         'app:a',
         'app:b',
@@ -573,7 +587,7 @@ void main() {
 
     test('what is drawn is what the pane decides', () {
       final view = resolveLayout(
-        const [Entity(id: 'app:a', kind: appKind, target: 'a', label: 'A')],
+        const [Entity(id: 'app:a', kind: appKind, label: 'A')],
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
