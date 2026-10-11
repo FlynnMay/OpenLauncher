@@ -208,7 +208,7 @@ class TvApi {
     final icon = data[Entity.icon];
     return Entity(
       id: json['id'] as String,
-      kind: json['kind'] as String,
+      category: json['category'] as String,
       label: json['label'] as String,
       name: json['name'] as String?,
       data: {

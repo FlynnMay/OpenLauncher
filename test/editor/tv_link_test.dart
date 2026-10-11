@@ -33,7 +33,7 @@ class _Tv extends TvApi {
   }
 }
 
-const _entity = Entity(id: 'app:a', kind: appKind, label: 'Alpha');
+const _entity = Entity(id: 'app:a', category: appCategory, label: 'Alpha');
 
 TvState _state() => TvState(
   entities: const [_entity],

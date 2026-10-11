@@ -104,7 +104,7 @@ void main() {
   Future<List<Map<String, dynamic>>> entities() async => [
     for (final Map<String, dynamic> entity in (await state())['entities'])
       // What the device offers: the apps and the inputs.
-      if (entity['kind'] == 'app' || entity['kind'] == 'input') entity,
+      if (entity['category'] == 'app' || entity['category'] == 'input') entity,
   ];
 
   /// The ids of the entities on the TV's home screen, in order.
@@ -115,7 +115,8 @@ void main() {
         layoutViewProvider.future,
       )).home.root.contents)
         if (all.byId(item.handed.firstOrNull) case final entity?
-            when entity.kind == appKind || entity.kind == inputKind)
+            when entity.category == appCategory ||
+                entity.category == inputCategory)
           entity.id,
     ];
   }
@@ -128,7 +129,7 @@ void main() {
     ]);
     expect((await entities()).first, {
       'id': 'input:tv/HW1',
-      'kind': 'input',
+      'category': 'input',
       // What its kind presents.
       'actions': ['open'],
       'label': 'HDMI 1',

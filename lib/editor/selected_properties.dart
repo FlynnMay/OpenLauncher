@@ -70,8 +70,9 @@ class SelectedProperties extends ConsumerWidget {
         // have changed; the clock has neither.
         if (single != null &&
             single.isInstance &&
-            (entityKind(entities.byId(single.handed.firstOrNull)?.kind ?? '')
-                    ?.placed ??
+            (entityRegistry(
+                  entities.byId(single.handed.firstOrNull)?.category ?? '',
+                )?.placed ??
                 false))
           _EntityDetails(entityId: single.handed.firstOrNull ?? ''),
         if (single != null && allFolders)
@@ -285,7 +286,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
                         // Those with a picture to lend: what is put on
                         // the screen as one.
                         if (other.id != entity.id &&
-                            (entityKind(other.kind)?.placed ?? false))
+                            (entityRegistry(other.category)?.placed ?? false))
                           other,
                     ],
                   );

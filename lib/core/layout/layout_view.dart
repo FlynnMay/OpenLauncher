@@ -10,7 +10,7 @@ import 'package:openlauncher/core/layout/layout_repair.dart';
 Layout layoutWith(Layout layout, List<Entity> entities) => layout.withEntities(
   [
     for (final entity in entities)
-      if (entityKind(entity.kind)?.placed ?? false) entity.id,
+      if (entityRegistry(entity.category)?.placed ?? false) entity.id,
   ],
   known: {for (final entity in entities) entity.id},
   names: {for (final entity in entities) entity.id: entity.name},

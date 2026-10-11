@@ -36,7 +36,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     // player: what they do is offered as buttons that do it.
     final standing = [
       for (final entity in all)
-        if (entityKind(entity.kind) case final kind? when !kind.placed) entity,
+        if (entityRegistry(entity.category) case final kind? when !kind.placed)
+          entity,
     ];
     // Named, and given the id that goes with its name, when it is placed.
     final folder = Panel.empty(layout.panelIdFor('Folder'), title: 'Folder');
@@ -44,7 +45,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       Dragged(
         // As the prefab its kind is shown with, at that prefab's size.
         item: () {
-          final prefab = prefabs[entityKind(entity.kind)?.prefab];
+          final prefab = prefabs[entityRegistry(entity.category)?.prefab];
           return Component.of(
             entity.id,
             prefab: prefab?.id ?? cardPrefabId,
@@ -119,7 +120,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           // What only one entity does comes below, already told which.
           if (!standing.any(
             (entity) =>
-                entityKind(entity.kind)!.actions
+                entityRegistry(entity.category)!.actions
                     .any((action) => action.name == kind.name),
           ))
             _Offer(
@@ -130,7 +131,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
               ),
             ),
         for (final entity in standing)
-          for (final action in entityKind(entity.kind)!.actions)
+          for (final action in entityRegistry(entity.category)!.actions)
             _Offer(
               Dragged(
                 item: actionButton(
@@ -165,9 +166,9 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       // Whatever kinds of entity there are, each under what it is called.
       // Those there is a ready way of showing; the rest are read and
       // acted on by what is put on the screen.
-      for (final kind in entityKinds)
+      for (final kind in entityRegistries)
         if (kind.prefab != null)
-          kind.label: entities((entity) => entity.kind == kind.name),
+          kind.label: entities((entity) => entity.category == kind.name),
     };
   }
 

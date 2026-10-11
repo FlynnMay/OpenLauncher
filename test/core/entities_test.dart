@@ -11,7 +11,7 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 
 Entity _entity(String name, {String? icon}) => Entity(
   id: 'app:$name',
-  kind: appKind,
+  category: appCategory,
   label: name,
   data: {
     'package': name,
@@ -22,7 +22,11 @@ Entity _entity(String name, {String? icon}) => Entity(
 void main() {
   group('arrangeEntities', () {
     test('sorts inputs first, then apps, each alphabetically', () {
-      const hdmi = Entity(id: 'input:x/HW1', kind: inputKind, label: 'HDMI 1');
+      const hdmi = Entity(
+        id: 'input:x/HW1',
+        category: inputCategory,
+        label: 'HDMI 1',
+      );
       final entities = arrangeEntities([
         _entity('Plex'),
         _entity('alpha'),
@@ -111,7 +115,7 @@ void main() {
           layoutViewProvider.future,
         )).home.root.contents)
           if (all.byId(item.handed.firstOrNull) case final entity?
-              when entity.kind != launcherKind)
+              when entity.category != launcherCategory)
             entity,
       ];
     }
@@ -320,8 +324,8 @@ void main() {
 
   group('kinds of entity', () {
     test('each presents its own actions, by the names actions go by', () {
-      const app = Entity(id: 'app:a', kind: appKind, label: 'A');
-      const input = Entity(id: 'input:x', kind: inputKind, label: 'X');
+      const app = Entity(id: 'app:a', category: appCategory, label: 'A');
+      const input = Entity(id: 'input:x', category: inputCategory, label: 'X');
       Set<String> presents(Entity entity) => {
         for (final action in actionKinds)
           if (actionFor(action.name, entity) case final found?
@@ -341,7 +345,7 @@ void main() {
       expect(ownerOf('remove')?.entity.id, 'layout');
       for (final action in actionKinds) {
         expect(
-          entityKinds.any((kind) => kind.actions.contains(action)),
+          entityRegistries.any((kind) => kind.actions.contains(action)),
           isTrue,
           reason: action.name,
         );
@@ -349,7 +353,7 @@ void main() {
     });
 
     test('a new kind is one entry, and all the launcher needs', () async {
-      final lamps = EntityKind(
+      final lamps = EntityRegistry(
         name: 'lamp',
         label: 'Lamps',
         // Put on the screen of itself, as an app is, and with data of
@@ -358,7 +362,7 @@ void main() {
         placed: true,
         data: (ref, entity) => const {'on': true, 'brightness': 40},
         list: (ref) async => const [
-          Entity(id: 'lamp:desk', kind: 'lamp', label: 'Desk'),
+          Entity(id: 'lamp:desk', category: 'lamp', label: 'Desk'),
         ],
         actions: [
           ActionKind(
@@ -369,8 +373,8 @@ void main() {
           ),
         ],
       );
-      entityKinds.add(lamps);
-      addTearDown(() => entityKinds.remove(lamps));
+      entityRegistries.add(lamps);
+      addTearDown(() => entityRegistries.remove(lamps));
       final container = ProviderContainer(
         overrides: [
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
@@ -381,7 +385,7 @@ void main() {
       );
       addTearDown(container.dispose);
       final all = await container.read(entitiesProvider.future);
-      final desk = all.firstWhere((entity) => entity.kind == 'lamp');
+      final desk = all.firstWhere((entity) => entity.category == 'lamp');
       // Listed after the kinds that came before it, and placed like any.
       expect(all.last.id, 'lamp:desk');
       final view = await container.read(layoutViewProvider.future);
@@ -399,7 +403,7 @@ void main() {
         'text': 'Desk',
         'id': 'lamp:desk',
         'label': 'Desk',
-        'kind': 'lamp',
+        'category': 'lamp',
         'on': true,
         'brightness': 40,
       });
@@ -470,7 +474,7 @@ void main() {
       'an app says what it is, and leaves how it is shown to others',
       () async {
         final app = await data(container(), 'app:a');
-        expect((app['label'], app['kind']), ('A', appKind));
+        expect((app['label'], app['category']), ('A', appCategory));
         expect(app['package'], isA<String>());
         // How its picture sits in a frame is the card's to work out.
         expect(app.keys, isNot(contains('fit')));

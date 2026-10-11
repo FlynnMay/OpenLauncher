@@ -1,63 +1,52 @@
 import 'package:flutter/foundation.dart';
 
-// The names of the kinds of entity the launcher comes with; what each is
-// and does is in `entity_kinds.dart`, and there may be any number more.
-const appKind = 'app';
-const inputKind = 'input';
-const launcherKind = 'launcher';
+const appCategory = 'app';
+const inputCategory = 'input';
+const launcherCategory = 'launcher';
 
-/// Something that has actions a trigger can use and things to be read: an
-/// app, one of the TV's inputs, the clock, the weather, the launcher
-/// itself, and whatever other kinds there come to be. They are all the one
-/// shape: what it is called, and under [data] whatever its kind says of
-/// it. What can be done with it, and what it has that changes by itself,
-/// are its kind's to say (`entity_kinds.dart`).
+/// Something with actions and readable data: an app, a TV input, the
+/// clock. Its actions and live data come from its category's entry in
+/// `entity_registry.dart`.
 @immutable
 class Entity {
   const Entity({
     required this.id,
-    required this.kind,
+    required this.category,
     required this.label,
     String? name,
     this.data = const {},
   }) : name = name ?? label;
 
-  /// Stable key used by config and the command API, e.g. `app:com.example`.
+  /// e.g. `app:com.example`, `clock`.
   final String id;
+  final String category;
 
-  /// The name of its `EntityKind`.
-  final String kind;
+  /// Display name; the user can change it.
   final String label;
 
-  /// What the device calls it, whatever the user has named it since. The
-  /// ids of what is made from it in the layout come from this, so that
-  /// they say what the thing is.
+  /// The device's own name for it; layout ids are derived from this.
   final String name;
 
-  /// What there is to read of it that only changes when it does, by name:
-  /// an app's `package`, its `icon` and the `shape` of that. Read as
-  /// `{{<id>.<name>}}` like anything else an entity has.
+  /// Static values read as `{{<id>.<key>}}`, e.g. an app's `package`.
   final Map<String, Object?> data;
 
-  /// Under these names in [data], for an entity that has a picture: the
-  /// picture (the path of an image, or SVG markup), and what sort it is.
+  // Keys in [data] for an entity with a picture. The icon is a file path
+  // or SVG markup.
   static const icon = 'icon', shape = 'shape';
 
-  /// The sorts of picture: artwork made for the whole frame, an icon that
-  /// sits in it, and line art, which has no frame behind it.
+  // Values of [shape]: full-frame artwork, or line art with no frame.
+  // Anything else is a padded icon.
   static const banner = 'banner', lineArt = 'line';
 
   static String appId(String packageName) => 'app:$packageName';
   static String inputId(String tvInputId) => 'input:$tvInputId';
 
-  /// The entity that opens the launcher's settings. It can be placed like
-  /// any other; while it is nowhere, the home screen shows a button instead.
+  /// Opens the launcher's settings.
   static const settings = Entity(
     id: 'launcher:settings',
-    kind: launcherKind,
+    category: launcherCategory,
     label: 'Settings',
     data: {
-      // A cog, in the same line drawing as the inputs.
       icon:
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90" '
           'fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" '
@@ -69,14 +58,13 @@ class Entity {
     },
   );
 
-  /// This entity under another name.
   Entity withLabel(String label) =>
-      Entity(id: id, kind: kind, label: label, name: name, data: data);
+      Entity(id: id, category: category, label: label, name: name, data: data);
 
-  /// This entity with [more] to be read of it, over what there was.
+  /// A copy with [more] merged over [data].
   Entity withData(Map<String, Object?> more) => Entity(
     id: id,
-    kind: kind,
+    category: category,
     label: label,
     name: name,
     data: {...data, ...more},
@@ -86,16 +74,15 @@ class Entity {
   bool operator ==(Object other) =>
       other is Entity &&
       other.id == id &&
-      other.kind == kind &&
+      other.category == category &&
       other.label == label &&
       other.name == name &&
       mapEquals(other.data, data);
 
   @override
-  int get hashCode => Object.hash(id, kind, label, name);
+  int get hashCode => Object.hash(id, category, label, name);
 }
 
 extension EntitiesById on Iterable<Entity> {
-  /// The one called [id], if it is among them.
   Entity? byId(String? id) => where((entity) => entity.id == id).firstOrNull;
 }

@@ -1,9 +1,7 @@
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// Draws the picture for an input entity as SVG: a white line drawing on a
-/// transparent background, used as-is by the TV and by the config page.
-///
-/// A trailing number in [label] ("HDMI 2") becomes a badge over the corner.
+/// White line-art SVG for an input. A trailing number in [label]
+/// ("HDMI 2") becomes a corner badge.
 String inputArtworkSvg(TvInputKind kind, String label) {
   final shape = switch (kind) {
     // The outline of an HDMI socket, with its contact bar.
@@ -36,8 +34,7 @@ String inputArtworkSvg(TvInputKind kind, String label) {
       '</svg>';
 }
 
-/// A filled pill holding [text], overlapping the drawing's lower right corner.
-/// One digit makes it a circle.
+/// A filled pill holding [text] over the lower right corner.
 String _badge(String text) {
   const height = 26.0, centreX = 119.0, centreY = 61.0;
   final width = height + (text.length - 1) * 10;

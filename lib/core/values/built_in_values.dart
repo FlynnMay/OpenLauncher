@@ -1,7 +1,7 @@
 /// An entity the launcher has of its own that provides data: the id a
 /// template names it by, what it is called, and the parts it has beside
 /// how it reads whole. What each is at the time is its kind's to say, in
-/// `entity_kinds.dart`; this is what the editor lists them from.
+/// `entity_registry.dart`; this is what the editor lists them from.
 typedef BuiltInValue = ({String root, String label, List<String> parts});
 
 const List<BuiltInValue> builtInValues = [

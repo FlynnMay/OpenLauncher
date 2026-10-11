@@ -43,10 +43,11 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
       for (final entity in entities)
         {
           'id': entity.id,
-          'kind': entity.kind,
+          'category': entity.category,
           // What can be done with it, by the names actions go by.
           'actions': [
-            for (final action in entityKind(entity.kind)?.actions ?? const [])
+            for (final action
+                in entityRegistry(entity.category)?.actions ?? const [])
               action.name,
           ],
           'label': entity.label,

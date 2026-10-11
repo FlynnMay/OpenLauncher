@@ -20,7 +20,7 @@ class _Tv extends TvApi {
   Future<void> setConfig(Map<String, Object?> changed) async {}
 }
 
-const _entity = Entity(id: 'app:a', kind: appKind, label: 'Alpha');
+const _entity = Entity(id: 'app:a', category: appCategory, label: 'Alpha');
 
 void main() {
   Future<WidgetRef> pump(WidgetTester tester, Size size) async {

@@ -1,22 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/entities/entity_kinds.dart';
+import 'package:openlauncher/core/entities/entity_registry.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// Installed apps as reported by the device, refreshed on package changes.
 final installedAppsProvider =
     AsyncNotifierProvider<InstalledAppsNotifier, List<InstalledApp>>(
       InstalledAppsNotifier.new,
     );
 
-/// The TV's own inputs (HDMI ports, tuner); empty on devices without any.
+/// The TV's inputs (HDMI ports, tuner).
 final tvInputsProvider = AsyncNotifierProvider<TvInputsNotifier, List<TvInput>>(
   TvInputsNotifier.new,
 );
 
-/// A list read from the device that is re-read whenever the device says it
-/// changed.
+/// A device list that reloads when the device reports a change.
 abstract class _DeviceListNotifier<T> extends AsyncNotifier<List<T>> {
   Future<List<T>> load(LauncherPlatform platform);
   Stream<void> changes(LauncherPlatform platform);
@@ -26,8 +24,7 @@ abstract class _DeviceListNotifier<T> extends AsyncNotifier<List<T>> {
   @override
   Future<List<T>> build() {
     final platform = ref.watch(launcherPlatformProvider);
-    // The subscription lives as long as the provider, so no change event is
-    // missed while a refresh is in flight.
+    // Subscribed for the provider's lifetime so no change is missed.
     final sub = changes(platform).listen((_) => _refresh(platform));
     ref.onDispose(sub.cancel);
     return load(platform);
@@ -36,7 +33,7 @@ abstract class _DeviceListNotifier<T> extends AsyncNotifier<List<T>> {
   Future<void> _refresh(LauncherPlatform platform) async {
     final generation = ++_generation;
     final next = await AsyncValue.guard(() => load(platform));
-    // Changes arrive in bursts; only the newest query may publish.
+    // Only the newest of a burst of reloads publishes.
     if (ref.mounted && generation == _generation) state = next;
   }
 }
@@ -59,25 +56,22 @@ class TvInputsNotifier extends _DeviceListNotifier<TvInput> {
   Stream<void> changes(LauncherPlatform platform) => platform.inputsChanged;
 }
 
-/// Every entity there is, of every kind, removed ones included, with the
-/// user's pictures and names applied: kind by kind in the order the kinds
-/// are listed, each alphabetically. Where they are shown is up to the
-/// layout.
+/// Every entity of every category, with the user's names and pictures
+/// applied, sorted by category then label.
 final entitiesProvider = FutureProvider<List<Entity>>((ref) async {
   final config = await ref.watch(configProvider.future);
   return arrangeEntities([
-    for (final kind in entityKinds) ...await kind.list(ref),
+    for (final kind in entityRegistries) ...await kind.list(ref),
   ], config);
 });
 
-/// Swaps in the user's pictures and names and sorts the entities the device
-/// offers: inputs before apps, each alphabetically.
+/// Applies the user's pictures and names, then sorts.
 List<Entity> arrangeEntities(List<Entity> available, LauncherConfig config) {
   final pictured = {
     for (final entity in available)
       entity.id: switch (config.iconOverrides[entity.id]) {
         null => entity,
-        // Custom art is assumed to be drawn for the whole frame.
+        // Custom art is treated as full-frame.
         final path => entity.withData({
           Entity.icon: path,
           Entity.shape: Entity.banner,
@@ -87,9 +81,7 @@ List<Entity> arrangeEntities(List<Entity> available, LauncherConfig config) {
   final entities = [
     for (var entity in pictured.values)
       () {
-        // The other entity's picture as it would show by itself: an entity that
-        // borrows in turn is not followed, so there are no chains or loops.
-        // An entity whose source is gone keeps its own until it is back.
+        // Borrowing is one level deep, so no chains or loops.
         if (pictured[config.iconSources[entity.id]] case final source?) {
           entity = entity.withData({
             Entity.icon: source.data[Entity.icon],
@@ -103,8 +95,9 @@ List<Entity> arrangeEntities(List<Entity> available, LauncherConfig config) {
       }(),
   ];
   entities.sort((a, b) {
-    if (a.kind != b.kind) {
-      return entityKindIndex(a.kind).compareTo(entityKindIndex(b.kind));
+    if (a.category != b.category) {
+      return entityRegistryIndex(a.category)
+          .compareTo(entityRegistryIndex(b.category));
     }
     return a.label.toLowerCase().compareTo(b.label.toLowerCase());
   });

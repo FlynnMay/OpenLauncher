@@ -18,7 +18,7 @@ Component _item(
     : Component(id: id, kind: kind, w: w, h: h, x: x, y: y);
 
 Entity _entity(String name) =>
-    Entity(id: 'app:$name', kind: appKind, label: name);
+    Entity(id: 'app:$name', category: appCategory, label: name);
 
 Panel _home(Component root) => Panel(id: 'home', root: root);
 
@@ -587,7 +587,7 @@ void main() {
 
     test('what is drawn is what the pane decides', () {
       final view = resolveLayout(
-        const [Entity(id: 'app:a', kind: appKind, label: 'A')],
+        const [Entity(id: 'app:a', category: appCategory, label: 'A')],
         LauncherConfig(
           layout: Layout(
             inbox: 'main',

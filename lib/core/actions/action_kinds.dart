@@ -15,7 +15,7 @@ const entityArg = 'entity';
 List<ActionKind> get actionKinds {
   final names = <String>{};
   return [
-    for (final kind in entityKinds)
+    for (final kind in entityRegistries)
       for (final action in kind.actions)
         if (names.add(action.name)) action,
   ];
@@ -75,7 +75,7 @@ ActionKind? _among(Iterable<ActionKind>? actions, String name) =>
 /// layers, the system. None for an action of a kind there are many of, as
 /// opening is of apps.
 ({Entity entity, ActionKind action})? ownerOf(String name) {
-  for (final kind in entityKinds) {
+  for (final kind in entityRegistries) {
     if ((kind.one, _among(kind.actions, name)) case (
       final entity?,
       final action?,
@@ -93,7 +93,7 @@ bool actionNeedsEntity(String name) => ownerOf(name) == null;
 /// The action called [name] as [entity] presents it, which is its kind's;
 /// failing that, as the one entity presents it that needs no naming.
 ActionKind? actionFor(String name, Entity? entity) =>
-    _among(entityKind(entity?.kind ?? '')?.actions, name) ??
+    _among(entityRegistry(entity?.category ?? '')?.actions, name) ??
     ownerOf(name)?.action;
 
 final actionRunnerProvider = Provider<ActionRunner>(ActionRunner.new);
@@ -128,7 +128,10 @@ class ActionRunner {
       // Named, and not there: nothing to do it to.
       if (entity == null) return null;
     }
-    var kind = _among(entityKind(entity?.kind ?? '')?.actions, act.name);
+    var kind = _among(
+      entityRegistry(entity?.category ?? '')?.actions,
+      act.name,
+    );
     if (kind == null) {
       // Not that entity's: then the one's that needs no naming.
       final owner = ownerOf(act.name);
