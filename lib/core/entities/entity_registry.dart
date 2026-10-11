@@ -87,9 +87,7 @@ final List<EntityRegistry> entityRegistries = [
         icon: 'play',
         onDevice: true,
         run: (run) async {
-          await run.platform.switchToInput(
-            run.entity!.data['input']! as String,
-          );
+          await run.platform.switchToInput(run.entity.data['input']! as String);
           return null;
         },
       ),
@@ -141,7 +139,7 @@ final List<EntityRegistry> entityRegistries = [
         label: 'Force stop',
         icon: 'stop',
         run: (run) async {
-          final app = run.entity!;
+          final app = run.entity;
           if (await run.platform.forceStopApp(_package(run))) {
             return '${app.label} was stopped.';
           }
@@ -515,7 +513,7 @@ final List<EntityRegistry> entityRegistries = [
   ),
 ];
 
-String _package(ActionRun run) => run.entity!.data['package']! as String;
+String _package(ActionRun run) => run.entity.data['package']! as String;
 
 Place? _place(Ref ref) =>
     ref.watch(configProvider.select((config) => config.value?.place));

@@ -29,7 +29,7 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
-    final said = await _do(ref, const Act('setup'));
+    final said = await _do(ref, 'setup');
     navigator.pop();
     if (!context.mounted || said == null) return;
     // First line is the heading.
@@ -64,16 +64,22 @@ class SettingsScreen extends ConsumerWidget {
       // Enabling needs setup; disabling without it is only possible in TV
       // settings.
       if (enabled) return _runSetup(context, ref);
-      await _do(ref, const Act('tvSettings'));
+      await _do(ref, 'tvSettings');
       return;
     }
-    await _do(ref, Act('homeButton', {'enabled': enabled}));
+    await _do(ref, 'homeButton', {'enabled': enabled});
   }
 
-  /// Runs [act]; returns its message or the error.
-  static Future<String?> _do(WidgetRef ref, Act act) async {
+  /// Has the system entity do [action]; returns its message or the error.
+  static Future<String?> _do(
+    WidgetRef ref,
+    String action, [
+    Map<String, Object?> args = const {},
+  ]) async {
     try {
-      return await ref.read(actionRunnerProvider).run(act);
+      return await ref
+          .read(actionRunnerProvider)
+          .run(Act(action, {entityArg: 'system', ...args}));
     } on Object catch (error) {
       return 'It could not be done\n$error';
     }
@@ -139,7 +145,7 @@ class SettingsScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: const Text('TV settings'),
-                  onTap: () => _do(ref, const Act('tvSettings')),
+                  onTap: () => _do(ref, 'tvSettings'),
                 ),
               ],
             ),

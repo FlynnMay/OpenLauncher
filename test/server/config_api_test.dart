@@ -195,9 +195,12 @@ void main() {
     expect(platform.launched, ['a', 'tv/HW1']);
     // Settings opens on a screen, and there is none here: nothing is done.
     await said(await act('open', on: 'launcher:settings'));
-    expect((await act('open', on: 'app:gone')).statusCode, 404);
-    // Nothing is opened but an entity.
+    // An improper payload is declined: an entity that is not there, or none
+    // named.
+    expect((await act('open', on: 'app:gone')).statusCode, 400);
     expect((await act('open')).statusCode, 400);
+    expect((await act('open', on: '')).statusCode, 400);
+    expect(platform.launched, hasLength(2));
 
     await said(await act('info', on: 'app:a'));
     await said(await act('uninstall', on: 'app:b'));
@@ -222,22 +225,36 @@ void main() {
       'enabled': false,
       'canManage': false,
     });
-    expect(await said(await act('setup')), startsWith('All set\n'));
+    // The system's actions name it too; no owner is guessed.
+    expect((await act('setup')).statusCode, 400);
+    expect((await act('playPause')).statusCode, 400);
+    expect(
+      await said(await act('setup', on: 'system')),
+      startsWith('All set\n'),
+    );
     expect((await state())['homeButton'], {'enabled': true, 'canManage': true});
-    await said(await act('homeButton', more: {'enabled': false}));
+    await said(await act('homeButton', on: 'system', more: {'enabled': false}));
     expect((await state())['homeButton'], {
       'enabled': false,
       'canManage': true,
     });
-    await said(await act('tvSettings'));
+    await said(await act('tvSettings', on: 'system'));
     expect(platform.settingsOpened, 1);
 
     // What is not the device's doing is done all the same: a variable set.
     await said(
-      await act('set', more: {'of': 'lamp', 'var': 'on', 'value': true}),
+      await act(
+        'set',
+        on: 'variables',
+        more: {'of': 'lamp', 'var': 'on', 'value': true},
+      ),
+    );
+    expect(
+      (await act('set', more: {'of': 'lamp', 'var': 'on'})).statusCode,
+      400,
     );
 
-    expect((await act('dance')).statusCode, 400);
+    expect((await act('dance', on: 'system')).statusCode, 400);
     expect((await call('POST', '/api/act', body: {})).statusCode, 400);
   });
 

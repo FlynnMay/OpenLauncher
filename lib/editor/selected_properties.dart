@@ -113,11 +113,6 @@ class SelectedProperties extends ConsumerWidget {
             set: single.on,
             // The prefab's triggers are the defaults.
             usual: {...?ref.watch(prefabsProvider)[single.prefab]?.on},
-            entities: {
-              for (final entity
-                  in ref.watch(entitiesProvider).value ?? const <Entity>[])
-                entity.id: entity.label,
-            },
             onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
         Section(

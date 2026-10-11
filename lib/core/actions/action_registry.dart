@@ -26,7 +26,7 @@ class ActionRun {
   final Act act;
 
   /// The entity doing it.
-  final Entity? entity;
+  final Entity entity;
   final ActionScreen? screen;
   final bool held;
 

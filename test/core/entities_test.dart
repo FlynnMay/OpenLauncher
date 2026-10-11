@@ -7,6 +7,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/features/home/tile_actions.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 Entity _entity(String name, {String? icon}) => Entity(
@@ -170,14 +171,14 @@ void main() {
 
       await container
           .read(actionRunnerProvider)
-          .run(const Act('open'), subject: (await entities()).first);
+          .run(const Act('open', {'entity': 'input:tv/HW15'}));
       expect(platform.launched, ['tv/HW15']);
     });
 
     test('launching an app entity goes to the platform', () async {
       await container
           .read(actionRunnerProvider)
-          .run(const Act('open'), subject: (await entities()).last);
+          .run(const Act('open', {'entity': 'app:b'}));
       expect(platform.launched, ['b']);
     });
 
@@ -191,16 +192,25 @@ void main() {
         await pumpEventQueue();
         final actions = container.read(actionRunnerProvider);
         final [input, app, _] = await entities();
+        // As when the menu is opened for it: its `source` is set.
         Future<List<String>> offered(Entity entity) async {
           final view = await container.read(layoutViewProvider.future);
+          container
+              .read(runtimeVarsProvider.notifier)
+              .set(Layout.menuId, Component.sourceVar, entity.id);
           return [
-            for (final item in view.panel(Layout.menuId)!.items)
-              if (item.on[Trigger.press]!.every(
-                (act) => actions.applies(act, entity),
-              ))
-                item.options['label'] as String,
+            for (final item in offeredFor(
+              view.panel(Layout.menuId)!.root,
+              Layout.menuId,
+              container.read,
+              await container.read(entitiesProvider.future),
+            ))
+              item.options['label'] as String,
           ];
         }
+
+        Future<String?> run(String name, [String? entity]) =>
+            actions.run(Act(name, {'entity': ?entity}));
 
         expect(await offered(app), [
           'Open',
@@ -212,41 +222,36 @@ void main() {
         // An input is not an app: nothing to stop or uninstall.
         expect(await offered(input), ['Open', 'Remove']);
 
-        expect(await actions.run(const Act('uninstall'), subject: app), isNull);
-        expect(
-          await actions.run(const Act('forceStop'), subject: app),
-          contains('A'),
-        );
+        expect(await run('uninstall', app.id), isNull);
+        expect(await run('forceStop', app.id), contains('A'));
         expect(platform.appActions, ['uninstall a', 'stop a']);
-        // Not something done to an input, nor without an entity at all.
-        expect(
-          await actions.run(const Act('uninstall'), subject: input),
-          isNull,
-        );
-        expect(await actions.run(const Act('uninstall')), isNull);
+        // Declined: not an input's to do, no entity named, an entity that
+        // is not there, an action nothing has.
+        final improper = throwsA(isA<ImproperAct>());
+        expect(run('uninstall', input.id), improper);
+        expect(run('uninstall'), improper);
+        expect(run('uninstall', ''), improper);
+        expect(run('uninstall', 'app:gone'), improper);
+        expect(run('teleport', app.id), improper);
+        // Nor is an owner guessed for an action only one entity has.
+        expect(run('setup'), improper);
+        expect(run('playPause'), improper);
+        expect(actions.run(const Act('remove', {'what': 'app:a'})), improper);
+        await pumpEventQueue();
         expect(platform.appActions, hasLength(2));
-        // An action can name its own entity, whatever it was set off from.
-        await actions.run(
-          const Act('info', {'entity': 'app:b'}),
-          subject: input,
-        );
-        expect(platform.appActions.last, 'info b');
-        // One made by a newer launcher does nothing.
-        expect(await actions.run(const Act('teleport'), subject: app), isNull);
 
         // Without ADB the TV's own screen is opened instead.
         platform.canForceStop = false;
-        expect(
-          await actions.run(const Act('forceStop'), subject: app),
-          contains('Force stop'),
-        );
+        expect(await run('forceStop', app.id), contains('Force stop'));
         expect(platform.appActions.last, 'info a');
 
-        await actions.run(const Act('open'), subject: app);
+        await run('open', app.id);
         expect(platform.launched.last, 'a');
 
         // Taking it off the screen is the layout's to do, told what.
-        await actions.run(const Act('remove', {'what': 'app:a'}));
+        await actions.run(
+          const Act('remove', {'entity': 'layout', 'what': 'app:a'}),
+        );
         expect(await ids(), ['input:tv/HW15', 'app:b']);
       },
     );
@@ -262,14 +267,18 @@ void main() {
           resolved(item, {cardPrefabId: builtInPrefabs.first}).on;
       expect(entity.on, isEmpty);
       expect(does(entity), {
-        Trigger.press: [const Act('open')],
+        Trigger.press: [
+          const Act('open', {'entity': '{{source.id}}'}),
+        ],
         Trigger.hold: [
           const Act('set', {
+            'entity': 'variables',
             'of': 'quick-actions',
             'var': 'source',
             'value': '{{source.id}}',
           }),
           const Act('set', {
+            'entity': 'variables',
             'of': 'quick-actions',
             'var': 'open',
             'value': true,
@@ -290,7 +299,9 @@ void main() {
         },
       });
       expect(does(quiet), {
-        Trigger.press: [const Act('open')],
+        Trigger.press: [
+          const Act('open', {'entity': '{{source.id}}'}),
+        ],
         Trigger.hold: <Act>[],
         Trigger.focus: [
           const Act('media', {'command': 'pause'}),
@@ -328,21 +339,23 @@ void main() {
       const input = Entity(id: 'input:x', category: inputCategory, label: 'X');
       Set<String> presents(Entity entity) => {
         for (final action in actionRegistries)
-          if (actionFor(action.name, entity) case final found?
-              when actionNeedsEntity(found.name))
-            found.name,
+          if (actionFor(action.name, entity) != null) action.name,
       };
       expect(presents(app), {'open', 'info', 'forceStop', 'uninstall'});
       expect(presents(input), {'open'});
       // The same name, done as each kind does it.
       expect(actionFor('open', app), isNot(same(actionFor('open', input))));
-      // Named no entity, an action is done only where there is one entity
-      // that presents it: the system, the layers. None belongs to nothing.
-      expect(actionFor('open', null), isNull);
-      expect(ownerOf('setup')?.entity.id, 'system');
-      expect(ownerOf('newLayer')?.entity.id, 'layers');
-      expect(ownerOf('set')?.entity.id, 'variables');
-      expect(ownerOf('remove')?.entity.id, 'layout');
+      // None belongs to nothing: the rest are the system's, the layers'...
+      for (final MapEntry(key: action, value: owner) in const {
+        'setup': 'system',
+        'newLayer': 'layers',
+        'set': 'variables',
+        'remove': 'layout',
+      }.entries) {
+        final entity = entityRegistry(owner)!.one!;
+        expect(actionFor(action, entity), isNotNull, reason: action);
+        expect(actionFor(action, app), isNull, reason: action);
+      }
       for (final action in actionRegistries) {
         expect(
           entityRegistries.any((kind) => kind.actions.contains(action)),
@@ -369,7 +382,7 @@ void main() {
             name: 'toggle',
             label: 'Switch',
             icon: 'light',
-            run: (run) async => '${run.entity!.label} switched',
+            run: (run) async => '${run.entity.label} switched',
           ),
         ],
       );
@@ -410,13 +423,14 @@ void main() {
       // What it presents is offered and done; what apps present is not.
       final actions = container.read(actionRunnerProvider);
       expect(actionRegistries.map((kind) => kind.name), contains('toggle'));
-      expect(actions.applies(const Act('toggle'), desk), isTrue);
-      expect(actions.applies(const Act('uninstall'), desk), isFalse);
+      const toggle = Act('toggle', {'entity': 'lamp:desk'});
+      expect(isProper(toggle, all), isTrue);
       expect(
-        await actions.run(const Act('toggle'), subject: desk),
-        'Desk switched',
+        isProper(const Act('uninstall', {'entity': 'lamp:desk'}), all),
+        isFalse,
       );
-      expect(await actions.run(const Act('uninstall'), subject: desk), isNull);
+      expect(await actions.run(toggle), 'Desk switched');
+      expect(desk.label, 'Desk');
     });
   });
 
@@ -503,16 +517,17 @@ void main() {
       final player = all.firstWhere((entity) => entity.id == 'media');
       final app = all.first;
       final actions = c.read(actionRunnerProvider);
-      expect(actions.applies(const Act('next'), player), isTrue);
-      // There is the one player, so it need not be named: a button
-      // anywhere does it, whatever it was set off from.
-      expect(actions.applies(const Act('next'), app), isTrue);
-      await actions.run(const Act('next', {'entity': 'media'}), subject: app);
-      await actions.run(const Act('playPause'), subject: player);
-      await actions.run(const Act('playPause'), subject: app);
+      expect(actionFor('next', player), isNotNull);
+      expect(actionFor('next', app), isNull);
+      // There is the one player, and it is named all the same.
+      await actions.run(const Act('next', {'entity': 'media'}));
+      await actions.run(const Act('playPause', {'entity': 'media'}));
+      expect(
+        actions.run(Act('playPause', {'entity': app.id})),
+        throwsA(isA<ImproperAct>()),
+      );
       expect(platform.mediaCommands, [
         MediaCommand.next,
-        MediaCommand.playPause,
         MediaCommand.playPause,
       ]);
     });

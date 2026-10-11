@@ -109,13 +109,6 @@ class TvActionRunner extends ActionRunner {
   final TvApi _api;
 
   @override
-  Future<String?> carryOut(ActionRegistry kind, ActionRun run) => kind.onDevice
-      ? _api.act(
-          Act(run.act.name, {
-            ...run.act.args,
-            // The TV needs the entity named.
-            entityArg: ?run.entity?.id,
-          }),
-        )
-      : super.carryOut(kind, run);
+  Future<String?> carryOut(ActionRegistry action, ActionRun run) =>
+      action.onDevice ? _api.act(run.act) : super.carryOut(action, run);
 }

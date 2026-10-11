@@ -11,6 +11,7 @@ import 'package:openlauncher/features/components/component_tile.dart';
 import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/popup_host.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
@@ -136,8 +137,6 @@ class ComponentView extends ConsumerWidget {
             ComponentView(component: inner, focus: focus, popup: popup),
       );
     }
-    // In an entity's menu, buttons act on that entity.
-    final menuOf = ActionSubject.of(context);
     final scope = scopeOf(ref.watch, c.id, c.vars, TemplateScope.of(context));
     final look = readStyle(ref.watch, c.style, scope.own);
     final box = BoxStyle.of(look);
@@ -152,9 +151,10 @@ class ComponentView extends ConsumerWidget {
       component: c.id,
       c.on,
       scope: scope.own,
-      subject: entity ?? menuOf,
       popup: popup,
-      closes: popup != null && (entity != null || menuOf != null),
+      // An entity's tile, or a button of an entity's menu.
+      closes:
+          popup != null && (entity != null || subjectOf(ref, popup!) != null),
     );
     void press() => does.fire(Trigger.press);
     final hold = does.has(Trigger.hold)

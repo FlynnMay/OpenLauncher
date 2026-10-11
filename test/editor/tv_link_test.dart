@@ -36,7 +36,11 @@ class _Tv extends TvApi {
 const _entity = Entity(id: 'app:a', category: appCategory, label: 'Alpha');
 
 TvState _state() => TvState(
-  entities: const [_entity],
+  entities: [
+    _entity,
+    entityRegistry('system')!.one!,
+    entityRegistry('variables')!.one!,
+  ],
   config: LauncherConfig(layout: Layout.initial(['app:a'])),
   components: const [],
 );
@@ -169,25 +173,31 @@ void main() {
       container.listen(entitiesProvider, (_, _) {});
       final actions = container.read(actionRunnerProvider);
 
-      // Set off from an entity, the TV is told which.
+      // The TV is sent the act as written, entity and all.
       expect(
-        await actions.run(const Act('forceStop'), subject: _entity),
+        await actions.run(const Act('forceStop', {'entity': 'app:a'})),
         'Alpha was stopped.',
       );
-      await actions.run(const Act('info', {'entity': 'app:a'}));
-      await actions.run(const Act('homeButton', {'enabled': false}));
-      await actions.run(const Act('setup'));
+      await actions.run(
+        const Act('homeButton', {'entity': 'system', 'enabled': false}),
+      );
       expect(tv.sent, [
         '{do: forceStop, entity: app:a}',
-        '{do: info, entity: app:a}',
-        // What no entity was named for is the system's, and the TV is told.
-        '{do: homeButton, enabled: false, entity: system}',
-        '{do: setup, entity: system}',
+        '{do: homeButton, entity: system, enabled: false}',
       ]);
+      // One that names no entity is declined here and never sent.
+      expect(actions.run(const Act('setup')), throwsA(isA<ImproperAct>()));
 
       // Setting a variable is the page's own business.
-      await actions.run(const Act('set', {'of': 'x', 'var': 'on', 'value': 1}));
-      expect(tv.sent, hasLength(4));
+      await actions.run(
+        const Act('set', {
+          'entity': 'variables',
+          'of': 'x',
+          'var': 'on',
+          'value': 1,
+        }),
+      );
+      expect(tv.sent, hasLength(2));
     },
   );
 

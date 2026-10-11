@@ -4,6 +4,7 @@ import 'package:openlauncher/core/config/migrations/save_json.dart';
 import 'package:openlauncher/core/config/migrations/v14_to_v15.dart';
 import 'package:openlauncher/core/config/migrations/v15_to_v16.dart';
 import 'package:openlauncher/core/config/migrations/v16_to_v17.dart';
+import 'package:openlauncher/core/config/migrations/v17_to_v18.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -12,7 +13,7 @@ export 'save_json.dart' show Device, Json;
 /// To change the saved format: add a [Migration] to the end of [migrations]
 /// with its rules in a new file, bump this, and have the models read and
 /// write only the new form. Never edit a shipped step.
-const saveVersion = 17;
+const saveVersion = 18;
 
 /// The oldest version that can still be migrated.
 const oldestVersion = 14;
@@ -67,6 +68,14 @@ const migrations = [
         'A variable says what sort of thing it holds; one that stands for '
         'an entity says so.',
     rules: [variablesTyped],
+  ),
+  Migration(
+    from: 17,
+    to: 18,
+    what:
+        'Every action names the entity that does it; one that names none '
+        'is declined.',
+    rules: [actionsTargeted],
   ),
 ];
 

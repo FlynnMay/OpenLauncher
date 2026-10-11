@@ -16,8 +16,14 @@ enum Trigger {
   final String label;
 }
 
-/// One saved action: an `ActionRegistry` name plus its arguments, such as the
-/// `entity` that does it.
+/// The argument naming the entity that does an action. Every act has one.
+const entityArg = 'entity';
+
+/// [entityArg] for the entity a tile's `source` variable holds.
+const sourceEntity = '{{source.id}}';
+
+/// One saved action: an `ActionRegistry` name, the [entityArg] that does it
+/// and its other arguments.
 @immutable
 class Act {
   const Act(this.name, [this.args = const {}]);

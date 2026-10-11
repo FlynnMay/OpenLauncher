@@ -35,7 +35,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     // are offered as buttons.
     final standing = [
       for (final entity in all)
-        if (entityRegistry(entity.category) case final kind? when !kind.placed)
+        if (entityRegistry(entity.category) case final registry?
+            when !registry.placed)
           entity,
     ];
     // Named and given its final id when placed.
@@ -114,18 +115,21 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       ],
       // One button per action.
       'Buttons': [
-        for (final kind in actionRegistries)
-          // Actions of a single entity are listed below, already targeted.
-          if (!standing.any(
-            (entity) =>
-                entityRegistry(entity.category)!.actions
-                    .any((action) => action.name == kind.name),
-          ))
+        for (final action in actionRegistries)
+          // Actions of a single entity are listed below.
+          if (!standing.any((entity) => actionFor(action.name, entity) != null))
             _Offer(
               Dragged(
-                item: actionButton(layout.itemIdFor(kind.label), kind),
-                label: kind.label,
-                picture: SymbolArt(tileIcons[kind.icon] ?? Icons.smart_button),
+                // For use where a `source` is in reach: a prefab, a menu.
+                item: actionButton(
+                  layout.itemIdFor(action.label),
+                  action,
+                  entity: sourceEntity,
+                ),
+                label: action.label,
+                picture: SymbolArt(
+                  tileIcons[action.icon] ?? Icons.smart_button,
+                ),
               ),
             ),
         for (final entity in standing)
@@ -162,9 +166,11 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
       ],
       // Every entity category that has a prefab.
-      for (final kind in entityRegistries)
-        if (kind.prefab != null)
-          kind.label: entities((entity) => entity.category == kind.name),
+      for (final registry in entityRegistries)
+        if (registry.prefab != null)
+          registry.label: entities(
+            (entity) => entity.category == registry.name,
+          ),
     };
   }
 

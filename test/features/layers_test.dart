@@ -122,8 +122,8 @@ void main() {
     // Told to blur what is under it, the layer does.
     ref = await show(const {
       Trigger.reveal: [
-        Act('newLayer', {'blur': 8, 'dim': 0.2}),
-        Act('toLayer'),
+        Act('newLayer', {'entity': 'layers', 'blur': 8, 'dim': 0.2}),
+        Act('toLayer', {'entity': 'layers'}),
       ],
     });
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);

@@ -244,15 +244,23 @@ final List<Prefab> builtInPrefabs = [
       rules: const {'gap': 6},
       vars: const {'source': Variable(null, type: VarType.entity)},
       on: const {
-        Trigger.press: [Act('open')],
+        Trigger.press: [
+          Act('open', {entityArg: sourceEntity}),
+        ],
         // Opens the quick actions for this entity.
         Trigger.hold: [
           Act('set', {
+            entityArg: 'variables',
             'of': 'quick-actions',
             'var': 'source',
             'value': '{{source.id}}',
           }),
-          Act('set', {'of': 'quick-actions', 'var': 'open', 'value': true}),
+          Act('set', {
+            entityArg: 'variables',
+            'of': 'quick-actions',
+            'var': 'open',
+            'value': true,
+          }),
         ],
       },
       const [
@@ -288,7 +296,12 @@ final List<Prefab> builtInPrefabs = [
       vars: const {'source': Variable(null, type: VarType.entity)},
       on: const {
         Trigger.press: [
-          Act('set', {'var': 'open', 'value': true, 'of': '{{source.id}}'}),
+          Act('set', {
+            entityArg: 'variables',
+            'var': 'open',
+            'value': true,
+            'of': '{{source.id}}',
+          }),
         ],
       },
       const [
@@ -430,7 +443,9 @@ final List<Prefab> builtInPrefabs = [
         ),
       },
       on: const {
-        Trigger.press: [Act('playPause')],
+        Trigger.press: [
+          Act('playPause', {entityArg: sourceEntity}),
+        ],
       },
       [
         const Component(

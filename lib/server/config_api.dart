@@ -211,27 +211,17 @@ class ConfigApi {
     }
   }
 
-  /// Runs the action in the body and answers `{message}`. There is no screen,
-  /// so screen-only actions do nothing.
+  /// Runs the action in the body and answers `{message}`; 400 if it names no
+  /// entity that can do it. There is no screen, so screen-only actions do
+  /// nothing.
   Future<Response> _act(Map<String, Object?> body) async {
     final act = Act.fromJson(body);
     if (act == null) throw const FormatException('"do" must name an action');
-    Entity? entity;
-    if (body.containsKey(entityArg)) {
-      final entities = await _ref.read(entitiesProvider.future);
-      entity = entities.byId(act.arg(entityArg));
-      if (entity == null) return _error(404, 'Unknown entity');
-    }
-    if (actionFor(act.name, entity) == null) {
-      throw FormatException(
-        entity == null
-            ? 'There is no "${act.name}" to do'
-            : 'That entity has no "${act.name}"',
-      );
-    }
     try {
       final message = await _ref.read(actionRunnerProvider).run(act);
       return Response.ok(jsonEncode({'message': message}), headers: _json);
+    } on ImproperAct {
+      rethrow;
     } on Exception catch (e) {
       return _error(502, 'The TV could not do that: $e');
     }

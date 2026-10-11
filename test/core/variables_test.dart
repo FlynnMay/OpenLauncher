@@ -202,6 +202,7 @@ void main() {
       );
       addTearDown(held.close);
       const flip = Act('set', {
+        'entity': 'variables',
         'var': 'on',
         'value': '{{lamp.on == true ? false : true}}',
       });
@@ -212,7 +213,12 @@ void main() {
       await pumpEventQueue();
       // Set on another by naming it.
       await actions.run(
-        const Act('set', {'var': 'on', 'value': true, 'of': 'lamp'}),
+        const Act('set', {
+          'entity': 'variables',
+          'var': 'on',
+          'value': true,
+          'of': 'lamp',
+        }),
         component: 'elsewhere',
       );
       await pumpEventQueue();
@@ -344,7 +350,14 @@ void main() {
       // Opened by its variable, as a press on what opens it does.
       await c
           .read(actionRunnerProvider)
-          .run(const Act('set', {'var': 'open', 'value': true, 'of': 'games'}));
+          .run(
+            const Act('set', {
+              'entity': 'variables',
+              'var': 'open',
+              'value': true,
+              'of': 'games',
+            }),
+          );
       expect(reads("{{games.open == true ? 'open' : 'shut'}}"), 'open');
     });
 

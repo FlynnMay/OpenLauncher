@@ -49,15 +49,24 @@ void main() {
     expect(drawn.all.every((part) => !part.hidden), isTrue);
     // Its variables and triggers are the prefab's, with its own over them.
     expect(drawn.handed.firstOrNull, 'app:a');
+    // Each act names who does it: the entity it was handed, the variables.
     expect(drawn.on, {
-      Trigger.press: [const Act('open')],
+      Trigger.press: [
+        const Act('open', {'entity': '{{source.id}}'}),
+      ],
       Trigger.hold: [
         const Act('set', {
+          'entity': 'variables',
           'of': 'quick-actions',
           'var': 'source',
           'value': '{{source.id}}',
         }),
-        const Act('set', {'of': 'quick-actions', 'var': 'open', 'value': true}),
+        const Act('set', {
+          'entity': 'variables',
+          'of': 'quick-actions',
+          'var': 'open',
+          'value': true,
+        }),
       ],
     });
     // What is not an instance is itself.
@@ -91,7 +100,9 @@ void main() {
     );
     expect(part(item, 'picture').hidden, isTrue);
     expect(drawn.on[Trigger.hold], isEmpty);
-    expect(drawn.on[Trigger.press], [const Act('open')]);
+    expect(drawn.on[Trigger.press], [
+      const Act('open', {'entity': '{{source.id}}'}),
+    ]);
 
     // The prefab changes: the instance follows, but for what it set.
     final changed = {
@@ -150,7 +161,12 @@ void main() {
     // What it does is set the `open` of whatever it was handed: said in
     // the prefab, against its `source`, like anything else.
     expect(resolved(folder, prefabs).on[Trigger.press], [
-      const Act('set', {'var': 'open', 'value': true, 'of': '{{source.id}}'}),
+      const Act('set', {
+        'entity': 'variables',
+        'var': 'open',
+        'value': true,
+        'of': '{{source.id}}',
+      }),
     ]);
     expect(folder.handed.firstOrNull, 'games');
   });
@@ -436,7 +452,10 @@ void main() {
         },
       });
       expect(tv.options, isEmpty);
-      expect(tv.on[Trigger.hold], [const Act('info')]);
+      // It named no entity, so it was done to what the card was handed.
+      expect(tv.on[Trigger.hold], [
+        const Act('info', {'entity': '{{source.id}}'}),
+      ]);
       expect((label.kind, label.w), ('text', 2));
       expect(label.options, {'text': '{{clock.time}}'});
       expect(label.style, {'fontSize': 30});
@@ -522,12 +541,18 @@ void main() {
           'of': 'quick-actions',
           'var': 'source',
           'value': 'app:a',
+          'entity': 'variables',
         }),
-        const Act('set', {'of': 'quick-actions', 'var': 'open', 'value': true}),
+        const Act('set', {
+          'of': 'quick-actions',
+          'var': 'open',
+          'value': true,
+          'entity': 'variables',
+        }),
         const Act('forceStop', {'entity': 'app:a'}),
       ]);
       expect(button.on[Trigger.hold], [
-        const Act('remove', {'what': '{{source.id}}'}),
+        const Act('remove', {'what': '{{source.id}}', 'entity': 'layout'}),
       ]);
       // The quick actions say what they are about, for what is in them.
       expect(layout.panel(Layout.menuId)!.root.vars.keys, [
@@ -573,6 +598,85 @@ void main() {
       );
       expect(bare.handed, isEmpty);
       expect(resolved(bare, prefabs).handed, ['app:b']);
+    });
+
+    test('an action that named no entity names the one that did it', () {
+      Map<String, Object?> on(List<Map<String, Object?>> press) => {
+        'press': press,
+      };
+      final config = LauncherConfig.fromJson({
+        'v': 17,
+        'layout': {
+          'v': 17,
+          'inbox': 'home/root',
+          'panels': [
+            {
+              'id': 'home',
+              'root': {
+                'id': 'home/root',
+                'kind': 'pane',
+                'on': {
+                  'reveal': [
+                    {'do': 'newLayer', 'dim': 0.5},
+                    {'do': 'toLayer'},
+                  ],
+                },
+                'children': [
+                  {
+                    'id': 'b',
+                    'kind': 'button',
+                    'on': on([
+                      {'do': 'open'},
+                      {'do': 'uninstall', 'entity': ''},
+                      {'do': 'info', 'entity': 'app:b'},
+                      {'do': 'playPause'},
+                      {'do': 'set', 'var': 'open', 'value': true},
+                      {'do': 'remove', 'what': 'app:a'},
+                      {'do': 'homeButton', 'enabled': false},
+                    ]),
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        'prefabs': [
+          {
+            'id': 'mine',
+            'name': 'Mine',
+            'root': {
+              'id': 'root',
+              'kind': 'button',
+              'on': on([
+                {'do': 'forceStop'},
+              ]),
+            },
+          },
+        ],
+      });
+      final root = config.layout.home.root;
+      List<(String, String?)> said(List<Act> acts) => [
+        for (final act in acts) (act.name, act.arg(entityArg)),
+      ];
+      expect(said(root.on[Trigger.reveal]!), [
+        ('newLayer', 'layers'),
+        ('toLayer', 'layers'),
+      ]);
+      expect(root.on[Trigger.reveal]!.first.args['dim'], 0.5);
+      // What only one entity does is its; the rest were done to what the
+      // tile was handed. One that named an entity keeps it.
+      expect(said(root.children.single.on[Trigger.press]!), [
+        ('open', '{{source.id}}'),
+        ('uninstall', '{{source.id}}'),
+        ('info', 'app:b'),
+        ('playPause', 'media'),
+        ('set', 'variables'),
+        ('remove', 'layout'),
+        ('homeButton', 'system'),
+      ]);
+      expect(said(config.prefabs.single.on[Trigger.press]!), [
+        ('forceStop', '{{source.id}}'),
+      ]);
     });
 
     test('from before the oldest step there is, it is not read', () {

@@ -6,32 +6,31 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 
-/// The entity a menu was opened for; its buttons act on it.
-class ActionSubject extends InheritedWidget {
-  const ActionSubject({super.key, required this.entity, required super.child});
+/// [act] with the templates in its arguments read in [scope].
+Act actIn(Act act, Watch watch, Map<String, Object?> scope) => Act(act.name, {
+  for (final MapEntry(:key, :value) in act.args.entries)
+    key: value is String && value.contains('{{')
+        ? readTemplate(watch, value, scope)
+        : value,
+});
 
-  final Entity entity;
-
-  static Entity? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<ActionSubject>()?.entity;
-
-  @override
-  bool updateShouldNotify(ActionSubject oldWidget) =>
-      entity != oldWidget.entity;
-}
-
-/// The children of [root] whose actions all apply to [subject].
+/// The children of the pane [root] of [owner] whose press can be done as
+/// its variables stand.
 List<Component> offeredFor(
   Component root,
-  Entity subject,
-  ActionRunner actions,
-) => [
-  for (final item in root.children)
-    if ((item.on[Trigger.press] ?? const []).every(
-      (act) => actions.applies(act, subject),
-    ))
-      item,
-];
+  String owner,
+  Watch watch,
+  Iterable<Entity> entities,
+) {
+  final scope = scopeOf(watch, owner, root.vars, const {}).inner;
+  return [
+    for (final item in root.children)
+      if ((item.on[Trigger.press] ?? const []).every(
+        (act) => isProper(actIn(act, watch, scope), entities),
+      ))
+        item,
+  ];
+}
 
 /// Runs a tile's triggers.
 class TileActions {
@@ -41,7 +40,6 @@ class TileActions {
     this.triggers, {
     this.component,
     this.scope = const {},
-    this.subject,
     this.popup,
     this.closes = false,
   });
@@ -54,9 +52,6 @@ class TileActions {
   final Map<String, Object?> scope;
 
   final String? component;
-
-  /// The default entity for actions that name none.
-  final Entity? subject;
 
   /// The hovering folder the tile is in, if any.
   final String? popup;
@@ -82,27 +77,25 @@ class TileActions {
     if (closed) close();
     final screen = _Screen(navigator, closed ? () {} : close);
     for (final act in acts) {
+      final told = actIn(act, _ref.read, scope);
       String? message;
       try {
         message = await actions.run(
-          // Arguments with templates evaluated.
-          Act(act.name, {
-            for (final MapEntry(:key, :value) in act.args.entries)
-              key: value is String && value.contains('{{')
-                  ? readTemplate(_ref.read, value, scope)
-                  : value,
-          }),
-          subject: subject,
+          told,
           screen: screen,
           held: held,
           component: component,
         );
       } on Object catch (error) {
         final what = actionRegistry(act.name)?.label.toLowerCase() ?? act.name;
+        final entity = _ref
+            .read(entitiesProvider)
+            .value
+            ?.byId(told.arg(entityArg));
         message = [
           'Could not $what',
-          if (subject case final entity?) ' ${entity.label}',
-          ': $error',
+          if (entity != null) ' ${entity.label}',
+          ': ${error is FormatException ? error.message : error}',
         ].join();
       }
       if (message != null) {

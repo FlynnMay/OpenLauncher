@@ -34,9 +34,14 @@ class _PopupHostState extends ConsumerState<PopupHost> {
         panelTriggersOf(panel)[open ? Trigger.reveal : Trigger.hide] ??
         const <Act>[];
     final actions = ref.read(actionRunnerProvider);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     for (final act in acts) {
       if (!mounted) return;
-      await actions.run(act, component: panel.id);
+      try {
+        await actions.run(act, component: panel.id);
+      } on ImproperAct catch (error) {
+        messenger?.showSnackBar(SnackBar(content: Text(error.message)));
+      }
     }
   }
 
@@ -50,16 +55,11 @@ class _PopupHostState extends ConsumerState<PopupHost> {
       if (open == (_was[id] ?? false)) continue;
       // A menu with no applicable actions is not shown.
       if (open) {
-        final subject = switch (all[id]?[Component.sourceVar]) {
-          final String source => ref.read(entitiesProvider).value?.byId(source),
-          _ => null,
-        };
-        if (subject != null &&
-            offeredFor(
-              panel.root,
-              subject,
-              ref.read(actionRunnerProvider),
-            ).isEmpty) {
+        final entities = ref.read(entitiesProvider).value ?? const <Entity>[];
+        final source = all[id]?[Component.sourceVar];
+        if (source is String &&
+            entities.byId(source) != null &&
+            offeredFor(panel.root, id, ref.read, entities).isEmpty) {
           Future.microtask(() => vars.set(id, openVar, false));
           continue;
         }

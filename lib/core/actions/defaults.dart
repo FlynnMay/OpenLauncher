@@ -9,20 +9,22 @@ import 'package:openlauncher/core/variables/variable.dart';
 /// shown and the layer closes when hidden.
 Triggers usualPanelTriggers(Panel panel) => switch (panel.kind) {
   PanelKind.sidebar => const {
-    Trigger.reveal: [Act('newLayer'), Act('toLayer')],
-    Trigger.hide: [Act('closeLayer')],
+    Trigger.reveal: [Act('newLayer', _layers), Act('toLayer', _layers)],
+    Trigger.hide: [Act('closeLayer', _layers)],
   },
   // A hovering folder dims what is below and takes the focus. An in-place one
   // needs no layer.
   PanelKind.popup when panel.rule('position') != 'inline' => const {
     Trigger.reveal: [
-      Act('newLayer', {'dim': 0.54, 'modal': true}),
-      Act('toLayer'),
+      Act('newLayer', {..._layers, 'dim': 0.54, 'modal': true}),
+      Act('toLayer', _layers),
     ],
-    Trigger.hide: [Act('closeLayer')],
+    Trigger.hide: [Act('closeLayer', _layers)],
   },
   _ => const {},
 };
+
+const _layers = {entityArg: 'layers'};
 
 /// The pane's own chains over the defaults.
 Triggers panelTriggersOf(Panel panel) => {
@@ -30,25 +32,31 @@ Triggers panelTriggersOf(Panel panel) => {
   ...panel.root.on,
 };
 
-/// A button that runs [kind], optionally on [entity].
+/// A button that has [entity] do [action].
 Component actionButton(
   String id,
-  ActionRegistry kind, {
-  String? entity,
+  ActionRegistry action, {
+  required String entity,
   Map<String, Object?> args = const {},
 }) => Component(
   id: id,
   kind: ComponentRegistry.button.name,
-  options: {'label': kind.label, 'icon': kind.icon},
+  options: {'label': action.label, 'icon': action.icon},
   on: {
     Trigger.press: [
-      Act(kind.name, {entityArg: ?entity, ...args}),
+      Act(action.name, {entityArg: entity, ...args}),
     ],
   },
 );
 
-/// The default quick actions, in order.
-const usualMenu = ['open', 'info', 'forceStop', 'uninstall', 'remove'];
+/// The default quick actions in order, each with the entity that does it.
+const usualMenu = {
+  'open': sourceEntity,
+  'info': sourceEntity,
+  'forceStop': sourceEntity,
+  'uninstall': sourceEntity,
+  'remove': 'layout',
+};
 
 /// The default quick-actions popup.
 Panel usualMenuPanel() => Panel(
@@ -61,12 +69,13 @@ Panel usualMenuPanel() => Panel(
     // Set to the entity the menu was opened for.
     vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
     children: [
-      for (final name in usualMenu)
-        if (actionRegistry(name) case final kind?)
+      for (final MapEntry(key: name, value: entity) in usualMenu.entries)
+        if (actionRegistry(name) case final action?)
           actionButton(
-            '${Layout.menuId}-${kind.name.toLowerCase()}',
-            kind,
-            args: {if (name == 'remove') 'what': '{{source.id}}'},
+            '${Layout.menuId}-${name.toLowerCase()}',
+            action,
+            entity: entity,
+            args: {if (name == 'remove') 'what': sourceEntity},
           ),
     ],
   ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/component_view.dart';
@@ -42,8 +41,9 @@ class PanelPopup extends ConsumerWidget {
         : panel.root.copyWith(
             children: offeredFor(
               panel.root,
-              subject,
-              ref.watch(actionRunnerProvider),
+              panelId,
+              ref.watch,
+              ref.watch(entitiesProvider).value ?? const [],
             ),
           );
     final title = switch (panel.title) {
@@ -116,8 +116,7 @@ class PanelPopup extends ConsumerWidget {
         ),
       ),
     );
-    final held = _Held(child: popup);
-    return subject == null ? held : ActionSubject(entity: subject, child: held);
+    return _Held(child: popup);
   }
 }
 
