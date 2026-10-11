@@ -15,7 +15,7 @@ Triggers usualPanelTriggers(Panel panel) => switch (panel.kind) {
   },
   // A folder hovers over the screen: a layer that darkens what is under
   // it and keeps the focus. One set to open in place needs no layer.
-  PanelKind.popup when panel.position != PopupPosition.inline => const {
+  PanelKind.popup when panel.rule('position') != 'inline' => const {
     Trigger.reveal: [
       Act('newLayer', {'dim': 0.54, 'modal': true}),
       Act('toLayer'),
@@ -55,12 +55,11 @@ const usualMenu = ['open', 'info', 'forceStop', 'uninstall', 'remove'];
 /// like any folder, holding a button for each action.
 Panel usualMenuPanel() => Panel(
   id: Layout.menuId,
-  size: PopupSize.small,
+  rules: const {'size': 'small'},
   root: Pane(
     id: Panel.rootId(Layout.menuId),
     columns: 1,
-    rowHeight: 40,
-    spacing: 4,
+    rules: const {'rowHeight': 40, 'spacing': 4},
     items: [
       for (final name in usualMenu)
         if (actionKind(name) case final kind?)

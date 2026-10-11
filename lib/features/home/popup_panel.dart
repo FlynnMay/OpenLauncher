@@ -19,14 +19,17 @@ class PanelPopup extends ConsumerWidget {
 
   /// The share of the screen's width and height a popup may take.
   static (double, double) _extent(Panel panel) {
-    final step = panel.size.index;
-    return switch (panel.position) {
-      // One shown in place never comes here; were it to, as the usual.
-      PopupPosition.center ||
-      PopupPosition.inline => (const [0.45, 0.62, 0.86][step], 0.8),
-      PopupPosition.bottom => (1, const [0.34, 0.5, 0.72][step]),
-      PopupPosition.left ||
-      PopupPosition.right => (const [0.26, 0.36, 0.5][step], 1),
+    final step = switch (panel.rule('size')) {
+      'small' => 0,
+      'large' => 2,
+      _ => 1,
+    };
+    return switch (panel.rule('position')) {
+      'bottom' => (1, const [0.34, 0.5, 0.72][step]),
+      'left' || 'right' => (const [0.26, 0.36, 0.5][step], 1),
+      // In the middle. One shown in place never comes here; were it to,
+      // as the usual.
+      _ => (const [0.45, 0.62, 0.86][step], 0.8),
     };
   }
 
@@ -59,17 +62,16 @@ class PanelPopup extends ConsumerWidget {
     };
     final screen = MediaQuery.sizeOf(context);
     final (width, height) = _extent(panel);
-    final centred =
-        panel.position == PopupPosition.center ||
-        panel.position == PopupPosition.inline;
+    final position = panel.rule('position');
+    final centred = !const {'bottom', 'left', 'right'}.contains(position);
     final focus = FirstFocus();
     final popup = TileTraversal(
       child: Align(
-        alignment: switch (panel.position) {
-          PopupPosition.center || PopupPosition.inline => Alignment.center,
-          PopupPosition.bottom => Alignment.bottomCenter,
-          PopupPosition.left => Alignment.centerLeft,
-          PopupPosition.right => Alignment.centerRight,
+        alignment: switch (position) {
+          'bottom' => Alignment.bottomCenter,
+          'left' => Alignment.centerLeft,
+          'right' => Alignment.centerRight,
+          _ => Alignment.center,
         },
         child: Material(
           color: const Color(0xFA1A1C23),

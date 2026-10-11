@@ -115,7 +115,7 @@ class EntryTile extends ConsumerWidget {
         final layout = ref.watch(layoutViewProvider).value;
         if (layout?.panels[entry.item.source] case final folder?
             when folder.panel.kind == PanelKind.popup &&
-                folder.panel.position == PopupPosition.inline &&
+                folder.panel.rule('position') == 'inline' &&
                 ref.watch(
                   runtimeVarsProvider.select(
                     (all) => all[folder.panel.id]?[openVar] == true,

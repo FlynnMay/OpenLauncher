@@ -98,7 +98,7 @@ class SelectedProperties extends ConsumerWidget {
                 each((item) => item.copyWith(options: options)),
           ),
         if (single != null && single.kind == ItemKind.prefab) ...[
-          if (found.single.parent.rules.containsKey(prefabIdOf(single)))
+          if (found.single.parent.prefabRules.containsKey(prefabIdOf(single)))
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
@@ -194,8 +194,8 @@ class SelectedProperties extends ConsumerWidget {
           Section('Folder', [
             // Its rules as a pane that is shown and hidden.
             ...ruleFields(
-              options: panelRules(folders.values.first),
-              json: folders.values.first.toJson(),
+              options: panelRules(folders.values.first.kind),
+              json: folders.values.first.rules,
               onChanged: (key, value) =>
                   eachFolder((panel) => withPanelRule(panel, key, value)),
             ),

@@ -157,7 +157,7 @@ void main() {
               Panel(
                 id: 'games',
                 title: 'Games',
-                position: PopupPosition.bottom,
+                rules: const {'position': 'bottom'},
                 root: Pane(id: 'in', items: [entity('pkg.b')]),
               ),
             ],
@@ -471,8 +471,14 @@ void main() {
     });
 
     testWidgets('a sidebar opens the way it is set to', (tester) async {
-      for (final opening in BarOpening.values) {
-        for (final reveal in BarReveal.values) {
+      List<String> choices(String rule) => [
+        ...panelRules(PanelKind.sidebar)
+            .firstWhere((option) => option.key == rule)
+            .choices
+            .keys,
+      ];
+      for (final opening in choices('opening')) {
+        for (final reveal in choices('reveal')) {
           await pumpApp(
             tester,
             LauncherConfig(
@@ -482,8 +488,7 @@ void main() {
                   home([const Pane(id: 'main')]),
                   Panel.empty(
                     Layout.leftId,
-                    opening: opening,
-                    reveal: reveal,
+                    rules: {'opening': opening, 'reveal': reveal},
                   ).withRoot(
                     Panel.empty(Layout.leftId).root
                         .withItems([entity('pkg.c')]),
@@ -506,7 +511,7 @@ void main() {
               .fold(1, (least, one) => min(least, one.opacity));
           final reason = '$opening, $reveal';
           expect(tester.getSize(box).width, 96, reason: reason);
-          expect(solid(), reveal == BarReveal.always ? 1 : 0, reason: reason);
+          expect(solid(), reveal == 'always' ? 1 : 0, reason: reason);
 
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
           await tester.pumpAndSettle();

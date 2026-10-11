@@ -159,7 +159,7 @@ void main() {
     });
 
     test('and a sidebar is left looking as it does', () {
-      expect(layout.panel('left')!.root.rules, isEmpty);
+      expect(layout.panel('left')!.root.prefabRules, isEmpty);
       expect(layout.panel('left')!.root.columns, 3);
     });
 
@@ -236,7 +236,7 @@ void main() {
       expect(config.iconOverrides, {'panel:games': '/f.png'});
       // A sidebar from then looks as it did then.
       final left = layout.panel('left')!.root;
-      expect(left.rules[cardPrefabId], {layoutOption: 'row'});
+      expect(left.prefabRules[cardPrefabId], {layoutOption: 'row'});
       expect(left.rowHeight, 36);
       expect(
         (left.items.single.source ?? left.items.single.ref),
@@ -391,7 +391,7 @@ void main() {
     test('what a pane made of its cards is a rule for each prefab', () {
       final root = layout.home.root;
       for (final prefab in [cardPrefabId, folderPrefabId]) {
-        expect(root.rules[prefab], {
+        expect(root.prefabRules[prefab], {
           'layout': 'row',
           'parts': {
             'name': {'hidden': false},
@@ -402,7 +402,7 @@ void main() {
       final shown = instanceOf(builtInPrefabs.first, root.shown.first)!;
       expect(shown.parts.last.hidden, isFalse);
       expect(instanceOf(builtInPrefabs.first, a)!.parts.last.hidden, isTrue);
-      expect(Pane.fromJson(root.toJson()).rules, root.rules);
+      expect(Pane.fromJson(root.toJson()).prefabRules, root.prefabRules);
     });
   });
 
@@ -805,6 +805,42 @@ void main() {
     );
   });
 
+  test('from 13 to 14, settings are gathered as rules', () {
+    final save = migrate({
+      'v': 13,
+      'layout': {
+        'v': 13,
+        'panels': [
+          {
+            'id': 'left',
+            'closed': 64,
+            'width': 'fill',
+            'opening': 'slide',
+            'reveal': 'always',
+            'pane': {
+              'id': 'left/root',
+              'columns': 1,
+              'rowHeight': 36,
+              'itemW': 1,
+              'rules': {
+                'app-card': {'layout': 'row'},
+              },
+              'items': <Object?>[],
+            },
+          },
+        ],
+      },
+    });
+    final left = LauncherConfig.fromJson(save).layout.panel('left')!;
+    // What was only the usual is not kept.
+    expect(left.rules, {'closed': 64, 'width': 'fill', 'opening': 'slide'});
+    expect((left.width, left.closed), (Panel.fill, 64));
+    expect(left.root.rules, {'rowHeight': 36, 'itemW': 1});
+    expect(left.root.prefabRules, {
+      'app-card': {'layout': 'row'},
+    });
+  });
+
   group('from 11 to 12', () {
     final save = migrate({
       'v': 11,
@@ -967,7 +1003,7 @@ void main() {
         'hidden': true,
         'style': {'fontSize': 10},
       });
-      expect(root.rules['app-card'], {
+      expect(root.prefabRules['app-card'], {
         'layout': 'row',
         'parts': {
           'name': {

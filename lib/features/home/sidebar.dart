@@ -57,16 +57,21 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   Panel get _panel => widget.view.panel;
 
   /// How long the sidebar itself takes to open.
-  int get _barMs => switch (_panel.opening) {
-    BarOpening.expand => FocusTile.duration.inMilliseconds,
-    BarOpening.slide || BarOpening.fade => 200,
-    BarOpening.instant => 0,
+  /// How it comes open and how what is in it appears, as its rules name
+  /// them.
+  Object? get _opening => _panel.rule('opening');
+  Object? get _reveal => _panel.rule('reveal');
+
+  int get _barMs => switch (_opening) {
+    'slide' || 'fade' => 200,
+    'instant' => 0,
+    _ => FocusTile.duration.inMilliseconds,
   };
 
-  int get _totalMs => switch (_panel.reveal) {
-    BarReveal.always => _barMs,
-    BarReveal.late => _barMs + _revealMs,
-    BarReveal.fade || BarReveal.slide => max(_barMs, _revealMs),
+  int get _totalMs => switch (_reveal) {
+    'late' => _barMs + _revealMs,
+    'fade' || 'slide' => max(_barMs, _revealMs),
+    _ => _barMs,
   };
 
   /// How far open the sidebar is, 0 to 1.
@@ -77,14 +82,10 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   }
 
   /// How far what is in it has appeared, 0 to 1.
-  double get _revealed => switch (_panel.reveal) {
-    BarReveal.always => 1,
-    BarReveal.late => ((_opened.value * _totalMs - _barMs) / _revealMs).clamp(
-      0,
-      1,
-    ),
-    BarReveal.fade ||
-    BarReveal.slide => Curves.easeOut.transform(_opened.value),
+  double get _revealed => switch (_reveal) {
+    'late' => ((_opened.value * _totalMs - _barMs) / _revealMs).clamp(0, 1),
+    'fade' || 'slide' => Curves.easeOut.transform(_opened.value),
+    _ => 1,
   };
 
   /// Sets it opening or closing, to match the focus and the hold.
@@ -130,8 +131,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
   };
 
   /// [tile] appearing the way what is in this sidebar does.
-  Widget _appearing(Widget tile, Alignment edge) =>
-      _panel.reveal == BarReveal.always
+  Widget _appearing(Widget tile, Alignment edge) => _reveal == 'always'
       ? tile
       : AnimatedBuilder(
           animation: _opened,
@@ -140,7 +140,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
             final shown = _revealed;
             return Opacity(
               opacity: shown,
-              child: _panel.reveal == BarReveal.slide
+              child: _reveal == 'slide'
                   ? Transform.translate(
                       offset: Offset(edge.x, edge.y) * (28 * (1 - shown)),
                       child: tile,
@@ -201,7 +201,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
               child: contents,
               builder: (context, contents) {
                 final open = _barOpen;
-                final fading = panel.opening == BarOpening.fade;
+                final fading = _opening == 'fade';
                 // Fading in, it is at its open size from the start.
                 final shown = fading
                     ? (open > 0 ? full : closed)
@@ -234,9 +234,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
                       // Laid out at its open size whatever of it shows:
                       // held to its edge it is uncovered, held to the
                       // other side it is carried in.
-                      alignment: panel.opening == BarOpening.slide
-                          ? -alignment
-                          : alignment,
+                      alignment: _opening == 'slide' ? -alignment : alignment,
                       minWidth: width,
                       maxWidth: width,
                       minHeight: height,

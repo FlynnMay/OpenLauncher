@@ -41,20 +41,20 @@ void main() {
     expect(find.text('App card'), findsOneWidget);
     expect(find.text('Folder card'), findsOneWidget);
     expect(find.text('Big entity'), findsNothing);
-    expect(pane.rules, isEmpty);
+    expect(pane.prefabRules, isEmpty);
 
     await tester.tap(find.text('Add a rule'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Big entity').last);
     await tester.pumpAndSettle();
-    expect(pane.rules, {
+    expect(pane.prefabRules, {
       'big-entity': {layoutOption: 'stacked'},
     });
     expect(find.text('Add a rule'), findsNothing);
 
     await tester.tap(find.text('Take the rule for Big entity away'));
     await tester.pumpAndSettle();
-    expect(pane.rules, isEmpty);
+    expect(pane.prefabRules, isEmpty);
     expect(find.text('Add a rule'), findsOneWidget);
     // The launcher's own cannot be taken away, only left to each entity.
     expect(find.textContaining('Take the rule for App card'), findsNothing);

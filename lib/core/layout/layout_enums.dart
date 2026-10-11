@@ -36,17 +36,3 @@ enum ItemKind {
 
 /// The edge of the screen a sidebar is on.
 enum BarEdge { left, right, top, bottom }
-
-/// How a sidebar comes open: growing out from its edge over what is in it,
-/// sliding in whole, fading in where it will be, or at once.
-enum BarOpening { expand, slide, fade, instant }
-
-/// How what is in a sidebar appears: there all along, fading in as the
-/// sidebar opens, fading in once it is open, or sliding in from its edge.
-enum BarReveal { always, fade, late, slide }
-
-/// Where what a folder holds shows when it is opened: hovering over the
-/// screen at one of four places, or in place, where the folder itself is.
-enum PopupPosition { center, bottom, left, right, inline }
-
-enum PopupSize { small, medium, large }

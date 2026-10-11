@@ -4,6 +4,7 @@ import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/pane.dart';
+import 'package:openlauncher/core/layout/rules.dart';
 
 /// A surface: the home screen, a sidebar on one of its edges, or a popup.
 /// What is on it is in its global pane, [root].
@@ -13,27 +14,12 @@ class Panel {
     required this.id,
     required this.root,
     this.title = '',
-    this.position = PopupPosition.center,
-    this.size = PopupSize.medium,
-    this.width,
-    this.height,
-    this.closed,
-    this.opening = BarOpening.expand,
-    this.reveal = BarReveal.always,
+    this.rules = const {},
   });
 
   /// A panel with nothing on it yet.
-  Panel.empty(
-    this.id, {
-    this.title = '',
-    this.position = PopupPosition.center,
-    this.size = PopupSize.medium,
-    this.width,
-    this.height,
-    this.closed,
-    this.opening = BarOpening.expand,
-    this.reveal = BarReveal.always,
-  }) : root = _emptyRoot(id);
+  Panel.empty(this.id, {this.title = '', this.rules = const {}})
+    : root = _emptyRoot(id);
 
   /// The width or height of a sidebar that takes all the screen has.
   static const fill = double.infinity;
@@ -49,21 +35,38 @@ class Panel {
   /// The pane that fills the panel, edge to edge.
   final Pane root;
 
-  /// Where a popup appears and how much of the screen it takes.
-  final PopupPosition position;
-  final PopupSize size;
+  /// What it is set to as a pane that is shown and hidden, each under the
+  /// name [panelRules] describes it by: where a folder opens and how big,
+  /// how a sidebar comes open. With them a sidebar's `width`, `height` and
+  /// `closed`, in the TV's 960-wide pixels, the first two `fill` for all
+  /// there is. What is not among them is as usual.
+  final Map<String, Object?> rules;
 
-  /// How big a sidebar is when open, in the TV's 960-wide pixels: [fill]
-  /// for all there is, null for what its edge usually has.
-  final double? width, height;
+  /// What it has for the rule [key]: what it is set to, or the usual.
+  Object? rule(String key) =>
+      rules[key] ??
+      panelRules(kind).where((rule) => rule.key == key).firstOrNull?.usual;
+
+  /// This panel with the rule [key] set to [value]; null for the usual.
+  Panel withRule(String key, Object? value) => copyWith(
+    rules: {...rules, key: value == fill ? 'fill' : value}
+      ..removeWhere((_, value) => value == null),
+  );
+
+  double? _extent(String key) => switch (rules[key]) {
+    'fill' => fill,
+    final num size => size.toDouble(),
+    _ => null,
+  };
+
+  /// How big a sidebar is when open: [fill] for all there is, null for
+  /// what its edge usually has.
+  double? get width => _extent('width');
+  double? get height => _extent('height');
 
   /// How much of a sidebar shows while the focus is elsewhere, measured
   /// out from its edge; 0 hides it. Null for what its edge usually has.
-  final double? closed;
-
-  /// How a sidebar comes open, and how what is in it appears as it does.
-  final BarOpening opening;
-  final BarReveal reveal;
+  double? get closed => _extent('closed');
 
   /// The edge a sidebar is on; null for a panel that is not one.
   BarEdge? get edge => edgeOf(id);
@@ -122,41 +125,17 @@ class Panel {
 
   Panel withRoot(Pane root) => copyWith(root: root);
 
-  static const _keep = Object();
-
-  /// This panel with some of its settings changed. [width], [height] and
-  /// [closed] may be given as null, for the usual ones.
   Panel copyWith({
     String? id,
     Pane? root,
     String? title,
-    PopupPosition? position,
-    PopupSize? size,
-    Object? width = _keep,
-    Object? height = _keep,
-    Object? closed = _keep,
-    BarOpening? opening,
-    BarReveal? reveal,
+    Map<String, Object?>? rules,
   }) => Panel(
     id: id ?? this.id,
     root: root ?? this.root,
     title: title ?? this.title,
-    position: position ?? this.position,
-    size: size ?? this.size,
-    width: identical(width, _keep) ? this.width : width as double?,
-    height: identical(height, _keep) ? this.height : height as double?,
-    closed: identical(closed, _keep) ? this.closed : closed as double?,
-    opening: opening ?? this.opening,
-    reveal: reveal ?? this.reveal,
+    rules: rules ?? this.rules,
   );
-
-  /// A sidebar's size as written: a number, or the word for all there is.
-  static double? _extent(Map<Object?, Object?> json, String key) =>
-      switch (json[key]) {
-        'fill' => fill,
-        final num size when size.isFinite => size.toDouble(),
-        _ => null,
-      };
 
   factory Panel.fromJson(Map<Object?, Object?> json) {
     final id = jsonRequired<String>(json, 'id');
@@ -167,52 +146,14 @@ class Panel {
         final pane? => Pane.fromJson(pane),
         null => _emptyRoot(id),
       },
-      position: jsonNamed(
-        PopupPosition.values,
-        jsonOptional<String>(json, 'position'),
-        PopupPosition.center,
-      ),
-      size: jsonNamed(
-        PopupSize.values,
-        jsonOptional<String>(json, 'size'),
-        PopupSize.medium,
-      ),
-      width: _extent(json, 'width'),
-      height: _extent(json, 'height'),
-      closed: jsonOptional<num>(json, 'closed')?.toDouble(),
-      opening: jsonNamed(
-        BarOpening.values,
-        jsonOptional<String>(json, 'opening'),
-        BarOpening.expand,
-      ),
-      reveal: jsonNamed(
-        BarReveal.values,
-        jsonOptional<String>(json, 'reveal'),
-        BarReveal.always,
-      ),
+      rules: {...?jsonOptional<Map<Object?, Object?>>(json, 'rules')?.cast()},
     );
   }
-
-  static Object? _written(double? extent) => switch (extent) {
-    null => null,
-    fill => 'fill',
-    final size => tidy(size),
-  };
 
   Map<String, Object?> toJson() => {
     'id': id,
     'title': title,
-    if (kind == PanelKind.popup) ...{
-      'position': position.name,
-      'size': size.name,
-    },
-    if (kind == PanelKind.sidebar) ...{
-      'width': ?_written(width),
-      'height': ?_written(height),
-      'closed': ?_written(closed),
-      if (opening != BarOpening.expand) 'opening': opening.name,
-      if (reveal != BarReveal.always) 'reveal': reveal.name,
-    },
+    if (rules.isNotEmpty) 'rules': rules,
     'pane': root.toJson(),
   };
 }

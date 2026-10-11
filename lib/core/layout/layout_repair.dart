@@ -1,11 +1,24 @@
 import 'package:openlauncher/core/actions/defaults.dart';
+import 'package:openlauncher/core/components/component_option.dart';
+import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/layout/panel.dart';
+import 'package:openlauncher/core/layout/rules.dart';
 import 'package:openlauncher/core/prefabs/instance_options.dart';
+
+/// [rules] with those in [sound] as they are there, a number written
+/// without a fraction where it has none; one that is null is left out.
+Map<String, Object?> _kept(
+  Map<String, Object?> rules,
+  Map<String, Object?> sound,
+) => {
+  for (final MapEntry(:key, :value) in {...rules, ...sound}.entries)
+    if (value != null) key: value is double ? tidy(value) : value,
+};
 
 /// Making a layout fit to use: what was read made sound, and the entities there
 /// are matched to it.
@@ -111,32 +124,41 @@ extension LayoutRepair on Layout {
             ...fitted(entry, columns, pane.mode, kind, depth),
         ],
         style: pane.style,
-        spacing: within(pane.spacing, 0, Pane.maxSpacing),
-        rowHeight: within(pane.rowHeight, Pane.minRowHeight, Pane.maxRowHeight),
-        itemW: cells(pane.itemW, columns),
-        itemH: cells(pane.itemH, Pane.maxRows),
-        rules: pane.rules,
+        rules: _kept(pane.rules, {
+          'spacing': within(pane.spacing, 0, Pane.maxSpacing),
+          'rowHeight': within(
+            pane.rowHeight,
+            Pane.minRowHeight,
+            Pane.maxRowHeight,
+          ),
+          'itemW': cells(pane.itemW, columns),
+          'itemH': cells(pane.itemH, Pane.maxRows),
+        }),
+        prefabRules: pane.prefabRules,
         vars: pane.vars,
         on: pane.on,
       );
     };
 
-    double? extent(double? size) => size == null || size == Panel.fill
-        ? size
-        : size.isFinite
-        ? size.clamp(40, Panel.maxExtent).toDouble()
+    Object? extent(double? size, num least) => size == Panel.fill
+        ? 'fill'
+        : size != null && size.isFinite
+        ? size.clamp(least, Panel.maxExtent).toDouble()
         : null;
     final result = [
       for (final panel in unique)
         panel.copyWith(
           root: repair(panel.root, panel.kind, 1),
-          width: extent(panel.width),
-          height: extent(panel.height),
-          closed: switch (panel.closed) {
-            final closed? when closed.isFinite =>
-              closed.clamp(0, Panel.maxExtent).toDouble(),
-            _ => null,
-          },
+          rules: _kept(panel.rules, {
+            'width': extent(panel.width, 40),
+            'height': extent(panel.height, 40),
+            'closed': extent(panel.closed, 0),
+            // A choice that is none of those there are is not one made.
+            for (final rule in panelRules(panel.kind))
+              if (rule.kind == OptionKind.choice &&
+                  !rule.choices.containsKey(panel.rules[rule.key]))
+                rule.key: null,
+          }),
         ),
     ];
     final home = result.firstWhere((panel) => panel.id == Layout.homeId);

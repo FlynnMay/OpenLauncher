@@ -348,7 +348,7 @@ void main() {
               root: Pane(
                 id: 'main',
                 columns: 2,
-                rowHeight: 200,
+                rules: const {'rowHeight': 200},
                 vars: const {'greeting': Variable('Hello')},
                 items: [
                   const LayoutItem(
@@ -365,11 +365,11 @@ void main() {
             Panel(
               id: 'games',
               title: 'Games',
-              position: PopupPosition.inline,
+              rules: const {'position': 'inline'},
               root: Pane(
                 id: 'games/root',
                 columns: 1,
-                rowHeight: 60,
+                rules: const {'rowHeight': 60},
                 items: [LayoutItem.of('app:a', id: 'g')],
               ),
             ),

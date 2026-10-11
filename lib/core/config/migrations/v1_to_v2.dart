@@ -17,6 +17,13 @@ void wallpaperToWallpapers(Json save, Device device) {
 /// written now; the steps after this one were written for how an item was
 /// written then, a card that names what it shows as `ref`.
 void _asWritten(Json pane) {
+  // Its measures stood beside its title, and its rules for prefabs had
+  // the name they have now.
+  final measures = pane.remove('rules');
+  if (pane.remove('prefabRules') case final Json prefabs) {
+    pane['rules'] = prefabs;
+  }
+  if (measures is Json) pane.addAll(measures);
   for (final item in itemsOf(pane)) {
     if (item case {'kind': 'prefab', 'vars': {'source': final String source}}) {
       // What opened a folder said `panel`; anything else was a card.

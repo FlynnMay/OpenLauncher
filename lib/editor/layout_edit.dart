@@ -388,15 +388,14 @@ Pane withRule(Pane pane, String key, Object? value) => switch (key) {
     pane,
     value is num ? value.toInt() : Pane.defaultColumns,
   ),
-  _ => Pane.fromJson(
-    {...pane.toJson(), key: value}..removeWhere((_, value) => value == null),
-  ),
+  'title' => pane.copyWith(title: value is String ? value : ''),
+  _ => pane.withRule(key, value),
 };
 
 /// The same for a panel: a sidebar's rules, a folder's.
-Panel withPanelRule(Panel panel, String key, Object? value) => Panel.fromJson(
-  {...panel.toJson(), key: value}..removeWhere((_, value) => value == null),
-);
+Panel withPanelRule(Panel panel, String key, Object? value) => key == 'title'
+    ? panel.copyWith(title: value is String ? value : '')
+    : panel.withRule(key, value);
 
 /// [pane] placing its items the [mode] way, each staying where it was as
 /// far as that way allows.

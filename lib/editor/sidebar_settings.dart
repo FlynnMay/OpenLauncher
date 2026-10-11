@@ -178,19 +178,19 @@ class SidebarSettings extends ConsumerWidget {
             value: panel.width,
             usual: usual.openWidth,
             onChanged: (width) =>
-                change((panel) => panel.copyWith(width: width)),
+                change((panel) => panel.withRule('width', width)),
           ),
           ExtentBox(
             label: 'Height',
             value: panel.height,
             usual: usual.openHeight,
             onChanged: (height) =>
-                change((panel) => panel.copyWith(height: height)),
+                change((panel) => panel.withRule('height', height)),
           ),
           // Its rules as a pane that is shown and hidden.
           ...ruleFields(
-            options: panelRules(panel),
-            json: panel.toJson(),
+            options: panelRules(panel.kind),
+            json: panel.rules,
             onChanged: (key, value) =>
                 change((panel) => withPanelRule(panel, key, value)),
           ),

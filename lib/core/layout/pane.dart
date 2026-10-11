@@ -21,11 +21,8 @@ class Pane {
     this.columns = defaultColumns,
     this.items = const [],
     this.style = const {},
-    this.spacing,
-    this.rowHeight,
-    this.itemW,
-    this.itemH,
     this.rules = const {},
+    this.prefabRules = const {},
     this.vars = const {},
     this.on = const {},
   });
@@ -80,25 +77,41 @@ class Pane {
   /// [style] as a box is painted from it.
   BoxStyle get box => BoxStyle.of(style);
 
+  /// Its measures, each under its name, where they are not the usual:
+  /// `spacing` and `rowHeight` ([paneRules] describes them), `itemW` and
+  /// `itemH`.
+  final Map<String, Object?> rules;
+
+  double? _measure(String key) => switch (rules[key]) {
+    final num measure => measure.toDouble(),
+    _ => null,
+  };
+
   /// The gap between cells, in the TV's 960-wide pixels, the same across and
   /// down; null for the usual one. With the column count it is all that
   /// decides how big a cell is and how far it is from the next.
-  final double? spacing;
+  double? get spacing => _measure('spacing');
 
   /// How tall a row of cells is, in the TV's 960-wide pixels; null for a
   /// height that follows from how wide a cell is.
-  final double? rowHeight;
+  double? get rowHeight => _measure('rowHeight');
 
   /// The size the pane gives every entity and folder directly in it,
   /// whatever each says for itself. Null leaves that to each of them.
-  final double? itemW, itemH;
+  double? get itemW => _measure('itemW');
+  double? get itemH => _measure('itemH');
+
+  /// This pane with the measure [key] set to [value]; null for the usual.
+  Pane withRule(String key, Object? value) => copyWith(
+    rules: {...rules, key: value}..removeWhere((_, value) => value == null),
+  );
 
   /// What the pane says of the instances of a prefab directly in it, by
   /// the prefab's id: which `layout` they use, and under `parts` whatever
   /// it sets for a part of them (`{name: {hidden: true}}`). What an
   /// instance says for itself is kept, and counts again once the rule is
   /// gone.
-  final Map<String, Map<String, Object?>> rules;
+  final Map<String, Map<String, Object?>> prefabRules;
 
   /// The variables it has, which everything inside it can read unless
   /// they are private, and anything can by the pane's id where they are
@@ -110,7 +123,7 @@ class Pane {
   final Triggers on;
 
   /// Whether the pane decides something for what is in it.
-  bool get decides => itemW != null || itemH != null || rules.isNotEmpty;
+  bool get decides => itemW != null || itemH != null || prefabRules.isNotEmpty;
 
   /// The items as they are to be placed and drawn: entities and folders as the
   /// pane would have them.
@@ -122,7 +135,7 @@ class Pane {
               item.copyWith(
                 w: itemW,
                 h: itemH,
-                options: switch (rules[prefabIdOf(item)]) {
+                options: switch (prefabRules[prefabIdOf(item)]) {
                   null => null,
                   final rule => underRule(item.options, rule),
                 },
@@ -134,10 +147,7 @@ class Pane {
   double get spacingX => spacing ?? defaultSpacingX;
   double get spacingY => spacing ?? defaultSpacingY;
 
-  static const _keep = Object();
-
-  /// This pane with some of its settings changed. [spacing] and the like
-  /// may be given as null, for the usual ones.
+  /// This pane with some of its settings changed.
   Pane copyWith({
     String? id,
     String? title,
@@ -145,11 +155,8 @@ class Pane {
     int? columns,
     List<LayoutItem>? items,
     Style? style,
-    Object? spacing = _keep,
-    Object? rowHeight = _keep,
-    Object? itemW = _keep,
-    Object? itemH = _keep,
-    Map<String, Map<String, Object?>>? rules,
+    Map<String, Object?>? rules,
+    Map<String, Map<String, Object?>>? prefabRules,
     Variables? vars,
     Triggers? on,
   }) => Pane(
@@ -159,13 +166,8 @@ class Pane {
     columns: columns ?? this.columns,
     items: items ?? this.items,
     style: style ?? this.style,
-    spacing: identical(spacing, _keep) ? this.spacing : spacing as double?,
-    rowHeight: identical(rowHeight, _keep)
-        ? this.rowHeight
-        : rowHeight as double?,
-    itemW: identical(itemW, _keep) ? this.itemW : itemW as double?,
-    itemH: identical(itemH, _keep) ? this.itemH : itemH as double?,
     rules: rules ?? this.rules,
+    prefabRules: prefabRules ?? this.prefabRules,
     vars: vars ?? this.vars,
     on: on ?? this.on,
   );
@@ -175,10 +177,8 @@ class Pane {
   /// This pane set up the way a sidebar starts out: a line of small rows,
   /// each a picture with its name beside it, one cell each.
   Pane asBar() => copyWith(
-    rowHeight: barRowHeight,
-    itemW: 1.0,
-    itemH: 1.0,
-    rules: const {
+    rules: const {'rowHeight': barRowHeight, 'itemW': 1, 'itemH': 1},
+    prefabRules: const {
       cardPrefabId: {layoutOption: 'row'},
       folderPrefabId: {layoutOption: 'row'},
     },
@@ -218,12 +218,9 @@ class Pane {
     columns: jsonOptional<num>(json, 'columns')?.toInt() ?? defaultColumns,
     items: jsonList(json, 'items', LayoutItem.fromJson),
     style: styleFromJson(json['style']),
-    spacing: jsonOptional<num>(json, 'spacing')?.toDouble(),
-    rowHeight: jsonOptional<num>(json, 'rowHeight')?.toDouble(),
-    itemW: jsonOptional<num>(json, 'itemW')?.toDouble(),
-    itemH: jsonOptional<num>(json, 'itemH')?.toDouble(),
-    rules: {
-      if (json['rules'] case final Map<Object?, Object?> rules)
+    rules: {...?jsonOptional<Map<Object?, Object?>>(json, 'rules')?.cast()},
+    prefabRules: {
+      if (json['prefabRules'] case final Map<Object?, Object?> rules)
         for (final MapEntry(:key, :value) in rules.entries)
           if (key is String && value is Map<Object?, Object?>)
             key: value.cast(),
@@ -237,23 +234,8 @@ class Pane {
     'title': title,
     'mode': mode.name,
     'columns': columns,
-    'spacing': ?switch (spacing) {
-      null => null,
-      final spacing => tidy(spacing),
-    },
-    'rowHeight': ?switch (rowHeight) {
-      null => null,
-      final rowHeight => tidy(rowHeight),
-    },
-    'itemW': ?switch (itemW) {
-      null => null,
-      final itemW => tidy(itemW),
-    },
-    'itemH': ?switch (itemH) {
-      null => null,
-      final itemH => tidy(itemH),
-    },
     if (rules.isNotEmpty) 'rules': rules,
+    if (prefabRules.isNotEmpty) 'prefabRules': prefabRules,
     if (vars.isNotEmpty) 'vars': variablesToJson(vars),
     if (on.isNotEmpty) 'on': triggersToJson(on),
     if (style.isNotEmpty) 'style': style,

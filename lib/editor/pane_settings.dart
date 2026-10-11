@@ -76,7 +76,7 @@ class PaneSettings extends StatelessWidget {
         for (final rule in paneRules)
           if (rule.key != 'title' || named && panes.length == 1) rule,
       ],
-      json: panes.first.toJson(),
+      json: {...panes.first.toJson(), ...panes.first.rules},
       onChanged: (key, value) =>
           onChanged((pane) => withRule(pane, key, value)),
     ),
@@ -86,11 +86,11 @@ class PaneSettings extends StatelessWidget {
   /// This pane's rule for [prefab] with [key] set to [value]; null takes
   /// it away, and a rule with nothing left in it goes too.
   static Pane _ruled(Pane pane, String prefab, String key, Object? value) {
-    final rule = {...?pane.rules[prefab], key: value}
+    final rule = {...?pane.prefabRules[prefab], key: value}
       ..removeWhere((_, value) => value == null);
     return pane.copyWith(
-      rules: {
-        for (final MapEntry(:key, :value) in pane.rules.entries)
+      prefabRules: {
+        for (final MapEntry(:key, :value) in pane.prefabRules.entries)
           if (key != prefab) key: value,
         if (rule.isNotEmpty) prefab: rule,
       },
@@ -106,7 +106,7 @@ class PaneSettings extends StatelessWidget {
   /// prefab of the user's is there once it is added.
   Widget get _rules {
     bool ruled(Prefab prefab) =>
-        panes.any((pane) => pane.rules.containsKey(prefab.id));
+        panes.any((pane) => pane.prefabRules.containsKey(prefab.id));
     final shown = [
       for (final prefab in prefabs.values)
         if (_builtIn(prefab) || ruled(prefab)) prefab,
@@ -163,7 +163,7 @@ class PaneSettings extends StatelessWidget {
       ChoiceBox<String>(
         value: shared(
           panes.map(
-            (pane) => switch (pane.rules[prefab.id]?[layoutOption]) {
+            (pane) => switch (pane.prefabRules[prefab.id]?[layoutOption]) {
               final String layout when prefab.layouts.containsKey(layout) =>
                 layout,
               _ => _each,
@@ -175,7 +175,9 @@ class PaneSettings extends StatelessWidget {
           // was added says which, or is taken away.
           // One that says no layout, as a save may, can be given one.
           if (_builtIn(prefab) ||
-              panes.any((pane) => pane.rules[prefab.id]?[layoutOption] == null))
+              panes.any(
+                (pane) => pane.prefabRules[prefab.id]?[layoutOption] == null,
+              ))
             _each: 'As each says',
           for (final MapEntry(:key, :value) in prefab.layouts.entries)
             key: value.label.isEmpty ? key : value.label,
@@ -201,7 +203,7 @@ class PaneSettings extends StatelessWidget {
                   id: '',
                   kind: ItemKind.prefab,
                   ref: '',
-                  options: pane.rules[prefab.id] ?? const {},
+                  options: pane.prefabRules[prefab.id] ?? const {},
                 ),
                 part,
               )[hiddenOption]) {
@@ -218,7 +220,7 @@ class PaneSettings extends StatelessWidget {
           },
           onChanged: (shown) => onChanged((pane) {
             final rule = withOverrides(
-              pane.rules[prefab.id] ?? const {},
+              pane.prefabRules[prefab.id] ?? const {},
               part,
               {
                 hiddenOption: switch (shown) {
@@ -238,8 +240,8 @@ class PaneSettings extends StatelessWidget {
         child: TextButton.icon(
           onPressed: () => onChanged(
             (pane) => pane.copyWith(
-              rules: {
-                for (final MapEntry(:key, :value) in pane.rules.entries)
+              prefabRules: {
+                for (final MapEntry(:key, :value) in pane.prefabRules.entries)
                   if (key != prefab.id) key: value,
               },
             ),
@@ -256,10 +258,9 @@ class PaneSettings extends StatelessWidget {
       label: 'All the same size',
       value: shared(panes.map((pane) => pane.itemW != null)),
       onChanged: (same) => onChanged(
-        (pane) => pane.copyWith(
-          itemW: same ? pane.itemW ?? 1.0 : null,
-          itemH: same ? pane.itemH ?? 1.0 : null,
-        ),
+        (pane) => pane
+            .withRule('itemW', same ? pane.itemW ?? 1 : null)
+            .withRule('itemH', same ? pane.itemH ?? 1 : null),
       ),
     ),
     if (panes.every((pane) => pane.itemW != null)) ...[
@@ -268,14 +269,14 @@ class PaneSettings extends StatelessWidget {
         value: shared(panes.map((pane) => pane.itemW!)),
         min: 1,
         max: panes.map((pane) => pane.columns).reduce((a, b) => a < b ? a : b),
-        onChanged: (w) => onChanged((pane) => pane.copyWith(itemW: w * 1.0)),
+        onChanged: (w) => onChanged((pane) => pane.withRule('itemW', w)),
       ),
       NumberStepper(
         label: 'Cells tall',
         value: shared(panes.map((pane) => pane.itemH ?? 1)),
         min: 1,
         max: Pane.maxRows,
-        onChanged: (h) => onChanged((pane) => pane.copyWith(itemH: h * 1.0)),
+        onChanged: (h) => onChanged((pane) => pane.withRule('itemH', h)),
       ),
     ],
   ]);

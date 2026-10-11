@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/pane.dart';
-import 'package:openlauncher/core/layout/panel.dart';
 
 // The rules of a pane, and of the panes that are shown and hidden: each
 // one setting, described once, under the name it is saved by. The editor
@@ -84,7 +83,7 @@ final List<ComponentOption> paneRules = [
 
 /// What a pane that is shown and hidden says of how: a sidebar's rules,
 /// and a folder's. They differ only in these.
-List<ComponentOption> panelRules(Panel panel) => switch (panel.kind) {
+List<ComponentOption> panelRules(PanelKind kind) => switch (kind) {
   PanelKind.sidebar => const [
     // How much of it shows while the focus is elsewhere; 0 keeps it out
     // of sight until the focus goes to its edge.

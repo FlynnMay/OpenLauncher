@@ -329,7 +329,7 @@ void main() {
     expect((top.items.first.w, top.items.first.x), (4, 0));
     // What was a weather widget is the weather prefab, of the weather.
     expect((top.items.last.ref, top.items.last.source), ('weather', 'weather'));
-    expect(saved.panel('games')!.position, PopupPosition.bottom);
+    expect(saved.panel('games')!.rule('position'), 'bottom');
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
     // which was placed nowhere, in the section for new entities.

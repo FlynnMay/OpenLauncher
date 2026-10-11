@@ -409,14 +409,14 @@ void main() {
 
   test('a pane keeps the spacing it is given, within reason', () {
     Pane pane(String id, double? spacing) =>
-        Pane(id: id, spacing: spacing, items: [_item('$id-a')]);
+        Pane(id: id, rules: {'spacing': ?spacing}, items: [_item('$id-a')]);
     final layout = Layout(
       inbox: 'a',
       panels: [
         _home(
           Pane(
             id: 'global',
-            spacing: 4,
+            rules: const {'spacing': 4},
             items: [
               LayoutItem.pane(pane('a', null)),
               LayoutItem.pane(pane('b', 0)),
@@ -732,7 +732,7 @@ void main() {
       );
       // Along a side it starts as a line of small rows.
       expect(left.root.rowHeight, Pane.barRowHeight);
-      expect(left.root.rules[cardPrefabId], {layoutOption: 'row'});
+      expect(left.root.prefabRules[cardPrefabId], {layoutOption: 'row'});
       expect(
         (top.edge, top.openWidth, top.openHeight, top.closedSize),
         (BarEdge.top, Panel.fill, 120, 0),
@@ -746,13 +746,14 @@ void main() {
         inbox: 'main',
         panels: [
           Panel.empty(Layout.homeId),
+          Panel.empty(Layout.rightId)
+              .withRule('width', Panel.fill)
+              .withRule('height', 300)
+              .withRule('closed', 0),
           Panel.empty(
-            Layout.rightId,
-            width: Panel.fill,
-            height: 300,
-            closed: 0,
+            Layout.bottomId,
+            rules: const {'height': 5000, 'closed': -3},
           ),
-          Panel.empty(Layout.bottomId, height: 5000, closed: -3),
         ],
       ).normalised();
       final copy = Layout.fromJson(layout.toJson());
@@ -766,11 +767,10 @@ void main() {
     test('how one opens is written and read back, the usual left out', () {
       final usual = Panel.empty(Layout.leftId);
       expect(
-        (usual.opening, usual.reveal),
-        (BarOpening.expand, BarReveal.always),
+        (usual.rule('opening'), usual.rule('reveal')),
+        ('expand', 'always'),
       );
-      expect(usual.toJson().keys, isNot(contains('opening')));
-      expect(usual.toJson().keys, isNot(contains('reveal')));
+      expect(usual.toJson().keys, isNot(contains('rules')));
 
       final layout = Layout(
         inbox: 'main',
@@ -778,17 +778,19 @@ void main() {
           Panel.empty(Layout.homeId),
           Panel.empty(
             Layout.leftId,
-            opening: BarOpening.slide,
-            reveal: BarReveal.late,
+            rules: const {'opening': 'slide', 'reveal': 'late'},
           ),
         ],
       ).normalised();
       final left = Layout.fromJson(layout.toJson()).panel(Layout.leftId)!;
-      expect((left.opening, left.reveal), (BarOpening.slide, BarReveal.late));
+      expect((left.rule('opening'), left.rule('reveal')), ('slide', 'late'));
 
       // A word it does not know is taken as the usual.
-      final odd = Panel.fromJson({...left.toJson(), 'opening': 'spin'});
-      expect(odd.opening, BarOpening.expand);
+      final odd = Layout(
+        inbox: 'main',
+        panels: [left.withRule('opening', 'spin')],
+      ).normalised().panel(Layout.leftId)!;
+      expect((odd.rule('opening'), odd.rule('reveal')), ('expand', 'late'));
     });
 
     test('a sidebar saved before they were panes still looks like one', () {
@@ -809,7 +811,11 @@ void main() {
       });
       final root = old.panel('left')!.root;
       expect(
-        (root.rowHeight, root.rules[cardPrefabId]?[layoutOption], root.itemW),
+        (
+          root.rowHeight,
+          root.prefabRules[cardPrefabId]?[layoutOption],
+          root.itemW,
+        ),
         (36, 'row', 1),
       );
       // Once written by this version it is taken as it is.
@@ -823,7 +829,7 @@ void main() {
         ],
       );
       expect(
-        Layout.fromJson(plain.toJson()).panel('left')!.root.rules,
+        Layout.fromJson(plain.toJson()).panel('left')!.root.prefabRules,
         isEmpty,
       );
     });
@@ -839,8 +845,8 @@ void main() {
       };
       final pane = Pane(
         id: 'p',
-        itemW: 2,
-        rules: rules,
+        rules: const {'itemW': 2},
+        prefabRules: rules,
         items: [
           _item('a', w: 3, h: 2),
           _item('clock', kind: ItemKind.component, ref: 'clock', w: 4),
@@ -856,10 +862,13 @@ void main() {
       // What the entity says is still there for when the pane stops.
       expect(pane.items.first.w, 3);
       expect(pane.items.first.options, isEmpty);
-      expect(pane.copyWith(itemW: null, rules: const {}).decides, isFalse);
+      expect(
+        pane.copyWith(rules: const {}, prefabRules: const {}).decides,
+        isFalse,
+      );
       // And all of it survives being written and read.
-      final copy = Pane.fromJson(pane.copyWith(rowHeight: 40.0).toJson());
-      expect(copy.rules, rules);
+      final copy = Pane.fromJson(pane.withRule('rowHeight', 40).toJson());
+      expect(copy.prefabRules, rules);
       expect((copy.itemW, copy.rowHeight), (2, 40));
     });
 
@@ -895,7 +904,7 @@ void main() {
                 id: Layout.homeId,
                 root: Pane(
                   id: 'main',
-                  rules: const {
+                  prefabRules: const {
                     cardPrefabId: {layoutOption: 'row'},
                   },
                   items: [_item('a', ref: 'app:a')],
