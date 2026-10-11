@@ -5,6 +5,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/tv_api.dart';
@@ -53,9 +54,9 @@ final List<Override> tvOverrides = [
     return platform;
   }),
   // Browsers cannot make cross-site requests; the TV can.
-  sourceFetcherProvider.overrideWith((ref) {
+  feedFetcherProvider.overrideWith((ref) {
     final api = ref.watch(tvApiProvider);
-    return (source) => api.sourceValue(source.id);
+    return (feed) => api.feedValue(feed.id);
   }),
   // The page is the config server's guest; it does not run one.
   configServerProvider.overrideWith((ref) async => null),
@@ -102,13 +103,14 @@ class BrowserPlatform extends FakeLauncherPlatform {
   }
 }
 
-/// Sends device actions to the TV and runs the rest locally.
+/// Sends device operations to the TV, as the act that asked for them, and
+/// runs the rest locally.
 class TvActionRunner extends ActionRunner {
   TvActionRunner(super.ref, this._api);
 
   final TvApi _api;
 
   @override
-  Future<String?> carryOut(ActionRegistry action, ActionRun run) =>
-      action.onDevice ? _api.act(run.act) : super.carryOut(action, run);
+  Future<String?> carryOut(Operation operation, Act act, OperationRun run) =>
+      operation.onDevice ? _api.act(act) : super.carryOut(operation, act, run);
 }

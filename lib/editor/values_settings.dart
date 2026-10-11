@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/weather.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/place_search.dart';
 
 /// Built-in values with their current reading, the TV's place, and the user's
-/// own values.
+/// own entities: what each reads and the actions it defines.
 class ValuesSettings extends ConsumerWidget {
   const ValuesSettings({
     super.key,
-    required this.sources,
+    required this.entities,
     required this.place,
-    required this.onSources,
+    required this.onEntities,
     required this.onPlace,
   });
 
-  final List<DataSource> sources;
+  final List<Entity> entities;
   final Place? place;
-  final void Function(List<DataSource> sources) onSources;
+  final void Function(List<Entity> entities) onEntities;
   final void Function(Place? place) onPlace;
 
   /// Most fields listed per value.
@@ -29,6 +31,7 @@ class ValuesSettings extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final operations = ref.watch(operationsRegistryProvider).all;
     final small = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
@@ -78,27 +81,38 @@ class ValuesSettings extends ConsumerWidget {
         ),
       const Divider(height: 24),
       ListField(
-        option: DataSource.options,
-        records: [for (final source in sources) source.toJson()],
-        // A new one's id is derived from its name.
-        onChanged: (told) => onSources(
-          DataSource.listFromJson([
+        option: userEntityOptions(operations),
+        records: [for (final entity in entities) userEntityToForm(entity)],
+        onChanged: (told) {
+          final taken = {
+            ...reservedIds,
+            for (final entity in entities) entity.id,
+          };
+          onEntities([
             for (final one in told)
-              {
-                'id': freeId(slugOf('${one['name']}', 'value'), {
-                  ...builtInRoots,
-                  for (final source in sources) source.id,
-                }),
-                ...one,
-              },
-          ], taken: builtInRoots),
-        ),
+              // A new one's id is derived from its name.
+              userEntityFromForm(
+                {
+                  'id': () {
+                    final id = freeId(slugOf('${one['name']}', 'value'), taken);
+                    taken.add(id);
+                    return id;
+                  }(),
+                  ...one,
+                },
+                operations,
+                was: entities.byId('${one['id']}'),
+              ),
+          ]);
+        },
         after: (one) {
           final id = '${one['id']}';
-          final source = sources.where((source) => source.id == id).single;
-          final asked = source.kind == SourceKind.http;
+          final entity = entities.byId(id)!;
+          final url = '${entity.feed?.options['url'] ?? ''}';
+          final asked = entity.feed?.from == httpFeed;
+          final address = HttpFeed.addressOf(url);
           return [
-            if (asked && source.url.isNotEmpty && source.address == null)
+            if (asked && url.isNotEmpty && address == null)
               Text(
                 'It has to start with http:// or https://',
                 style: small?.copyWith(color: theme.colorScheme.error),
@@ -106,7 +120,7 @@ class ValuesSettings extends ConsumerWidget {
             ...switch (valuePaths(id, ref.watch(valueProvider(id)))) {
               final parts when parts.values.every((part) => part == null) => [
                 reading(id, null),
-                if (asked && source.address != null)
+                if (asked && address != null)
                   Text('Nothing has come from it yet.', style: small),
               ],
               final parts => [

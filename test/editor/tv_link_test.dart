@@ -33,13 +33,19 @@ class _Tv extends TvApi {
   }
 }
 
-const _entity = Entity(id: 'app:a', category: appCategory, label: 'Alpha');
+const _entity = Entity(
+  id: 'app:a',
+  category: appCategory,
+  label: 'Alpha',
+  data: {'package': 'a'},
+  actions: appActions,
+);
 
 TvState _state() => TvState(
   entities: [
     _entity,
-    entityRegistry('system')!.one!,
-    entityRegistry('variables')!.one!,
+    builtInEntities.byId('system')!,
+    builtInEntities.byId('variables')!,
   ],
   config: LauncherConfig(layout: Layout.initial(['app:a'])),
   components: const [],

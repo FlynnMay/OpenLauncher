@@ -7,7 +7,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 
-/// Action chains per trigger. Offered actions come from `actionRegistries`;
+/// Action chains per trigger. Offered actions are those entities define;
 /// chains equal to [usual] are not stored.
 class TriggerSettings extends ConsumerWidget {
   const TriggerSettings({
@@ -63,7 +63,7 @@ class TriggerSettings extends ConsumerWidget {
                 trigger.name,
                 acts.isEmpty ? 'Add an action' : 'Then another',
                 OptionKind.list,
-                blank: blank(actionRegistries.first.name),
+                blank: blank(actionLabels(entities).keys.firstOrNull ?? 'open'),
                 fields: (act) => actOptions(act, entities: entities),
               ),
               records: [for (final act in acts) act.toJson()],

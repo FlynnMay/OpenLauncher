@@ -90,8 +90,8 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sources = ref.watch(
-      configProvider.select((config) => config.value?.sources ?? const []),
+    final own = ref.watch(
+      configProvider.select((config) => config.value?.entities ?? const []),
     );
     // Watched so a user value's current fields can be offered.
     final values = {
@@ -100,10 +100,10 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
           value.root,
           for (final part in value.parts) '${value.root}.$part',
         ],
-      for (final source in sources)
-        (source.name.isEmpty ? source.id : source.name): valuePaths(
-          source.id,
-          ref.watch(valueProvider(source.id)),
+      for (final entity in own)
+        entity.label: valuePaths(
+          entity.id,
+          ref.watch(valueProvider(entity.id)),
         ).keys.take(_mostParts).toList(),
     };
     final reads = widget.value.contains('{{')

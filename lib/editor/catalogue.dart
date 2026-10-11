@@ -22,6 +22,14 @@ class Catalogue extends ConsumerStatefulWidget {
   ConsumerState<Catalogue> createState() => _CatalogueState();
 }
 
+/// Headings of the categories with more than one entity; any other is
+/// headed by its entity's name.
+const _categoryLabels = {
+  inputCategory: 'Inputs',
+  appCategory: 'Apps',
+  launcherCategory: 'Launcher',
+};
+
 class _CatalogueState extends ConsumerState<Catalogue> {
   String _query = '';
 
@@ -35,9 +43,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     // are offered as buttons.
     final standing = [
       for (final entity in all)
-        if (entityRegistry(entity.category) case final registry?
-            when !registry.placed)
-          entity,
+        if (!entity.placed) entity,
     ];
     // Named and given its final id when placed.
     final folder = folderPane(
@@ -46,23 +52,29 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     );
     _Offer entity(Entity entity) => _Offer(
       Dragged(
-        // As its category's prefab, at that prefab's size.
-        item: () {
-          final prefab = prefabs[entityRegistry(entity.category)?.prefab];
-          return Component.of(
-            entity.id,
-            prefab: prefab?.id ?? cardPrefabId,
-            w: prefab?.root.w ?? 1,
-            h: prefab?.root.h ?? 1,
-            id: layout.itemIdFor(Component.autoId(entity.id, entity.name)),
-          );
-        }(),
+        item: instanceFor(entity, layout, prefabs),
         label: entity.label,
         picture: EntityArt(entity: entity, padding: 4),
       ),
       backed: !EntityArt.isBare(entity),
       count: counts[entity.id] ?? 0,
     );
+    _Offer button(String name, EntityAction action, String entity) {
+      final label = action.label.isEmpty ? name : action.label;
+      return _Offer(
+        Dragged(
+          item: actionButton(
+            layout.itemIdFor(label),
+            name,
+            action,
+            entity: entity,
+          ),
+          label: label,
+          picture: SymbolArt(tileIcons[action.icon] ?? Icons.smart_button),
+        ),
+      );
+    }
+
     List<_Offer> entities(bool Function(Entity entity) which) {
       final offers = all.where(which).map(entity).toList();
       // Unplaced first.
@@ -118,38 +130,17 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       ],
       // One button per action.
       'Buttons': [
-        for (final action in actionRegistries)
-          // Actions of a single entity are listed below.
-          if (!standing.any((entity) => actionFor(action.name, entity) != null))
-            _Offer(
-              Dragged(
-                // For use where a `source` is in reach: a prefab, a menu.
-                item: actionButton(
-                  layout.itemIdFor(action.label),
-                  action,
-                  entity: sourceEntity,
-                ),
-                label: action.label,
-                picture: SymbolArt(
-                  tileIcons[action.icon] ?? Icons.smart_button,
-                ),
-              ),
-            ),
+        // What placed entities (apps, inputs) define, once per name: for
+        // use where a `source` is in reach, a prefab or a menu.
+        for (final MapEntry(key: name, value: action) in {
+          for (final entity in all)
+            if (entity.placed) ...entity.actions,
+        }.entries)
+          button(name, action, sourceEntity),
         for (final entity in standing)
-          for (final action in entityRegistry(entity.category)!.actions)
-            _Offer(
-              Dragged(
-                item: actionButton(
-                  layout.itemIdFor(action.label),
-                  action,
-                  entity: entity.id,
-                ),
-                label: action.label,
-                picture: SymbolArt(
-                  tileIcons[action.icon] ?? Icons.smart_button,
-                ),
-              ),
-            ),
+          for (final MapEntry(key: name, value: action)
+              in entity.actions.entries)
+            button(name, action, entity.id),
       ],
       'Folders': [
         for (final pane in layout.docked)
@@ -168,12 +159,17 @@ class _CatalogueState extends ConsumerState<Catalogue> {
               ),
             ),
       ],
-      // Every entity category that has a prefab.
-      for (final registry in entityRegistries)
-        if (registry.prefab != null)
-          registry.label: entities(
-            (entity) => entity.category == registry.name,
-          ),
+      // Every category whose entities have a prefab.
+      for (final category in {
+        for (final entity in all)
+          if (entity.prefab != null) entity.category,
+      })
+        _categoryLabels[category] ??
+            all
+                .firstWhere((entity) => entity.category == category)
+                .label: entities(
+          (entity) => entity.category == category && entity.prefab != null,
+        ),
     };
   }
 

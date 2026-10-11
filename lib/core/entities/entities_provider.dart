@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/entities/entity_registry.dart';
+import 'package:openlauncher/core/entities/entity_generators.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 final installedAppsProvider =
@@ -56,14 +56,21 @@ class TvInputsNotifier extends _DeviceListNotifier<TvInput> {
   Stream<void> changes(LauncherPlatform platform) => platform.inputsChanged;
 }
 
-/// Every entity of every category, with the user's names and pictures
-/// applied, sorted by category then label.
+/// The entity registry: every entity there is, with the user's names and
+/// pictures applied, sorted by category then label.
 final entitiesProvider = FutureProvider<List<Entity>>((ref) async {
   final config = await ref.watch(configProvider.future);
+  final known = <String>{};
   return arrangeEntities([
-    for (final registry in entityRegistries) ...await registry.list(ref),
+    for (final generate in entityGenerators)
+      for (final entity in await generate(ref))
+        // The first with an id is the one.
+        if (known.add(entity.id)) entity,
   ], config);
 });
+
+/// The categories listed first, whatever order entities are made in.
+const _categoryOrder = [inputCategory, appCategory, launcherCategory];
 
 /// Applies the user's pictures and names, then sorts.
 List<Entity> arrangeEntities(List<Entity> available, LauncherConfig config) {
@@ -94,10 +101,14 @@ List<Entity> arrangeEntities(List<Entity> available, LauncherConfig config) {
         return entity;
       }(),
   ];
+  // Categories in [_categoryOrder], then as they first come.
+  final order = {
+    ..._categoryOrder,
+    for (final entity in available) entity.category,
+  }.toList();
   entities.sort((a, b) {
     if (a.category != b.category) {
-      return entityRegistryIndex(a.category)
-          .compareTo(entityRegistryIndex(b.category));
+      return order.indexOf(a.category).compareTo(order.indexOf(b.category));
     }
     return a.label.toLowerCase().compareTo(b.label.toLowerCase());
   });

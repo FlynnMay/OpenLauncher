@@ -19,7 +19,7 @@ Component _item(
     : Component(id: id, kind: kind, w: w, h: h, x: x, y: y);
 
 Entity _entity(String name) =>
-    Entity(id: 'app:$name', category: appCategory, label: name);
+    Entity(id: 'app:$name', category: appCategory, label: name, placed: true);
 
 Layer _home(Component root) => Layer(id: 'home', root: root);
 

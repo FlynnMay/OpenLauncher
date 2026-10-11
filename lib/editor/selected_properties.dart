@@ -64,10 +64,7 @@ class SelectedProperties extends ConsumerWidget {
         // Name and picture apply to auto-placed entities (apps, inputs) only.
         if (single != null &&
             single.isInstance &&
-            (entityRegistry(
-                  entities.byId(single.handed.firstOrNull)?.category ?? '',
-                )?.placed ??
-                false))
+            (entities.byId(single.handed.firstOrNull)?.placed ?? false))
           _EntityDetails(entityId: single.handed.firstOrNull ?? ''),
         if (single != null && allFolders)
           _FolderDetails(
@@ -297,9 +294,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
                     entities: [
                       for (final other in entities)
                         // Only entities that have pictures.
-                        if (other.id != entity.id &&
-                            (entityRegistry(other.category)?.placed ?? false))
-                          other,
+                        if (other.id != entity.id && other.placed) other,
                     ],
                   );
                   if (from != null) {

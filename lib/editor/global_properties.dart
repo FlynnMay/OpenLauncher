@@ -54,10 +54,10 @@ class GlobalProperties extends ConsumerWidget {
           ),
         ),
         ValuesSettings(
-          sources: config.sources,
+          entities: config.entities,
           place: config.place,
-          onSources: (sources) =>
-              controller.change((c) => c.copyWith(sources: sources)),
+          onEntities: (entities) =>
+              controller.change((c) => c.copyWith(entities: entities)),
           onPlace: (place) =>
               controller.change((c) => c.copyWith(place: () => place)),
         ),

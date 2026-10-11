@@ -71,7 +71,7 @@ class ConfigApi {
       ('GET', 'api/events') => _events(),
       ('PUT', 'api/layout') => _setLayout(await _body(request)),
       ('PUT', 'api/config') => _setConfig(await _body(request)),
-      ('GET', 'api/source') => _sourceValue(id),
+      ('GET', 'api/feed') => _feedValue(id),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
       ('POST', 'api/act') => _act(await _body(request)),
       ('PUT', 'api/entity') => _withEntity(
@@ -187,17 +187,14 @@ class ConfigApi {
     return _ok();
   }
 
-  /// The current value of user source [id], fetched by the TV because the
+  /// What entity [id]'s `http` feed reads, fetched by the TV because the
   /// page cannot make cross-site requests.
-  Future<Response> _sourceValue(String? id) async {
-    final sources = (await _ref.read(configProvider.future)).sources;
-    final source = sources.where((source) => source.id == id).firstOrNull;
-    if (source == null) return _error(404, 'No such value');
-    if (source.kind == SourceKind.text) {
-      return Response.ok(jsonEncode({'value': source.text}), headers: _json);
-    }
+  Future<Response> _feedValue(String? id) async {
+    final entity = (await _ref.read(entitiesProvider.future)).byId(id);
+    final feed = entity == null ? null : HttpFeed.of(entity);
+    if (feed == null) return _error(404, 'No such feed');
     // Reuse the value if the TV already shows it; otherwise wait for one.
-    final provider = sourceValueProvider(source);
+    final provider = feedValueProvider(feed);
     final held = _ref.listen(provider, (_, _) {});
     try {
       final value = await _ref.read(provider.future);

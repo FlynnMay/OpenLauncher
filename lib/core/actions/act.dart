@@ -22,8 +22,8 @@ const entityArg = 'entity';
 /// [entityArg] for the entity a tile's `source` variable holds.
 const sourceEntity = '{{source.id}}';
 
-/// One saved action: an `ActionRegistry` name, the [entityArg] that does it
-/// and its other arguments.
+/// One saved action: the name of an action, the [entityArg] that defines and
+/// does it, and its other arguments.
 @immutable
 class Act {
   const Act(this.name, [this.args = const {}]);

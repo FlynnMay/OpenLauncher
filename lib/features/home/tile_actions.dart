@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 
@@ -105,11 +106,14 @@ class TileActions {
           component: component,
         );
       } on Object catch (error) {
-        final what = actionRegistry(act.name)?.label.toLowerCase() ?? act.name;
         final entity = _ref
             .read(entitiesProvider)
             .value
             ?.byId(told.arg(entityArg));
+        final what = switch (entity?.actions[act.name]?.label) {
+          final String label when label.isNotEmpty => label.toLowerCase(),
+          _ => act.name,
+        };
         message = [
           'Could not $what',
           if (entity != null) ' ${entity.label}',

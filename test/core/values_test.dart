@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/features/components/marquee.dart';
 import 'package:openlauncher/features/components/primitives.dart';
@@ -11,6 +13,20 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 
 String _render(String source, Map<String, Object?> values) =>
     Template.parse(source).render((root) => values[root]);
+
+Entity _fixed(String id, String text, {String? name}) => Entity(
+  id: id,
+  category: userCategory,
+  label: name ?? id,
+  data: {'text': text},
+);
+
+Entity _asked(String id, String url, {int every = 60, String? name}) => Entity(
+  id: id,
+  category: userCategory,
+  label: name ?? id,
+  feed: Feed(httpFeed, {'url': url, 'every': every}),
+);
 
 void main() {
   group('templates', () {
@@ -118,38 +134,36 @@ void main() {
     });
   });
 
-  group('sources', () {
+  group("the user's entities", () {
     test('are saved and read back, the unreadable left out', () {
-      const sources = [
-        DataSource(id: 'lounge', name: 'Lounge', url: 'http://ha/x', every: 30),
-        DataSource(id: 'motto', kind: SourceKind.text, text: 'Hi'),
+      final entities = [
+        _asked('lounge', 'http://ha/x', every: 30, name: 'Lounge'),
+        _fixed('motto', 'Hi'),
       ];
-      final saved = [for (final source in sources) source.toJson()];
-      expect(DataSource.listFromJson(saved), sources);
+      final saved = [for (final entity in entities) entity.toJson()];
+      expect(userEntitiesFromJson(saved), entities);
       expect(
-        DataSource.listFromJson([
+        userEntitiesFromJson([
           ...saved,
           saved.first, // The same id again.
           {'id': 'Not An Id'},
           {'id': 'clock'},
           {'name': 'No id'},
           'nonsense',
-          {'id': 'fast', 'every': 1},
-        ], taken: builtInRoots).map((source) => (source.id, source.every)),
-        [('lounge', 30), ('motto', 60), ('fast', DataSource.minEvery)],
+          {
+            'id': 'fast',
+            'feed': {'from': 'http', 'url': 'http://x.test', 'every': 1},
+          },
+        ]).map((entity) => (entity.id, HttpFeed.of(entity)?.every)),
+        [('lounge', 30), ('motto', null), ('fast', HttpFeed.minEvery)],
       );
     });
 
     test('only web addresses are asked', () {
-      expect(
-        const DataSource(id: 'a', url: 'https://x.test/y').address,
-        isNotNull,
-      );
-      expect(
-        const DataSource(id: 'a', url: 'file:///etc/passwd').address,
-        isNull,
-      );
-      expect(const DataSource(id: 'a', url: 'x.test').address, isNull);
+      expect(HttpFeed.of(_asked('a', 'https://x.test/y')), isNotNull);
+      expect(HttpFeed.of(_asked('a', 'file:///etc/passwd')), isNull);
+      expect(HttpFeed.of(_asked('a', 'x.test')), isNull);
+      expect(HttpFeed.of(_fixed('a', 'https://x.test/y')), isNull);
     });
 
     test('are kept in the config', () async {
@@ -160,10 +174,16 @@ void main() {
       addTearDown(container.dispose);
       final config = container.read(configProvider.notifier);
       await config.patch({
-        'sources': [
-          {'id': 'motto', 'kind': 'text', 'text': 'Hi'},
+        'entities': [
+          {
+            'id': 'motto',
+            'data': {'text': 'Hi'},
+          },
           // Not a name of its own: the launcher's.
-          {'id': 'weather', 'url': 'http://x.test'},
+          {
+            'id': 'weather',
+            'feed': {'from': 'http', 'url': 'http://x.test'},
+          },
         ],
         'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
         // Not one of the plain settings: left alone.
@@ -171,17 +191,94 @@ void main() {
       });
       expect(store.config.wallpapers, isEmpty);
       final read = LauncherConfig.fromJson(store.config.toJson());
-      expect(read.sources.map((source) => source.id), ['motto']);
+      expect(read.entities.map((entity) => entity.id), ['motto']);
       expect(read.place?.name, 'Perth');
       await config.patch({'place': null});
       expect(store.config.place, isNull);
-      expect(store.config.sources, hasLength(1));
+      expect(store.config.entities, hasLength(1));
+    });
+
+    test('a value saved before they were entities becomes one', () {
+      final read = LauncherConfig.fromJson({
+        'v': 19,
+        'sources': [
+          {'id': 'motto', 'name': 'Motto', 'kind': 'text', 'text': 'Hi'},
+          {'id': 'lounge', 'kind': 'http', 'url': 'http://ha/x', 'every': 30},
+        ],
+      });
+      expect(read.entities, [
+        _fixed('motto', 'Hi', name: 'Motto'),
+        _asked('lounge', 'http://ha/x', every: 30),
+      ]);
+      expect(read.toJson().containsKey('sources'), isFalse);
+    });
+
+    test('the form keeps what it does not show, and makes actions', () {
+      final operations = [
+        Operation(
+          name: 'launchApp',
+          label: 'Open an app',
+          args: const {'package': []},
+          run: (run) async => null,
+        ),
+        Operation(
+          name: 'mediaCommand',
+          label: 'Tell the media player',
+          args: const {
+            'command': ['next', 'previous'],
+          },
+          run: (run) async => null,
+        ),
+      ];
+      const made = Entity(
+        id: 'plex',
+        category: 'shortcut',
+        label: 'Plex',
+        data: {'text': 'Plex', 'colour': 'orange'},
+        prefab: 'app-card',
+        actions: {
+          'open': EntityAction(
+            run: 'launchApp',
+            bound: {'package': 'com.plexapp'},
+            label: 'Open',
+            icon: 'play',
+          ),
+          'tell': EntityAction(
+            run: 'mediaCommand',
+            args: {
+              'command': ['next', 'previous'],
+            },
+          ),
+        },
+      );
+      final form = userEntityToForm(made);
+      expect(userEntityFromForm(form, operations, was: made), made);
+      // Binding an argument takes it from what an act may say.
+      final bound = userEntityFromForm(
+        {
+          ...form,
+          'kind': 'http',
+          'url': 'http://x.test',
+          'actions': [
+            {'name': 'skip', 'run': 'mediaCommand', 'with:command': 'next'},
+            {'name': 'skip', 'run': 'launchApp'},
+            {'name': '', 'run': 'launchApp'},
+          ],
+        },
+        operations,
+        was: made,
+      );
+      expect(bound.actions, const {
+        'skip': EntityAction(run: 'mediaCommand', bound: {'command': 'next'}),
+      });
+      expect(HttpFeed.of(bound)?.every, 60);
+      expect(bound.data, {'colour': 'orange'});
     });
   });
 
   group('values', () {
     late FakeLauncherPlatform platform;
-    late List<DataSource> asked;
+    late List<HttpFeed> asked;
 
     ProviderContainer container(LauncherConfig config) {
       platform = FakeLauncherPlatform(const [], const []);
@@ -200,9 +297,9 @@ void main() {
               },
             },
           ),
-          sourceFetcherProvider.overrideWithValue((source) async {
-            asked.add(source);
-            if (source.url.contains('broken')) throw Exception('No');
+          feedFetcherProvider.overrideWithValue((feed) async {
+            asked.add(feed);
+            if ('${feed.address}'.contains('broken')) throw Exception('No');
             return {
               'state': '21.46',
               'list': [1, 2],
@@ -282,10 +379,10 @@ void main() {
     test("the user's own, fixed or asked for", () async {
       final c = container(
         LauncherConfig(
-          sources: const [
-            DataSource(id: 'motto', kind: SourceKind.text, text: 'Hi'),
-            DataSource(id: 'lounge', url: 'http://ha.test/x'),
-            DataSource(id: 'broken', url: 'http://broken.test'),
+          entities: [
+            _fixed('motto', 'Hi'),
+            _asked('lounge', 'http://ha.test/x'),
+            _asked('broken', 'http://broken.test'),
           ],
         ),
       );
@@ -315,10 +412,7 @@ void main() {
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
-                sources: const [
-                  DataSource(id: 'motto', kind: SourceKind.text, text: 'Hi'),
-                  DataSource(id: 'level', kind: SourceKind.text, text: '30'),
-                ],
+                entities: [_fixed('motto', 'Hi'), _fixed('level', '30')],
               ),
             ),
           ),

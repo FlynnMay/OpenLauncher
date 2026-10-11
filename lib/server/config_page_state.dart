@@ -39,14 +39,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'entities': [
       for (final entity in entities)
         {
-          'id': entity.id,
-          'category': entity.category,
-          'actions': [
-            for (final action
-                in entityRegistry(entity.category)?.actions ?? const [])
-              action.name,
-          ],
-          'label': entity.label,
+          // As it is: its actions, feed and prefab with it.
+          ...entity.toJson(),
           'name': entity.name,
           'renamed': config.names.containsKey(entity.id),
           // An uploaded or borrowed picture.

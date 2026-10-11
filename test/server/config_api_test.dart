@@ -56,9 +56,9 @@ void main() {
         wallpaperDirProvider.overrideWith(
           (ref) => Directory('${tmp.path}/wallpaper'),
         ),
-        sourceFetcherProvider.overrideWithValue((source) async {
-          if (source.url.contains('broken')) throw Exception('No answer');
-          return {'state': 'on', 'asked': source.url};
+        feedFetcherProvider.overrideWithValue((feed) async {
+          if (feed.address.host == 'broken') throw Exception('No answer');
+          return {'state': 'on', 'asked': '${feed.address}'};
         }),
         jsonFetcherProvider.overrideWithValue((uri) async {
           fetched.add(uri);
@@ -130,8 +130,17 @@ void main() {
     expect((await entities()).first, {
       'id': 'input:tv/HW1',
       'category': 'input',
-      // What its kind presents.
-      'actions': ['open'],
+      // What it defines: the operation each action runs, and with what.
+      'actions': {
+        'open': {
+          'run': 'switchInput',
+          'with': {'input': '{{self.input}}'},
+          'label': 'Open',
+          'icon': 'play',
+        },
+      },
+      'prefab': 'app-card',
+      'placed': true,
       'label': 'HDMI 1',
       'name': 'HDMI 1',
       'renamed': false,
@@ -494,34 +503,42 @@ void main() {
         'PUT',
         '/api/config',
         body: {
-          'sources': [
+          'entities': [
             {
               'id': 'lamp',
-              'name': 'Lamp',
-              'kind': 'http',
-              'url': 'http://ha/x',
+              'label': 'Lamp',
+              'feed': {'from': 'http', 'url': 'http://ha/x'},
             },
-            {'id': 'motto', 'kind': 'text', 'text': 'Hi'},
-            {'id': 'broken', 'kind': 'http', 'url': 'http://broken/x'},
+            {
+              'id': 'motto',
+              'data': {'text': 'Hi'},
+            },
+            {
+              'id': 'broken',
+              'feed': {'from': 'http', 'url': 'http://broken/x'},
+            },
           ],
           'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
         },
       );
       expect(response.statusCode, 200);
-      expect(store.config.sources.map((source) => source.id), [
+      expect(store.config.entities.map((entity) => entity.id), [
         'lamp',
         'motto',
         'broken',
       ]);
       expect(store.config.place?.name, 'Perth');
       final told = await state();
-      expect(told['config']['sources'][0], {
+      expect(told['config']['entities'][0], {
         'id': 'lamp',
-        'name': 'Lamp',
-        'kind': 'http',
-        'url': 'http://ha/x',
-        'every': 60,
+        'category': 'value',
+        'label': 'Lamp',
+        'feed': {'from': 'http', 'url': 'http://ha/x'},
       });
+      // They are entities like the rest.
+      expect([
+        for (final entity in told['entities']) entity['id'],
+      ], containsAll(['lamp', 'motto', 'broken']));
       expect(told['config']['place']['latitude'], -31.95);
       // The three of the user's own are offered like any other widget.
       expect([
@@ -529,7 +546,7 @@ void main() {
       ], containsAll(['text', 'picture', 'meter']));
 
       Future<(int, Object?)> value(String id) async {
-        final response = await call('GET', '/api/source?id=$id');
+        final response = await call('GET', '/api/feed?id=$id');
         final said = jsonDecode(await response.readAsString()) as Map;
         return (response.statusCode, said['value']);
       }
@@ -537,7 +554,8 @@ void main() {
       final lamp = await value('lamp');
       expect(lamp.$1, 200);
       expect(lamp.$2, {'state': 'on', 'asked': 'http://ha/x'});
-      expect(await value('motto'), (200, 'Hi'));
+      // Fixed text is the entity's own data; there is nothing to fetch.
+      expect((await value('motto')).$1, 404);
       expect((await value('broken')).$1, 502);
       expect((await value('nobody')).$1, 404);
 
@@ -545,22 +563,22 @@ void main() {
       response = await call('PUT', '/api/config', body: {'place': null});
       expect(response.statusCode, 200);
       expect(store.config.place, isNull);
-      expect(store.config.sources, hasLength(3));
+      expect(store.config.entities, hasLength(3));
 
       // A value that cannot be kept is left out; the rest are.
       response = await call(
         'PUT',
         '/api/config',
         body: {
-          'sources': [
-            {'id': 'clock', 'kind': 'text'},
+          'entities': [
+            {'id': 'clock'},
             {'id': 'a'},
             {'id': 'a'},
           ],
         },
       );
       expect(response.statusCode, 200);
-      expect(store.config.sources.map((source) => source.id), ['a']);
+      expect(store.config.entities.map((entity) => entity.id), ['a']);
     },
   );
 

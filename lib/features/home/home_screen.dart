@@ -205,7 +205,7 @@ class HomeScreen extends ConsumerWidget {
 
   /// Whether the Settings card is placed anywhere.
   static bool _hasSettings(Layout layout) =>
-      layout.items.any((item) => item.handed.contains(Entity.settings.id));
+      layout.items.any((item) => item.handed.contains(settingsEntity.id));
 }
 
 /// Traps the focus and takes it on appearing.

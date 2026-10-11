@@ -196,25 +196,18 @@ class TvApi {
   }
 
   Future<Entity> _entity(Map<Object?, Object?> json) async {
-    final data = (json['data'] as Map).cast<String, Object?>();
-    final icon = data[Entity.icon];
-    return Entity(
-      id: json['id'] as String,
-      category: json['category'] as String,
-      label: json['label'] as String,
-      name: json['name'] as String?,
-      data: {
-        ...data,
-        // The icon arrives as a URL; line art is fetched as markup.
-        if (icon is String)
-          Entity.icon: data[Entity.shape] == Entity.lineArt
-              ? await _drawings.putIfAbsent(
-                  icon,
-                  () async => (await _client.get(_at(icon))).body,
-                )
-              : _at(icon).toString(),
-      },
-    );
+    final entity = Entity.fromJson(json)!;
+    final icon = entity.data[Entity.icon];
+    if (icon is! String) return entity;
+    // The icon arrives as a URL; line art is fetched as markup.
+    return entity.withData({
+      Entity.icon: entity.data[Entity.shape] == Entity.lineArt
+          ? await _drawings.putIfAbsent(
+              icon,
+              () async => (await _client.get(_at(icon))).body,
+            )
+          : _at(icon).toString(),
+    });
   }
 
   /// The error from the TV's reply body.
@@ -253,8 +246,9 @@ class TvApi {
   Future<void> setConfig(Map<String, Object?> changed) =>
       _ask('PUT', '/api/config', changed);
 
-  Future<Object?> sourceValue(String id) async =>
-      (await _ask('GET', '/api/source${_id(id)}') as Map)['value'];
+  /// What entity [id]'s `http` feed reads, fetched by the TV.
+  Future<Object?> feedValue(String id) async =>
+      (await _ask('GET', '/api/feed${_id(id)}') as Map)['value'];
 
   /// [id] may also be a folder's `Layout.iconKey`.
   Future<void> setPicture(String id, PickedFile file) =>

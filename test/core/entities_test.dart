@@ -4,6 +4,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
@@ -19,6 +20,26 @@ Entity _entity(String name, {String? icon}) => Entity(
     if (icon != null) ...{Entity.icon: icon, Entity.shape: 'icon'},
   },
 );
+
+/// Operations that record what they were told.
+class _Manager implements OperationsManager {
+  _Manager(List<String> names, [List<Object?>? said])
+    : operations = [
+        for (final name in names)
+          Operation(
+            name: name,
+            label: name,
+            args: const {'what': []},
+            run: (run) async {
+              said?.add(run.args['what']);
+              return 'said';
+            },
+          ),
+      ];
+
+  @override
+  final List<Operation> operations;
+}
 
 void main() {
   group('arrangeEntities', () {
@@ -357,108 +378,273 @@ void main() {
     });
   });
 
-  group('kinds of entity', () {
-    test('each presents its own actions, by the names actions go by', () {
-      const app = Entity(id: 'app:a', category: appCategory, label: 'A');
-      const input = Entity(id: 'input:x', category: inputCategory, label: 'X');
-      Set<String> presents(Entity entity) => {
-        for (final action in actionRegistries)
-          if (actionFor(action.name, entity) != null) action.name,
-      };
-      expect(presents(app), {'open', 'info', 'forceStop', 'uninstall'});
-      expect(presents(input), {'open'});
-      // The same name, done as each kind does it.
-      expect(actionFor('open', app), isNot(same(actionFor('open', input))));
+  group('what an entity can do', () {
+    ProviderContainer container(List<Entity> own) {
+      final container = ProviderContainer(
+        overrides: [
+          configStoreProvider.overrideWithValue(
+            MemoryConfigStore(LauncherConfig(entities: own)),
+          ),
+          launcherPlatformProvider.overrideWithValue(
+            FakeLauncherPlatform(
+              [InstalledApp(packageName: 'a', label: 'A', isBanner: true)],
+              [TvInput(id: 'x', label: 'X', kind: TvInputKind.hdmi)],
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('is its own to define, by the names actions go by', () async {
+      final c = container(const []);
+      final all = await c.read(entitiesProvider.future);
+      final app = all.byId('app:a')!, input = all.byId('input:x')!;
+      expect(app.actions.keys, ['open', 'info', 'forceStop', 'uninstall']);
+      expect(input.actions.keys, ['open']);
+      // The same name, done as each defines it.
+      expect(app.actions['open']!.run, 'launchApp');
+      expect(input.actions['open']!.run, 'switchInput');
       // None belongs to nothing: the rest are the system's, the layers'...
       for (final MapEntry(key: action, value: owner) in const {
         'setup': 'system',
         'newLayer': 'layers',
         'set': 'variables',
         // A layer's layout: there is one for each layer, with its id.
-        'add': 'layout',
-        'remove': 'layout',
+        'add': Layout.homeId,
+        'remove': Layout.homeId,
       }.entries) {
-        final entity =
-            entityRegistry(owner)!.one ??
-            Entity(id: Layout.homeId, category: owner, label: '');
-        expect(actionFor(action, entity), isNotNull, reason: action);
-        expect(actionFor(action, app), isNull, reason: action);
+        expect(all.byId(owner)!.actions, contains(action), reason: action);
+        expect(app.actions, isNot(contains(action)), reason: action);
       }
-      for (final action in actionRegistries) {
-        expect(
-          entityRegistries.any((kind) => kind.actions.contains(action)),
-          isTrue,
-          reason: action.name,
-        );
-      }
+      // Whatever an entity names to run is there to be run, and nothing is
+      // there that no entity runs.
+      final operations = c.read(operationsRegistryProvider);
+      final run = {
+        for (final entity in all)
+          for (final action in entity.actions.values) action.run,
+      };
+      expect(run, {for (final operation in operations.all) operation.name});
     });
 
-    test('a new kind is one entry, and all the launcher needs', () async {
-      final lamps = EntityRegistry(
-        name: 'lamp',
-        label: 'Lamps',
-        // Put on the screen of itself, as an app is, and with data of
-        // its own beside its name.
+    test('two of a category need not do the same', () async {
+      const lamp = EntityAction(run: 'setVariable', bound: {'of': 'lamps'});
+      final c = container([
+        Entity(
+          id: 'desk',
+          category: 'lamp',
+          label: 'Desk',
+          actions: {
+            'toggle': lamp,
+            'dim': EntityAction(
+              run: 'setVariable',
+              bound: const {'of': 'lamps', 'var': 'desk'},
+              args: const {'value': []},
+              label: 'Dim',
+            ),
+          },
+        ),
+        const Entity(
+          id: 'hall',
+          category: 'lamp',
+          label: 'Hall',
+          actions: {'toggle': lamp},
+        ),
+      ]);
+      final all = await c.read(entitiesProvider.future);
+      const dim = Act('dim', {'entity': 'desk', 'value': 40, 'var': 'other'});
+      expect(isProper(dim, all), isTrue);
+      expect(
+        isProper(const Act('dim', {'entity': 'hall', 'value': 40}), all),
+        isFalse,
+      );
+      // The editor offers an action the entities that define it.
+      expect(entitiesFor('dim', all), {'desk': 'Desk'});
+      expect(entitiesFor('toggle', all).keys, [sourceEntity, 'desk', 'hall']);
+      expect(actionLabels(all)['dim'], 'Dim');
+      expect(actionLabels(all)['toggle'], 'toggle');
+      // An act adds only what the action lets it: `var` stays as bound.
+      await c.read(actionRunnerProvider).run(dim);
+      expect(c.read(runtimeVarsProvider), {
+        'lamps': {'desk': 40},
+      });
+      expect(
+        c
+            .read(actionRunnerProvider)
+            .run(const Act('dim', {'entity': 'hall', 'value': 40})),
+        throwsA(isA<ImproperAct>()),
+      );
+    });
+
+    test('an action binds what it runs with from its own values', () async {
+      final platform = FakeLauncherPlatform(const [], const []);
+      final c = ProviderContainer(
+        overrides: [
+          configStoreProvider.overrideWithValue(
+            MemoryConfigStore(
+              LauncherConfig(
+                entities: const [
+                  Entity(
+                    id: 'plex',
+                    category: 'shortcut',
+                    label: 'Plex',
+                    data: {'package': 'com.plexapp'},
+                    actions: {
+                      'open': EntityAction(
+                        run: 'launchApp',
+                        bound: {'package': '{{self.package}}'},
+                      ),
+                      'lost': EntityAction(run: 'teleport'),
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          launcherPlatformProvider.overrideWithValue(platform),
+        ],
+      );
+      addTearDown(c.dispose);
+      final actions = c.read(actionRunnerProvider);
+      await actions.run(const Act('open', {'entity': 'plex', 'package': 'x'}));
+      expect(platform.launched, ['com.plexapp']);
+      // What it runs has to be there.
+      expect(
+        actions.run(const Act('lost', {'entity': 'plex'})),
+        throwsA(
+          isA<ImproperAct>().having(
+            (e) => e.message,
+            'message',
+            contains('teleport'),
+          ),
+        ),
+      );
+    });
+
+    test('an entity is one shape, saved or sent', () {
+      const made = Entity(
+        id: 'desk',
+        category: 'lamp',
+        label: 'Desk',
+        name: 'Desk lamp',
+        data: {'room': 'study'},
+        feed: Feed(httpFeed, {'url': 'http://ha/desk', 'every': 30}),
         prefab: cardPrefabId,
         placed: true,
-        data: (ref, entity) => const {'on': true, 'brightness': 40},
-        list: (ref) async => const [
-          Entity(id: 'lamp:desk', category: 'lamp', label: 'Desk'),
-        ],
-        actions: [
-          ActionRegistry(
-            name: 'toggle',
-            label: 'Switch',
+        actions: {
+          'dim': EntityAction(
+            run: 'setVariable',
+            bound: {'var': 'desk'},
+            args: {
+              'value': ['10', '50'],
+            },
+            label: 'Dim',
             icon: 'light',
-            run: (run) async => '${run.entity.label} switched',
           ),
-        ],
+        },
       );
-      entityRegistries.add(lamps);
-      addTearDown(() => entityRegistries.remove(lamps));
-      final container = ProviderContainer(
+      expect(Entity.fromJson(made.toJson()), made);
+      expect(made.toJson()['actions'], {
+        'dim': {
+          'run': 'setVariable',
+          'with': {'var': 'desk'},
+          'args': {
+            'value': ['10', '50'],
+          },
+          'label': 'Dim',
+          'icon': 'light',
+        },
+      });
+      // The least there is to say.
+      expect(
+        Entity.fromJson(const {'id': 'x'}),
+        const Entity(id: 'x', category: userCategory, label: 'x'),
+      );
+      expect(Entity.fromJson(const {'label': 'No id'}), isNull);
+    });
+
+    test('operations come from managers, and none twice', () {
+      final one = _Manager(['a', 'b']), two = _Manager(['c']);
+      expect(
+        OperationsRegistry([one, two]).all.map((operation) => operation.name),
+        ['a', 'b', 'c'],
+      );
+      expect(OperationsRegistry([one])['b'], isNotNull);
+      expect(OperationsRegistry([one])['c'], isNull);
+      expect(
+        () => OperationsRegistry([
+          one,
+          _Manager(['b']),
+        ]),
+        throwsStateError,
+      );
+    });
+
+    test('a new group of operations is a manager, and all it takes', () async {
+      final said = <Object?>[];
+      final platform = FakeLauncherPlatform(const [], const []);
+      final c = ProviderContainer(
         overrides: [
-          configStoreProvider.overrideWithValue(MemoryConfigStore()),
-          launcherPlatformProvider.overrideWithValue(
-            FakeLauncherPlatform(const [], const []),
+          configStoreProvider.overrideWithValue(
+            MemoryConfigStore(
+              LauncherConfig(
+                entities: const [
+                  Entity(
+                    id: 'desk',
+                    category: 'lamp',
+                    label: 'Desk',
+                    data: {'room': 'study', 'on': true, 'brightness': 40},
+                    prefab: cardPrefabId,
+                    placed: true,
+                    actions: {
+                      'toggle': EntityAction(
+                        run: 'say',
+                        bound: {'what': '{{self.label}} in the {{self.room}}'},
+                      ),
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          launcherPlatformProvider.overrideWithValue(platform),
+          operationsManagersProvider.overrideWith(
+            (ref) => [
+              AppOperationsManager(platform),
+              _Manager(['say'], said),
+            ],
           ),
         ],
       );
-      addTearDown(container.dispose);
-      final all = await container.read(entitiesProvider.future);
-      final desk = all.firstWhere((entity) => entity.category == 'lamp');
-      // Listed after the kinds that came before it, and placed like any.
-      expect(all.last.id, 'lamp:desk');
-      final view = await container.read(layoutViewProvider.future);
+      addTearDown(c.dispose);
+      final all = await c.read(entitiesProvider.future);
+      // Listed after what the launcher has, and placed like any.
+      expect(all.last.id, 'desk');
+      final view = await c.read(layoutViewProvider.future);
       expect(
         view.home.root.ownContents.map((entry) => entry.handed.firstOrNull),
-        contains('lamp:desk'),
+        contains('desk'),
       );
-      // What it provides is read like anything else's.
-      final read = container.listen(
-        templateProvider('{{lamp:desk}}'),
-        (_, _) {},
-      );
+      // What it holds is read like anything else's.
+      final read = c.listen(templateProvider('{{desk}}'), (_, _) {});
       addTearDown(read.close);
-      expect(container.read(entityDataProvider('lamp:desk')), {
+      expect(c.read(entityDataProvider('desk')), {
         'text': 'Desk',
-        'id': 'lamp:desk',
+        'id': 'desk',
         'label': 'Desk',
         'category': 'lamp',
+        'room': 'study',
         'on': true,
         'brightness': 40,
       });
-      // What it presents is offered and done; what apps present is not.
-      final actions = container.read(actionRunnerProvider);
-      expect(actionRegistries.map((kind) => kind.name), contains('toggle'));
-      const toggle = Act('toggle', {'entity': 'lamp:desk'});
-      expect(isProper(toggle, all), isTrue);
       expect(
-        isProper(const Act('uninstall', {'entity': 'lamp:desk'}), all),
-        isFalse,
+        await c
+            .read(actionRunnerProvider)
+            .run(const Act('toggle', {'entity': 'desk'})),
+        'said',
       );
-      expect(await actions.run(toggle), 'Desk switched');
-      expect(desk.label, 'Desk');
+      expect(said, ['Desk in the study']);
     });
   });
 
@@ -546,8 +732,8 @@ void main() {
       final player = all.firstWhere((entity) => entity.id == 'media');
       final app = all.first;
       final actions = c.read(actionRunnerProvider);
-      expect(actionFor('next', player), isNotNull);
-      expect(actionFor('next', app), isNull);
+      expect(player.actions, contains('next'));
+      expect(app.actions, isNot(contains('next')));
       // There is the one player, and it is named all the same.
       await actions.run(const Act('next', {'entity': 'media'}));
       await actions.run(const Act('playPause', {'entity': 'media'}));

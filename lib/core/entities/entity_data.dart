@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
 import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/entities/entity_registry.dart';
+import 'package:openlauncher/core/entities/feeds.dart';
 
 /// What `{{<id>...}}` reads for an entity: its label, id, category and
-/// [Entity.data], with its registry's live data on top. Null if unknown.
+/// [Entity.data], with what its feed reads on top. Null if unknown.
 final entityDataProvider = Provider.autoDispose.family<Object?, String>((
   ref,
   id,
@@ -13,7 +13,10 @@ final entityDataProvider = Provider.autoDispose.family<Object?, String>((
     entitiesProvider.select((entities) => entities.value?.byId(id)),
   );
   if (entity == null) return null;
-  final own = entityRegistry(entity.category)?.data?.call(ref, entity);
+  final own = switch (entity.feed) {
+    null => null,
+    final feed => feeds[feed.from]?.call(ref, entity, feed),
+  };
   return switch (own) {
     null => {
       'text': entity.label,

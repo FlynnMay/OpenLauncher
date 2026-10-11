@@ -1,38 +1,36 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/actions/action_registry.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/operations/operations.dart';
+import 'package:openlauncher/core/variables/scope.dart';
 
 /// An act that cannot be run as written: it names no entity, an unknown one,
-/// or one that does not present the action.
+/// one without that action, or the action runs an operation there is none of.
 class ImproperAct extends FormatException {
   const ImproperAct(super.message);
 }
 
-/// Every action, once per name. All belong to some entity category.
-List<ActionRegistry> get actionRegistries {
-  final names = <String>{};
-  return [
-    for (final registry in entityRegistries)
-      for (final action in registry.actions)
-        if (names.add(action.name)) action,
-  ];
+/// Every action name some entity in [entities] defines, with its label.
+Map<String, String> actionLabels(Iterable<Entity> entities) => {
+  for (final entity in entities)
+    for (final MapEntry(key: name, value: action) in entity.actions.entries)
+      name: action.label.isEmpty ? name : action.label,
+};
+
+/// The action called [name] as the first of [entities] that has one defines
+/// it.
+EntityAction? actionNamed(String name, Iterable<Entity> entities) {
+  for (final entity in entities) {
+    if (entity.actions[name] case final action?) return action;
+  }
+  return null;
 }
 
-ActionRegistry? actionRegistry(String name) =>
-    actionRegistries.where((action) => action.name == name).firstOrNull;
-
-/// [name] as [entity]'s category presents it.
-ActionRegistry? actionFor(String name, Entity entity) =>
-    entityRegistry(entity.category)?.actions
-        .where((action) => action.name == name)
-        .firstOrNull;
-
-/// The entity [act] names among [entities], and the action as it presents it.
+/// The entity [act] names among [entities], and its action of that name.
 /// Throws [ImproperAct] if there is none.
-({Entity entity, ActionRegistry action}) targetOf(
+({Entity entity, EntityAction action}) targetOf(
   Act act,
   Iterable<Entity> entities,
 ) {
@@ -42,7 +40,7 @@ ActionRegistry? actionFor(String name, Entity entity) =>
   }
   final entity = entities.byId(id);
   if (entity == null) throw ImproperAct('There is no entity "$id"');
-  final action = actionFor(act.name, entity);
+  final action = entity.actions[act.name];
   if (action == null) {
     throw ImproperAct('${entity.label} has no "${act.name}"');
   }
@@ -59,29 +57,39 @@ bool isProper(Act act, Iterable<Entity> entities) {
   }
 }
 
-/// The entities that present [name], as editor choices. [sourceEntity] is
+/// The entities that define [name], as editor choices. [sourceEntity] is
 /// offered where more than one could do it.
 Map<String, String> entitiesFor(String name, Iterable<Entity> entities) {
   final able = {
     for (final entity in entities)
-      if (actionFor(name, entity) != null) entity.id: entity.label,
+      if (entity.actions.containsKey(name)) entity.id: entity.label,
   };
   return {if (able.length != 1) sourceEntity: 'Its own source', ...able};
 }
 
-/// The editor's fields for one saved [act], given every entity.
+/// The editor's fields for one saved [act], given every entity. Its
+/// arguments are those the entity it names lets an act add; for a target
+/// only known when it runs, those of the first entity with that action.
 List<ComponentOption> actOptions(
   Map<String, Object?> act, {
   Iterable<Entity> entities = const [],
 }) {
-  final action = actionRegistry('${act['do']}');
+  final name = '${act['do']}';
+  final action =
+      entities.byId(switch (act[entityArg]) {
+        final String id => id,
+        _ => null,
+      })?.actions[name] ??
+      actionNamed(name, entities);
   return [
     ComponentOption(
       'do',
       'Does',
       OptionKind.choice,
       choices: {
-        for (final action in actionRegistries) action.name: action.label,
+        // Keeps a saved action nothing defines now.
+        if (act['do'] case final String saved) saved: saved,
+        ...actionLabels(entities),
       },
     ),
     ComponentOption(
@@ -91,7 +99,7 @@ List<ComponentOption> actOptions(
       choices: {
         // Keeps a saved target that is not among the choices.
         if (act[entityArg] case final String saved) saved: saved,
-        ...entitiesFor('${act['do']}', entities),
+        ...entitiesFor(name, entities),
       },
     ),
     for (final MapEntry(key: name, value: choices)
@@ -118,8 +126,10 @@ class ActionRunner {
 
   final Ref _ref;
 
-  /// Runs [act] on the entity it names. Throws [ImproperAct] if it names
-  /// none that can do it. Returns a message for the user, or null.
+  /// Has the entity [act] names do it: runs the operation its action names,
+  /// with what the action binds and what the act adds. Throws [ImproperAct]
+  /// if it cannot be done as written. Returns a message for the user, or
+  /// null.
   Future<String?> run(
     Act act, {
     ActionScreen? screen,
@@ -130,15 +140,37 @@ class ActionRunner {
       act,
       await _ref.read(entitiesProvider.future),
     );
+    final operation = _ref.read(operationsRegistryProvider)[action.run];
+    if (operation == null) {
+      throw ImproperAct(
+        '"${act.name}" of ${entity.label} runs "${action.run}", '
+        'which there is none of',
+      );
+    }
+    final self = {'self': entity.self};
     return carryOut(
-      action,
-      ActionRun(_ref, act, entity, screen, held, component),
+      operation,
+      act,
+      OperationRun(
+        {
+          for (final MapEntry(:key, :value) in action.bound.entries)
+            key: value is String && value.contains('{{')
+                ? readTemplate(_ref.read, value, self)
+                : value,
+          // Only what the action lets an act say.
+          for (final name in action.args.keys)
+            if (act.args.containsKey(name)) name: act.args[name],
+        },
+        screen: screen,
+        held: held,
+        component: component,
+      ),
     );
   }
 
-  /// Runs [action] locally. The web editor overrides this to forward device
-  /// actions to the TV.
+  /// Runs [operation] locally. The web editor overrides this to forward
+  /// device operations to the TV, as the [act] that asked for them.
   @protected
-  Future<String?> carryOut(ActionRegistry action, ActionRun run) =>
-      action.run(run);
+  Future<String?> carryOut(Operation operation, Act act, OperationRun run) =>
+      operation.run(run);
 }

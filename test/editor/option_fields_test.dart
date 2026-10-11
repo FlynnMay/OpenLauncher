@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/option_fields.dart';
@@ -156,7 +157,8 @@ void main() {
                     'Add an action',
                     OptionKind.list,
                     blank: const {'do': 'set'},
-                    fields: actOptions,
+                    // What an act may say is what the entities define.
+                    fields: (act) => actOptions(act, entities: builtInEntities),
                   ),
                   records: acts,
                   onChanged: (next) => setState(() => acts = next),

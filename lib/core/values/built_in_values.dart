@@ -37,6 +37,3 @@ const List<BuiltInValue> builtInValues = [
     parts: ['temperature', 'high', 'low', 'description'],
   ),
 ];
-
-/// Ids a user value may not take.
-final builtInRoots = {for (final value in builtInValues) value.root, 'source'};

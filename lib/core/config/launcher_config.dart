@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/components/weather.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
+import 'package:openlauncher/core/entities/entity.dart';
+import 'package:openlauncher/core/entities/user_entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefab.dart';
-import 'package:openlauncher/core/values/built_in_values.dart';
-import 'package:openlauncher/core/values/data_source.dart';
 
 enum ToastPosition { topLeft, topRight, bottomLeft, bottomRight }
 
@@ -82,7 +82,7 @@ class LauncherConfig {
     this.wallpapers = const [],
     this.wallpaperEvery = 0,
     this.toasts = const ToastOptions(),
-    this.sources = const [],
+    this.entities = const [],
     this.place,
     this.prefabs = const [],
   }) : layout = layout ?? Layout.initial();
@@ -111,8 +111,8 @@ class LauncherConfig {
 
   final ToastOptions toasts;
 
-  /// User-defined values.
-  final List<DataSource> sources;
+  /// The entities the user made; every other entity is generated.
+  final List<Entity> entities;
 
   /// Where the TV is; used by `location` and `weather`.
   final Place? place;
@@ -123,7 +123,7 @@ class LauncherConfig {
   /// Config keys sent whole between the TV and the editor (`PUT
   /// /api/config`). A new plain-data setting is a field plus its name here.
   /// The layout and file paths are handled separately.
-  static const openKeys = ['toasts', 'sources', 'place', 'prefabs'];
+  static const openKeys = ['toasts', 'entities', 'place', 'prefabs'];
 
   /// The [openKeys] values as saved.
   Map<String, Object?> get open {
@@ -146,7 +146,7 @@ class LauncherConfig {
     List<String>? wallpapers,
     int? wallpaperEvery,
     ToastOptions? toasts,
-    List<DataSource>? sources,
+    List<Entity>? entities,
     // A function so that null can be passed.
     Place? Function()? place,
     List<Prefab>? prefabs,
@@ -158,7 +158,7 @@ class LauncherConfig {
     wallpapers: wallpapers ?? this.wallpapers,
     wallpaperEvery: wallpaperEvery ?? this.wallpaperEvery,
     toasts: toasts ?? this.toasts,
-    sources: sources ?? this.sources,
+    entities: entities ?? this.entities,
     place: place == null ? this.place : place(),
     prefabs: prefabs ?? this.prefabs,
   );
@@ -198,7 +198,7 @@ class LauncherConfig {
       final Map<Object?, Object?> toasts => ToastOptions.fromJson(toasts),
       _ => const ToastOptions(),
     },
-    sources: DataSource.listFromJson(json['sources'], taken: builtInRoots),
+    entities: userEntitiesFromJson(json['entities']),
     place: placeFromJson(json['place']),
     prefabs: Prefab.listFromJson(json['prefabs']),
   );
@@ -252,7 +252,7 @@ class LauncherConfig {
     'wallpapers': wallpapers,
     'wallpaperEvery': wallpaperEvery,
     'toasts': toasts.toJson(),
-    'sources': [for (final source in sources) source.toJson()],
+    'entities': [for (final entity in entities) entity.toJson()],
     'place': ?placeToJson(place),
     'prefabs': [for (final prefab in prefabs) prefab.toJson()],
   };
