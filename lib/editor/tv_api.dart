@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -35,6 +36,8 @@ class TvState {
     this.wallpaperEvery = 0,
     this.widgetProviders = const {},
     this.notificationAccess = true,
+    this.homeButton = true,
+    this.canManageHomeButton = false,
     this.nowPlaying,
   });
 
@@ -59,6 +62,12 @@ class TvState {
 
   /// Whether the TV lets the launcher see notifications and what plays.
   final bool notificationAccess;
+
+  /// Whether the TV remote's Home button opens the launcher.
+  final bool homeButton;
+
+  /// Whether the launcher may switch that itself.
+  final bool canManageHomeButton;
 
   /// What is playing on the TV, if anything.
   final NowPlaying? nowPlaying;
@@ -169,6 +178,14 @@ class TvApi {
           provider['id'] as String: '${provider['app']}: ${provider['label']}',
       },
       notificationAccess: json['notificationAccess'] != false,
+      homeButton: switch (json['homeButton']) {
+        {'enabled': false} => false,
+        _ => true,
+      },
+      canManageHomeButton: switch (json['homeButton']) {
+        {'canManage': true} => true,
+        _ => false,
+      },
       nowPlaying: switch (json['nowPlaying']) {
         final Map playing => NowPlaying(
           packageName: playing['package'] as String,
@@ -277,17 +294,10 @@ class TvApi {
   Future<void> arrangeWallpapers({List<String>? order, int? every}) =>
       _ask('PUT', '/api/wallpapers', {'order': ?order, 'every': ?every});
 
-  /// Has the TV do [what], as a press on its remote would; [entity] is the id
-  /// of the entity pressed, if it was one. Returns what the TV said of it.
-  Future<Map<Object?, Object?>> press(
-    String what, {
-    String? entity,
-    Map<String, Object?> more = const {},
-  }) async => await _ask(
-    'POST',
-    '/api/remote${entity == null ? '' : _id(entity)}',
-    {'do': what, ...more},
-  ) as Map;
+  /// Has the TV do [act], and returns what it has to tell the user of it.
+  Future<String?> act(Act act) async =>
+      (await _ask('POST', '/api/act', act.toJson()) as Map)['message']
+          as String?;
 
   /// Finds places by name, for the weather widget.
   Future<List<Place>> findPlaces(String name) async {

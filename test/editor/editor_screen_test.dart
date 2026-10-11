@@ -18,13 +18,6 @@ class _Tv extends TvApi {
 
   @override
   Future<void> setConfig(Map<String, Object?> changed) async {}
-
-  @override
-  Future<Map<Object?, Object?>> press(
-    String what, {
-    String? entity,
-    Map<String, Object?> more = const {},
-  }) async => const {'enabled': true};
 }
 
 const _entity = Entity(

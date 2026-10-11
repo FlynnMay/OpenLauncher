@@ -177,57 +177,65 @@ void main() {
     expect(page['notificationAccess'], isTrue);
   });
 
-  test('a press from the page is done on the TV', () async {
+  test('an action sent by the page is done on the TV', () async {
     final platform =
         container.read(launcherPlatformProvider) as FakeLauncherPlatform;
-    Future<Response> press(String what, {String? id, Map? more}) => call(
-      'POST',
-      '/api/remote${id == null ? '' : '?id=${Uri.encodeQueryComponent(id)}'}',
-      body: {'do': what, ...?more},
-    );
+    Future<Response> act(String what, {String? on, Map? more}) =>
+        call('POST', '/api/act', body: {'do': what, 'entity': ?on, ...?more});
     Future<Object?> said(Response response) async {
       expect(response.statusCode, 200);
-      return jsonDecode(await response.readAsString());
+      return jsonDecode(await response.readAsString())['message'];
     }
 
-    await said(await press('open', id: 'app:a'));
-    await said(await press('open', id: 'input:tv/HW1'));
+    await said(await act('open', on: 'app:a'));
+    await said(await act('open', on: 'input:tv/HW1'));
     expect(platform.launched, ['a', 'tv/HW1']);
-    // Settings is the launcher's own screen, and the page has its own.
-    expect((await press('open', id: 'launcher:settings')).statusCode, 400);
-    expect((await press('open', id: 'app:gone')).statusCode, 404);
-    expect((await press('open')).statusCode, 404);
+    // Settings opens on a screen, and there is none here: nothing is done.
+    await said(await act('open', on: 'launcher:settings'));
+    expect((await act('open', on: 'app:gone')).statusCode, 404);
+    // Nothing is opened but an entity.
+    expect((await act('open')).statusCode, 400);
 
-    await said(await press('info', id: 'app:a'));
-    await said(await press('uninstall', id: 'app:b'));
-    expect(await said(await press('forceStop', id: 'app:a')), {'done': true});
+    await said(await act('info', on: 'app:a'));
+    await said(await act('uninstall', on: 'app:b'));
+    expect(await said(await act('forceStop', on: 'app:a')), 'A was stopped.');
+    // What the TV cannot do itself, it shows the way to, and says so.
     platform.canForceStop = false;
-    expect(await said(await press('forceStop', id: 'app:a')), {'done': false});
-    expect(platform.appActions, ['info a', 'uninstall b', 'stop a']);
+    expect(
+      await said(await act('forceStop', on: 'app:a')),
+      startsWith('Choose "Force stop"'),
+    );
+    expect(platform.appActions, ['info a', 'uninstall b', 'stop a', 'info a']);
     // Only apps have these.
-    expect((await press('info', id: 'input:tv/HW1')).statusCode, 400);
+    expect((await act('info', on: 'input:tv/HW1')).statusCode, 400);
 
-    await said(await press('media', more: {'command': 'playPause'}));
+    await said(await act('playPause', on: 'media'));
     expect(platform.mediaCommands, [MediaCommand.playPause]);
-    expect((await press('media', more: {'command': 'louder'})).statusCode, 400);
 
+    // How the Home button stands is part of the state.
     platform.homeButtonEnabled = false;
-    expect(await said(await press('homeButton')), {
+    container.invalidate(homeButtonEnabledProvider);
+    expect((await state())['homeButton'], {
       'enabled': false,
       'canManage': false,
     });
-    expect(await said(await press('setup')), {
-      'outcome': 'done',
-      'detail': null,
-    });
-    expect(await said(await press('homeButton', more: {'enabled': false})), {
+    expect(await said(await act('setup')), startsWith('All set\n'));
+    expect((await state())['homeButton'], {'enabled': true, 'canManage': true});
+    await said(await act('homeButton', more: {'enabled': false}));
+    expect((await state())['homeButton'], {
       'enabled': false,
       'canManage': true,
     });
-    await said(await press('tvSettings'));
+    await said(await act('tvSettings'));
     expect(platform.settingsOpened, 1);
 
-    expect((await press('dance')).statusCode, 400);
+    // What is not the device's doing is done all the same: a variable set.
+    await said(
+      await act('set', more: {'of': 'lamp', 'var': 'on', 'value': true}),
+    );
+
+    expect((await act('dance')).statusCode, 400);
+    expect((await call('POST', '/api/act', body: {})).statusCode, 400);
   });
 
   test('what is playing is told, with its cover', () async {

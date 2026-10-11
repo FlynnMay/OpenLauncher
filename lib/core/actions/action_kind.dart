@@ -46,6 +46,7 @@ class ActionKind {
     required this.icon,
     required this.run,
     this.args = const {},
+    this.onDevice = false,
   });
 
   /// How an [Act] names it. Kinds of entity may each have an action of the
@@ -59,6 +60,11 @@ class ActionKind {
   /// What it is told beside the entity, by the name of each, with what
   /// that is: `panel` (the id of a popup) or the choices there are.
   final Map<String, List<String>> args;
+
+  /// True for what is done by the TV itself: opening an app, stopping one.
+  /// A launcher that runs somewhere else, as the page's does in a browser,
+  /// has the TV do these; the rest it does where it is.
+  final bool onDevice;
 
   /// Does it. Returns something to tell the user, if there is anything.
   final Future<String?> Function(ActionRun run) run;

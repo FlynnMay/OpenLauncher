@@ -10,7 +10,6 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
-import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_page_state.dart';
 import 'package:openlauncher/server/custom_icons.dart';
 import 'package:openlauncher/server/editor_files.dart';
@@ -74,7 +73,7 @@ class ConfigApi {
       ('PUT', 'api/config') => _setConfig(await _body(request)),
       ('GET', 'api/source') => _sourceValue(id),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
-      ('POST', 'api/remote') => _remote(id, await _body(request)),
+      ('POST', 'api/act') => _act(await _body(request)),
       ('PUT', 'api/entity') => _withEntity(
         id,
         (id) async => _setEntity(id, await _body(request)),
@@ -221,88 +220,32 @@ class ConfigApi {
     }
   }
 
-  /// Does on the TV what a press on the remote would (`do`): `open`, `info`,
-  /// `uninstall` or `forceStop` the entity [id], `media` (`command`), `setup`,
-  /// `tvSettings`, or `homeButton`, which switches it if `enabled` is given
-  /// and says how it stands.
-  Future<Response> _remote(String? id, Map<String, Object?> body) async {
-    final platform = _ref.read(launcherPlatformProvider);
-    Response reply([Map<String, Object?> said = const {}]) =>
-        Response.ok(jsonEncode(said), headers: _json);
-    Future<Response> onEntity(
-      Future<Map<String, Object?>?> Function(Entity entity) action, {
-      bool appOnly = true,
-    }) => _withEntity(id, (id) async {
+  /// Does the action the body is, as one is saved (`do`, and whatever it
+  /// is told, such as the `entity` it is done to), and answers with what
+  /// there is to tell the user of it (`message`, or null). It is done as
+  /// anything on the TV does it, with no screen: what only a screen can do
+  /// is left undone.
+  Future<Response> _act(Map<String, Object?> body) async {
+    final act = Act.fromJson(body);
+    if (act == null) throw const FormatException('"do" must name an action');
+    Entity? entity;
+    if (body.containsKey(entityArg)) {
       final entities = await _ref.read(entitiesProvider.future);
-      final entity = entities.firstWhere((entity) => entity.id == id);
-      if (appOnly && entity.kind != appKind) {
-        throw const FormatException('That entity is not an app');
-      }
-      return reply(await action(entity) ?? const {});
-    });
+      entity = entities
+          .where((entity) => entity.id == act.arg(entityArg))
+          .firstOrNull;
+      if (entity == null) return _error(404, 'Unknown entity');
+    }
+    if (actionFor(act.name, entity) == null) {
+      throw FormatException(
+        entity == null
+            ? 'There is no "${act.name}" to do'
+            : 'That entity has no "${act.name}"',
+      );
+    }
     try {
-      switch (body['do']) {
-        case 'open':
-          return await onEntity(appOnly: false, (entity) async {
-            if (entity.kind == launcherKind) {
-              throw const FormatException('That opens nothing on the TV');
-            }
-            // As pressing something drawn from it would.
-            await _ref
-                .read(actionRunnerProvider)
-                .run(const Act('open'), subject: entity);
-            return null;
-          });
-        case 'info':
-          return await onEntity((entity) async {
-            await platform.openAppInfo(entity.target);
-            return null;
-          });
-        case 'uninstall':
-          return await onEntity((entity) async {
-            await platform.uninstallApp(entity.target);
-            return null;
-          });
-        case 'forceStop':
-          return await onEntity(
-            (entity) async => {
-              'done': await platform.forceStopApp(entity.target),
-            },
-          );
-        case 'media':
-          final command = MediaCommand.values
-              .where((command) => command.name == body['command'])
-              .firstOrNull;
-          if (command == null) {
-            throw const FormatException('"command" must name a media command');
-          }
-          await platform.sendMediaCommand(command);
-          return reply();
-        case 'setup':
-          final result = await platform.runAutomaticSetup();
-          return reply({
-            'outcome': result.outcome.name,
-            'detail': result.detail,
-          });
-        case 'tvSettings':
-          await platform.openHomeButtonSettings();
-          return reply();
-        case 'homeButton':
-          if (body['enabled'] case final enabled?) {
-            if (enabled is! bool) {
-              throw const FormatException('"enabled" must be true or false');
-            }
-            await platform.setHomeButtonEnabled(enabled);
-          }
-          return reply({
-            'enabled': await platform.isHomeButtonEnabled(),
-            'canManage': await platform.canManageHomeButton(),
-          });
-        default:
-          throw const FormatException('"do" must name something to do');
-      }
-    } on FormatException {
-      rethrow;
+      final message = await _ref.read(actionRunnerProvider).run(act);
+      return Response.ok(jsonEncode({'message': message}), headers: _json);
     } on Exception catch (e) {
       return _error(502, 'The TV could not do that: $e');
     }

@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/misc.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
@@ -36,8 +38,18 @@ final List<Override> tvOverrides = [
   wallpaperEveryProvider.overrideWith(
     (ref) => ref.watch(tvStateProvider).value?.wallpaperEvery ?? 0,
   ),
+  actionRunnerProvider.overrideWith(
+    (ref) => TvActionRunner(ref, ref.watch(tvApiProvider)),
+  ),
+  homeButtonEnabledProvider.overrideWith(
+    (ref) async => (await ref.watch(tvStateProvider.future)).homeButton,
+  ),
+  canManageHomeButtonProvider.overrideWith(
+    (ref) async =>
+        (await ref.watch(tvStateProvider.future)).canManageHomeButton,
+  ),
   launcherPlatformProvider.overrideWith((ref) {
-    final platform = BrowserPlatform(ref.watch(tvApiProvider));
+    final platform = BrowserPlatform();
     // What plays comes with the rest of what the TV sends.
     ref.listen(tvStateProvider, (_, next) {
       if (next.value case final state?) platform.hear(state.nowPlaying);
@@ -83,67 +95,34 @@ class TvConfigStore implements ConfigStore {
   }
 }
 
-/// The device as a browser has it: the TV, at the other end of [TvApi]. What
-/// the launcher here asks the device to do is done there, as if the press
-/// had come from the TV's remote. What apps and inputs there are is not
-/// asked of it: the TV sends its entities ready made.
+/// The device as a browser has it: nothing of its own. What apps and
+/// inputs there are is not asked of it, since the TV sends its entities
+/// ready made, and what is to be done on the TV goes there as an action.
 class BrowserPlatform extends FakeLauncherPlatform {
-  BrowserPlatform(this._api) : super(const [], const []);
-
-  final TvApi _api;
+  BrowserPlatform() : super(const [], const []);
 
   /// Takes [now] as what is playing on the TV.
   void hear(NowPlaying? now) {
     playing = now;
     notifyNowPlayingChanged();
   }
+}
 
-  // Here an entity's target is its id, which is what the TV knows it by.
-  @override
-  Future<void> launchApp(String packageName) =>
-      _api.press('open', entity: packageName);
+/// Carries actions out for the launcher in a browser: what the TV itself
+/// does is sent to it, as if set off there, and the rest is done here.
+class TvActionRunner extends ActionRunner {
+  TvActionRunner(super.ref, this._api);
 
-  @override
-  Future<void> switchToInput(String inputId) =>
-      _api.press('open', entity: inputId);
-
-  @override
-  Future<void> openAppInfo(String packageName) =>
-      _api.press('info', entity: packageName);
+  final TvApi _api;
 
   @override
-  Future<void> uninstallApp(String packageName) =>
-      _api.press('uninstall', entity: packageName);
-
-  @override
-  Future<bool> forceStopApp(String packageName) async =>
-      (await _api.press('forceStop', entity: packageName))['done'] == true;
-
-  @override
-  Future<void> sendMediaCommand(MediaCommand command) =>
-      _api.press('media', more: {'command': command.name});
-
-  @override
-  Future<bool> isHomeButtonEnabled() async =>
-      (await _api.press('homeButton'))['enabled'] == true;
-
-  @override
-  Future<bool> canManageHomeButton() async =>
-      (await _api.press('homeButton'))['canManage'] == true;
-
-  @override
-  Future<void> setHomeButtonEnabled(bool enabled) =>
-      _api.press('homeButton', more: {'enabled': enabled});
-
-  @override
-  Future<void> openHomeButtonSettings() => _api.press('tvSettings');
-
-  @override
-  Future<SetupResult> runAutomaticSetup() async {
-    final said = await _api.press('setup');
-    return SetupResult(
-      outcome: SetupOutcome.values.byName(said['outcome'] as String),
-      detail: said['detail'] as String?,
-    );
-  }
+  Future<String?> carryOut(ActionKind kind, ActionRun run) => kind.onDevice
+      ? _api.act(
+          Act(run.act.name, {
+            ...run.act.args,
+            // The TV is told what it is done to, having no press to go by.
+            entityArg: ?run.entity?.id,
+          }),
+        )
+      : super.carryOut(kind, run);
 }

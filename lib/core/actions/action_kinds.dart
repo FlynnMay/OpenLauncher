@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/actions/action_kind.dart';
@@ -6,6 +7,8 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/scope.dart';
+import 'package:openlauncher/core/widgets/device_sources.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// The argument that names the entity an action is done to, where that is
 /// not the one it was set off from.
@@ -138,6 +141,74 @@ final List<ActionKind> launcherActions = [
       return null;
     },
   ),
+  // What the launcher needs of the TV to do all it can. What it says of
+  // how that went has its heading on a line of its own.
+  ActionKind(
+    name: 'setup',
+    label: 'Set up automatically',
+    icon: 'settings',
+    onDevice: true,
+    run: (run) async {
+      SetupResult result;
+      try {
+        result = await run.platform.runAutomaticSetup();
+      } on Object catch (error) {
+        result = SetupResult(outcome: SetupOutcome.failed, detail: '$error');
+      }
+      // Setup also lets the launcher see notifications and what is playing.
+      run.ref
+        ..invalidate(homeButtonEnabledProvider)
+        ..invalidate(canManageHomeButtonProvider)
+        ..invalidate(notificationAccessProvider)
+        ..invalidate(nowPlayingProvider);
+      return switch (result.outcome) {
+        SetupOutcome.done =>
+          'All set\n'
+              'The Home button on your remote now opens OpenLauncher.',
+        SetupOutcome.adbUnavailable =>
+          'USB debugging is off\n'
+              'OpenLauncher sets itself up through the TV\'s debugging '
+              'service.\n\n'
+              'In TV settings, go to System → About and press OK on the '
+              'build number seven times. Then turn on USB debugging in '
+              'System → Developer options, and try again.',
+        SetupOutcome.notAuthorised =>
+          'The TV did not allow it\n'
+              'Try again, and when the TV asks whether to allow USB '
+              'debugging, tick "Always allow" and choose Allow.',
+        SetupOutcome.failed =>
+          'Setup did not finish\n'
+              '${result.detail ?? 'Something went wrong. Try again.'}',
+      };
+    },
+  ),
+  ActionKind(
+    name: 'homeButton',
+    label: 'Switch the Home button',
+    icon: 'home',
+    args: const {
+      'enabled': ['true', 'false'],
+    },
+    onDevice: true,
+    run: (run) async {
+      await run.platform.setHomeButtonEnabled(switch (run.act.args['enabled']) {
+        false || 'false' => false,
+        _ => true,
+      });
+      run.ref.invalidate(homeButtonEnabledProvider);
+      return null;
+    },
+  ),
+  ActionKind(
+    name: 'tvSettings',
+    label: 'TV settings',
+    icon: 'tv',
+    onDevice: true,
+    run: (run) async {
+      await run.platform.openHomeButtonSettings();
+      return null;
+    },
+  ),
 ];
 
 /// Every action there is, once each by name, for whatever offers them to
@@ -180,7 +251,7 @@ final actionRunnerProvider = Provider<ActionRunner>(ActionRunner.new);
 
 /// Carries actions out, for the TV's screen and for anything else.
 class ActionRunner {
-  ActionRunner(this._ref);
+  ActionRunner(Ref ref) : _ref = ref;
 
   final Ref _ref;
 
@@ -209,6 +280,14 @@ class ActionRunner {
     }
     final kind = actionFor(act.name, entity);
     if (kind == null) return null;
-    return kind.run(ActionRun(_ref, act, entity, screen, held, component));
+    return carryOut(
+      kind,
+      ActionRun(_ref, act, entity, screen, held, component),
+    );
   }
+
+  /// Does [kind] as [run] has it: here. A runner that is not on the TV has
+  /// the TV do what only it can.
+  @protected
+  Future<String?> carryOut(ActionKind kind, ActionRun run) => kind.run(run);
 }

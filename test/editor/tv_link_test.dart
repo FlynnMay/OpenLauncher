@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -22,17 +23,13 @@ class _Tv extends TvApi {
   Future<void> setConfig(Map<String, Object?> changed) async =>
       sent.add('config ${changed.keys.join(' ')}');
 
-  /// What the TV answers a press with, by what was pressed.
-  final answers = <String, Map<String, Object?>>{};
+  /// What the TV says of an action, by its name.
+  final answers = <String, String>{};
 
   @override
-  Future<Map<Object?, Object?>> press(
-    String what, {
-    String? entity,
-    Map<String, Object?> more = const {},
-  }) async {
-    sent.add([what, ?entity, if (more.isNotEmpty) more].join(' '));
-    return answers[what] ?? const {};
+  Future<String?> act(Act act) async {
+    sent.add('${act.toJson()}');
+    return answers[act.name];
   }
 }
 
@@ -102,13 +99,12 @@ void main() {
         .read(configProvider.notifier)
         .setLayout(layout.without({'app:a'}));
     await tester.pumpAndSettle();
-    // Besides the screen asking how the Home button stands.
-    expect(tv.sent.where((sent) => sent != 'homeButton'), ['layout']);
+    expect(tv.sent, ['layout']);
     expect(find.text('Alpha'), findsNothing);
   });
 
   testWidgets('an entity pressed here is opened on the TV', (tester) async {
-    final tv = _Tv()..answers['homeButton'] = {'enabled': true};
+    final tv = _Tv();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -123,7 +119,7 @@ void main() {
 
     await tester.tap(find.text('Alpha').last);
     await tester.pumpAndSettle();
-    expect(tv.sent, contains('open app:a'));
+    expect(tv.sent, ['{do: open, entity: app:a}']);
   });
 
   test(
@@ -162,37 +158,66 @@ void main() {
     },
   );
 
-  test('what is asked of the device is asked of the TV', () async {
-    final tv = _Tv();
-    final platform = BrowserPlatform(tv);
+  test(
+    'what the TV itself does is sent to it, the rest is done here',
+    () async {
+      final tv = _Tv()..answers['forceStop'] = 'Alpha was stopped.';
+      final container = ProviderContainer(
+        overrides: [
+          ...tvOverrides,
+          tvApiProvider.overrideWithValue(tv),
+          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+        ],
+      );
+      addTearDown(container.dispose);
+      // As the screen does: nothing is read from the TV for no one.
+      container.listen(entitiesProvider, (_, _) {});
+      final actions = container.read(actionRunnerProvider);
 
-    await platform.launchApp('app:a');
-    await platform.switchToInput('input:tv/HW1');
-    await platform.openAppInfo('app:a');
-    await platform.uninstallApp('app:a');
-    await platform.sendMediaCommand(MediaCommand.playPause);
-    await platform.openHomeButtonSettings();
-    expect(tv.sent, [
-      'open app:a',
-      'open input:tv/HW1',
-      'info app:a',
-      'uninstall app:a',
-      'media {command: playPause}',
-      'tvSettings',
-    ]);
+      // Set off from an entity, the TV is told which.
+      expect(
+        await actions.run(const Act('forceStop'), subject: _entity),
+        'Alpha was stopped.',
+      );
+      await actions.run(const Act('info', {'entity': 'app:a'}));
+      await actions.run(const Act('homeButton', {'enabled': false}));
+      await actions.run(const Act('setup'));
+      expect(tv.sent, [
+        '{do: forceStop, entity: app:a}',
+        '{do: info, entity: app:a}',
+        '{do: homeButton, enabled: false}',
+        '{do: setup}',
+      ]);
 
-    expect(await platform.forceStopApp('app:a'), isFalse);
-    tv.answers['forceStop'] = {'done': true};
-    expect(await platform.forceStopApp('app:a'), isTrue);
+      // Setting a variable is the page's own business.
+      await actions.run(const Act('set', {'of': 'x', 'var': 'on', 'value': 1}));
+      expect(tv.sent, hasLength(4));
+    },
+  );
 
-    tv.answers['homeButton'] = {'enabled': true, 'canManage': false};
-    expect(await platform.isHomeButtonEnabled(), isTrue);
-    expect(await platform.canManageHomeButton(), isFalse);
-    await platform.setHomeButtonEnabled(false);
-    expect(tv.sent.last, 'homeButton {enabled: false}');
-
-    tv.answers['setup'] = {'outcome': 'notAuthorised', 'detail': null};
-    final result = await platform.runAutomaticSetup();
-    expect(result.outcome, SetupOutcome.notAuthorised);
+  test('how the Home button stands is what the TV says', () async {
+    final container = ProviderContainer(
+      overrides: [
+        ...tvOverrides,
+        tvApiProvider.overrideWithValue(_Tv()),
+        tvStateProvider.overrideWith(
+          (ref) => Stream.value(
+            TvState(
+              entities: const [_entity],
+              config: LauncherConfig(layout: Layout.initial(['app:a'])),
+              widgets: const [],
+              homeButton: false,
+              canManageHomeButton: true,
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+      ..listen(homeButtonEnabledProvider, (_, _) {})
+      ..listen(canManageHomeButtonProvider, (_, _) {});
+    expect(await container.read(homeButtonEnabledProvider.future), isFalse);
+    expect(await container.read(canManageHomeButtonProvider.future), isTrue);
   });
 }

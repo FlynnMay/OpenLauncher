@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/notifications/toast_overlay.dart';
 import 'package:openlauncher/features/widgets/app_widget.dart';
 import 'package:openlauncher/server/config_server.dart';
+
+/// Has the Home button looked at again whenever the app comes back to the
+/// front, since it can be changed in the TV's settings.
+final _homeButtonRecheckProvider = Provider<void>((ref) {
+  final listener = AppLifecycleListener(
+    onResume: () => ref.invalidate(homeButtonEnabledProvider),
+  );
+  ref.onDispose(listener.dispose);
+});
 
 class OpenLauncherApp extends ConsumerWidget {
   const OpenLauncherApp({super.key});
@@ -13,6 +23,7 @@ class OpenLauncherApp extends ConsumerWidget {
     // Keeps the config web server running for as long as the app is.
     ref.watch(configServerProvider);
     ref.watch(widgetCleanupProvider);
+    ref.watch(_homeButtonRecheckProvider);
     return MaterialApp(
       title: 'OpenLauncher',
       debugShowCheckedModeBanner: false,

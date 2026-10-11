@@ -37,3 +37,14 @@ final widgetProvidersProvider = FutureProvider<List<WidgetProvider>>((ref) {
   ref.onDispose(sub.cancel);
   return platform.listWidgetProviders();
 });
+
+/// Whether the remote's Home button opens this launcher.
+final homeButtonEnabledProvider = FutureProvider<bool>(
+  (ref) => ref.watch(launcherPlatformProvider).isHomeButtonEnabled(),
+);
+
+/// Whether the app may switch the Home button on and off itself, which it can
+/// once automatic setup has run.
+final canManageHomeButtonProvider = FutureProvider<bool>(
+  (ref) => ref.watch(launcherPlatformProvider).canManageHomeButton(),
+);

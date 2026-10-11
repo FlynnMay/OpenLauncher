@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
-import 'package:openlauncher/features/home_button/home_button.dart';
 import 'package:openlauncher/features/remote/remote_config_dialog.dart';
-import 'package:openlauncher/platform/launcher_platform.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -30,41 +29,13 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
-    SetupResult result;
-    try {
-      result = await ref.read(launcherPlatformProvider).runAutomaticSetup();
-    } on Object catch (error) {
-      result = SetupResult(outcome: SetupOutcome.failed, detail: '$error');
-    }
-    ref.invalidate(homeButtonEnabledProvider);
-    ref.invalidate(canManageHomeButtonProvider);
-    // Setup also lets the launcher see notifications and what is playing.
-    ref.invalidate(notificationAccessProvider);
-    ref.invalidate(nowPlayingProvider);
+    final said = await _do(ref, const Act('setup'));
     navigator.pop();
-    if (!context.mounted) return;
-
-    final (title, message) = switch (result.outcome) {
-      SetupOutcome.done => (
-        'All set',
-        'The Home button on your remote now opens OpenLauncher.',
-      ),
-      SetupOutcome.adbUnavailable => (
-        'USB debugging is off',
-        'OpenLauncher sets itself up through the TV\'s debugging service.\n\n'
-            'In TV settings, go to System → About and press OK on the build '
-            'number seven times. Then turn on USB debugging in System → '
-            'Developer options, and try again.',
-      ),
-      SetupOutcome.notAuthorised => (
-        'The TV did not allow it',
-        'Try again, and when the TV asks whether to allow USB debugging, '
-            'tick "Always allow" and choose Allow.',
-      ),
-      SetupOutcome.failed => (
-        'Setup did not finish',
-        result.detail ?? 'Something went wrong. Try again.',
-      ),
+    if (!context.mounted || said == null) return;
+    // Its heading, then the rest.
+    final (title, message) = switch (said.indexOf('\n')) {
+      -1 => ('Automatic setup', said),
+      final at => (said.substring(0, at), said.substring(at + 1)),
     };
     await showDialog<void>(
       context: context,
@@ -93,11 +64,20 @@ class SettingsScreen extends ConsumerWidget {
       // Turning it on needs setup first; turning it off without setup can
       // only be done in the TV's own settings.
       if (enabled) return _runSetup(context, ref);
-      await ref.read(launcherPlatformProvider).openHomeButtonSettings();
+      await _do(ref, const Act('tvSettings'));
       return;
     }
-    await ref.read(launcherPlatformProvider).setHomeButtonEnabled(enabled);
-    ref.invalidate(homeButtonEnabledProvider);
+    await _do(ref, Act('homeButton', {'enabled': enabled}));
+  }
+
+  /// Does [act] as anything on the screen would; what it says, or what
+  /// went wrong, comes back.
+  static Future<String?> _do(WidgetRef ref, Act act) async {
+    try {
+      return await ref.read(actionRunnerProvider).run(act);
+    } on Object catch (error) {
+      return 'It could not be done\n$error';
+    }
   }
 
   @override
@@ -160,9 +140,7 @@ class SettingsScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: const Text('TV settings'),
-                  onTap: () => ref
-                      .read(launcherPlatformProvider)
-                      .openHomeButtonSettings(),
+                  onTap: () => _do(ref, const Act('tvSettings')),
                 ),
               ],
             ),

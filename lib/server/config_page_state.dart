@@ -102,6 +102,12 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'config': config.open,
     // Toasts and the now-playing widget stay empty without it.
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
+    // Whether the remote's Home button opens the launcher, and whether
+    // the launcher may switch that itself.
+    'homeButton': {
+      'enabled': await ref.watch(homeButtonEnabledProvider.future),
+      'canManage': await ref.watch(canManageHomeButtonProvider.future),
+    },
     // What the now-playing widget shows, or null.
     'nowPlaying': playing == null
         ? null

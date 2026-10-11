@@ -84,6 +84,7 @@ final List<EntityKind> entityKinds = [
         name: 'open',
         label: 'Open',
         icon: 'play',
+        onDevice: true,
         run: (run) async {
           await run.platform.switchToInput(run.entity!.target);
           return null;
@@ -113,6 +114,7 @@ final List<EntityKind> entityKinds = [
         name: 'open',
         label: 'Open',
         icon: 'play',
+        onDevice: true,
         run: (run) async {
           await run.platform.launchApp(run.entity!.target);
           return null;
@@ -120,6 +122,7 @@ final List<EntityKind> entityKinds = [
       ),
       ActionKind(
         name: 'info',
+        onDevice: true,
         label: 'App info',
         icon: 'info',
         run: (run) async {
@@ -129,6 +132,7 @@ final List<EntityKind> entityKinds = [
       ),
       ActionKind(
         name: 'forceStop',
+        onDevice: true,
         label: 'Force stop',
         icon: 'stop',
         run: (run) async {
@@ -144,6 +148,7 @@ final List<EntityKind> entityKinds = [
       ),
       ActionKind(
         name: 'uninstall',
+        onDevice: true,
         label: 'Uninstall',
         icon: 'delete',
         run: (run) async {
@@ -291,6 +296,7 @@ final List<EntityKind> entityKinds = [
           name: command.name,
           label: label,
           icon: icon,
+          onDevice: true,
           run: (run) async {
             await run.platform.sendMediaCommand(command);
             return null;
