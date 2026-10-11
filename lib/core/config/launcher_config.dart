@@ -27,15 +27,15 @@ class ToastOptions {
   static const options = [
     ComponentOption(
       'enabled',
-      'Pop up over the home screen',
+      'Show notifications',
       OptionKind.toggle,
-      usual: true,
+      defaultValue: true,
     ),
     ComponentOption(
       'position',
-      'Corner',
+      'Position',
       OptionKind.choice,
-      usual: 'topRight',
+      defaultValue: 'topRight',
       choices: {
         'topLeft': 'Top left',
         'topRight': 'Top right',
@@ -45,9 +45,9 @@ class ToastOptions {
     ),
     ComponentOption(
       'seconds',
-      'Seconds',
+      'Duration (s)',
       OptionKind.number,
-      usual: 6,
+      defaultValue: 6,
       min: 2,
       max: 30,
     ),

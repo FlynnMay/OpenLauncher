@@ -1,16 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/editor/actions.dart';
-import 'package:openlauncher/editor/catalogue.dart';
-import 'package:openlauncher/editor/inspector.dart';
-import 'package:openlauncher/editor/layers.dart';
-import 'package:openlauncher/editor/object_tree.dart';
-import 'package:openlauncher/editor/selection.dart';
-import 'package:openlauncher/editor/snapping.dart';
-import 'package:openlauncher/editor/stage.dart';
-import 'package:openlauncher/editor/tv_link.dart';
-import 'package:openlauncher/editor/tv_screen.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/panels/panels.dart';
+import 'package:openlauncher/editor/stage/stage.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 
 // The web editor: the launcher itself running in the browser against the TV's
 // data (tv_link.dart), plus editing tools. Built by tool/build_editor.sh.
@@ -40,6 +34,17 @@ class EditorScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<EditorScreen> createState() => _EditorScreenState();
+}
+
+/// A key left to a text field while one has the focus.
+class _OutsideText extends SingleActivator {
+  const _OutsideText(super.trigger);
+
+  @override
+  bool accepts(KeyEvent event, HardwareKeyboard state) =>
+      super.accepts(event, state) &&
+      primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() ==
+          null;
 }
 
 /// The side panels.
@@ -150,7 +155,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       body: CallbackShortcuts(
         bindings: {
           if (_editing) ...{
-            const SingleActivator(LogicalKeyboardKey.delete): () =>
+            const _OutsideText(LogicalKeyboardKey.delete): () =>
                 removeSelected(context, ref),
             const SingleActivator(LogicalKeyboardKey.escape): ref
                 .read(selectionProvider.notifier)

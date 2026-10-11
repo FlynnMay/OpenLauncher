@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/editor/resize_handles.dart';
+import 'package:openlauncher/editor/stage/stage.dart';
 
 void main() {
   testWidgets('reports how far a handle is dragged, then that it was let go', (

@@ -12,22 +12,6 @@ class ImproperAct extends FormatException {
   const ImproperAct(super.message);
 }
 
-/// Every action name some entity in [entities] defines, with its label.
-Map<String, String> actionLabels(Iterable<Entity> entities) => {
-  for (final entity in entities)
-    for (final MapEntry(key: name, value: action) in entity.actions.entries)
-      name: action.label.isEmpty ? name : action.label,
-};
-
-/// The action called [name] as the first of [entities] that has one defines
-/// it.
-EntityAction? actionNamed(String name, Iterable<Entity> entities) {
-  for (final entity in entities) {
-    if (entity.actions[name] case final action?) return action;
-  }
-  return null;
-}
-
 /// The entity [act] names among [entities], and its action of that name.
 /// Throws [ImproperAct] if there is none.
 ({Entity entity, EntityAction action}) targetOf(
@@ -57,67 +41,44 @@ bool isProper(Act act, Iterable<Entity> entities) {
   }
 }
 
-/// The entities that define [name], as editor choices. [sourceEntity] is
-/// offered where more than one could do it.
-Map<String, String> entitiesFor(String name, Iterable<Entity> entities) {
-  final able = {
-    for (final entity in entities)
-      if (entity.actions.containsKey(name)) entity.id: entity.label,
-  };
-  return {if (able.length != 1) sourceEntity: 'Its own source', ...able};
+/// The actions an act aimed at [target] can name: that entity's, or every
+/// entity's when the target is only known as it runs.
+Map<String, EntityAction> actionsOf(String? target, Iterable<Entity> entities) {
+  if (entities.byId(target) case final entity?) return entity.actions;
+  final all = <String, EntityAction>{};
+  for (final entity in entities) {
+    for (final MapEntry(key: name, value: action) in entity.actions.entries) {
+      all.putIfAbsent(name, () => action);
+    }
+  }
+  return all;
 }
 
-/// The editor's fields for one saved [act], given every entity. Its
-/// arguments are those the entity it names lets an act add; for a target
-/// only known when it runs, those of the first entity with that action.
-List<ComponentOption> actOptions(
-  Map<String, Object?> act, {
-  Iterable<Entity> entities = const [],
-}) {
-  final name = '${act['do']}';
-  final action =
-      entities.byId(switch (act[entityArg]) {
-        final String id => id,
-        _ => null,
-      })?.actions[name] ??
-      actionNamed(name, entities);
-  return [
-    ComponentOption(
-      'do',
-      'Does',
-      OptionKind.choice,
-      choices: {
-        // Keeps a saved action nothing defines now.
-        if (act['do'] case final String saved) saved: saved,
-        ...actionLabels(entities),
-      },
-    ),
-    ComponentOption(
-      entityArg,
-      'to',
-      OptionKind.choice,
-      choices: {
-        // Keeps a saved target that is not among the choices.
-        if (act[entityArg] case final String saved) saved: saved,
-        ...entitiesFor(name, entities),
-      },
-    ),
-    for (final MapEntry(key: name, value: choices)
-        in (action?.args ?? {}).entries)
-      choices.isEmpty
-          ? ComponentOption(
-              name,
-              name == 'of' ? 'of (an id; empty for itself)' : name,
-              OptionKind.value,
-            )
-          : ComponentOption(
-              name,
-              name,
-              OptionKind.choice,
-              choices: {for (final choice in choices) choice: choice},
-            ),
-  ];
-}
+/// The editor's fields for what an act may add to [action].
+List<ComponentOption> argOptions(EntityAction action) => [
+  for (final MapEntry(key: name, value: choices) in action.args.entries)
+    choices.isEmpty
+        ? ComponentOption(
+            name,
+            name == 'of' ? 'of (component ID)' : name,
+            OptionKind.value,
+          )
+        : ComponentOption(
+            name,
+            name,
+            OptionKind.choice,
+            choices: {for (final choice in choices) choice: choice},
+          ),
+];
+
+/// [act] aimed at [target] doing [name]: keeps the arguments that action
+/// lets an act add.
+Act retargeted(Act act, String target, String name, EntityAction? action) =>
+    Act(name, {
+      entityArg: target,
+      for (final MapEntry(:key, :value) in act.args.entries)
+        if (action?.args.containsKey(key) ?? false) key: value,
+    });
 
 final actionRunnerProvider = Provider<ActionRunner>(ActionRunner.new);
 

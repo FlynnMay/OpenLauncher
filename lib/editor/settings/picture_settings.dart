@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/file_pick.dart';
-import 'package:openlauncher/editor/image_carousel.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 
 /// A single picture with upload and reset; used for entity and folder
 /// pictures.

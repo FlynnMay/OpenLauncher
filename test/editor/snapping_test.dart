@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/snapping.dart';
+import 'package:openlauncher/editor/stage/stage.dart';
 
 void main() {
   test(

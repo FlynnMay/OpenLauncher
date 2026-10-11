@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/resize_handles.dart';
-import 'package:openlauncher/editor/snapping.dart';
-import 'package:openlauncher/editor/tv_screen.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/stage/resize_handles.dart';
+import 'package:openlauncher/editor/stage/snapping.dart';
+import 'package:openlauncher/editor/stage/tv_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// [id]'s placement in [pane], as drawn.

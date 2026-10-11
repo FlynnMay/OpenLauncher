@@ -4,9 +4,10 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/editor/dragging.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/selection.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/editing/dragging.dart';
+import 'package:openlauncher/editor/editing/layout_edit.dart';
+import 'package:openlauncher/editor/editing/selection.dart';
 
 /// Changes the layout through the config controller, which updates the screen
 /// and sends it to the TV.
@@ -101,34 +102,4 @@ Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
   if (ids.isEmpty) return;
   ref.read(selectionProvider.notifier).clear();
   await changeLayout(context, ref, (layout) => ids.fold(layout, removeItem));
-}
-
-/// Asks for a name; null if cancelled.
-Future<String?> askName(
-  BuildContext context,
-  String suggested, {
-  String title = 'Name of the folder',
-}) {
-  final name = TextEditingController(text: suggested);
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: name,
-        autofocus: true,
-        onSubmitted: (value) => Navigator.pop(context, value.trim()),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, name.text.trim()),
-          child: const Text('Add'),
-        ),
-      ],
-    ),
-  );
 }

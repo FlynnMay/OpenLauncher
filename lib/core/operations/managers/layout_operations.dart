@@ -16,7 +16,7 @@ class LayoutOperationsManager implements OperationsManager {
   late final List<Operation> operations = [
     Operation(
       name: 'addItem',
-      label: 'Put an entity on a layer',
+      label: 'Add an entity to a layer',
       // `what` is an entity id; `to` a pane on the layer, else the inbox.
       args: const {'layer': [], 'what': [], 'to': []},
       run: (run) async {
@@ -41,7 +41,7 @@ class LayoutOperationsManager implements OperationsManager {
     ),
     Operation(
       name: 'removeItem',
-      label: 'Take an entity off a layer',
+      label: 'Remove an entity from a layer',
       // `what` is an entity id; every instance handed it is removed.
       args: const {'layer': [], 'what': []},
       run: (run) async {

@@ -3,16 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/actions.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/option_fields.dart';
-import 'package:openlauncher/editor/pane_settings.dart';
-import 'package:openlauncher/editor/prefab_settings.dart';
-import 'package:openlauncher/editor/style_settings.dart';
-import 'package:openlauncher/editor/tv_api.dart';
-import 'package:openlauncher/editor/tv_screen.dart';
-import 'package:openlauncher/editor/values_settings.dart';
-import 'package:openlauncher/editor/wallpaper_settings.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/settings/settings.dart';
+import 'package:openlauncher/editor/stage/stage.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 
 /// Launcher-wide settings, shown when nothing is selected.
 class GlobalProperties extends ConsumerWidget {
@@ -71,8 +66,8 @@ class GlobalProperties extends ConsumerWidget {
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Text(
-              'What holding OK on something offers: a popup of buttons, arranged like '
-              'any folder. Add a Button from Primitives and give it an action.',
+              'The menu shown on holding OK: a folder of buttons. Add a '
+              'Button from Primitives and give it an action.',
             ),
           ),
           Align(
@@ -83,7 +78,7 @@ class GlobalProperties extends ConsumerWidget {
                 TvScreen.openPopup(Layout.menuId);
               },
               icon: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('Arrange them'),
+              label: const Text('Edit menu'),
             ),
           ),
         ]),
@@ -92,8 +87,8 @@ class GlobalProperties extends ConsumerWidget {
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Text(
-                'None are seen until "Set up automatically" has been run in '
-                'the TV\'s Settings.',
+                'Run "Set up automatically" in the TV\'s Settings to '
+                'receive notifications.',
               ),
             ),
           ...optionFields(

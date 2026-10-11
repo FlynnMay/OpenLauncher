@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/catalogue.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/main.dart';
-import 'package:openlauncher/editor/object_tree.dart';
-import 'package:openlauncher/editor/selection.dart';
-import 'package:openlauncher/editor/tv_api.dart';
-import 'package:openlauncher/editor/tv_link.dart';
-import 'package:openlauncher/editor/tv_screen.dart';
+import 'package:openlauncher/editor/panels/panels.dart';
+import 'package:openlauncher/editor/stage/stage.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 
 class _Tv extends TvApi {
   @override
@@ -85,6 +83,25 @@ void main() {
     expect(ref.read(selectionProvider), isEmpty);
   });
 
+  testWidgets('Delete in a text box is typing, not removing', (tester) async {
+    final ref = await pump(tester, const Size(1600, 900));
+    await tester.tap(find.text('Objects'));
+    await tester.pumpAndSettle();
+    await tester.tap(inTree('Alpha'));
+    await tester.pumpAndSettle();
+    final box = find.descendant(
+      of: find.byType(Inspector),
+      matching: find.byType(TextField),
+    );
+    await tester.ensureVisible(box.first);
+    await tester.tap(box.first);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.pumpAndSettle();
+    expect(ref.read(selectionProvider), isNotEmpty);
+    expect(inTree('Alpha'), findsOneWidget);
+  });
+
   testWidgets('under a narrow screen the three take turns', (tester) async {
     await pump(tester, const Size(420, 900));
     await tester.tap(find.text('Objects'));
@@ -93,7 +110,7 @@ void main() {
     await tester.pumpAndSettle();
     // Picking something out brings up its settings.
     expect(find.text('Selected'), findsOneWidget);
-    expect(find.text('Select several').hitTestable(), findsOneWidget);
+    expect(find.text('Multi-select').hitTestable(), findsOneWidget);
   });
 
   testWidgets('a sidebar is only taken by an edge that has none', (
@@ -141,8 +158,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), {'left'});
     expect(find.text('Dock'), findsOneWidget);
-    expect(find.text('Docked'), findsOneWidget);
-    expect(find.text('Shows while closed'), findsOneWidget);
+    expect(find.text('Position'), findsOneWidget);
+    expect(find.text('Collapsed size'), findsOneWidget);
     expect(find.text('Transform'), findsNothing);
     expect(tester.takeException(), isNull);
   });

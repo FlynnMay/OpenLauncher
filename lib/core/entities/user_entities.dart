@@ -35,22 +35,22 @@ ComponentOption userEntityOptions(
   Iterable<Operation> operations,
 ) => ComponentOption(
   'entities',
-  'Add an entity',
+  'Add entity',
   OptionKind.list,
   heading: 'name',
-  asks: 'Name of the entity',
+  asks: 'Entity name',
   blank: const {'name': 'Value'},
   max: maxUserEntities,
   fields: (one) => [
     const ComponentOption('name', 'Name', OptionKind.text),
     ComponentOption(
       'kind',
-      'Its value comes from',
+      'Source',
       OptionKind.choice,
-      usual: httpFeed,
+      defaultValue: httpFeed,
       choices: {
-        httpFeed: 'Web address (JSON)',
-        _text: 'Fixed text',
+        httpFeed: 'URL (JSON)',
+        _text: 'Static text',
         // A feed written by hand is kept.
         if (!const {httpFeed, _text}.contains(_kind(one)))
           _kind(one): _kind(one),
@@ -64,16 +64,16 @@ ComponentOption userEntityOptions(
     ),
     ComponentOption(
       'url',
-      'Web address',
+      'URL',
       OptionKind.text,
       when: (one) => _kind(one) == httpFeed,
     ),
     // Polled by the TV while something shows it.
     ComponentOption(
       'every',
-      'Seconds between asking',
+      'Refresh interval (s)',
       OptionKind.number,
-      usual: 60,
+      defaultValue: 60,
       min: HttpFeed.minEvery,
       max: 3600,
       step: 10,
@@ -81,15 +81,15 @@ ComponentOption userEntityOptions(
     ),
     ComponentOption(
       'actions',
-      'Add an action',
+      'Add action',
       OptionKind.list,
       heading: 'name',
-      asks: 'Name of the action',
+      asks: 'Action name',
       blank: {'name': 'do', 'run': operations.firstOrNull?.name},
       fields: (action) => [
         ComponentOption(
           'run',
-          'Runs',
+          'Operation',
           OptionKind.choice,
           choices: {
             // Keeps one this build does not know.
@@ -113,7 +113,7 @@ ComponentOption userEntityOptions(
                   '$_with$name',
                   name,
                   OptionKind.choice,
-                  unset: 'Said by the act',
+                  unset: 'Set by the action',
                   choices: {for (final choice in choices) choice: choice},
                 ),
       ],

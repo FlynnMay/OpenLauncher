@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/file_pick.dart';
-import 'package:openlauncher/editor/image_carousel.dart';
-import 'package:openlauncher/editor/tv_api.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
 /// The wallpapers and their rotation.

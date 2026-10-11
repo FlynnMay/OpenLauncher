@@ -33,10 +33,9 @@ class SnapButton extends ConsumerWidget {
     final snap = ref.watch(snapProvider);
     return IconButton(
       tooltip: snap
-          ? 'Things land on whole cells. Press to place and size them '
-                'freely in "Anywhere" panes.'
-          : 'In "Anywhere" panes things go exactly where they are put. '
-                'Press to keep them to whole cells.',
+          ? 'Snap to grid: on. Press to place and size freely in Free '
+                'panes.'
+          : 'Snap to grid: off. Press to keep things to whole cells.',
       isSelected: snap,
       onPressed: () => ref.read(snapProvider.notifier).set(!snap),
       icon: const Icon(Icons.grid_off_outlined),

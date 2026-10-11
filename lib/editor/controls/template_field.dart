@@ -67,7 +67,7 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
     final path = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Put a value in'),
+        title: const Text('Insert variable'),
         children: [
           for (final MapEntry(key: name, value: paths) in values.entries)
             ExpansionTile(
@@ -122,7 +122,7 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
               isDense: true,
               border: const OutlineInputBorder(),
               suffixIcon: IconButton(
-                tooltip: 'Put a value in',
+                tooltip: 'Insert variable',
                 icon: const Icon(Icons.data_object),
                 onPressed: () => _choose(values),
               ),
@@ -133,7 +133,7 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 2),
               child: Text(
-                reads.isEmpty ? 'Reads as nothing just now' : 'Reads: $reads',
+                reads.isEmpty ? 'Preview: (empty)' : 'Preview: $reads',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(

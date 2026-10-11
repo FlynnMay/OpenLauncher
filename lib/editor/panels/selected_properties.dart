@@ -4,21 +4,13 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/actions.dart';
-import 'package:openlauncher/editor/component_settings.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/entity_picker.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/option_fields.dart';
-import 'package:openlauncher/editor/pane_settings.dart';
-import 'package:openlauncher/editor/picture_settings.dart';
-import 'package:openlauncher/editor/prefab_settings.dart';
-import 'package:openlauncher/editor/selection.dart';
-import 'package:openlauncher/editor/style_settings.dart';
-import 'package:openlauncher/editor/trigger_settings.dart';
-import 'package:openlauncher/editor/tv_api.dart';
-import 'package:openlauncher/editor/tv_screen.dart';
-import 'package:openlauncher/editor/variables_settings.dart';
+import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/panels/entity_picker.dart';
+import 'package:openlauncher/editor/settings/settings.dart';
+import 'package:openlauncher/editor/stage/stage.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
@@ -83,8 +75,8 @@ class SelectedProperties extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
-                'The pane this is in has a rule for its prefab, which '
-                'counts over what is set here until the rule is gone.',
+                'Its pane has a rule for this prefab, which overrides '
+                'what is set here.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -98,7 +90,7 @@ class SelectedProperties extends ConsumerWidget {
           VariablesSettings(
             variables: single.vars,
             note: single.isInstance
-                ? 'Its own, set over those its prefab has, which are '
+                ? 'Overrides of the prefab\'s variables, which are '
                       'under Prefabs.'
                 : null,
             onChanged: (vars) => each((item) => item.copyWith(vars: vars)),
@@ -106,8 +98,14 @@ class SelectedProperties extends ConsumerWidget {
         if (single != null && !single.isPane)
           TriggerSettings(
             set: single.on,
-            // The prefab's triggers are the defaults.
-            usual: {...?ref.watch(prefabsProvider)[single.prefab]?.on},
+            defaults: {...?ref.watch(prefabsProvider)[single.prefab]?.on},
+            // Its own variables over what the panes around it hand down.
+            scope: {
+              for (final pane in [?found.single.dock, found.single.parent])
+                for (final MapEntry(:key, :value) in pane.vars.entries)
+                  if (value.access != VarAccess.private) key: value,
+              ...variablesOf(single, ref.watch(prefabsProvider)),
+            },
             onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
         // A docked pane has no cells.
@@ -176,7 +174,7 @@ class SelectedProperties extends ConsumerWidget {
                   OutlinedButton.icon(
                     onPressed: () => TvScreen.openPopup(folders.keys.single),
                     icon: const Icon(Icons.folder_open_outlined),
-                    label: const Text('Open it'),
+                    label: const Text('Open'),
                   ),
                   TextButton.icon(
                     onPressed: () async {
@@ -193,7 +191,7 @@ class SelectedProperties extends ConsumerWidget {
                       }
                     },
                     icon: const Icon(Icons.folder_delete_outlined),
-                    label: const Text('Delete the folder'),
+                    label: const Text('Delete folder'),
                   ),
                 ],
               ),
@@ -226,9 +224,7 @@ class SelectedProperties extends ConsumerWidget {
           child: FilledButton.tonalIcon(
             onPressed: () => removeSelected(context, ref),
             icon: const Icon(Icons.delete_outline),
-            label: Text(
-              single != null ? 'Take it off the TV' : 'Take them off the TV',
-            ),
+            label: Text('Remove'),
           ),
         ),
       ],
@@ -271,12 +267,12 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
             onPressed: busy
                 ? null
                 : () => whileBusy(() => api.rename(entity.id, null)),
-            child: const Text("Use the TV's name for it"),
+            child: const Text('Reset name'),
           ),
         ),
       PictureSettings(
         picture: EntityArt(entity: entity, padding: 10),
-        clearLabel: 'Back to its own picture',
+        clearLabel: 'Reset picture',
         onPicked: (file) => api.setPicture(entity.id, file),
         onCleared: details?.customIcon ?? false
             ? () => api.clearPicture(entity.id)
@@ -290,7 +286,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
               : () async {
                   final from = await pickEntity(
                     context,
-                    title: "Use another one's picture",
+                    title: 'Use picture from',
                     entities: [
                       for (final other in entities)
                         // Only entities that have pictures.
@@ -306,8 +302,8 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
           icon: const Icon(Icons.collections_outlined),
           label: Text(
             borrowed == null
-                ? "Use another one's picture"
-                : 'Showing the picture of ${borrowed.label}',
+                ? 'Use picture from…'
+                : 'Picture from ${borrowed.label}',
           ),
         ),
       ),
@@ -333,8 +329,8 @@ class _FolderDetails extends ConsumerWidget {
         picture: picture == null
             ? null
             : Image(image: pictureAt(picture), fit: BoxFit.cover),
-        empty: 'Shows what is inside',
-        clearLabel: 'Back to showing what is inside',
+        empty: 'Preview of contents',
+        clearLabel: 'Reset picture',
         onPicked: (file) => api.setPicture(key, file),
         onCleared: picture == null ? null : () => api.clearPicture(key),
       ),

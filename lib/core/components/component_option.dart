@@ -44,11 +44,12 @@ class ComponentOption {
     this.key,
     this.label,
     this.kind, {
-    this.usual,
+    this.defaultValue,
     this.choices = const {},
     this.min = 0,
     this.max = 100,
     this.step = 1,
+    this.decimal = false,
     this.unset,
     this.when,
     this.fields,
@@ -61,13 +62,16 @@ class ComponentOption {
   final OptionKind kind;
 
   /// The default; not saved.
-  final Object? usual;
+  final Object? defaultValue;
 
   /// Choice values with their labels.
   final Map<String, String> choices;
 
   /// For numbers; for a list, [max] is the most entries.
   final int min, max, step;
+
+  /// For a number: whether it may have a fraction.
+  final bool decimal;
 
   /// Label for "unset", for a number or choice that allows it.
   final String? unset;

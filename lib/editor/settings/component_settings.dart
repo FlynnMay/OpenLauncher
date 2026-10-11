@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/option_fields.dart';
-import 'package:openlauncher/editor/tv_api.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 
 /// The settings of one primitive component.
 class ComponentSettings extends ConsumerWidget {
@@ -32,7 +31,7 @@ class ComponentSettings extends ConsumerWidget {
       ...switch (kind) {
         ComponentRegistry.android => [
           LabelledRow(
-            'Shows',
+            'Widget',
             ChoiceBox<String>(
               value: switch (options['provider']) {
                 final String id
@@ -44,7 +43,7 @@ class ComponentSettings extends ConsumerWidget {
               onChanged: (id) => _set('provider', id),
             ),
           ),
-          const Text('It is shown on the TV, but the remote cannot select it.'),
+          const Text('Display only: the remote cannot select it.'),
         ],
         _ => const <Widget>[],
       },

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/tree_view.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 
 /// A debug overlay drawn over the screen while editing. A new one is a value
 /// here, an entry in [layerTree] and its painter in `layer_stack.dart`.

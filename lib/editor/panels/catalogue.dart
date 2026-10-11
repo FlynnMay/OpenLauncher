@@ -5,12 +5,9 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/actions.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/dragging.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/picture_tile.dart';
-import 'package:openlauncher/editor/tv_api.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 
 /// Everything that can be added: dragged onto the screen or tapped to go to
@@ -261,7 +258,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
               color: theme.colorScheme.errorContainer.withValues(alpha: 0.92),
               child: Center(
                 child: Text(
-                  'Drop here to take it off the TV',
+                  'Drop here to remove',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                   ),

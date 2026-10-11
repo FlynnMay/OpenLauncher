@@ -459,11 +459,16 @@ void main() {
         isProper(const Act('dim', {'entity': 'hall', 'value': 40}), all),
         isFalse,
       );
-      // The editor offers an action the entities that define it.
-      expect(entitiesFor('dim', all), {'desk': 'Desk'});
-      expect(entitiesFor('toggle', all).keys, [sourceEntity, 'desk', 'hall']);
-      expect(actionLabels(all)['dim'], 'Dim');
-      expect(actionLabels(all)['toggle'], 'toggle');
+      // The editor offers an entity's own actions; every one there is for
+      // a target only known as it runs.
+      expect(actionsOf('desk', all).keys, ['toggle', 'dim']);
+      expect(actionsOf('hall', all).keys, ['toggle']);
+      expect(actionsOf(sourceEntity, all).keys, containsAll(['dim', 'open']));
+      // Aimed elsewhere, an act keeps only what the new action lets it add.
+      expect(
+        retargeted(dim, 'hall', 'toggle', actionsOf('hall', all)['toggle']),
+        const Act('toggle', {'entity': 'hall'}),
+      );
       // An act adds only what the action lets it: `var` stays as bound.
       await c.read(actionRunnerProvider).run(dim);
       expect(c.read(runtimeVarsProvider), {

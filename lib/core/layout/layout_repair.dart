@@ -215,7 +215,7 @@ extension LayoutRepair on Layout {
     if (filled.pane(Layout.menuId) != null) return filled;
     return filled.withPane(
       filled.home.root.id,
-      (root) => root.copyWith(children: [...root.children, usualMenuPane()]),
+      (root) => root.copyWith(children: [...root.children, defaultMenuPane()]),
     );
   }
 }

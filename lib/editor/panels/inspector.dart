@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/editor/global_properties.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/object_tree.dart';
-import 'package:openlauncher/editor/selected_properties.dart';
-import 'package:openlauncher/editor/selection.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/panels/global_properties.dart';
+import 'package:openlauncher/editor/panels/object_tree.dart';
+import 'package:openlauncher/editor/panels/selected_properties.dart';
 
 /// The settings panel: the selection's, or the launcher's when nothing is
 /// selected.
@@ -45,7 +44,7 @@ class Inspector extends ConsumerWidget {
               ),
               if (found.isNotEmpty)
                 IconButton(
-                  tooltip: 'Let go of the selection',
+                  tooltip: 'Deselect',
                   onPressed: ref.read(selectionProvider.notifier).clear,
                   icon: const Icon(Icons.close),
                 ),
@@ -54,7 +53,7 @@ class Inspector extends ConsumerWidget {
         ),
         SwitchListTile(
           dense: true,
-          title: const Text('Select several'),
+          title: const Text('Multi-select'),
           subtitle: const Text('Or hold Ctrl or Shift while clicking'),
           value: ref.watch(selectSeveralProvider),
           onChanged: ref.read(selectSeveralProvider.notifier).set,

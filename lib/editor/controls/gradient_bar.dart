@@ -2,8 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:openlauncher/editor/colour_picker.dart';
-import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/controls/colour_picker.dart';
+import 'package:openlauncher/editor/controls/labelled_row.dart';
+import 'package:openlauncher/editor/controls/number_field.dart';
 
 /// One gradient colour (0xAARRGGBB) and its position, 0 to 1.
 typedef ColourStop = ({int colour, double at});
@@ -126,8 +127,8 @@ class _GradientBarState extends State<GradientBar> {
                     height: _barHeight,
                     child: Tooltip(
                       message: widget.stops.length < widget.max
-                          ? 'Press to add a colour here'
-                          : 'No more colours fit',
+                          ? 'Click to add a colour'
+                          : 'Maximum colours reached',
                       waitDuration: const Duration(milliseconds: 600),
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -227,8 +228,8 @@ class _GradientBarState extends State<GradientBar> {
             ),
           ),
         ),
-        NumberStepper(
-          label: 'Shifts at %',
+        NumberField(
+          label: 'Position %',
           value: (picked.at * 100).roundToDouble(),
           min: lowest,
           max: max(lowest, (to * 100 + 1e-6).floor()),

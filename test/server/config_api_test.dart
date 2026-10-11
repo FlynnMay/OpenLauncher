@@ -185,7 +185,7 @@ void main() {
     final menu = (page['layout']['layers'][0]['root']['children'] as List)
         .firstWhere((pane) => pane['id'] == Layout.menuId);
     expect(menu['options']['dock'], 'center');
-    expect(menu['children'], hasLength(usualMenu.length));
+    expect(menu['children'], hasLength(defaultMenu.length));
     // And the home layer's layout is an entity that can be told to add and
     // remove.
     final home = (page['entities'] as List).firstWhere(

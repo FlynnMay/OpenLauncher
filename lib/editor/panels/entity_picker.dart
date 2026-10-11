@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/editor/picture_tile.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 
 /// Lets the user choose one of [entities]; null if they choose none.

@@ -7,8 +7,8 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/editor/option_fields.dart';
-import 'package:openlauncher/editor/style_settings.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/settings/settings.dart';
 
 void main() {
   testWidgets('a form is made from what a component says can be set', (
@@ -40,19 +40,19 @@ void main() {
       ),
     );
     expect(find.text('Hello'), findsOneWidget);
-    expect(find.text('Too long'), findsOneWidget);
+    expect(find.text('Overflow'), findsOneWidget);
     // Means nothing until it is to move along.
-    expect(find.text('Moves'), findsNothing);
+    expect(find.text('Scroll speed'), findsNothing);
 
     redraw(() => values = {...values, 'overflow': 'scroll'});
     await tester.pump();
-    expect(find.text('Moves'), findsOneWidget);
+    expect(find.text('Scroll speed'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('More').first);
+    await tester.tap(find.byTooltip('Increase').first);
     await tester.pump();
     expect(values['speed'], 50);
-    // Set back to the usual, nothing is kept for it.
-    await tester.tap(find.byTooltip('Less').first);
+    // Set back to the default, nothing is kept for it.
+    await tester.tap(find.byTooltip('Decrease').first);
     await tester.pump();
     expect(values.containsKey('speed'), isFalse);
   });
@@ -83,14 +83,14 @@ void main() {
     expect(find.text('Opacity %'), findsOneWidget);
     expect(find.text('Colour'), findsOneWidget);
     expect(find.text('Background'), findsNothing);
-    expect(find.text('Letter size'), findsNothing);
+    expect(find.text('Font size'), findsNothing);
 
     // Solid until it is made less so; the rest of the look is left be.
     expect(find.text('100'), findsOneWidget);
-    await tester.tap(find.byTooltip('Less'));
+    await tester.tap(find.byTooltip('Decrease'));
     await tester.pump();
     expect(style, {'color': '#ff0000', 'opacity': 95});
-    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.byTooltip('Increase'));
     await tester.pump();
     expect(style, {'color': '#ff0000'});
 
@@ -99,7 +99,7 @@ void main() {
     for (final prop in styleProps) {
       expect(find.text(prop.label), findsOneWidget, reason: prop.key);
     }
-    expect(find.text('Each corner by itself'), findsOneWidget);
+    expect(find.text('Individual corners'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -154,11 +154,13 @@ void main() {
                 builder: (context, setState) => ListField(
                   option: ComponentOption(
                     'press',
-                    'Add an action',
+                    'Add action',
                     OptionKind.list,
                     blank: const {'do': 'set'},
-                    // What an act may say is what the entities define.
-                    fields: (act) => actOptions(act, entities: builtInEntities),
+                    // What an act may add is what the action lets it.
+                    fields: (act) => argOptions(
+                      actionsOf('variables', builtInEntities)['set']!,
+                    ),
                   ),
                   records: acts,
                   onChanged: (next) => setState(() => acts = next),
@@ -169,8 +171,8 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Nothing'), findsOneWidget);
-    await tester.tap(find.text('Add an action'));
+    expect(find.text('None'), findsOneWidget);
+    await tester.tap(find.text('Add action'));
     await tester.pump();
     expect(acts, [
       {'do': 'set'},
@@ -184,7 +186,7 @@ void main() {
     expect(acts, [
       {'do': 'set', 'var': 'open', 'value': true},
     ]);
-    await tester.tap(find.byTooltip('Take this away'));
+    await tester.tap(find.byTooltip('Remove'));
     await tester.pump();
     expect(acts, isEmpty);
   });

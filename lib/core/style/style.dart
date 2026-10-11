@@ -11,12 +11,12 @@ class StyleProp extends ComponentOption {
     super.label,
     super.kind, {
     this.inherits = false,
-    super.usual,
+    super.defaultValue,
     super.choices,
     super.min,
     super.max,
     super.step,
-    super.unset = 'Usual',
+    super.unset = 'Default',
   });
 
   /// Whether children inherit it unless they set their own.
@@ -27,12 +27,12 @@ class StyleProp extends ComponentOption {
 /// takes it, and where it is drawn.
 const styleProps = [
   StyleProp('background', 'Background', OptionKind.fill),
-  StyleProp('borderColor', 'Border', OptionKind.colour),
+  StyleProp('borderColor', 'Border colour', OptionKind.colour),
   StyleProp(
     'borderWidth',
     'Border width',
     OptionKind.number,
-    usual: 2,
+    defaultValue: 2,
     max: 20,
     unset: null,
   ),
@@ -42,7 +42,7 @@ const styleProps = [
     'opacity',
     'Opacity %',
     OptionKind.number,
-    usual: 100,
+    defaultValue: 100,
     max: 100,
     step: 5,
     unset: null,
@@ -51,7 +51,7 @@ const styleProps = [
     'shadow',
     'Shadow',
     OptionKind.number,
-    usual: 0,
+    defaultValue: 0,
     max: 60,
     step: 2,
     unset: null,
@@ -59,7 +59,7 @@ const styleProps = [
   StyleProp('color', 'Colour', OptionKind.colour, inherits: true),
   StyleProp(
     'fontSize',
-    'Letter size',
+    'Font size',
     OptionKind.number,
     inherits: true,
     min: 8,
@@ -68,17 +68,17 @@ const styleProps = [
   ),
   StyleProp(
     'fontWeight',
-    'Letters',
+    'Font weight',
     OptionKind.choice,
     inherits: true,
     choices: {'light': 'Light', 'medium': 'Medium', 'bold': 'Bold'},
   ),
   StyleProp(
     'textAlign',
-    'Sits',
+    'Text align',
     OptionKind.choice,
     inherits: true,
-    choices: {'left': 'Left', 'center': 'In the middle', 'right': 'Right'},
+    choices: {'left': 'Left', 'center': 'Centre', 'right': 'Right'},
   ),
 ];
 

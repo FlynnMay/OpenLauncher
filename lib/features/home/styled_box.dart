@@ -22,8 +22,8 @@ import 'package:openlauncher/core/layout/layout.dart';
   );
 }
 
-/// Corner radii from [style], or [usual] for all.
-BorderRadius styleShape(BoxStyle style, double usual) =>
+/// Corner radii from [style], or [fallback] for all.
+BorderRadius styleShape(BoxStyle style, double fallback) =>
     switch (style.corners) {
       [final topLeft, final topRight, final bottomRight, final bottomLeft] =>
         BorderRadius.only(
@@ -32,7 +32,7 @@ BorderRadius styleShape(BoxStyle style, double usual) =>
           bottomRight: Radius.circular(bottomRight),
           bottomLeft: Radius.circular(bottomLeft),
         ),
-      _ => BorderRadius.circular(usual),
+      _ => BorderRadius.circular(fallback),
     };
 
 List<BoxShadow>? styleShadow(BoxStyle style) => style.shadow == 0

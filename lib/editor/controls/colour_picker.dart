@@ -24,7 +24,7 @@ class ColourChip extends StatelessWidget {
     final outline = Theme.of(context).colorScheme.outline;
     return Tooltip(
       message: colour == null
-          ? tooltip ?? 'Add a colour'
+          ? tooltip ?? 'Add colour'
           : BoxStyle.colorToCss(colour),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -171,7 +171,7 @@ class _ColourDialogState extends State<_ColourDialog> {
                   child: TextField(
                     controller: _hex,
                     decoration: const InputDecoration(
-                      labelText: 'Any colour, as #RRGGBB',
+                      labelText: 'Hex (#RRGGBB)',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -189,19 +189,19 @@ class _ColourDialogState extends State<_ColourDialog> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Text('See-through'),
+                const Text('Opacity'),
                 Expanded(
                   child: Slider(
-                    value: 255.0 - _alpha,
+                    value: _alpha * 1.0,
                     max: 255,
                     onChanged: (value) =>
-                        setState(() => _alpha = 255 - value.round()),
+                        setState(() => _alpha = value.round()),
                   ),
                 ),
                 SizedBox(
                   width: 40,
                   child: Text(
-                    '${((255 - _alpha) / 2.55).round()}%',
+                    '${(_alpha / 2.55).round()}%',
                     textAlign: TextAlign.end,
                   ),
                 ),
@@ -222,7 +222,7 @@ class _ColourDialogState extends State<_ColourDialog> {
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, (colour: _colour)),
-          child: const Text('Use it'),
+          child: const Text('OK'),
         ),
       ],
     );

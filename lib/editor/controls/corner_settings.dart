@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/controls/number_field.dart';
+import 'package:openlauncher/editor/controls/tick_box.dart';
 
 /// Corner radii: one for all, or each separately.
 class CornerSettings extends StatefulWidget {
   const CornerSettings({
     super.key,
     required this.corners,
-    required this.usual,
+    required this.defaultValue,
     required this.max,
     required this.onChanged,
     this.label = 'Corners',
@@ -17,7 +18,7 @@ class CornerSettings extends StatefulWidget {
   /// Top left, top right, bottom right, bottom left; null for the default.
   final List<double>? corners;
 
-  final double usual, max;
+  final double defaultValue, max;
 
   /// Null restores the default.
   final void Function(List<double>? corners) onChanged;
@@ -43,33 +44,30 @@ class _CornerSettingsState extends State<CornerSettings> {
   @override
   Widget build(BuildContext context) {
     final corners = widget.corners;
-    final all = corners ?? List.filled(4, widget.usual);
+    final all = corners ?? List.filled(4, widget.defaultValue);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        NumberStepper(
+        NumberField(
           label: widget.label,
-          // Below zero means default; null means mixed.
-          value: corners == null
-              ? -1
-              : _differ
-              ? null
-              : corners.first,
-          usual: 'Usual',
+          value: _differ ? null : corners?.first,
+          mixed: _differ,
+          placeholder: '${widget.defaultValue.round()}',
+          start: widget.defaultValue.round(),
           min: 0,
           max: widget.max.round(),
           step: 2,
-          onChanged: (round) =>
-              widget.onChanged(round < 0 ? null : List.filled(4, round * 1.0)),
+          onChanged: (round) => widget.onChanged(List.filled(4, round * 1.0)),
+          onCleared: () => widget.onChanged(null),
         ),
         TickBox(
-          label: 'Each corner by itself',
+          label: 'Individual corners',
           value: _each,
           onChanged: (each) => setState(() => _each = each),
         ),
         if (_each)
           for (final (index, name) in _names.indexed)
-            NumberStepper(
+            NumberField(
               label: name,
               value: all[index],
               min: 0,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/editor/image_carousel.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 
 void main() {
   CarouselImage image(String id) => CarouselImage(

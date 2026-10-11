@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
 
 Component entity(
   String id, {
@@ -488,7 +488,7 @@ void main() {
       final back = withRule(withRule(docked, 'width', 300), 'dock', null);
       expect(back.toJson(), plain.toJson());
       // Only a pane with a strip can be undocked; a folder's cards name it.
-      expect(dockRules(docked).first.unset, 'No');
+      expect(dockRules(docked).first.unset, 'None');
       expect(dockRules(folder).first.unset, isNull);
       expect(dockRules(plain).map((rule) => rule.key), ['dock']);
 

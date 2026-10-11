@@ -14,26 +14,32 @@ List<ComponentOption> transformOptions(Iterable<Component> parents) {
     return const [
       ComponentOption(
         'flex',
-        'Share of the room',
+        'Flex',
         OptionKind.number,
         max: 12,
-        unset: 'What it needs',
+        unset: 'Auto',
       ),
       ComponentOption(
         'aspect',
-        'Shape (width for a height of 1)',
+        'Aspect ratio',
         OptionKind.number,
         max: 10,
-        unset: 'Any',
+        unset: 'Auto',
       ),
     ];
   }
   final columns = parents.map((pane) => pane.columns).reduce(min);
   return [
-    ComponentOption('w', 'Cells wide', OptionKind.number, min: 1, max: columns),
+    ComponentOption(
+      'w',
+      'Width (cells)',
+      OptionKind.number,
+      min: 1,
+      max: columns,
+    ),
     const ComponentOption(
       'h',
-      'Cells tall',
+      'Height (cells)',
       OptionKind.number,
       min: 1,
       max: Component.maxRows,
@@ -44,14 +50,14 @@ List<ComponentOption> transformOptions(Iterable<Component> parents) {
         'Column',
         OptionKind.number,
         max: columns - 1,
-        unset: 'Where it fits',
+        unset: 'Auto',
       ),
       const ComponentOption(
         'y',
         'Row',
         OptionKind.number,
         max: 999,
-        unset: 'Where it fits',
+        unset: 'Auto',
       ),
     ],
   ];
@@ -62,22 +68,22 @@ final List<ComponentOption> paneRules = [
   const ComponentOption('title', 'Title', OptionKind.text),
   const ComponentOption(
     'mode',
-    'Placement',
+    'Layout',
     OptionKind.choice,
-    usual: 'flow',
+    defaultValue: 'flow',
     choices: {
-      'flow': 'In order',
-      'grid': 'On cells',
-      'free': 'Anywhere',
-      'row': 'In a row',
-      'column': 'In a column',
+      'flow': 'Flow',
+      'grid': 'Grid',
+      'free': 'Free',
+      'row': 'Row',
+      'column': 'Column',
     },
   ),
   const ComponentOption(
     'columns',
     'Columns',
     OptionKind.number,
-    usual: Component.defaultColumns,
+    defaultValue: Component.defaultColumns,
     min: 1,
     max: Component.maxColumns,
     when: _onCells,
@@ -89,7 +95,7 @@ final List<ComponentOption> paneRules = [
     min: Component.minRowHeight.round(),
     max: Component.maxRowHeight.round(),
     step: 4,
-    unset: 'By shape',
+    unset: 'Auto',
     when: _onCells,
   ),
   ComponentOption(
@@ -98,7 +104,7 @@ final List<ComponentOption> paneRules = [
     OptionKind.number,
     max: Component.maxSpacing.round(),
     step: 2,
-    unset: 'Usual',
+    unset: 'Default',
     when: _onCells,
   ),
   // Row and column panes only.
@@ -108,25 +114,25 @@ final List<ComponentOption> paneRules = [
     OptionKind.number,
     max: 80,
     step: 2,
-    usual: 0,
+    defaultValue: 0,
     when: _inLine,
   ),
   const ComponentOption(
     'fit',
-    'Made to fill its box',
+    'Stretch to fit',
     OptionKind.toggle,
     when: _inLine,
   ),
   const ComponentOption(
     'align',
-    'Across',
+    'Align',
     OptionKind.choice,
-    unset: 'Usual',
+    unset: 'Default',
     choices: {
-      'start': 'At the start',
-      'center': 'In the middle',
-      'end': 'At the end',
-      'stretch': 'Filling it',
+      'start': 'Start',
+      'center': 'Centre',
+      'end': 'End',
+      'stretch': 'Stretch',
     },
     when: _inLine,
   ),
@@ -150,14 +156,14 @@ const _edges = {
 List<ComponentOption> dockRules(Component pane) => [
   ComponentOption(
     'dock',
-    'Docked',
+    'Position',
     OptionKind.choice,
-    unset: pane.hovers ? null : 'No',
+    unset: pane.hovers ? null : 'None',
     choices: {
       ..._edges,
       if (pane.hovers) ...const {
-        'center': 'In the middle',
-        Component.inline: 'In what opens it',
+        'center': 'Centre',
+        Component.inline: 'Inline',
       },
     },
   ),
@@ -165,35 +171,35 @@ List<ComponentOption> dockRules(Component pane) => [
   if (pane.isDocked && !pane.hovers)
     const ComponentOption(
       'closed',
-      'Shows while closed',
+      'Collapsed size',
       OptionKind.number,
       max: 400,
       step: 8,
-      usual: 0,
+      defaultValue: 0,
     ),
   if (pane.isDocked && pane.dock != Component.inline) ...const [
     ComponentOption(
       'opening',
-      'Opens by',
+      'Animation',
       OptionKind.choice,
-      usual: 'expand',
+      defaultValue: 'expand',
       choices: {
-        'expand': 'Growing from its edge',
-        'slide': 'Sliding in',
-        'fade': 'Fading in',
-        'instant': 'At once',
+        'expand': 'Expand',
+        'slide': 'Slide',
+        'fade': 'Fade',
+        'instant': 'None',
       },
     ),
     ComponentOption(
       'reveal',
-      'What is in it',
+      'Content animation',
       OptionKind.choice,
-      usual: 'always',
+      defaultValue: 'always',
       choices: {
-        'always': 'Always there',
-        'fade': 'Fade in',
-        'late': 'Fade in once it is open',
-        'slide': 'Slide in',
+        'always': 'None',
+        'fade': 'Fade',
+        'late': 'Fade after opening',
+        'slide': 'Slide',
       },
     ),
   ],
@@ -205,4 +211,4 @@ const dockKeys = ['dock', 'closed', 'width', 'height', 'opening', 'reveal'];
 /// A docked pane's rule, or its default.
 Object? dockRule(Component pane, String key) =>
     pane.options[key] ??
-    dockRules(pane).where((rule) => rule.key == key).firstOrNull?.usual;
+    dockRules(pane).where((rule) => rule.key == key).firstOrNull?.defaultValue;

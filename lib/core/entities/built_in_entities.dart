@@ -127,7 +127,7 @@ const builtInEntities = [
       'closeLayer': EntityAction(
         run: 'closeLayer',
         args: _of,
-        label: 'Take its layer away',
+        label: 'Remove its layer',
         icon: 'close',
       ),
       'close': EntityAction(

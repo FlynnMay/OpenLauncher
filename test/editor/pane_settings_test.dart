@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/pane_settings.dart';
+import 'package:openlauncher/editor/settings/settings.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 void main() {
   testWidgets("the launcher's prefabs have their rule; others are added", (
@@ -17,18 +20,26 @@ void main() {
     );
     var pane = Component.pane(id: 'p');
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: StatefulBuilder(
-              builder: (context, setState) => PaneSettings(
-                title: 'Pane',
-                prefabs: {
-                  for (final prefab in [...builtInPrefabs, own])
-                    prefab.id: prefab,
-                },
-                panes: [pane],
-                onChanged: (how) => setState(() => pane = how(pane)),
+      ProviderScope(
+        overrides: [
+          configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          launcherPlatformProvider.overrideWithValue(
+            FakeLauncherPlatform(const [], const []),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: StatefulBuilder(
+                builder: (context, setState) => PaneSettings(
+                  title: 'Pane',
+                  prefabs: {
+                    for (final prefab in [...builtInPrefabs, own])
+                      prefab.id: prefab,
+                  },
+                  panes: [pane],
+                  onChanged: (how) => setState(() => pane = how(pane)),
+                ),
               ),
             ),
           ),
@@ -43,20 +54,20 @@ void main() {
     expect(find.text('Big entity'), findsNothing);
     expect(pane.prefabRules, isEmpty);
 
-    await tester.tap(find.text('Add a rule'));
+    await tester.tap(find.text('Add rule'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Big entity').last);
     await tester.pumpAndSettle();
     expect(pane.prefabRules, {
       'big-entity': {'variant': 'stacked'},
     });
-    expect(find.text('Add a rule'), findsNothing);
+    expect(find.text('Add rule'), findsNothing);
 
-    await tester.tap(find.text('Take the rule for Big entity away'));
+    await tester.tap(find.text('Remove rule for Big entity'));
     await tester.pumpAndSettle();
     expect(pane.prefabRules, isEmpty);
-    expect(find.text('Add a rule'), findsOneWidget);
+    expect(find.text('Add rule'), findsOneWidget);
     // The launcher's own cannot be taken away, only left to each entity.
-    expect(find.textContaining('Take the rule for App card'), findsNothing);
+    expect(find.textContaining('Remove rule for App card'), findsNothing);
   });
 }

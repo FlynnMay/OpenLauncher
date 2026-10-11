@@ -8,9 +8,8 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/stage.dart';
-import 'package:openlauncher/editor/tv_api.dart';
-import 'package:openlauncher/editor/tv_link.dart';
+import 'package:openlauncher/editor/stage/stage.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 class _Tv extends TvApi {

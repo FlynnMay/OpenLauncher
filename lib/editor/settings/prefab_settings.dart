@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/actions.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/option_fields.dart';
-import 'package:openlauncher/editor/style_settings.dart';
-import 'package:openlauncher/editor/variables_settings.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/settings/style_settings.dart';
+import 'package:openlauncher/editor/settings/variables_settings.dart';
 
 List<ComponentOption> _optionsOf(Component part) =>
     ComponentRegistry.named(part.kind)?.options ?? const [];
@@ -54,7 +52,7 @@ class InstanceSettings extends StatelessWidget {
     };
     return Section('Prefab', [
       LabelledRow(
-        'Made from',
+        'Prefab',
         ChoiceBox<String>(
           value: prefab?.id,
           choices: {
@@ -66,7 +64,7 @@ class InstanceSettings extends StatelessWidget {
       if (prefab != null) ...[
         if (prefab.variants.isNotEmpty)
           LabelledRow(
-            'Laid out',
+            'Variant',
             ChoiceBox<String>(
               value: prefab.variantOf(item),
               choices: {
@@ -82,7 +80,7 @@ class InstanceSettings extends StatelessWidget {
             child: Text(id, style: theme.textTheme.labelLarge),
           ),
           TickBox(
-            label: 'Shown',
+            label: 'Visible',
             value: !part.hidden,
             onChanged: (shown) => _override(id, {
               'hidden': shown == !base[id]!.hidden ? null : !shown,
@@ -97,7 +95,7 @@ class InstanceSettings extends StatelessWidget {
                     ? null
                     // Resetting to the default where the prefab differs must
                     // be stored explicitly.
-                    : next[option.key] ?? option.usual ?? '',
+                    : next[option.key] ?? option.defaultValue ?? '',
             }, 'options'),
           ),
           ...styleFields(
@@ -113,7 +111,7 @@ class InstanceSettings extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: TextButton(
               onPressed: () => onChanged(item.copyWith(overrides: const {})),
-              child: const Text('Back to what the prefab says'),
+              child: const Text('Reset to prefab'),
             ),
           ),
       ],
@@ -191,7 +189,7 @@ class PrefabsSettings extends StatelessWidget {
         // The default style of instances.
         Padding(
           padding: const EdgeInsets.only(top: 12),
-          child: Text('Its look', style: theme.textTheme.labelLarge),
+          child: Text('Style', style: theme.textTheme.labelLarge),
         ),
         ...styleFields(
           keys: const [...boxStyle, ...textStyle],
@@ -217,7 +215,7 @@ class PrefabsSettings extends StatelessWidget {
                 final name = await askName(
                   context,
                   '${prefab.name} copy',
-                  title: 'Name of the prefab',
+                  title: 'Prefab name',
                 );
                 if (name == null || name.isEmpty) return;
                 _put(
@@ -227,15 +225,13 @@ class PrefabsSettings extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Make a copy'),
+              child: const Text('Duplicate'),
             ),
             if (own.any((one) => one.id == prefab.id))
               TextButton(
                 onPressed: () => _drop(prefab.id),
                 child: Text(
-                  _builtIn(prefab.id)
-                      ? "Back to the launcher's own"
-                      : 'Delete it',
+                  _builtIn(prefab.id) ? 'Reset to built-in' : 'Delete',
                 ),
               ),
           ],

@@ -2,14 +2,14 @@ import 'package:flutter/foundation.dart';
 
 /// What can fire a chain of actions.
 enum Trigger {
-  press('Pressed'),
-  hold('Held down'),
-  focus('The focus arrives'),
-  blur('The focus leaves'),
+  press('On press'),
+  hold('On hold'),
+  focus('On focus'),
+  blur('On blur'),
 
   /// For things that are shown and hidden: a sidebar, a folder.
-  reveal('It is revealed'),
-  hide('It is hidden');
+  reveal('On show'),
+  hide('On hide');
 
   const Trigger(this.label);
 

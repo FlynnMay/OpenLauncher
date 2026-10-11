@@ -1,0 +1,11 @@
+export 'component_settings.dart';
+export 'dock_settings.dart';
+export 'pane_settings.dart';
+export 'picture_settings.dart';
+export 'place_search.dart';
+export 'prefab_settings.dart';
+export 'style_settings.dart';
+export 'trigger_settings.dart';
+export 'values_settings.dart';
+export 'variables_settings.dart';
+export 'wallpaper_settings.dart';

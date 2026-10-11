@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/actions.dart';
-import 'package:openlauncher/editor/colour_picker.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/corner_settings.dart';
-import 'package:openlauncher/editor/style_settings.dart';
-import 'package:openlauncher/editor/template_field.dart';
+import 'package:openlauncher/editor/controls/choice_box.dart';
+import 'package:openlauncher/editor/controls/colour_picker.dart';
+import 'package:openlauncher/editor/controls/commit_field.dart';
+import 'package:openlauncher/editor/controls/corner_settings.dart';
+import 'package:openlauncher/editor/controls/dialogs.dart';
+import 'package:openlauncher/editor/controls/fill_field.dart';
+import 'package:openlauncher/editor/controls/labelled_row.dart';
+import 'package:openlauncher/editor/controls/number_field.dart';
+import 'package:openlauncher/editor/controls/template_field.dart';
+import 'package:openlauncher/editor/controls/tick_box.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 
 /// Generated fields for [options] showing [values]. Reports the whole value
@@ -19,11 +23,11 @@ List<Widget> optionFields({
   Set<String> mixed = const {},
 }) {
   void set(ComponentOption option, Object? value) => onChanged(
-    {...values, option.key: value == option.usual ? null : value}
+    {...values, option.key: value == option.defaultValue ? null : value}
       ..removeWhere((_, value) => value == null),
   );
   Widget field(ComponentOption option) {
-    final value = values[option.key] ?? option.usual;
+    final value = values[option.key] ?? option.defaultValue;
     switch (option.kind) {
       case OptionKind.template:
         return TemplateField(
@@ -60,20 +64,26 @@ List<Widget> optionFields({
           onChanged: (on) => set(option, on),
         );
       case OptionKind.number:
-        return NumberStepper(
+        final fallback = option.defaultValue;
+        return NumberField(
           label: option.label,
-          // Unset, it is below the least there is, which reads as that.
-          value: mixed.contains(option.key)
+          value: mixed.contains(option.key) || value is! num
               ? null
-              : value is num
-              ? value.toDouble()
-              : (option.min - option.step) * 1.0,
+              : value.toDouble(),
+          mixed: mixed.contains(option.key),
           min: option.min,
           max: option.max,
           step: option.step,
-          usual: option.unset,
-          onChanged: (number) =>
-              set(option, number < option.min ? null : number),
+          decimal: option.decimal,
+          placeholder: option.unset,
+          start: fallback is num ? fallback.round() : null,
+          onChanged: (number) => set(option, number),
+          // One with a default is cleared back to it.
+          onCleared:
+              values[option.key] != null &&
+                  (option.unset != null || fallback != null)
+              ? () => set(option, null)
+              : null,
         );
       case OptionKind.choice:
         return LabelledRow(
@@ -123,7 +133,7 @@ List<Widget> optionFields({
         return CornerSettings(
           label: option.label,
           corners: BoxStyle.of({option.key: value}).corners,
-          usual: corner,
+          defaultValue: corner,
           max: option.max * 1.0,
           // Collapsed to one value when all four match.
           onChanged: (corners) => set(
@@ -208,7 +218,7 @@ class ListField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (records.isEmpty && heading == null)
-          Text('Nothing', style: theme.textTheme.bodySmall),
+          Text('None', style: theme.textTheme.bodySmall),
         for (final (index, one) in records.indexed)
           ...() {
             final fields = optionFields(
@@ -230,9 +240,9 @@ class ListField extends StatelessWidget {
                         : fields.first,
                   ),
                   IconButton(
-                    tooltip: 'Take this away',
+                    tooltip: 'Remove',
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: const Icon(Icons.delete_outline, size: 18),
                     onPressed: () => _put(index, null),
                   ),
                 ],

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/editor/values_settings.dart';
+import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 void main() {
@@ -52,13 +52,13 @@ void main() {
 
     await tester.tap(find.text('Values'));
     await tester.pumpAndSettle();
-    await name('Add an entity', 'Plex Shortcut');
+    await name('Add entity', 'Plex Shortcut');
     // Its id comes from its name; until told otherwise it asks an address.
     expect(entities.single.id, 'plex-shortcut');
     expect(entities.single.label, 'Plex Shortcut');
     expect(entities.single.feed?.from, httpFeed);
 
-    await name('Add an action', 'open');
+    await name('Add action', 'open');
     // The first operation there is, with nothing bound: the act says it all.
     expect(entities.single.actions, const {
       'open': EntityAction(run: 'launchApp', args: {'package': []}),

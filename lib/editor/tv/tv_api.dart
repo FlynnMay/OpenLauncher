@@ -9,7 +9,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
-import 'package:openlauncher/editor/file_pick.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// A primitive component as the catalogue offers it.

@@ -46,7 +46,7 @@ class LayerOperationsManager implements OperationsManager {
     ),
     Operation(
       name: 'closeLayer',
-      label: "Take a component's layer away",
+      label: "Remove a component's layer",
       args: _of,
       run: (run) async {
         _layers.close(run.arg('of') ?? run.component);

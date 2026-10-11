@@ -85,7 +85,7 @@ Component _actionButton(
 );
 
 /// The default quick actions in order, each with the entity that does it.
-const usualMenu = {
+const defaultMenu = {
   'open': sourceEntity,
   'info': sourceEntity,
   'forceStop': sourceEntity,
@@ -95,7 +95,7 @@ const usualMenu = {
 
 /// The default quick-actions pane: a small folder titled after what it was
 /// opened for.
-Component usualMenuPane() {
+Component defaultMenuPane() {
   // Labelled as an app and the home layout have them.
   final known = {...appActions, ...layoutEntity(Layout.homeId).actions};
   return Component.pane(
@@ -114,7 +114,7 @@ Component usualMenuPane() {
     // Set to the entity the menu was opened for.
     vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
     children: [
-      for (final MapEntry(key: name, value: entity) in usualMenu.entries)
+      for (final MapEntry(key: name, value: entity) in defaultMenu.entries)
         if (known[name] case final action?)
           _actionButton(
             '${Layout.menuId}-${name.toLowerCase()}',

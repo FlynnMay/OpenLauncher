@@ -4,9 +4,9 @@ import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/dock_settings.dart';
-import 'package:openlauncher/editor/selection.dart';
-import 'package:openlauncher/editor/tree_view.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/settings/settings.dart';
 
 /// A pane's display name: a sidebar by its edge, a folder or pane by its
 /// title.

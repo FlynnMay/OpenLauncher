@@ -3,9 +3,9 @@ import 'package:openlauncher/core/components/component_option.dart';
 
 /// Who can read a variable.
 enum VarAccess {
-  private('Only itself'),
-  protected('Itself and what is inside it'),
-  public('Everything');
+  private('Private'),
+  protected('Protected'),
+  public('Public');
 
   const VarAccess(this.label);
 
@@ -66,15 +66,15 @@ class VarCase {
 
 /// The type of a variable's value.
 enum VarType {
-  any('Anything'),
+  any('Any'),
   text('Text'),
-  number('A number'),
-  bool('Yes or no'),
-  colour('A colour'),
+  number('Number'),
+  bool('Boolean'),
+  colour('Colour'),
 
   /// An entity or component id. The variable stands for it, so
   /// `{{name.label}}` works; this is how an entity is passed to children.
-  entity('An entity');
+  entity('Entity');
 
   const VarType(this.label);
 
@@ -176,79 +176,122 @@ class Variable {
 typedef Variables = Map<String, Variable>;
 
 bool _conditional(Map<String, Object?> one) => one['conditional'] == true;
-bool _colour(Map<String, Object?> one) => one['type'] == VarType.colour.name;
 
-/// The editor's form is generated from this, over [variablesToForm].
-final variableOptions = ComponentOption(
+/// Types with a control of their own; `expression` in a row swaps it for a
+/// template.
+const _fixed = {VarType.number, VarType.bool, VarType.colour, VarType.entity};
+
+/// Whether the form row [one] is of a type with a control of its own.
+bool hasTypedValue(Map<String, Object?> one) =>
+    !_conditional(one) && _fixed.any((type) => type.name == one['type']);
+
+bool Function(Map<String, Object?> one) _valueOf(VarType type) =>
+    (one) =>
+        hasTypedValue(one) &&
+        one['type'] == type.name &&
+        one['expression'] != true;
+
+/// The editor's form is generated from this, over [variablesToForm]. An
+/// entity-typed value is one of [entities], id to label.
+ComponentOption variableOptions({
+  Map<String, String> entities = const {},
+}) => ComponentOption(
   'vars',
-  'Add a variable',
+  'Add variable',
   OptionKind.list,
   heading: 'name',
-  asks: 'Name of the variable',
+  asks: 'Variable name',
   blank: const {'name': 'name'},
-  fields: (_) => [
+  fields: (one) => [
     ComponentOption(
       'type',
-      'Holds',
+      'Type',
       OptionKind.choice,
-      usual: VarType.any.name,
+      defaultValue: VarType.any.name,
       choices: {for (final type in VarType.values) type.name: type.label},
     ),
     ComponentOption(
       'access',
-      'Read by',
+      'Access',
       OptionKind.choice,
-      usual: VarAccess.protected.name,
+      defaultValue: VarAccess.protected.name,
       choices: {
         for (final access in VarAccess.values) access.name: access.label,
       },
     ),
+    const ComponentOption('conditional', 'Conditional', OptionKind.toggle),
     const ComponentOption(
-      'conditional',
-      'Depends on something',
+      'expression',
+      'Expression',
       OptionKind.toggle,
+      when: hasTypedValue,
     ),
     ComponentOption(
       'value',
-      'Is',
+      'Value',
       OptionKind.template,
-      when: (one) => !_conditional(one) && !_colour(one),
+      when: (one) =>
+          !_conditional(one) &&
+          (!hasTypedValue(one) || one['expression'] == true),
     ),
     ComponentOption(
       'value',
-      'Is',
+      'Value',
+      OptionKind.number,
+      min: -1000000,
+      max: 1000000,
+      decimal: true,
+      when: _valueOf(VarType.number),
+    ),
+    ComponentOption(
+      'value',
+      'Value',
+      OptionKind.toggle,
+      when: _valueOf(VarType.bool),
+    ),
+    ComponentOption(
+      'value',
+      'Value',
       OptionKind.colour,
-      when: (one) => !_conditional(one) && _colour(one),
+      when: _valueOf(VarType.colour),
+    ),
+    ComponentOption(
+      'value',
+      'Value',
+      OptionKind.choice,
+      unset: 'None',
+      choices: {
+        // Keeps a saved one that is not there now.
+        if (one['value'] case final String saved when saved.isNotEmpty)
+          saved: saved,
+        ...entities,
+      },
+      when: _valueOf(VarType.entity),
     ),
     const ComponentOption(
       'when',
-      'Looks at',
+      'Based on',
       OptionKind.template,
       when: _conditional,
     ),
     ComponentOption(
       'cases',
-      'Add a case',
+      'Add case',
       OptionKind.list,
       when: _conditional,
       blank: {'test': VarTest.equals.name},
       fields: (_) => [
         ComponentOption(
           'test',
-          'When it',
+          'If it',
           OptionKind.choice,
           choices: {for (final test in VarTest.values) test.name: test.label},
         ),
-        const ComponentOption('value', 'this', OptionKind.value),
-        const ComponentOption('then', 'it is', OptionKind.value),
+        const ComponentOption('value', 'Value', OptionKind.value),
+        const ComponentOption('then', 'Then', OptionKind.value),
       ],
     ),
-    const ComponentOption(
-      'else',
-      'Otherwise it is',
-      OptionKind.value,
-      when: _conditional,
-    ),
+    const ComponentOption('else', 'Else', OptionKind.value, when: _conditional),
   ],
 );
 
@@ -267,8 +310,15 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
             {'test': entry.test.name, 'value': entry.value, 'then': entry.then},
         ],
         'else': variable.otherwise,
-      } else if (variable.value != null)
-        'value': '${variable.value}',
+      } else if (variable.value case final value?) ...{
+        if (value is String && value.contains('{{')) 'expression': true,
+        // A number or a yes/no goes to its own control as it is.
+        'value': switch (variable.type) {
+          VarType.number when value is num => value,
+          VarType.bool when value is bool => value,
+          _ => '$value',
+        },
+      },
     },
 ];
 

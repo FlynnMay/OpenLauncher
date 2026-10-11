@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/weather.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/tv_api.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
 
 /// Finds a place by name and offers what was found.
 class PlaceSearch extends ConsumerStatefulWidget {
@@ -29,7 +29,7 @@ class _State extends ConsumerState<PlaceSearch> with Busy<PlaceSearch> {
       ),
       TextField(
         decoration: InputDecoration(
-          labelText: 'Town or city',
+          labelText: 'Location',
           isDense: true,
           border: const OutlineInputBorder(),
           suffixIcon: busy
@@ -54,7 +54,7 @@ class _State extends ConsumerState<PlaceSearch> with Busy<PlaceSearch> {
         if (found.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 8),
-            child: Text('No place found by that name.'),
+            child: Text('No results'),
           )
         else
           for (final place in found)

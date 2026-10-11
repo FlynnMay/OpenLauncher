@@ -71,7 +71,7 @@ String _read(BuildContext context, WidgetRef ref, Object? template) {
 /// Text made of values.
 ///
 /// Options: `text` (a template), and for letters of a set size what is
-/// done with text too long for the box, `overflow`: `fade` (the usual),
+/// done with text too long for the box, `overflow`: `fade` (the default),
 /// `ellipsis`, `clip`, `wrap` (onto as many lines as there is room for) or
 /// `scroll` (moving along, at `speed` a second).
 ///

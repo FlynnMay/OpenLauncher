@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/editor/gradient_bar.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 
 void main() {
   const black = 0xFF000000, white = 0xFFFFFFFF, red = 0xFFFF0000;
@@ -93,7 +93,7 @@ void main() {
     await tester.pump();
     expect(find.text('Colour 2'), findsOneWidget);
     expect(find.text('50'), findsOneWidget);
-    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.byTooltip('Increase'));
     expect(changes.single[1].at, 0.51);
   });
 }

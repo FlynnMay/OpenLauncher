@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/editing/layout_edit.dart';
 
 /// Ids of the selected components.
 final selectionProvider = NotifierProvider<Selection, Set<String>>(

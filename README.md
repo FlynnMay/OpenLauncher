@@ -174,7 +174,7 @@ other.
 
 The editor is a second entry point, `lib/editor/main.dart`, built with
 `flutter build web`. It runs the same home screen as the TV with the device
-swapped for the TV's web API (`lib/editor/tv_link.dart`), so anything under
+swapped for the TV's web API (`lib/editor/tv/tv_link.dart`), so anything under
 `features/` has to work in a browser as well.
 
 ## Development

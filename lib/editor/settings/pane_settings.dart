@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/dock_settings.dart';
-import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/option_fields.dart';
-import 'package:openlauncher/editor/trigger_settings.dart';
-import 'package:openlauncher/editor/variables_settings.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/settings/dock_settings.dart';
+import 'package:openlauncher/editor/settings/trigger_settings.dart';
+import 'package:openlauncher/editor/settings/variables_settings.dart';
 
 /// Settings of one or more panes, including the screen's root pane.
 class PaneSettings extends StatelessWidget {
@@ -64,10 +63,9 @@ class PaneSettings extends StatelessWidget {
         ),
       if (panes.length == 1 && panes.single.isDocked)
         TriggerSettings(
-          title: 'When it is shown and hidden',
+          scope: panes.single.vars,
           triggers: _chains(panes.single),
           set: panes.single.on,
-          usual: const {},
           onChanged: (on) => onChanged((pane) => pane.copyWith(on: on)),
         ),
       if (panes.length == 1)
@@ -131,8 +129,8 @@ class PaneSettings extends StatelessWidget {
       const Padding(
         padding: EdgeInsets.only(bottom: 8),
         child: Text(
-          'For everything in this pane made from a prefab. A rule counts '
-          'over what each says for itself.',
+          'Applies to every prefab instance in this pane and overrides '
+          'the instance\'s own setting.',
         ),
       ),
       for (final prefab in shown) ..._rule(prefab),
@@ -140,7 +138,7 @@ class PaneSettings extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: PopupMenuButton<Prefab>(
-            tooltip: 'Add a rule for a prefab',
+            tooltip: 'Add a prefab rule',
             // A rule starts with the prefab's first variant.
             onSelected: (prefab) => onChanged(
               (pane) => _ruled(
@@ -159,7 +157,7 @@ class PaneSettings extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 spacing: 6,
-                children: [Icon(Icons.add, size: 18), Text('Add a rule')],
+                children: [Icon(Icons.add, size: 18), Text('Add rule')],
               ),
             ),
           ),
@@ -187,7 +185,7 @@ class PaneSettings extends StatelessWidget {
               panes.any(
                 (pane) => pane.prefabRules[prefab.id]?['variant'] == null,
               ))
-            _each: 'As each says',
+            _each: 'Per instance',
           for (final MapEntry(:key, :value) in prefab.variants.entries)
             key: value.label.isEmpty ? key : value.label,
         },
@@ -217,7 +215,7 @@ class PaneSettings extends StatelessWidget {
             ),
           ),
           choices: const {
-            _each: 'As each says',
+            _each: 'Per instance',
             'shown': 'Shown',
             'hidden': 'Hidden',
           },
@@ -254,14 +252,14 @@ class PaneSettings extends StatelessWidget {
             return pane.withOption('prefabRules', rules.isEmpty ? null : rules);
           }),
           icon: const Icon(Icons.delete_outline, size: 18),
-          label: Text('Take the rule for ${prefab.name} away'),
+          label: Text('Remove rule for ${prefab.name}'),
         ),
       ),
   ];
 
-  Widget get _entities => Section('Size of what is in it', open: false, [
+  Widget get _entities => Section('Item size', open: false, [
     TickBox(
-      label: 'All the same size',
+      label: 'Same size for all',
       value: shared(panes.map((pane) => pane.itemW != null)),
       onChanged: (same) => onChanged(
         (pane) => pane
@@ -270,16 +268,18 @@ class PaneSettings extends StatelessWidget {
       ),
     ),
     if (panes.every((pane) => pane.itemW != null)) ...[
-      NumberStepper(
-        label: 'Cells wide',
+      NumberField(
+        label: 'Width (cells)',
         value: shared(panes.map((pane) => pane.itemW!)),
+        mixed: panes.map((pane) => pane.itemW).toSet().length > 1,
         min: 1,
         max: panes.map((pane) => pane.columns).reduce((a, b) => a < b ? a : b),
         onChanged: (w) => onChanged((pane) => pane.withOption('itemW', w)),
       ),
-      NumberStepper(
-        label: 'Cells tall',
+      NumberField(
+        label: 'Height (cells)',
         value: shared(panes.map((pane) => pane.itemH ?? 1)),
+        mixed: panes.map((pane) => pane.itemH ?? 1).toSet().length > 1,
         min: 1,
         max: Component.maxRows,
         onChanged: (h) => onChanged((pane) => pane.withOption('itemH', h)),

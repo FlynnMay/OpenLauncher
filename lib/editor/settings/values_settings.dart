@@ -5,9 +5,8 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
-import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/option_fields.dart';
-import 'package:openlauncher/editor/place_search.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/settings/place_search.dart';
 
 /// Built-in values with their current reading, the TV's place, and the user's
 /// own entities: what each reads and the actions it defines.
@@ -57,8 +56,7 @@ class ValuesSettings extends ConsumerWidget {
       const Padding(
         padding: EdgeInsets.only(bottom: 8),
         child: Text(
-          'Written into a Text, Picture or Meter component between double '
-          'braces, each is replaced by what it is at the time.',
+          'Use a value in any text field as {{name}}; it updates live.',
         ),
       ),
       for (final value in builtInValues)
@@ -66,8 +64,8 @@ class ValuesSettings extends ConsumerWidget {
       const SizedBox(height: 12),
       PlaceSearch(
         said: switch (place) {
-          null => 'Location and weather need a place.',
-          final place => 'Location and weather are for ${place.name}',
+          null => 'Location and weather need a location.',
+          final place => 'Location: ${place.name}',
         },
         onChosen: onPlace,
       ),
@@ -76,7 +74,7 @@ class ValuesSettings extends ConsumerWidget {
           alignment: Alignment.centerLeft,
           child: TextButton(
             onPressed: () => onPlace(null),
-            child: const Text('Forget the place'),
+            child: const Text('Clear location'),
           ),
         ),
       const Divider(height: 24),
@@ -114,14 +112,14 @@ class ValuesSettings extends ConsumerWidget {
           return [
             if (asked && url.isNotEmpty && address == null)
               Text(
-                'It has to start with http:// or https://',
+                'Must start with http:// or https://',
                 style: small?.copyWith(color: theme.colorScheme.error),
               ),
             ...switch (valuePaths(id, ref.watch(valueProvider(id)))) {
               final parts when parts.values.every((part) => part == null) => [
                 reading(id, null),
                 if (asked && address != null)
-                  Text('Nothing has come from it yet.', style: small),
+                  Text('No data received yet.', style: small),
               ],
               final parts => [
                 for (final MapEntry(key: path, :value) in parts.entries.take(
