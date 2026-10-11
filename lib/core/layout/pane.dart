@@ -9,7 +9,7 @@ import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
 /// A container with its own cell grid: a background, optionally titled, that
-/// holds entities, widgets and other panes. Every panel has one that fills it,
+/// holds entities, components and other panes. Every panel has one that fills it,
 /// the "global" pane; the rest sit inside that, as [ItemKind.pane] items
 /// which give them their place and size.
 @immutable

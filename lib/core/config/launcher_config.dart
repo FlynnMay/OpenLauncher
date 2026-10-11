@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/components/component_option.dart';
+import 'package:openlauncher/core/components/weather.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/values/built_in_values.dart';
 import 'package:openlauncher/core/values/data_source.dart';
-import 'package:openlauncher/core/widgets/weather.dart';
 
 enum ToastPosition { topLeft, topRight, bottomLeft, bottomRight }
 
@@ -22,6 +23,37 @@ class ToastOptions {
 
   /// How long each one stays up.
   final int seconds;
+
+  /// What there is to set about them: the editor's form is made from
+  /// this.
+  static const options = [
+    ComponentOption(
+      'enabled',
+      'Pop up over the home screen',
+      OptionKind.toggle,
+      usual: true,
+    ),
+    ComponentOption(
+      'position',
+      'Corner',
+      OptionKind.choice,
+      usual: 'topRight',
+      choices: {
+        'topLeft': 'Top left',
+        'topRight': 'Top right',
+        'bottomLeft': 'Bottom left',
+        'bottomRight': 'Bottom right',
+      },
+    ),
+    ComponentOption(
+      'seconds',
+      'Seconds',
+      OptionKind.number,
+      usual: 6,
+      min: 2,
+      max: 30,
+    ),
+  ];
 
   factory ToastOptions.fromJson(Map<Object?, Object?> json) {
     final enabled = json['enabled'], seconds = json['seconds'];
@@ -57,7 +89,7 @@ class LauncherConfig {
     this.prefabs = const [],
   }) : layout = layout ?? Layout.initial();
 
-  /// Where every entity, folder and widget is.
+  /// Where every entity, folder and component is.
   final Layout layout;
 
   /// Entity id -> absolute path of a user-chosen image. Entities that open a

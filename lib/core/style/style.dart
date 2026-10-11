@@ -1,15 +1,15 @@
+import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/variables/scope.dart';
-import 'package:openlauncher/core/widgets/widget_option.dart';
 
 /// The look of a component as it is saved: what it sets, by the name of
 /// the property. Anything on the screen may have one; which properties
 /// mean something to it is for it to say ([boxStyle], [textStyle], a
-/// widget kind's own).
+/// component kind's own).
 typedef Style = Map<String, Object?>;
 
 /// One property of a look, described once. The editor draws its field from
 /// this, knowing nothing of what takes it.
-class StyleProp extends WidgetOption {
+class StyleProp extends ComponentOption {
   const StyleProp(
     super.key,
     super.label,

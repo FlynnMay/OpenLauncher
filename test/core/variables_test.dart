@@ -131,7 +131,7 @@ void main() {
     test('who may read a variable is as it says', () async {
       final item = LayoutItem(
         id: 'box',
-        kind: ItemKind.widget,
+        kind: ItemKind.component,
         ref: 'text',
         vars: const {
           'secret': Variable('s', access: VarAccess.private),
@@ -174,7 +174,7 @@ void main() {
     test('set while the launcher runs, what reads it follows', () async {
       final item = LayoutItem(
         id: 'lamp',
-        kind: ItemKind.widget,
+        kind: ItemKind.component,
         ref: 'button',
         vars: const {'on': Variable(false, access: VarAccess.public)},
       );
@@ -353,7 +353,7 @@ void main() {
                 items: [
                   const LayoutItem(
                     id: 't',
-                    kind: ItemKind.widget,
+                    kind: ItemKind.component,
                     ref: 'text',
                     options: {'text': '{{greeting}} there'},
                     style: {'fontSize': 14},

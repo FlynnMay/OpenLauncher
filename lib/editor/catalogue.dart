@@ -29,7 +29,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
   /// What there is to add, under the heading it is listed under.
   Map<String, List<_Offer>> _offers(Layout layout) {
     final all = ref.watch(entitiesProvider).value ?? const [];
-    final widgets = ref.watch(tvStateProvider).value?.widgets ?? const [];
+    final components = ref.watch(tvStateProvider).value?.components ?? const [];
     final prefabs = ref.watch(prefabsProvider);
     final counts = placedCounts(layout);
     // The entities that are not placed of themselves, such as the media
@@ -98,19 +98,19 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           ),
         ),
       ],
-      'Widgets': [
-        for (final widget in widgets)
+      'Components': [
+        for (final component in components)
           _Offer(
             Dragged(
               item: LayoutItem(
-                id: layout.itemIdFor(widget.type),
-                kind: ItemKind.widget,
-                ref: widget.type,
-                w: widget.w,
-                h: widget.h,
-                options: widget.options,
+                id: layout.itemIdFor(component.type),
+                kind: ItemKind.component,
+                ref: component.type,
+                w: component.w,
+                h: component.h,
+                options: component.options,
               ),
-              label: widget.label,
+              label: component.label,
               picture: const SymbolArt(Icons.widgets_outlined),
             ),
           ),

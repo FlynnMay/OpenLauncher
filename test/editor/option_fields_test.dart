@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/style_settings.dart';
 
 void main() {
-  testWidgets('a form is made from what a widget says can be set', (
+  testWidgets('a form is made from what a component says can be set', (
     tester,
   ) async {
     var values = <String, Object?>{'text': 'Hello'};
@@ -24,7 +26,7 @@ void main() {
                   redraw = setState;
                   return Column(
                     children: optionFields(
-                      options: WidgetKind.text.options,
+                      options: ComponentKind.text.options,
                       values: values,
                       onChanged: (next) => setState(() => values = next),
                     ),
@@ -100,10 +102,88 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('every kind of widget says what can be set, each under its own key', () {
-    for (final kind in WidgetKind.values) {
-      final keys = [for (final option in kind.options) option.key];
-      expect(keys.toSet(), hasLength(keys.length), reason: kind.name);
-    }
+  test(
+    'every kind of component says what can be set, each under its own key',
+    () {
+      for (final kind in ComponentKind.values) {
+        final keys = [for (final option in kind.options) option.key];
+        expect(keys.toSet(), hasLength(keys.length), reason: kind.name);
+      }
+    },
+  );
+
+  test('variables go to their form and back as they were', () {
+    final variables = {
+      'count': const Variable(5),
+      'shown': const Variable('{{media.title}}', access: VarAccess.public),
+      'icon': const Variable(
+        null,
+        when: '{{weather.sky}}',
+        cases: [VarCase(VarTest.equals, 'rain', 'umbrella')],
+        otherwise: 'sun',
+      ),
+    };
+    final form = variablesToForm(variables);
+    expect(
+      variablesToJson(variablesFromForm(form)),
+      variablesToJson(variables),
+    );
+    // A name is kept to what a template can write; one already there, or
+    // none at all, adds nothing.
+    expect(
+      variablesFromForm([
+        ...form,
+        {'name': 'my var!'},
+        {'name': 'count', 'value': '9'},
+        {'name': '  '},
+      ]).keys,
+      ['count', 'shown', 'icon', 'myvar'],
+    );
+  });
+
+  testWidgets('a list is added to, set and taken from', (tester) async {
+    var acts = <Map<String, Object?>>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [configStoreProvider.overrideWithValue(MemoryConfigStore())],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: StatefulBuilder(
+                builder: (context, setState) => ListField(
+                  option: ComponentOption(
+                    'press',
+                    'Add an action',
+                    OptionKind.list,
+                    blank: const {'do': 'set'},
+                    fields: actOptions,
+                  ),
+                  records: acts,
+                  onChanged: (next) => setState(() => acts = next),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Nothing'), findsOneWidget);
+    await tester.tap(find.text('Add an action'));
+    await tester.pump();
+    expect(acts, [
+      {'do': 'set'},
+    ]);
+    // What a `set` is told is offered, and typed as what it reads as.
+    await tester.enterText(find.widgetWithText(TextField, 'var'), 'open');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.enterText(find.widgetWithText(TextField, 'value'), 'true');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(acts, [
+      {'do': 'set', 'var': 'open', 'value': true},
+    ]);
+    await tester.tap(find.byTooltip('Take this away'));
+    await tester.pump();
+    expect(acts, isEmpty);
   });
 }

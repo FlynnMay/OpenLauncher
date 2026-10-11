@@ -412,7 +412,7 @@ void main() {
             ref: cardPrefabId,
             vars: {'source': Variable('app:a')},
           ),
-          const LayoutItem(id: 'w', kind: ItemKind.widget, ref: 'clock'),
+          const LayoutItem(id: 'w', kind: ItemKind.component, ref: 'clock'),
         ],
       ),
     );

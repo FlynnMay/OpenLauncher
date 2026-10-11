@@ -24,6 +24,8 @@ void _asWritten(Json pane) {
       item['ref'] = source;
       item.remove('vars');
     }
+    // And what is a component now said `widget`.
+    if (item['kind'] == 'component') item['kind'] = 'widget';
   }
 }
 

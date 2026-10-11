@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tree_view.dart';
@@ -25,9 +25,9 @@ String objectName(
           final title => title,
         },
   // A button by what it says, where that is plain to read.
-  ItemKind.widget => switch (item.options['label']) {
+  ItemKind.component => switch (item.options['label']) {
     final String label when label.isNotEmpty && !label.contains('{{') => label,
-    _ => WidgetKind.named(item.ref)?.label ?? 'Widget',
+    _ => ComponentKind.named(item.ref)?.label ?? 'Component',
   },
   ItemKind.pane => switch (item.pane?.title) {
     null || '' => 'Pane',
@@ -37,12 +37,12 @@ String objectName(
 
 IconData objectIcon(ItemKind kind) => switch (kind) {
   ItemKind.prefab => Icons.crop_16_9,
-  ItemKind.widget => Icons.widgets_outlined,
+  ItemKind.component => Icons.widgets_outlined,
   ItemKind.pane => Icons.dashboard_outlined,
 };
 
 /// Everything on the TV as a tree: the home screen, each sidebar and each
-/// folder, and under them the panes, entities and widgets as they are nested.
+/// folder, and under them the panes, entities and components as they are nested.
 /// A press picks a thing out, as a press on it on the screen does; a press
 /// on a sidebar or a folder brings it up on the screen.
 class ObjectTree extends ConsumerWidget {

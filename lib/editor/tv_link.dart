@@ -2,11 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';

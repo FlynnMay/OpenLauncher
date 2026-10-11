@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/server/wallpaper_store.dart';
 import 'package:path/path.dart' as p;
 
@@ -82,10 +82,10 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
         if (config.iconOverrides[Panel.iconKey(panel.id)] case final path?)
           panel.id: _iconUrl(Panel.iconKey(panel.id), path),
     },
-    'widgets': [
-      for (final kind in WidgetKind.values)
+    'components': [
+      for (final kind in ComponentKind.values)
         // App widgets are only offered where there are some.
-        if (kind != WidgetKind.android || providers.isNotEmpty)
+        if (kind != ComponentKind.android || providers.isNotEmpty)
           {
             'type': kind.name,
             'label': kind.label,
@@ -100,7 +100,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     // Every setting that is plain data, as it is saved; set the same way
     // with `PUT /api/config`.
     'config': config.open,
-    // Toasts and the now-playing widget stay empty without it.
+    // Toasts and the now-playing component stay empty without it.
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
     // Whether the remote's Home button opens the launcher, and whether
     // the launcher may switch that itself.
@@ -108,7 +108,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
       'enabled': await ref.watch(homeButtonEnabledProvider.future),
       'canManage': await ref.watch(canManageHomeButtonProvider.future),
     },
-    // What the now-playing widget shows, or null.
+    // What the now-playing component shows, or null.
     'nowPlaying': playing == null
         ? null
         : {

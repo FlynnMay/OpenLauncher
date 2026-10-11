@@ -70,7 +70,7 @@ extension LayoutIds on Layout {
   };
 
   /// An id for a new item called [name]: a folder's name, the kind of
-  /// widget, or for an entity what [LayoutItem.autoId] makes of it.
+  /// component, or for an entity what [LayoutItem.autoId] makes of it.
   String itemIdFor(String name) => freeId(slugOf(name), itemIds);
 
   /// An id for a new pane.

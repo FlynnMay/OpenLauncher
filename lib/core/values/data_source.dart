@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 
 /// Where a value the user defined comes from.
@@ -49,22 +50,54 @@ class DataSource {
   /// Seconds between one asking and the next.
   final int every;
 
-  DataSource copyWith({
-    String? name,
-    SourceKind? kind,
-    String? url,
-    String? text,
-    int? every,
-  }) => DataSource(
-    id: id,
-    name: name ?? this.name,
-    kind: kind ?? this.kind,
-    url: url ?? this.url,
-    text: text ?? this.text,
-    every: every ?? this.every,
+  static bool _asked(Map<String, Object?> one) =>
+      one['kind'] != SourceKind.text.name;
+
+  /// What there is to set about the user's values: the editor's form for
+  /// them is made from this, over each as it is saved.
+  static final options = ComponentOption(
+    'sources',
+    'Add a value',
+    OptionKind.list,
+    heading: 'name',
+    asks: 'Name of the value',
+    blank: const {'name': 'Value'},
+    max: maxCount,
+    fields: (_) => [
+      const ComponentOption('name', 'Name', OptionKind.text),
+      ComponentOption(
+        'kind',
+        'Comes from',
+        OptionKind.choice,
+        usual: SourceKind.http.name,
+        choices: {for (final kind in SourceKind.values) kind.name: kind.label},
+      ),
+      ComponentOption(
+        'text',
+        'Text',
+        OptionKind.text,
+        when: (one) => !_asked(one),
+      ),
+      const ComponentOption(
+        'url',
+        'Web address',
+        OptionKind.text,
+        when: _asked,
+      ),
+      // By the TV, while something shows it.
+      const ComponentOption(
+        'every',
+        'Seconds between asking',
+        OptionKind.number,
+        usual: 60,
+        min: minEvery,
+        max: 3600,
+        step: 10,
+        when: _asked,
+      ),
+    ],
   );
 
-  /// The address, if it is one the launcher will ask.
   Uri? get address => switch (Uri.tryParse(url.trim())) {
     final uri? when uri.isScheme('http') || uri.isScheme('https') => uri,
     _ => null,

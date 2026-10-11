@@ -5,12 +5,12 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_api.dart';
 import 'package:openlauncher/server/config_server.dart';
@@ -160,7 +160,7 @@ void main() {
       ['input:tv/HW1', 'app:a', 'app:b', 'launcher:settings'],
     );
     // No app on this device offers widgets, so that kind is not offered.
-    expect((page['widgets'] as List).map((w) => w['type']), [
+    expect((page['components'] as List).map((w) => w['type']), [
       'text',
       'picture',
       'meter',
@@ -464,7 +464,7 @@ void main() {
       expect(told['config']['place']['latitude'], -31.95);
       // The three of the user's own are offered like any other widget.
       expect([
-        for (final widget in told['widgets']) widget['type'],
+        for (final widget in told['components']) widget['type'],
       ], containsAll(['text', 'picture', 'meter']));
 
       Future<(int, Object?)> value(String id) async {

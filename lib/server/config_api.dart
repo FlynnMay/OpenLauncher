@@ -5,11 +5,11 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/server/config_page_state.dart';
 import 'package:openlauncher/server/custom_icons.dart';
 import 'package:openlauncher/server/editor_files.dart';
@@ -251,7 +251,7 @@ class ConfigApi {
     }
   }
 
-  /// Finds places by name for the weather widget. Done here rather than by
+  /// Finds places by name for the weather component. Done here rather than by
   /// the page so the page never talks to anything but the TV.
   Future<Response> _geocode(String? query) async {
     if (query == null || query.trim().isEmpty) {

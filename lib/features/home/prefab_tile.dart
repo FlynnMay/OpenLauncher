@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/features/components/component_tile.dart';
+import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
-import 'package:openlauncher/features/widgets/primitive_widgets.dart';
-import 'package:openlauncher/features/widgets/widget_tile.dart';
 
 /// An instance of a prefab as a tile: its parts, arranged as its layout
 /// says, reading its variables ([scope]) for whatever they are written
@@ -99,7 +99,7 @@ class PrefabTile extends StatelessWidget {
     } else {
       final part = instance.part(slot);
       if (part == null || part.hidden && !slot.keep) return null;
-      child = WidgetTile.of(part.kind, part.options, shrink: !sized);
+      child = ComponentTile.of(part.kind, part.options, shrink: !sized);
       if (part.options['frame'] == true) {
         child = _framed(context, focused, bare, child);
       }

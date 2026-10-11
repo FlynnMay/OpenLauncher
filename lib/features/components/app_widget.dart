@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 typedef _Binding = ({String itemId, String provider});
@@ -24,8 +24,8 @@ final widgetCleanupProvider = Provider<void>((ref) {
     ref.read(launcherPlatformProvider).pruneWidgets([
       for (final panel in layout.panels)
         for (final item in panel.items)
-          if (item.kind == ItemKind.widget &&
-              item.ref == WidgetKind.android.name)
+          if (item.kind == ItemKind.component &&
+              item.ref == ComponentKind.android.name)
             item.id,
     ]);
   }, fireImmediately: true);

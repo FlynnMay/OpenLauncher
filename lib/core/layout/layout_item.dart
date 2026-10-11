@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
+import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
@@ -7,7 +8,6 @@ import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/prefabs/instance_options.dart';
 import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
-import 'package:openlauncher/core/widgets/widget_kind.dart';
 
 /// One thing placed in a pane.
 @immutable
@@ -65,7 +65,7 @@ class LayoutItem {
   /// Column and row, from zero. Not used by [PaneMode.flow] panes.
   final double? x, y;
 
-  /// Settings of a widget, e.g. the place a weather widget shows; of a
+  /// Settings of a component, e.g. the place a weather component shows; of a
   /// entity, what it sets differently from the prefab it is an instance of.
   final Map<String, Object?> options;
 
@@ -75,12 +75,12 @@ class LayoutItem {
   final Style style;
 
   /// The properties of a look that mean something to it: a box's, and with
-  /// them a widget's own or, for what holds other things, those the text
+  /// them a component's own or, for what holds other things, those the text
   /// inside takes after.
   List<String> get styleKeys => [
     ...boxStyle,
     ...switch (kind) {
-      ItemKind.widget => WidgetKind.named(ref)?.style ?? const [],
+      ItemKind.component => ComponentKind.named(ref)?.style ?? const [],
       _ => textStyle,
     },
   ];
@@ -189,7 +189,10 @@ class LayoutItem {
     if (named == null || named == 'card' || named == 'panel') {
       return LayoutItem._legacy(json, folder: named == 'panel');
     }
-    final kind = jsonNamed(ItemKind.values, named, ItemKind.prefab);
+    // That step meets `widget` too, which is what a component said.
+    final kind = named == 'widget'
+        ? ItemKind.component
+        : jsonNamed(ItemKind.values, named, ItemKind.prefab);
     final pane = switch (jsonOptional<Map<Object?, Object?>>(json, 'pane')) {
       final pane? when kind == ItemKind.pane => Pane.fromJson(pane),
       _ => null,

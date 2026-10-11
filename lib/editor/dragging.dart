@@ -16,7 +16,7 @@ class Dragged {
   /// A sidebar from the catalogue. It is not an item: the only place for
   /// it is an edge of the screen that has no sidebar yet.
   Dragged.sidebar({required this.label, required this.picture})
-    : item = LayoutItem(id: 'sidebar', kind: ItemKind.widget, ref: ''),
+    : item = LayoutItem(id: 'sidebar', kind: ItemKind.component, ref: ''),
       panel = null,
       placed = false,
       sidebar = true;
@@ -121,7 +121,7 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// A picture for things that have none of their own: a pane, a widget.
+/// A picture for things that have none of their own: a pane, a component.
 class SymbolArt extends StatelessWidget {
   const SymbolArt(this.icon, {super.key});
 

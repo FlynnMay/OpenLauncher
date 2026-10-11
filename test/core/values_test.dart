@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/values/values.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/features/components/marquee.dart';
+import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
-import 'package:openlauncher/features/widgets/marquee.dart';
-import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 String _render(String source, Map<String, Object?> values) =>
@@ -327,7 +327,7 @@ void main() {
           home: Column(
             children: [
               Expanded(
-                child: TextWidget(
+                child: TextComponent(
                   options: {
                     'text': '{{motto}} there',
                     'style': {'color': '#ff0000'},
@@ -335,10 +335,12 @@ void main() {
                 ),
               ),
               Expanded(
-                child: PictureWidget(options: {'source': '{{motto.no}}'}),
+                child: PictureComponent(options: {'source': '{{motto.no}}'}),
               ),
               Expanded(
-                child: MeterWidget(options: {'value': '{{level}}', 'max': 60}),
+                child: MeterComponent(
+                  options: {'value': '{{level}}', 'max': 60},
+                ),
               ),
             ],
           ),
@@ -350,7 +352,7 @@ void main() {
     expect(text.style?.color, const Color(0xFFFF0000));
     // No picture to show: the mark of an empty one.
     expect(find.byIcon(Icons.image_outlined), findsOneWidget);
-    expect(find.byType(MeterWidget), findsOneWidget);
+    expect(find.byType(MeterComponent), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -365,7 +367,7 @@ void main() {
             child: SizedBox(
               width: 200,
               height: 60,
-              child: TextWidget(
+              child: TextComponent(
                 options: {
                   'style': {'fontSize': 20},
                   ...options,
@@ -421,9 +423,9 @@ void main() {
               const {'color': '#ffd700', 'fontSize': 20, 'padding': 40},
               const Column(
                 children: [
-                  Expanded(child: TextWidget(options: {'text': 'Plain'})),
+                  Expanded(child: TextComponent(options: {'text': 'Plain'})),
                   Expanded(
-                    child: TextWidget(
+                    child: TextComponent(
                       options: {
                         'text': 'Own',
                         'style': {'color': '#ff0000', 'fontWeight': 'bold'},
@@ -434,7 +436,7 @@ void main() {
                   Expanded(
                     child: TemplateScope(
                       values: {'tint': '#00ff00', 'big': 30},
-                      child: TextWidget(
+                      child: TextComponent(
                         options: {
                           'text': 'Read',
                           'style': {'color': '{{tint}}', 'fontSize': '{{big}}'},

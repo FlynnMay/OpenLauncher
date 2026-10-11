@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/widgets/weather.dart';
+import 'package:openlauncher/core/components/weather.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 

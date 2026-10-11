@@ -5,7 +5,7 @@ import 'package:openlauncher/core/prefabs/instance_options.dart';
 import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
-/// One primitive a prefab is made of: a kind of widget (`picture`, `text`,
+/// One primitive a prefab is made of: a kind of component (`picture`, `text`,
 /// ...) and its options, in which `{{source.label}}` and the like are what
 /// the instance's source says. Its look is among them, as `style`.
 @immutable
@@ -358,7 +358,7 @@ final List<Prefab> builtInPrefabs = [
     },
     layouts: _cardLayouts(),
   ),
-  // What used to be widgets of their own: each some text and pictures
+  // What used to be components of their own: each some text and pictures
   // reading an entity the launcher has, to be changed like any prefab.
   Prefab(
     id: 'clock',

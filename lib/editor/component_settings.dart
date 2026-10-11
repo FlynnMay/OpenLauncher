@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 
-/// What one widget on the screen is set to show; different for each kind
-/// of widget, and nothing at all for a kind with nothing to set.
-class WidgetSettings extends ConsumerWidget {
-  const WidgetSettings({
+/// What one component on the screen is set to show; different for each kind
+/// of component, and nothing at all for a kind with nothing to set.
+class ComponentSettings extends ConsumerWidget {
+  const ComponentSettings({
     super.key,
     required this.item,
     required this.onChanged,
@@ -17,7 +17,7 @@ class WidgetSettings extends ConsumerWidget {
 
   final LayoutItem item;
 
-  /// Called with the widget's options as they are to be.
+  /// Called with the component's options as they are to be.
   final void Function(Map<String, Object?> options) onChanged;
 
   void _set(String key, Object? value) => onChanged(
@@ -28,11 +28,11 @@ class WidgetSettings extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final options = item.options;
     final state = ref.watch(tvStateProvider).value;
-    final kind = WidgetKind.named(item.ref);
+    final kind = ComponentKind.named(item.ref);
     final settings = [
       // What takes more than a plain setting: a search, a list the TV has.
       ...switch (kind) {
-        WidgetKind.android => [
+        ComponentKind.android => [
           LabelledRow(
             'Shows',
             ChoiceBox<String>(
@@ -58,6 +58,6 @@ class WidgetSettings extends ConsumerWidget {
       ),
     ];
     if (settings.isEmpty) return const SizedBox.shrink();
-    return Section(kind?.label ?? 'Widget', settings);
+    return Section(kind?.label ?? 'Component', settings);
   }
 }

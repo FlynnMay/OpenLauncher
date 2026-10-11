@@ -29,8 +29,8 @@ class PrefabEntry extends Entry {
   const PrefabEntry(super.item);
 }
 
-class WidgetEntry extends Entry {
-  const WidgetEntry(super.item);
+class ComponentEntry extends Entry {
+  const ComponentEntry(super.item);
 }
 
 /// A pane inside another, with what is in it.
@@ -73,7 +73,7 @@ class PanelView {
   bool get isEmpty => root.isEmpty;
 }
 
-/// The layout with every item matched to the entity, panel, widget or pane it
+/// The layout with every item matched to the entity, panel, component or pane it
 /// stands for: what the TV draws.
 @immutable
 class LayoutView {
@@ -111,7 +111,7 @@ LayoutView resolveLayout(List<Entity> entities, LauncherConfig config) {
       null => PrefabEntry(item),
       final entity => EntityEntry(item, entity),
     },
-    ItemKind.widget => WidgetEntry(item),
+    ItemKind.component => ComponentEntry(item),
     ItemKind.pane => PaneEntry(item, view(item.pane!)),
   };
   // Drawn as the pane would have them: see [Pane.shown].

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
-import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 
 /// Hands the starting focus to the first tile that asks for it.
 class FirstFocus {

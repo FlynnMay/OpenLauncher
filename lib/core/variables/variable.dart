@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/components/component_option.dart';
 
 /// Who may read a variable: only the component it is on, that component
 /// and what is inside it, or anything at all.
@@ -93,22 +94,6 @@ class Variable {
 
   bool get isConditional => when != null;
 
-  Variable copyWith({
-    Object? value,
-    VarAccess? access,
-    String? when,
-    List<VarCase>? cases,
-    Object? otherwise,
-  }) => Variable(
-    value ?? this.value,
-    access: access ?? this.access,
-    when: when ?? this.when,
-    cases: cases ?? this.cases,
-    otherwise: otherwise ?? this.otherwise,
-  );
-
-  /// Never throws. Written short, a variable is its value and nothing
-  /// more; written in full it says who may read it, or how it is told.
   factory Variable.fromJson(Object? json) {
     if (json is! Map<Object?, Object?> ||
         !(json.containsKey('value') || json.containsKey('when'))) {
@@ -159,6 +144,119 @@ class Variable {
 
 /// The variables of a component, by name.
 typedef Variables = Map<String, Variable>;
+
+bool _conditional(Map<String, Object?> one) => one['conditional'] == true;
+
+/// What there is to set about the variables of a component: the editor's
+/// form for them is made from this, over [variablesToForm].
+final variableOptions = ComponentOption(
+  'vars',
+  'Add a variable',
+  OptionKind.list,
+  heading: 'name',
+  asks: 'Name of the variable',
+  blank: const {'name': 'name'},
+  fields: (_) => [
+    ComponentOption(
+      'access',
+      'Read by',
+      OptionKind.choice,
+      usual: VarAccess.protected.name,
+      choices: {
+        for (final access in VarAccess.values) access.name: access.label,
+      },
+    ),
+    const ComponentOption(
+      'conditional',
+      'Depends on something',
+      OptionKind.toggle,
+    ),
+    ComponentOption(
+      'value',
+      'Is',
+      OptionKind.template,
+      when: (one) => !_conditional(one),
+    ),
+    const ComponentOption(
+      'when',
+      'Looks at',
+      OptionKind.template,
+      when: _conditional,
+    ),
+    ComponentOption(
+      'cases',
+      'Add a case',
+      OptionKind.list,
+      when: _conditional,
+      blank: {'test': VarTest.equals.name},
+      fields: (_) => [
+        ComponentOption(
+          'test',
+          'When it',
+          OptionKind.choice,
+          choices: {for (final test in VarTest.values) test.name: test.label},
+        ),
+        const ComponentOption('value', 'this', OptionKind.value),
+        const ComponentOption('then', 'it is', OptionKind.value),
+      ],
+    ),
+    const ComponentOption(
+      'else',
+      'Otherwise it is',
+      OptionKind.value,
+      when: _conditional,
+    ),
+  ],
+);
+
+/// [variables] as that form has them: one of each, with its name.
+List<Map<String, Object?>> variablesToForm(Variables variables) => [
+  for (final MapEntry(key: name, value: variable) in variables.entries)
+    {
+      'name': name,
+      'access': variable.access.name,
+      if (variable.isConditional) ...{
+        'conditional': true,
+        'when': variable.when,
+        'cases': [
+          for (final entry in variable.cases)
+            {'test': entry.test.name, 'value': entry.value, 'then': entry.then},
+        ],
+        'else': variable.otherwise,
+      } else if (variable.value != null)
+        'value': '${variable.value}',
+    },
+];
+
+/// The variables that form says there are. A name keeps only what a
+/// template can write, and one with none, or the name of another, is left
+/// out.
+Variables variablesFromForm(List<Map<String, Object?>> form) {
+  final variables = <String, Variable>{};
+  for (final one in form) {
+    final name = '${one['name'] ?? ''}'.replaceAll(RegExp('[^A-Za-z0-9_]'), '');
+    if (name.isEmpty || variables.containsKey(name)) continue;
+    final conditional = _conditional(one);
+    variables[name] = Variable(
+      conditional ? null : typedValue('${one['value'] ?? ''}'),
+      access:
+          VarAccess.values.asNameMap()[one['access']] ?? VarAccess.protected,
+      when: conditional ? '${one['when'] ?? ''}' : null,
+      cases: [
+        if (one['cases'] case final List<Object?> cases when conditional)
+          for (final entry in cases)
+            if (entry is Map)
+              VarCase(
+                VarTest.values.asNameMap()[entry['test']] ?? VarTest.equals,
+                entry['value'],
+                entry['then'],
+              ),
+      ],
+      otherwise: conditional ? one['else'] : null,
+    );
+  }
+  return variables;
+}
 
 /// Never throws: what is not a set of variables is none.
 Variables variablesFromJson(Object? json) => {

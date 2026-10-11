@@ -5,6 +5,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
+import 'package:openlauncher/editor/component_settings.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/entity_picker.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
@@ -18,7 +19,6 @@ import 'package:openlauncher/editor/trigger_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/editor/variables_settings.dart';
-import 'package:openlauncher/editor/widget_settings.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
@@ -85,8 +85,8 @@ class SelectedProperties extends ConsumerWidget {
             onRenamed: (title) =>
                 eachFolder((panel) => withPanelRule(panel, 'title', title)),
           ),
-        if (single != null && single.kind == ItemKind.widget)
-          WidgetSettings(
+        if (single != null && single.kind == ItemKind.component)
+          ComponentSettings(
             item: single,
             onChanged: (options) =>
                 each((item) => item.copyWith(options: options)),

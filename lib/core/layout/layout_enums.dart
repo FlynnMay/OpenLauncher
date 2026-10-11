@@ -26,8 +26,9 @@ enum ItemKind {
   /// opens a folder is one of `folder-card`, drawn from the folder.
   prefab,
 
-  /// A launcher widget; [LayoutItem.ref] is the `WidgetKind` name.
-  widget,
+  /// One of the launcher's own components; [LayoutItem.ref] is the
+  /// `ComponentKind` name.
+  component,
 
   /// A pane inside this one, held in [LayoutItem.pane].
   pane,

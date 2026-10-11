@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 
 LayoutItem _item(
   String id, {
@@ -593,15 +593,15 @@ void main() {
     });
 
     test('everything says which properties mean something to it', () {
-      const text = LayoutItem(id: 't', kind: ItemKind.widget, ref: 'text');
-      const meter = LayoutItem(id: 'm', kind: ItemKind.widget, ref: 'meter');
+      const text = LayoutItem(id: 't', kind: ItemKind.component, ref: 'text');
+      const meter = LayoutItem(id: 'm', kind: ItemKind.component, ref: 'meter');
       expect(text.styleKeys, [...boxStyle, ...textStyle]);
       expect(meter.styleKeys, [...boxStyle, 'color']);
       expect(LayoutItem.of('app:a', id: 'a').styleKeys, containsAll(textStyle));
       // Each is described, once.
       final keys = [for (final prop in styleProps) prop.key];
       expect(keys.toSet(), hasLength(keys.length));
-      for (final kind in WidgetKind.values) {
+      for (final kind in ComponentKind.values) {
         expect(keys, containsAll(kind.style), reason: kind.name);
       }
       expect(keys, containsAll([...boxStyle, ...textStyle]));
@@ -666,7 +666,7 @@ void main() {
                 id: 'global',
                 items: [
                   LayoutItem.of('games', id: 'folder', prefab: folderPrefabId),
-                  _item('clock', kind: ItemKind.widget, ref: 'clock'),
+                  _item('clock', kind: ItemKind.component, ref: 'clock'),
                   LayoutItem.pane(const Pane(id: 'main')),
                 ],
               ),
@@ -685,7 +685,7 @@ void main() {
       // Drawn from a folder, not from an entity.
       expect(folder, isA<PrefabEntry>());
       expect(config.layout.folderOf(folder.item), 'games');
-      expect(clock, isA<WidgetEntry>());
+      expect(clock, isA<ComponentEntry>());
       // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.
       final inside = (pane as PaneEntry).view.entries.single as EntityEntry;
@@ -843,7 +843,7 @@ void main() {
         rules: rules,
         items: [
           _item('a', w: 3, h: 2),
-          _item('clock', kind: ItemKind.widget, ref: 'clock', w: 4),
+          _item('clock', kind: ItemKind.component, ref: 'clock', w: 4),
           LayoutItem.pane(const Pane(id: 'inner'), w: 5),
         ],
       );

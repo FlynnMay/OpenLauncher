@@ -7,13 +7,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/features/components/marquee.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
-import 'package:openlauncher/features/widgets/marquee.dart';
 
-// The three a widget of the user's own is put together from. Each shows
+// The three a component of the user's own is put together from. Each shows
 // what its options say; an option that is text is a template, so
 // `{{weather.temperature}}` in it is the temperature. How each looks is
 // its `style`, over what the things around it hand down.
@@ -24,7 +24,7 @@ Color _colour(Object? css, [Color otherwise = Colors.white]) =>
       final argb => Color(argb),
     };
 
-/// The variables in reach of the widgets below, by name: those of every
+/// The variables in reach of the components below, by name: those of every
 /// component around them that lets what is inside it read them. Looked in
 /// before what is read by its id.
 class TemplateScope extends InheritedWidget {
@@ -43,7 +43,7 @@ class TemplateScope extends InheritedWidget {
       !mapEquals(values, oldWidget.values);
 }
 
-/// Says whether the tile the widgets below are part of has the focus, for
+/// Says whether the tile the components below are part of has the focus, for
 /// those that show it.
 class TileFocus extends InheritedWidget {
   const TileFocus({super.key, required this.focused, required super.child});
@@ -57,7 +57,7 @@ class TileFocus extends InheritedWidget {
   bool updateShouldNotify(TileFocus oldWidget) => focused != oldWidget.focused;
 }
 
-/// The look of a widget set up by [options], as it stands now: what it was
+/// The look of a component set up by [options], as it stands now: what it was
 /// handed down, and its own over that.
 Style _style(
   BuildContext context,
@@ -85,8 +85,8 @@ String _read(BuildContext context, WidgetRef ref, Object? template) {
 ///
 /// Look: `fontSize` (none to fill the box), `textAlign` (`left`, `center`,
 /// `right`), `color`, `fontWeight` (`light`, `medium`, `bold`).
-class TextWidget extends ConsumerWidget {
-  const TextWidget({super.key, required this.options, this.shrink = false});
+class TextComponent extends ConsumerWidget {
+  const TextComponent({super.key, required this.options, this.shrink = false});
 
   final Map<String, Object?> options;
 
@@ -190,8 +190,8 @@ class TextWidget extends ConsumerWidget {
 ///
 /// Options: `label` (a template), `icon` (a name in `tileIcons`). Look:
 /// `color`, `fontSize`.
-class ButtonWidget extends ConsumerWidget {
-  const ButtonWidget({super.key, required this.options});
+class ButtonComponent extends ConsumerWidget {
+  const ButtonComponent({super.key, required this.options});
 
   final Map<String, Object?> options;
 
@@ -228,8 +228,8 @@ class ButtonWidget extends ConsumerWidget {
 ///
 /// Options: `icon` (a template that reads as a name in `tileIcons`), `size`
 /// (none to fill the box). Look: `color`.
-class IconWidget extends ConsumerWidget {
-  const IconWidget({super.key, required this.options});
+class IconComponent extends ConsumerWidget {
+  const IconComponent({super.key, required this.options});
 
   final Map<String, Object?> options;
 
@@ -267,8 +267,8 @@ class FolderPicture extends ConsumerWidget {
 /// SVG), `fit` (`cover`, or `contain` to show all of it), `pad` (room
 /// left around it), `alt` (what to say when there is none). Look: `radius`
 /// (of its corners).
-class PictureWidget extends ConsumerWidget {
-  const PictureWidget({super.key, required this.options});
+class PictureComponent extends ConsumerWidget {
+  const PictureComponent({super.key, required this.options});
 
   final Map<String, Object?> options;
 
@@ -323,8 +323,8 @@ class PictureWidget extends ConsumerWidget {
 ///
 /// Options: `value` (a template that reads as a number), `min` (0), `max`
 /// (100), `shape` (`bar` or `ring`). Look: `color`.
-class MeterWidget extends ConsumerWidget {
-  const MeterWidget({super.key, required this.options});
+class MeterComponent extends ConsumerWidget {
+  const MeterComponent({super.key, required this.options});
 
   final Map<String, Object?> options;
 

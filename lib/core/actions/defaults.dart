@@ -1,8 +1,8 @@
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/actions/action_kind.dart';
 import 'package:openlauncher/core/actions/action_kinds.dart';
+import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widget_kind.dart';
 
 /// What a panel does when its pane does not say: a sidebar that is
 /// revealed is put on a layer of its own above the home screen, as is a
@@ -38,8 +38,8 @@ Triggers panelTriggersOf(Panel panel) => {
 LayoutItem actionButton(String id, ActionKind kind, {String? entity}) =>
     LayoutItem(
       id: id,
-      kind: ItemKind.widget,
-      ref: WidgetKind.button.name,
+      kind: ItemKind.component,
+      ref: ComponentKind.button.name,
       options: {'label': kind.label, 'icon': kind.icon},
       on: {
         Trigger.press: [

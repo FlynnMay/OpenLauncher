@@ -626,7 +626,7 @@ void main() {
       // As big as it was.
       expect((clock.w, clock.h), (3, 2));
       // Any other widget is what it was.
-      expect((text.kind, text.ref), (ItemKind.widget, 'text'));
+      expect((text.kind, text.ref), (ItemKind.component, 'text'));
       expect(text.options, {'text': 'Hi'});
       // And there is a prefab for each to be an instance of.
       for (final item in [clock, weather, media]) {
@@ -768,6 +768,41 @@ void main() {
       expect(layout.folderOf(f), 'games');
       expect(f.toJson().keys, isNot(contains('options')));
     });
+  });
+
+  test('from 12 to 13, what said it was a widget says component', () {
+    final save = migrate({
+      'v': 12,
+      'layout': {
+        'v': 12,
+        'panels': [
+          {
+            'id': 'home',
+            'pane': {
+              'id': 'home/root',
+              'items': [
+                {'id': 't', 'kind': 'widget', 'ref': 'text'},
+                {
+                  'id': 'p',
+                  'kind': 'prefab',
+                  'ref': 'app-card',
+                  'vars': {'source': 'app:a'},
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final home = LauncherConfig.fromJson(save).layout.home;
+    expect(
+      [for (final item in home.items) item.kind],
+      [ItemKind.component, ItemKind.prefab],
+    );
+    expect(
+      home.root.toJson()['items'],
+      contains(containsPair('kind', 'component')),
+    );
   });
 
   group('from 11 to 12', () {

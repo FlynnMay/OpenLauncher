@@ -6,6 +6,7 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
+import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/prefab_settings.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
@@ -26,16 +27,6 @@ class GlobalProperties extends ConsumerWidget {
     final config = ref.watch(configProvider).value;
     if (config == null) return const SizedBox.shrink();
     final controller = ref.read(configProvider.notifier);
-    final toasts = config.toasts;
-    ToastOptions toast({
-      bool? enabled,
-      ToastPosition? position,
-      int? seconds,
-    }) => ToastOptions(
-      enabled: enabled ?? toasts.enabled,
-      position: position ?? toasts.position,
-      seconds: seconds ?? toasts.seconds,
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -143,36 +134,10 @@ class GlobalProperties extends ConsumerWidget {
                 'the TV\'s Settings.',
               ),
             ),
-          TickBox(
-            label: 'Pop up over the home screen',
-            value: toasts.enabled,
-            onChanged: (on) => controller.change(
-              (c) => c.copyWith(toasts: toast(enabled: on)),
-            ),
-          ),
-          LabelledRow(
-            'Corner',
-            ChoiceBox<ToastPosition>(
-              value: toasts.position,
-              choices: const {
-                ToastPosition.topLeft: 'Top left',
-                ToastPosition.topRight: 'Top right',
-                ToastPosition.bottomLeft: 'Bottom left',
-                ToastPosition.bottomRight: 'Bottom right',
-              },
-              onChanged: (position) => controller.change(
-                (c) => c.copyWith(toasts: toast(position: position)),
-              ),
-            ),
-          ),
-          NumberStepper(
-            label: 'Seconds',
-            value: toasts.seconds * 1.0,
-            min: 2,
-            max: 30,
-            onChanged: (seconds) => controller.change(
-              (c) => c.copyWith(toasts: toast(seconds: seconds)),
-            ),
+          ...optionFields(
+            options: ToastOptions.options,
+            values: config.toasts.toJson(),
+            onChanged: (toasts) => controller.patch({'toasts': toasts}),
           ),
         ]),
       ],

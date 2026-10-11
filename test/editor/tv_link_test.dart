@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/stage.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_link.dart';
@@ -43,7 +43,7 @@ const _entity = Entity(
 TvState _state() => TvState(
   entities: const [_entity],
   config: LauncherConfig(layout: Layout.initial(['app:a'])),
-  widgets: const [],
+  components: const [],
 );
 
 void main() {
@@ -144,7 +144,7 @@ void main() {
         TvState(
           entities: const [_entity],
           config: LauncherConfig(layout: Layout.initial(['app:a'])),
-          widgets: const [],
+          components: const [],
           nowPlaying: NowPlaying(
             packageName: 'a',
             appLabel: 'A',
@@ -205,7 +205,7 @@ void main() {
             TvState(
               entities: const [_entity],
               config: LauncherConfig(layout: Layout.initial(['app:a'])),
-              widgets: const [],
+              components: const [],
               homeButton: false,
               canManageHomeButton: true,
             ),

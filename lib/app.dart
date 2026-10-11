@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/core/components/components.dart';
+import 'package:openlauncher/features/components/app_widget.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/notifications/toast_overlay.dart';
-import 'package:openlauncher/features/widgets/app_widget.dart';
 import 'package:openlauncher/server/config_server.dart';
 
 /// Has the Home button looked at again whenever the app comes back to the

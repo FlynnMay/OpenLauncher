@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/features/remote/remote_config_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -132,7 +132,7 @@ class SettingsScreen extends ConsumerWidget {
                   leading: const Icon(Icons.qr_code_2),
                   title: const Text('Customise from your phone'),
                   subtitle: const Text(
-                    'Arrange apps, folders, widgets and sidebars, and '
+                    'Arrange apps, folders, components and sidebars, and '
                     'choose pictures.',
                   ),
                   onTap: () => RemoteConfigDialog.show(context),

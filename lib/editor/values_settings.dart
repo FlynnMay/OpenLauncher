@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/components/weather.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
-import 'package:openlauncher/core/widgets/weather.dart';
-import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/place_search.dart';
 
 /// The values text on the screen can be made of: those the launcher has of
@@ -26,20 +26,6 @@ class ValuesSettings extends ConsumerWidget {
 
   /// How many single things of a value are listed under it.
   static const _mostParts = 12;
-
-  void _change(DataSource source, DataSource changed) =>
-      onSources([for (final one in sources) one == source ? changed : one]);
-
-  Future<void> _add(BuildContext context) async {
-    final name = await askName(context, 'Value', title: 'Name of the value');
-    if (name == null || name.isEmpty) return;
-    // Its id is how a template names it, and stays as it is made here.
-    final id = freeId(slugOf(name, 'value'), {
-      ...builtInRoots,
-      for (final source in sources) source.id,
-    });
-    onSources([...sources, DataSource(id: id, name: name)]);
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,7 +55,7 @@ class ValuesSettings extends ConsumerWidget {
       const Padding(
         padding: EdgeInsets.only(bottom: 8),
         child: Text(
-          'Written into a Text, Picture or Meter widget between double '
+          'Written into a Text, Picture or Meter component between double '
           'braces, each is replaced by what it is at the time.',
         ),
       ),
@@ -91,88 +77,50 @@ class ValuesSettings extends ConsumerWidget {
             child: const Text('Forget the place'),
           ),
         ),
-      for (final source in sources) ...[
-        const Divider(height: 24),
-        CommitField(
-          label: 'Name',
-          value: source.name,
-          onChanged: (name) => _change(source, source.copyWith(name: name)),
+      const Divider(height: 24),
+      ListField(
+        option: DataSource.options,
+        records: [for (final source in sources) source.toJson()],
+        // A new one goes by an id made of its name.
+        onChanged: (told) => onSources(
+          DataSource.listFromJson([
+            for (final one in told)
+              {
+                'id': freeId(slugOf('${one['name']}', 'value'), {
+                  ...builtInRoots,
+                  for (final source in sources) source.id,
+                }),
+                ...one,
+              },
+          ], taken: builtInRoots),
         ),
-        LabelledRow(
-          'Comes from',
-          ChoiceBox<SourceKind>(
-            value: source.kind,
-            choices: {for (final kind in SourceKind.values) kind: kind.label},
-            onChanged: (kind) => _change(source, source.copyWith(kind: kind)),
-          ),
-        ),
-        if (source.kind == SourceKind.text)
-          CommitField(
-            label: 'Text',
-            value: source.text,
-            onChanged: (text) => _change(source, source.copyWith(text: text)),
-          )
-        else ...[
-          CommitField(
-            label: 'Web address',
-            value: source.url,
-            onChanged: (url) => _change(source, source.copyWith(url: url)),
-          ),
-          if (source.url.isNotEmpty && source.address == null)
-            Text(
-              'It has to start with http:// or https://',
-              style: small?.copyWith(color: theme.colorScheme.error),
-            ),
-          NumberStepper(
-            label: 'Asked every',
-            value: source.every * 1.0,
-            min: DataSource.minEvery,
-            max: 3600,
-            step: 10,
-            onChanged: (every) =>
-                _change(source, source.copyWith(every: every)),
-          ),
-          Text('seconds, by the TV, while something shows it.', style: small),
-        ],
-        const SizedBox(height: 6),
-        // What it is now, one single thing to a line.
-        ...switch (valuePaths(source.id, ref.watch(valueProvider(source.id)))) {
-          final parts when parts.values.every((part) => part == null) => [
-            reading(source.id, null),
-            if (source.kind == SourceKind.http && source.address != null)
-              Text('Nothing has come from it yet.', style: small),
-          ],
-          final parts => [
-            for (final MapEntry(key: path, :value) in parts.entries.take(
-              _mostParts,
-            ))
-              reading(path, value),
-            if (parts.length > _mostParts)
-              Text('and ${parts.length - _mostParts} more', style: small),
-          ],
+        after: (one) {
+          final id = '${one['id']}';
+          final source = sources.where((source) => source.id == id).single;
+          final asked = source.kind == SourceKind.http;
+          return [
+            if (asked && source.url.isNotEmpty && source.address == null)
+              Text(
+                'It has to start with http:// or https://',
+                style: small?.copyWith(color: theme.colorScheme.error),
+              ),
+            ...switch (valuePaths(id, ref.watch(valueProvider(id)))) {
+              final parts when parts.values.every((part) => part == null) => [
+                reading(id, null),
+                if (asked && source.address != null)
+                  Text('Nothing has come from it yet.', style: small),
+              ],
+              final parts => [
+                for (final MapEntry(key: path, :value) in parts.entries.take(
+                  _mostParts,
+                ))
+                  reading(path, value),
+                if (parts.length > _mostParts)
+                  Text('and ${parts.length - _mostParts} more', style: small),
+              ],
+            },
+          ];
         },
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => onSources([
-              for (final one in sources)
-                if (one != source) one,
-            ]),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Take this value away'),
-          ),
-        ),
-      ],
-      const SizedBox(height: 8),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: OutlinedButton.icon(
-          onPressed: sources.length >= DataSource.maxCount
-              ? null
-              : () => _add(context),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Add a value'),
-        ),
       ),
     ]);
   }

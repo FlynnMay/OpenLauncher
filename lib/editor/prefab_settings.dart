@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/variables_settings.dart';
 
-List<WidgetOption> _optionsOf(String kind) =>
-    WidgetKind.named(kind)?.options ?? const [];
+List<ComponentOption> _optionsOf(String kind) =>
+    ComponentKind.named(kind)?.options ?? const [];
 
-List<String> _styleOf(String kind) => WidgetKind.named(kind)?.style ?? const [];
+List<String> _styleOf(String kind) =>
+    ComponentKind.named(kind)?.style ?? const [];
 
 /// [part] with the property [key] of its look set to [value], or with a
 /// null handed back to whatever it takes after.

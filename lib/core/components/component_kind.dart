@@ -1,10 +1,10 @@
+import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/style/style.dart';
-import 'package:openlauncher/core/widgets/widget_option.dart';
 
-/// The widgets the launcher can show. A layout item of kind `widget` names
+/// The components the launcher can show. A layout item of kind `component` names
 /// one of these in its `ref`.
-enum WidgetKind {
-  /// The three a widget of the user's own is put together from, in a pane:
+enum ComponentKind {
+  /// The three a component of the user's own is put together from, in a pane:
   /// each shows what its options say, written as templates
   /// (`{{weather.temperature}}`).
   text('Text', 2, 1),
@@ -21,18 +21,18 @@ enum WidgetKind {
   /// Something to press: what it does is in the item's triggers.
   button('Button', 2, 1),
 
-  /// A widget provided by an installed app; the item's `provider` option
+  /// An Android widget provided by an installed app; the item's `provider` option
   /// says which.
   android('App widget', 2, 2);
 
-  const WidgetKind(this.label, this.defaultW, this.defaultH);
+  const ComponentKind(this.label, this.defaultW, this.defaultH);
 
   final String label;
 
-  /// The size, in cells, a new widget of this kind starts with.
+  /// The size, in cells, a new component of this kind starts with.
   final int defaultW, defaultH;
 
-  /// The options a new widget of this kind starts with.
+  /// The options a new component of this kind starts with.
   Map<String, Object?> get starter => switch (this) {
     text => const {'text': '{{clock.time}}'},
     meter => const {'value': '{{clock.second}}', 'max': 60},
@@ -40,15 +40,15 @@ enum WidgetKind {
     _ => const {},
   };
 
-  /// What can be set about a widget of this kind. **A new setting is a
-  /// line here and its use where the widget is drawn**: the editor's form
+  /// What can be set about a component of this kind. **A new setting is a
+  /// line here and its use where the component is drawn**: the editor's form
   /// is made from this list.
-  List<WidgetOption> get options => switch (this) {
+  List<ComponentOption> get options => switch (this) {
     text => [
-      const WidgetOption('text', 'Text', OptionKind.template),
+      const ComponentOption('text', 'Text', OptionKind.template),
       // For letters of a set size; made to fill the box, text is never
       // too long for it.
-      const WidgetOption(
+      const ComponentOption(
         'overflow',
         'Too long',
         OptionKind.choice,
@@ -61,7 +61,7 @@ enum WidgetKind {
           'scroll': 'Moves along',
         },
       ),
-      WidgetOption(
+      ComponentOption(
         'speed',
         'Moves',
         OptionKind.number,
@@ -73,9 +73,9 @@ enum WidgetKind {
       ),
     ],
     picture => const [
-      WidgetOption('source', 'Web address or value', OptionKind.template),
-      WidgetOption('alt', 'Says, with no picture', OptionKind.template),
-      WidgetOption(
+      ComponentOption('source', 'Web address or value', OptionKind.template),
+      ComponentOption('alt', 'Says, with no picture', OptionKind.template),
+      ComponentOption(
         'fit',
         'Shown',
         OptionKind.choice,
@@ -84,10 +84,10 @@ enum WidgetKind {
       ),
     ],
     meter => const [
-      WidgetOption('value', 'Value', OptionKind.template),
+      ComponentOption('value', 'Value', OptionKind.template),
       // Whole numbers; a value of another scale is brought to one with
       // `| times:`.
-      WidgetOption(
+      ComponentOption(
         'min',
         'Empty at',
         OptionKind.number,
@@ -95,7 +95,7 @@ enum WidgetKind {
         min: -1000,
         max: 100000,
       ),
-      WidgetOption(
+      ComponentOption(
         'max',
         'Full at',
         OptionKind.number,
@@ -103,7 +103,7 @@ enum WidgetKind {
         min: -1000,
         max: 100000,
       ),
-      WidgetOption(
+      ComponentOption(
         'shape',
         'Drawn as',
         OptionKind.choice,
@@ -112,12 +112,12 @@ enum WidgetKind {
       ),
     ],
     button => const [
-      WidgetOption('label', 'Says', OptionKind.template),
-      WidgetOption('icon', 'Picture', OptionKind.icon),
+      ComponentOption('label', 'Says', OptionKind.template),
+      ComponentOption('icon', 'Picture', OptionKind.icon),
     ],
     icon => const [
-      WidgetOption('icon', 'Which', OptionKind.template),
-      WidgetOption(
+      ComponentOption('icon', 'Which', OptionKind.template),
+      ComponentOption(
         'size',
         'Size',
         OptionKind.number,
@@ -128,12 +128,12 @@ enum WidgetKind {
       ),
     ],
     folder => const [
-      WidgetOption('folder', 'Folder (its id)', OptionKind.template),
+      ComponentOption('folder', 'Folder (its id)', OptionKind.template),
     ],
     android => const [],
   };
 
-  /// The properties of a look that mean something to a widget of this
+  /// The properties of a look that mean something to a component of this
   /// kind, beyond those of the box it is in. Letters with no size fill
   /// their box.
   List<String> get style => switch (this) {
@@ -144,5 +144,5 @@ enum WidgetKind {
     folder || android => const [],
   };
 
-  static WidgetKind? named(String name) => values.asNameMap()[name];
+  static ComponentKind? named(String name) => values.asNameMap()[name];
 }

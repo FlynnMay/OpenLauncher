@@ -43,7 +43,7 @@ void main() {
               TvState(
                 entities: const [_entity],
                 config: LauncherConfig(layout: Layout.initial(['app:a'])),
-                widgets: const [],
+                components: const [],
               ),
             ),
           ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/after_frame.dart';
 import 'package:openlauncher/editor/dragging.dart';
@@ -99,10 +99,10 @@ class _StageState extends ConsumerState<Stage> {
           ),
           child: still,
         );
-      case WidgetEntry(:final item):
+      case ComponentEntry(:final item):
         return DragHandle(
           data: dragged(
-            WidgetKind.named(item.ref)?.label ?? item.ref,
+            ComponentKind.named(item.ref)?.label ?? item.ref,
             const SymbolArt(Icons.widgets_outlined),
           ),
           child: still,

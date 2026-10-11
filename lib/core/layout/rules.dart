@@ -1,7 +1,7 @@
+import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/layout/panel.dart';
-import 'package:openlauncher/core/widgets/widget_option.dart';
 
 // The rules of a pane, and of the panes that are shown and hidden: each
 // one setting, described once, under the name it is saved by. The editor
@@ -9,16 +9,16 @@ import 'package:openlauncher/core/widgets/widget_option.dart';
 // rule is a line here and its use where the pane is drawn.
 
 /// What every pane says of how it arranges what is in it.
-final List<WidgetOption> paneRules = [
-  const WidgetOption('title', 'Title', OptionKind.text),
-  const WidgetOption(
+final List<ComponentOption> paneRules = [
+  const ComponentOption('title', 'Title', OptionKind.text),
+  const ComponentOption(
     'mode',
     'Placement',
     OptionKind.choice,
     usual: 'flow',
     choices: {'flow': 'In order', 'grid': 'On cells', 'free': 'Anywhere'},
   ),
-  const WidgetOption(
+  const ComponentOption(
     'columns',
     'Columns',
     OptionKind.number,
@@ -26,7 +26,7 @@ final List<WidgetOption> paneRules = [
     min: 1,
     max: Pane.maxColumns,
   ),
-  WidgetOption(
+  ComponentOption(
     'rowHeight',
     'Row height',
     OptionKind.number,
@@ -35,7 +35,7 @@ final List<WidgetOption> paneRules = [
     step: 4,
     unset: 'By shape',
   ),
-  WidgetOption(
+  ComponentOption(
     'spacing',
     'Spacing',
     OptionKind.number,
@@ -47,11 +47,11 @@ final List<WidgetOption> paneRules = [
 
 /// What a pane that is shown and hidden says of how: a sidebar's rules,
 /// and a folder's. They differ only in these.
-List<WidgetOption> panelRules(Panel panel) => switch (panel.kind) {
+List<ComponentOption> panelRules(Panel panel) => switch (panel.kind) {
   PanelKind.sidebar => const [
     // How much of it shows while the focus is elsewhere; 0 keeps it out
     // of sight until the focus goes to its edge.
-    WidgetOption(
+    ComponentOption(
       'closed',
       'Closed',
       OptionKind.number,
@@ -59,7 +59,7 @@ List<WidgetOption> panelRules(Panel panel) => switch (panel.kind) {
       step: 8,
       unset: 'Usual',
     ),
-    WidgetOption(
+    ComponentOption(
       'opening',
       'Opens by',
       OptionKind.choice,
@@ -71,7 +71,7 @@ List<WidgetOption> panelRules(Panel panel) => switch (panel.kind) {
         'instant': 'At once',
       },
     ),
-    WidgetOption(
+    ComponentOption(
       'reveal',
       'What is in it',
       OptionKind.choice,
@@ -85,7 +85,7 @@ List<WidgetOption> panelRules(Panel panel) => switch (panel.kind) {
     ),
   ],
   PanelKind.popup => const [
-    WidgetOption(
+    ComponentOption(
       'position',
       'Opens',
       OptionKind.choice,
@@ -98,7 +98,7 @@ List<WidgetOption> panelRules(Panel panel) => switch (panel.kind) {
         'inline': 'In place',
       },
     ),
-    WidgetOption(
+    ComponentOption(
       'size',
       'Size',
       OptionKind.choice,

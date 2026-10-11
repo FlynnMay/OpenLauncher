@@ -111,7 +111,7 @@ final weatherProvider = FutureProvider.autoDispose
       return Weather.fromJson(reply);
     });
 
-/// A place a weather widget can be set to.
+/// A place a weather component can be set to.
 typedef Place = ({String name, double latitude, double longitude});
 
 /// Looks up places called [name], best match first.

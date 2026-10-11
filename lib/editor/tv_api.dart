@@ -4,16 +4,16 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/file_pick.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// A widget the TV can show, as the catalogue offers it.
-typedef WidgetOffer = ({
+/// A component the TV can show, as the catalogue offers it.
+typedef ComponentOffer = ({
   String type,
   String label,
   double w,
@@ -30,7 +30,7 @@ class TvState {
   const TvState({
     required this.entities,
     required this.config,
-    required this.widgets,
+    required this.components,
     this.details = const {},
     this.wallpapers = const [],
     this.wallpaperEvery = 0,
@@ -46,7 +46,7 @@ class TvState {
 
   /// The layout, the pictures of folders and the options.
   final LauncherConfig config;
-  final List<WidgetOffer> widgets;
+  final List<ComponentOffer> components;
 
   /// By entity id.
   final Map<String, EntityDetails> details;
@@ -136,20 +136,20 @@ class TvApi {
                 Panel.iconKey(key as String): _at(value as String).toString(),
             },
           ),
-      widgets: [
-        for (final Map widget in json['widgets'] as List)
+      components: [
+        for (final Map component in json['components'] as List)
           // An app widget is offered once for each one an app provides.
           for (final Map? provider
-              in widget['type'] == 'android' ? providers : [null])
+              in component['type'] == 'android' ? providers : [null])
             (
-              type: widget['type'] as String,
+              type: component['type'] as String,
               label: provider == null
-                  ? widget['label'] as String
+                  ? component['label'] as String
                   : '${provider['app']}: ${provider['label']}',
-              w: (widget['w'] as num).toDouble(),
-              h: (widget['h'] as num).toDouble(),
+              w: (component['w'] as num).toDouble(),
+              h: (component['h'] as num).toDouble(),
               options: {
-                ...?WidgetKind.named(widget['type'] as String)?.starter,
+                ...?ComponentKind.named(component['type'] as String)?.starter,
                 'provider': ?provider?['id'],
               },
             ),
@@ -299,7 +299,7 @@ class TvApi {
       (await _ask('POST', '/api/act', act.toJson()) as Map)['message']
           as String?;
 
-  /// Finds places by name, for the weather widget.
+  /// Finds places by name, for the weather component.
   Future<List<Place>> findPlaces(String name) async {
     final reply = await _ask(
       'GET',

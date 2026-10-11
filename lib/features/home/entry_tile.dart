@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/components/component_kind.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/core/widgets/widget_kind.dart';
+import 'package:openlauncher/features/components/component_tile.dart';
+import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/prefab_tile.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
-import 'package:openlauncher/features/widgets/primitive_widgets.dart';
-import 'package:openlauncher/features/widgets/widget_tile.dart';
 
 /// Puts something around every tile drawn under it. The TV has none; the
 /// web editor uses it to make tiles things that are picked up and moved
@@ -141,19 +141,19 @@ class EntryTile extends ConsumerWidget {
           look,
           acts ? styleOpacity(box, tile) : StyledBox(style: box, child: tile),
         );
-      case WidgetEntry(:final item):
+      case ComponentEntry(:final item):
         final styled = StyledBox(
           style: box,
-          // A widget reads all its own variables, its private ones too.
+          // A component reads all its own variables, its private ones too.
           child: TemplateScope(
             values: scope.own,
-            child: WidgetTile(item: item),
+            child: ComponentTile(item: item),
           ),
         );
         // Anything given something to do can be landed on and pressed.
         if (!does.has(Trigger.press) &&
             hold == null &&
-            item.ref != WidgetKind.button.name) {
+            item.ref != ComponentKind.button.name) {
           return styled;
         }
         return FocusTile(

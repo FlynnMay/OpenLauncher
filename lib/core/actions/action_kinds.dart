@@ -2,12 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/actions/action_kind.dart';
+import 'package:openlauncher/core/components/component_option.dart';
+import 'package:openlauncher/core/components/device_sources.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/scope.dart';
-import 'package:openlauncher/core/widgets/device_sources.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// The argument that names the entity an action is done to, where that is
@@ -228,6 +229,47 @@ List<ActionKind> get actionKinds {
 
 /// The action called [name], as something to show; none for one made by a
 /// newer launcher.
+/// What there is to set about one action of a chain, [act] as it is
+/// saved: which it is, and whatever one of that kind is told. [entities]
+/// are those it could be done to, by id, with what each is called. The
+/// editor's form for a chain is made from this.
+List<ComponentOption> actOptions(
+  Map<String, Object?> act, {
+  Map<String, String> entities = const {},
+}) {
+  final kind = actionKind('${act['do']}');
+  return [
+    ComponentOption(
+      'do',
+      'Does',
+      OptionKind.choice,
+      choices: {for (final kind in actionKinds) kind.name: kind.label},
+    ),
+    if (kind != null && actionNeedsEntity(kind.name) && entities.isNotEmpty)
+      ComponentOption(
+        entityArg,
+        'to',
+        OptionKind.choice,
+        unset: 'Its own source',
+        choices: entities,
+      ),
+    for (final MapEntry(key: name, value: choices)
+        in (kind?.args ?? {}).entries)
+      choices.isEmpty
+          ? ComponentOption(
+              name,
+              name == 'of' ? 'of (an id; empty for itself)' : name,
+              OptionKind.value,
+            )
+          : ComponentOption(
+              name,
+              name,
+              OptionKind.choice,
+              choices: {for (final choice in choices) choice: choice},
+            ),
+  ];
+}
+
 ActionKind? actionKind(String name) =>
     actionKinds.where((kind) => kind.name == name).firstOrNull;
 

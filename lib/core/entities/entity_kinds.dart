@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/action_kind.dart';
+import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
 import 'package:openlauncher/core/entities/entity.dart';
@@ -8,7 +9,6 @@ import 'package:openlauncher/core/prefabs/instance_options.dart';
 import 'package:openlauncher/core/values/data_source.dart';
 import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// A kind of entity: where the entities of that kind come from, and the
