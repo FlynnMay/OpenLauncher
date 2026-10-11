@@ -43,26 +43,28 @@ class PrefabTile extends StatelessWidget {
   };
   final bool autofocus;
 
-  /// The fill and outline the user gave it, if any.
+  /// The look it was given, which is that of whatever of it shows the
+  /// focus.
   final BoxStyle boxStyle;
 
   Widget _framed(BuildContext context, bool focused, bool bare, Widget child) {
     final fill = styleFill(boxStyle);
     final outline = boxStyle.border;
+    final shape = styleShape(boxStyle, 10);
     return AnimatedContainer(
       duration: FocusTile.duration,
       clipBehavior: Clip.antiAlias,
       // The border is drawn over the artwork so the tile does not change
       // size when focused.
       foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: shape,
         border: Border.all(
           color: focused
               ? Colors.white
               : outline == null
               ? Colors.transparent
               : Color(outline),
-          width: 2,
+          width: outline == null ? 2 : boxStyle.borderWidth,
         ),
       ),
       decoration: BoxDecoration(
@@ -75,7 +77,8 @@ class PrefabTile extends StatelessWidget {
                       : focused
                       ? Colors.white.withValues(alpha: 0.12)
                       : Colors.transparent),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: shape,
+        boxShadow: styleShadow(boxStyle),
       ),
       child: child,
     );
@@ -171,7 +174,7 @@ class PrefabTile extends StatelessWidget {
                 focused,
                 true,
                 Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(boxStyle.padding ?? 8),
                   child: content(focused),
                 ),
               ),

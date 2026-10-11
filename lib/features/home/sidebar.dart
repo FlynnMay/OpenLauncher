@@ -216,7 +216,7 @@ class _SidebarState extends State<Sidebar> with SingleTickerProviderStateMixin {
                   // Fades into the home screen on the side it opens
                   // towards, unless the pane has a background of its own.
                   decoration: BoxDecoration(
-                    gradient: root.pane.style.isEmpty
+                    gradient: root.pane.box.isEmpty
                         ? LinearGradient(
                             begin: alignment,
                             end: -alignment,

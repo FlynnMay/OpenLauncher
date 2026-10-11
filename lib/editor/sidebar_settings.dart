@@ -213,9 +213,12 @@ class SidebarSettings extends ConsumerWidget {
           onChanged: pane,
         ),
         StyleSettings(
-          styles: [panel.root.style],
-          onChanged: (how) =>
-              pane((pane) => pane.copyWith(style: how(pane.style))),
+          keys: const [...boxStyle, ...textStyle],
+          style: panel.root.style,
+          corner: Pane.defaultCorner,
+          onChanged: (key, value) => pane(
+            (pane) => pane.copyWith(style: withStyle(pane.style, {key: value})),
+          ),
         ),
       ],
     );

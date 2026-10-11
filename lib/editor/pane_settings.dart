@@ -3,7 +3,6 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls.dart';
-import 'package:openlauncher/editor/corner_settings.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/option_fields.dart';
 import 'package:openlauncher/editor/trigger_settings.dart';
@@ -18,7 +17,6 @@ class PaneSettings extends StatelessWidget {
     required this.panes,
     required this.onChanged,
     this.named = true,
-    this.shaped = true,
     this.children = const [],
     this.prefabs = const {},
     this.usualOn,
@@ -33,10 +31,6 @@ class PaneSettings extends StatelessWidget {
 
   /// Whether a pane's own title is among its settings.
   final bool named;
-
-  /// Whether the roundness of a pane's corners is among its settings; the
-  /// screen has none to round.
-  final bool shaped;
 
   /// The prefabs there are, by id, for the rules a pane has for each;
   /// with none given, rules are not offered.
@@ -55,7 +49,6 @@ class PaneSettings extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _arrangement,
-      if (shaped) _corners,
       _entities,
       if (prefabs.isNotEmpty) _rules,
       if (usualOn case final usual? when panes.length == 1)
@@ -88,16 +81,6 @@ class PaneSettings extends StatelessWidget {
           onChanged((pane) => withRule(pane, key, value)),
     ),
     ...children,
-  ]);
-
-  Widget get _corners => Section('Corners', open: false, [
-    CornerSettings(
-      corners: panes.first.corners,
-      usual: Pane.defaultCorner,
-      max: Pane.maxCorner,
-      onChanged: (corners) =>
-          onChanged((pane) => pane.copyWith(corners: corners)),
-    ),
   ]);
 
   /// This pane's rule for [prefab] with [key] set to [value]; null takes

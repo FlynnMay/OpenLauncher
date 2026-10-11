@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/instance_options.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/features/widgets/app_widget.dart';
 import 'package:openlauncher/features/widgets/primitive_widgets.dart';
@@ -32,6 +33,7 @@ class WidgetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => switch (WidgetKind.named(item.ref)) {
     WidgetKind.android => AppWidgetView(item: item),
-    _ => of(item.ref, item.options),
+    // Its look is its item's.
+    _ => of(item.ref, {...item.options, styleOption: item.style}),
   };
 }

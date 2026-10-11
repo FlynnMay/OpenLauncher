@@ -27,6 +27,9 @@ void main() {
     expect(Prefab.fromJson({'id': 'Not An Id'}), isNull);
   });
 
+  Object? size(PrefabInstance instance) =>
+      (part(instance, 'name')[styleOption]! as Map)['fontSize'];
+
   test('an instance is its prefab until it says otherwise', () {
     final instance = instanceOf(entity, plain)!;
     expect(instance.layoutName, 'stacked');
@@ -40,16 +43,26 @@ void main() {
 
   test('what an instance sets is its own, value by value', () {
     final options = withOverrides(
-      withOverrides(const {layoutOption: 'row'}, 'name', {'size': 20}),
+      withOverrides(
+        const {layoutOption: 'row'},
+        'name',
+        {
+          styleOption: {'fontSize': 20},
+        },
+      ),
       'picture',
       {hiddenOption: true},
     );
     final item = plain.copyWith(options: options, on: {Trigger.hold: const []});
     final instance = instanceOf(entity, item)!;
     expect(instance.layoutName, 'row');
-    expect(part(instance, 'name')['size'], 20);
-    // What the layout says of a part still counts, under what it set.
-    expect(part(instance, 'name')['align'], 'left');
+    // Its look is set over property by property: what the layout says of
+    // the part still counts, and what the prefab does, under what it set.
+    expect(part(instance, 'name')[styleOption], {
+      'fontSize': 20,
+      'fontWeight': 'medium',
+      'textAlign': 'left',
+    });
     expect(instance.parts.first.hidden, isTrue);
     expect(instance.triggers(item)[Trigger.hold], isEmpty);
     expect(instance.triggers(item)[Trigger.press], [const Act('open')]);
@@ -60,20 +73,22 @@ void main() {
         ...entity.parts,
         'name': const PrefabPart('text', {
           'text': 'App: {{source.label}}',
-          'size': 30,
+          'style': {'fontSize': 30},
         }),
       },
     );
     final followed = instanceOf(changed, item)!;
     expect(part(followed, 'name')['text'], 'App: {{source.label}}');
-    expect(part(followed, 'name')['size'], 20);
-    expect(part(instanceOf(changed, plain)!, 'name')['size'], 30);
+    expect(size(followed), 20);
+    expect(size(instanceOf(changed, plain)!), 30);
 
     // A value handed back is the prefab's again.
     final back = item.copyWith(
-      options: withOverrides(options, 'name', {'size': null}),
+      options: withOverrides(options, 'name', {
+        styleOption: {'fontSize': null},
+      }),
     );
-    expect(part(instanceOf(changed, back)!, 'name')['size'], 30);
+    expect(size(instanceOf(changed, back)!), 30);
     expect((back.options[partsOption]! as Map).keys, ['picture']);
   });
 
@@ -82,7 +97,10 @@ void main() {
       options: withOverrides(
         const {layoutOption: 'row'},
         'name',
-        {hiddenOption: true, 'size': 20},
+        {
+          hiddenOption: true,
+          styleOption: {'fontSize': 20},
+        },
       ),
     );
     final ruled = item.copyWith(
@@ -97,7 +115,7 @@ void main() {
     expect(instance.layoutName, 'stacked');
     expect(instance.parts.last.hidden, isFalse);
     // What the rule says nothing of is still the instance's.
-    expect(part(instance, 'name')['size'], 20);
+    expect(size(instance), 20);
   });
 
   test('an entity that opens a folder is an instance too', () {

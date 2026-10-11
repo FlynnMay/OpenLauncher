@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/layout/box_style.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/prefabs/instance_options.dart';
+import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
+import 'package:openlauncher/core/widgets/widget_kind.dart';
 
 /// One thing placed in a pane.
 @immutable
@@ -21,7 +22,7 @@ class LayoutItem {
     this.x,
     this.y,
     this.options = const {},
-    this.style = BoxStyle.none,
+    this.style = const {},
     this.on = const {},
     this.pane,
   });
@@ -32,7 +33,7 @@ class LayoutItem {
       kind = ItemKind.pane,
       ref = pane.id,
       options = const {},
-      style = BoxStyle.none,
+      style = const {},
       on = const {},
       vars = const {};
 
@@ -68,9 +69,21 @@ class LayoutItem {
   /// entity, what it sets differently from the prefab it is an instance of.
   final Map<String, Object?> options;
 
-  /// How the box behind an entity or widget is painted. A pane's own look is
-  /// [Pane.style].
-  final BoxStyle style;
+  /// Its look: how the box behind it is painted, and whatever else what it
+  /// is takes ([styleKeys]). An instance's counts over its prefab's. A
+  /// pane's own look is [Pane.style].
+  final Style style;
+
+  /// The properties of a look that mean something to it: a box's, and with
+  /// them a widget's own or, for what holds other things, those the text
+  /// inside takes after.
+  List<String> get styleKeys => [
+    ...boxStyle,
+    ...switch (kind) {
+      ItemKind.widget => WidgetKind.named(ref)?.style ?? const [],
+      _ => textStyle,
+    },
+  ];
 
   /// What it does, by what sets it off, where that is not the usual for
   /// its prefab.
@@ -95,7 +108,7 @@ class LayoutItem {
     this.x,
     this.y,
     this.options = const {},
-    this.style = BoxStyle.none,
+    this.style = const {},
     this.on = const {},
   }) : kind = ItemKind.prefab,
        ref = prefab,
@@ -129,7 +142,7 @@ class LayoutItem {
   LayoutItem copyWith({
     String? id,
     String? ref,
-    BoxStyle? style,
+    Style? style,
     Triggers? on,
     Variables? vars,
     Map<String, Object?>? options,
@@ -193,7 +206,7 @@ class LayoutItem {
       options: {
         ...?jsonOptional<Map<Object?, Object?>>(json, 'options')?.cast(),
       },
-      style: BoxStyle.fromJson(json['style']),
+      style: styleFromJson(json['style']),
       on: triggersFromJson(json['on']),
       pane: pane,
     );
@@ -233,7 +246,7 @@ class LayoutItem {
       x: jsonOptional<num>(json, 'x')?.toDouble(),
       y: jsonOptional<num>(json, 'y')?.toDouble(),
       options: options,
-      style: BoxStyle.fromJson(json['style']),
+      style: styleFromJson(json['style']),
       on: triggersFromJson(json['on']),
     );
   }
@@ -254,7 +267,7 @@ class LayoutItem {
     },
     if (vars.isNotEmpty) 'vars': variablesToJson(vars),
     if (options.isNotEmpty) 'options': options,
-    if (!style.isEmpty) 'style': style.toJson(),
+    if (style.isNotEmpty) 'style': style,
     if (on.isNotEmpty) 'on': triggersToJson(on),
     'pane': ?pane?.toJson(),
   };

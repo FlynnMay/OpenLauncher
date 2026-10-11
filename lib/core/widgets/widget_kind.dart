@@ -1,3 +1,4 @@
+import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/widgets/widget_option.dart';
 
 /// The widgets the launcher can show. A layout item of kind `widget` names
@@ -45,29 +46,20 @@ enum WidgetKind {
   List<WidgetOption> get options => switch (this) {
     text => [
       const WidgetOption('text', 'Text', OptionKind.template),
+      // For letters of a set size; made to fill the box, text is never
+      // too long for it.
       const WidgetOption(
-        'size',
-        'Letter size',
-        OptionKind.number,
-        min: 8,
-        max: 200,
-        step: 2,
-        unset: 'Fills the box',
-      ),
-      // Text made to fill the box is never too long for it.
-      WidgetOption(
         'overflow',
         'Too long',
         OptionKind.choice,
         usual: 'fade',
-        choices: const {
+        choices: {
           'fade': 'Fades out',
           'ellipsis': 'Cut short with …',
           'clip': 'Cut off',
           'wrap': 'Goes onto more lines',
           'scroll': 'Moves along',
         },
-        when: (options) => options['size'] is num,
       ),
       WidgetOption(
         'speed',
@@ -77,24 +69,8 @@ enum WidgetKind {
         min: 10,
         max: 300,
         step: 10,
-        when: (options) =>
-            options['size'] is num && options['overflow'] == 'scroll',
+        when: (options) => options['overflow'] == 'scroll',
       ),
-      const WidgetOption(
-        'align',
-        'Sits',
-        OptionKind.choice,
-        usual: 'center',
-        choices: {'left': 'Left', 'center': 'In the middle', 'right': 'Right'},
-      ),
-      const WidgetOption(
-        'weight',
-        'Letters',
-        OptionKind.choice,
-        usual: 'light',
-        choices: {'light': 'Light', 'medium': 'Medium', 'bold': 'Bold'},
-      ),
-      const WidgetOption('colour', 'Colour', OptionKind.colour),
     ],
     picture => const [
       WidgetOption('source', 'Web address or value', OptionKind.template),
@@ -105,14 +81,6 @@ enum WidgetKind {
         OptionKind.choice,
         usual: 'cover',
         choices: {'cover': 'Filling the box', 'contain': 'All of it'},
-      ),
-      WidgetOption(
-        'round',
-        'Round corners',
-        OptionKind.number,
-        usual: 6,
-        max: 120,
-        step: 2,
       ),
     ],
     meter => const [
@@ -142,12 +110,10 @@ enum WidgetKind {
         usual: 'bar',
         choices: {'bar': 'A bar', 'ring': 'A ring'},
       ),
-      WidgetOption('colour', 'Colour', OptionKind.colour),
     ],
     button => const [
       WidgetOption('label', 'Says', OptionKind.template),
       WidgetOption('icon', 'Picture', OptionKind.icon),
-      WidgetOption('colour', 'Colour', OptionKind.colour),
     ],
     icon => const [
       WidgetOption('icon', 'Which', OptionKind.template),
@@ -160,12 +126,22 @@ enum WidgetKind {
         step: 2,
         unset: 'Fills the box',
       ),
-      WidgetOption('colour', 'Colour', OptionKind.colour),
     ],
     folder => const [
       WidgetOption('folder', 'Folder (its id)', OptionKind.template),
     ],
     android => const [],
+  };
+
+  /// The properties of a look that mean something to a widget of this
+  /// kind, beyond those of the box it is in. Letters with no size fill
+  /// their box.
+  List<String> get style => switch (this) {
+    text => textStyle,
+    button => const ['color', 'fontSize'],
+    meter || icon => const ['color'],
+    picture => const ['radius'],
+    folder || android => const [],
   };
 
   static WidgetKind? named(String name) => values.asNameMap()[name];

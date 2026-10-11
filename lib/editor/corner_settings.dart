@@ -9,7 +9,10 @@ class CornerSettings extends StatefulWidget {
     required this.usual,
     required this.max,
     required this.onChanged,
+    this.label = 'Corners',
   });
+
+  final String label;
 
   /// Top left, top right, bottom right, bottom left; null for the usual.
   final List<double>? corners;
@@ -47,7 +50,7 @@ class _CornerSettingsState extends State<CornerSettings> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         NumberStepper(
-          label: 'Corners',
+          label: widget.label,
           // Below nothing stands for the usual; no value for "they differ".
           value: corners == null
               ? -1

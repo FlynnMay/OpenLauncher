@@ -9,12 +9,14 @@ import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
+import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 import 'package:openlauncher/features/widgets/marquee.dart';
 
 // The three a widget of the user's own is put together from. Each shows
 // what its options say; an option that is text is a template, so
-// `{{weather.temperature}}` in it is the temperature.
+// `{{weather.temperature}}` in it is the temperature. How each looks is
+// its `style`, over what the things around it hand down.
 
 Color _colour(Object? css, [Color otherwise = Colors.white]) =>
     switch (BoxStyle.parseColor(css)) {
@@ -55,6 +57,17 @@ class TileFocus extends InheritedWidget {
   bool updateShouldNotify(TileFocus oldWidget) => focused != oldWidget.focused;
 }
 
+/// The look of a widget set up by [options], as it stands now: what it was
+/// handed down, and its own over that.
+Style _style(
+  BuildContext context,
+  WidgetRef ref,
+  Map<String, Object?> options,
+) => readStyle(ref.watch, {
+  ...StyleScope.of(context),
+  ...styleFromJson(options['style']),
+}, TemplateScope.of(context));
+
 /// A template as it reads now; nothing for no template.
 String _read(BuildContext context, WidgetRef ref, Object? template) {
   if (template is! String) return template == null ? '' : '$template';
@@ -65,12 +78,13 @@ String _read(BuildContext context, WidgetRef ref, Object? template) {
 
 /// Text made of values.
 ///
-/// Options: `text` (a template), `size` (of the letters; none to fill the
-/// box), `align` (`left`, `center`, `right`), `colour`, `bold`, and for
-/// letters of a set size what is done with text too long for the box,
-/// `overflow`: `fade` (the usual), `ellipsis`, `clip`, `wrap` (onto as many
-/// lines as there is room for) or `scroll` (moving along, at `speed` a
-/// second).
+/// Options: `text` (a template), and for letters of a set size what is
+/// done with text too long for the box, `overflow`: `fade` (the usual),
+/// `ellipsis`, `clip`, `wrap` (onto as many lines as there is room for) or
+/// `scroll` (moving along, at `speed` a second).
+///
+/// Look: `fontSize` (none to fill the box), `textAlign` (`left`, `center`,
+/// `right`), `color`, `fontWeight` (`light`, `medium`, `bold`).
 class TextWidget extends ConsumerWidget {
   const TextWidget({super.key, required this.options, this.shrink = false});
 
@@ -83,8 +97,9 @@ class TextWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final text = _read(context, ref, options['text']);
-    final size = options['size'];
-    final (align, alignment) = switch (options['align']) {
+    final look = _style(context, ref, options);
+    final size = BoxStyle.number(look['fontSize'], 1);
+    final (align, alignment) = switch (look['textAlign']) {
       'left' => (TextAlign.left, Alignment.centerLeft),
       'right' => (TextAlign.right, Alignment.centerRight),
       _ => (TextAlign.center, Alignment.center),
@@ -92,14 +107,13 @@ class TextWidget extends ConsumerWidget {
     final style = TextStyle(
       // In a tile that shows the focus, plain text shows it too.
       color: _colour(
-        options['colour'],
+        look['color'],
         TileFocus.of(context) == false ? Colors.white60 : Colors.white,
       ),
-      fontSize: size is num ? size.toDouble() : 40,
-      fontWeight: switch (options['weight']) {
+      fontSize: size ?? 40,
+      fontWeight: switch (look['fontWeight']) {
         'bold' => FontWeight.w600,
         'medium' => FontWeight.w500,
-        _ when options['bold'] == true => FontWeight.w600,
         _ => FontWeight.w300,
       },
       height: 1.15,
@@ -117,7 +131,7 @@ class TextWidget extends ConsumerWidget {
       );
     }
     if (text.isEmpty) return const SizedBox.expand();
-    if (size is! num) {
+    if (size == null) {
       // Made to fit, so never too long.
       return SizedBox.expand(
         child: FittedBox(
@@ -174,7 +188,8 @@ class TextWidget extends ConsumerWidget {
 /// may be left out. What pressing it does is in its item's triggers, and
 /// how it shows the focus is its tile's business.
 ///
-/// Options: `label` (a template), `icon` (a name in `tileIcons`), `colour`.
+/// Options: `label` (a template), `icon` (a name in `tileIcons`). Look:
+/// `color`, `fontSize`.
 class ButtonWidget extends ConsumerWidget {
   const ButtonWidget({super.key, required this.options});
 
@@ -184,21 +199,23 @@ class ButtonWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final label = _read(context, ref, options['label']);
     final icon = tileIcons[options['icon']];
-    final colour = _colour(options['colour']);
+    final look = _style(context, ref, options);
+    final colour = _colour(look['color']);
+    final size = BoxStyle.number(look['fontSize'], 1) ?? 14;
     return Row(
       mainAxisAlignment: label.isEmpty
           ? MainAxisAlignment.center
           : MainAxisAlignment.start,
       spacing: 10,
       children: [
-        if (icon != null) Icon(icon, color: colour, size: 20),
+        if (icon != null) Icon(icon, color: colour, size: size + 6),
         if (label.isNotEmpty)
           Expanded(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: colour, fontSize: 14),
+              style: TextStyle(color: colour, fontSize: size),
             ),
           ),
       ],
@@ -210,7 +227,7 @@ class ButtonWidget extends ConsumerWidget {
 /// which, as the weather says the sky's.
 ///
 /// Options: `icon` (a template that reads as a name in `tileIcons`), `size`
-/// (none to fill the box), `colour`.
+/// (none to fill the box). Look: `color`.
 class IconWidget extends ConsumerWidget {
   const IconWidget({super.key, required this.options});
 
@@ -220,7 +237,7 @@ class IconWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final icon = tileIcons[_read(context, ref, options['icon']).trim()];
     final size = options['size'];
-    final colour = _colour(options['colour']);
+    final colour = _colour(_style(context, ref, options)['color']);
     if (icon == null) {
       return SizedBox.square(dimension: size is num ? size.toDouble() : null);
     }
@@ -248,8 +265,8 @@ class FolderPicture extends ConsumerWidget {
 ///
 /// Options: `source` (a template: a web address, a file, or a drawing as
 /// SVG), `fit` (`cover`, or `contain` to show all of it), `pad` (room
-/// left around it), `alt` (what to say when there is none), `round` (its
-/// corners).
+/// left around it), `alt` (what to say when there is none). Look: `radius`
+/// (of its corners).
 class PictureWidget extends ConsumerWidget {
   const PictureWidget({super.key, required this.options});
 
@@ -258,7 +275,7 @@ class PictureWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final source = _read(context, ref, options['source']).trim();
-    final round = options['round'];
+    final look = BoxStyle.of(_style(context, ref, options));
     final pad = double.tryParse(_read(context, ref, options['pad'])) ?? 0;
     final alt = _read(context, ref, options['alt']);
     final fit = _read(context, ref, options['fit']) == 'contain'
@@ -281,7 +298,7 @@ class PictureWidget extends ConsumerWidget {
     );
     if (source.isEmpty) return none;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(round is num ? round.toDouble() : 6),
+      borderRadius: styleShape(look, 6),
       child: Padding(
         padding: EdgeInsets.all(pad),
         // Line art comes as the drawing itself, not as where it is kept.
@@ -305,7 +322,7 @@ class PictureWidget extends ConsumerWidget {
 /// How far a number is between two others, as a bar or a ring.
 ///
 /// Options: `value` (a template that reads as a number), `min` (0), `max`
-/// (100), `shape` (`bar` or `ring`), `colour`.
+/// (100), `shape` (`bar` or `ring`). Look: `color`.
 class MeterWidget extends ConsumerWidget {
   const MeterWidget({super.key, required this.options});
 
@@ -322,6 +339,7 @@ class MeterWidget extends ConsumerWidget {
     final part = value == null || max <= min
         ? 0.0
         : ((value - min) / (max - min)).clamp(0.0, 1.0);
+    final colour = _colour(_style(context, ref, options)['color']);
     return SizedBox.expand(
       child: TweenAnimationBuilder<double>(
         tween: Tween(end: part),
@@ -330,7 +348,7 @@ class MeterWidget extends ConsumerWidget {
           painter: _MeterPainter(
             part: part,
             ring: options['shape'] == 'ring',
-            colour: _colour(options['colour']),
+            colour: colour,
           ),
         ),
       ),

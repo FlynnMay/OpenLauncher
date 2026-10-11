@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/layout/box_style.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/prefabs/instance_options.dart';
+import 'package:openlauncher/core/style/box_style.dart';
+import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
 /// A container with its own cell grid: a background, optionally titled, that
@@ -19,11 +20,9 @@ class Pane {
     this.mode = PaneMode.flow,
     this.columns = defaultColumns,
     this.items = const [],
-    this.style = BoxStyle.none,
+    this.style = const {},
     this.spacing,
-    this.padding,
     this.rowHeight,
-    this.corners,
     this.itemW,
     this.itemH,
     this.rules = const {},
@@ -33,9 +32,9 @@ class Pane {
 
   static const defaultColumns = 5;
 
-  /// How round a pane's corners are when [corners] is not set, and the
-  /// roundest one can be made, in the TV's pixels.
-  static const defaultCorner = 14.0, maxCorner = 120.0;
+  /// How round a pane's corners are when its look does not say, in the
+  /// TV's pixels.
+  static const defaultCorner = 14.0;
 
   /// The lowest and the tallest a row can be made, in the TV's pixels.
   static const minRowHeight = 16.0, maxRowHeight = 400.0;
@@ -43,10 +42,9 @@ class Pane {
   /// The row height a sidebar starts with: a line of small pictures.
   static const barRowHeight = 36.0;
 
-  /// The room a pane keeps between its edge and what is in it when
-  /// [padding] is not set; a global pane keeps none.
+  /// The room a pane keeps between its edge and what is in it when its
+  /// look does not say; a global pane keeps none.
   static const defaultPadding = 16.0;
-  static const maxPadding = 80.0;
 
   /// The gap between cells, across and down, when [spacing] is not set.
   static const defaultSpacingX = 20.0, defaultSpacingY = 16.0;
@@ -73,27 +71,23 @@ class Pane {
   final int columns;
   final List<LayoutItem> items;
 
-  /// How the pane itself is painted. The global pane ignores it: the
+  /// Its look: how the pane itself is painted, the room it keeps inside
+  /// (the same whether or not it has a background or a border), and what
+  /// the text in it takes after. The global pane is not painted: the
   /// wallpaper is its background.
-  final BoxStyle style;
+  final Style style;
+
+  /// [style] as a box is painted from it.
+  BoxStyle get box => BoxStyle.of(style);
 
   /// The gap between cells, in the TV's 960-wide pixels, the same across and
   /// down; null for the usual one. With the column count it is all that
   /// decides how big a cell is and how far it is from the next.
   final double? spacing;
 
-  /// The room between the pane's edge and what is in it, in the TV's
-  /// 960-wide pixels; null for the usual one. It is the same whether or not
-  /// the pane has a background or a border.
-  final double? padding;
-
   /// How tall a row of cells is, in the TV's 960-wide pixels; null for a
   /// height that follows from how wide a cell is.
   final double? rowHeight;
-
-  /// How round each corner is, in the TV's 960-wide pixels: top left, top
-  /// right, bottom right, bottom left. Null for the usual, all round alike.
-  final List<double>? corners;
 
   /// The size the pane gives every entity and folder directly in it,
   /// whatever each says for itself. Null leaves that to each of them.
@@ -142,7 +136,7 @@ class Pane {
 
   static const _keep = Object();
 
-  /// This pane with some of its settings changed. [spacing] and [padding]
+  /// This pane with some of its settings changed. [spacing] and the like
   /// may be given as null, for the usual ones.
   Pane copyWith({
     String? id,
@@ -150,11 +144,9 @@ class Pane {
     PaneMode? mode,
     int? columns,
     List<LayoutItem>? items,
-    BoxStyle? style,
+    Style? style,
     Object? spacing = _keep,
-    Object? padding = _keep,
     Object? rowHeight = _keep,
-    Object? corners = _keep,
     Object? itemW = _keep,
     Object? itemH = _keep,
     Map<String, Map<String, Object?>>? rules,
@@ -168,13 +160,9 @@ class Pane {
     items: items ?? this.items,
     style: style ?? this.style,
     spacing: identical(spacing, _keep) ? this.spacing : spacing as double?,
-    padding: identical(padding, _keep) ? this.padding : padding as double?,
     rowHeight: identical(rowHeight, _keep)
         ? this.rowHeight
         : rowHeight as double?,
-    corners: identical(corners, _keep)
-        ? this.corners
-        : corners as List<double>?,
     itemW: identical(itemW, _keep) ? this.itemW : itemW as double?,
     itemH: identical(itemH, _keep) ? this.itemH : itemH as double?,
     rules: rules ?? this.rules,
@@ -229,16 +217,9 @@ class Pane {
     mode: jsonNamed(PaneMode.values, jsonOptional<String>(json, 'mode'), .flow),
     columns: jsonOptional<num>(json, 'columns')?.toInt() ?? defaultColumns,
     items: jsonList(json, 'items', LayoutItem.fromJson),
-    style: BoxStyle.fromJson(json['style']),
+    style: styleFromJson(json['style']),
     spacing: jsonOptional<num>(json, 'spacing')?.toDouble(),
-    padding: jsonOptional<num>(json, 'padding')?.toDouble(),
     rowHeight: jsonOptional<num>(json, 'rowHeight')?.toDouble(),
-    corners: switch (jsonOptional<List<Object?>>(json, 'corners')) {
-      final List<Object?> corners
-          when corners.length == 4 && corners.every((c) => c is num) =>
-        [for (final corner in corners) (corner as num).toDouble()],
-      _ => null,
-    },
     itemW: jsonOptional<num>(json, 'itemW')?.toDouble(),
     itemH: jsonOptional<num>(json, 'itemH')?.toDouble(),
     rules: {
@@ -260,15 +241,10 @@ class Pane {
       null => null,
       final spacing => tidy(spacing),
     },
-    'padding': ?switch (padding) {
-      null => null,
-      final padding => tidy(padding),
-    },
     'rowHeight': ?switch (rowHeight) {
       null => null,
       final rowHeight => tidy(rowHeight),
     },
-    'corners': ?corners?.map(tidy).toList(),
     'itemW': ?switch (itemW) {
       null => null,
       final itemW => tidy(itemW),
@@ -280,7 +256,7 @@ class Pane {
     if (rules.isNotEmpty) 'rules': rules,
     if (vars.isNotEmpty) 'vars': variablesToJson(vars),
     if (on.isNotEmpty) 'on': triggersToJson(on),
-    if (!style.isEmpty) 'style': style.toJson(),
+    if (style.isNotEmpty) 'style': style,
     'items': [for (final item in items) item.toJson()],
   };
 }

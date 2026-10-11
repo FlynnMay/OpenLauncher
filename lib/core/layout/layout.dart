@@ -2,7 +2,10 @@
 /// their grid, and the layout matched to what it shows.
 library;
 
-export 'box_style.dart';
+// A look is anything's to have, but most of what has one is here.
+export 'package:openlauncher/core/style/box_style.dart';
+export 'package:openlauncher/core/style/style.dart';
+
 export 'layout_enums.dart';
 export 'layout_ids.dart';
 export 'layout_item.dart';

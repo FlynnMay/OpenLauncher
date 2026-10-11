@@ -2,11 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/prefabs/instance_options.dart';
+import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
 /// One primitive a prefab is made of: a kind of widget (`picture`, `text`,
 /// ...) and its options, in which `{{source.label}}` and the like are what
-/// the instance's source says.
+/// the instance's source says. Its look is among them, as `style`.
 @immutable
 class PrefabPart {
   const PrefabPart(this.kind, [this.options = const {}]);
@@ -171,11 +172,16 @@ class Prefab {
     this.parts = const {},
     this.layouts = const {},
     this.vars = const {},
+    this.style = const {},
     this.w = 1,
     this.h = 1,
   });
 
   final String id, name;
+
+  /// The look an instance has unless it sets its own, property by
+  /// property; its parts take after it as anything inside a thing does.
+  final Style style;
 
   /// The variables an instance has unless it sets them otherwise, which
   /// its parts read by name. This is how a prefab is handed what it is to
@@ -200,6 +206,7 @@ class Prefab {
     String? name,
     Map<String, PrefabPart>? parts,
     Variables? vars,
+    Style? style,
   }) => Prefab(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -207,6 +214,7 @@ class Prefab {
     parts: parts ?? this.parts,
     layouts: layouts,
     vars: vars ?? this.vars,
+    style: style ?? this.style,
     w: w,
     h: h,
   );
@@ -221,6 +229,7 @@ class Prefab {
         },
         on: triggersFromJson(json['on']),
         vars: variablesFromJson(json['vars']),
+        style: styleFromJson(json['style']),
         w: PrefabSlot._positive(json['w']) ?? 1,
         h: PrefabSlot._positive(json['h']) ?? 1,
         parts: {
@@ -258,6 +267,7 @@ class Prefab {
     'name': name,
     if (on.isNotEmpty) 'on': triggersToJson(on),
     if (vars.isNotEmpty) 'vars': variablesToJson(vars),
+    if (style.isNotEmpty) 'style': style,
     if (w != 1) 'w': w,
     if (h != 1) 'h': h,
     'parts': {
@@ -271,9 +281,8 @@ class Prefab {
 
 const _name = PrefabPart('text', {
   'text': '{{source.label}}',
-  'size': 12,
-  'weight': 'medium',
   'overflow': 'ellipsis',
+  'style': {'fontSize': 12, 'fontWeight': 'medium'},
 });
 
 /// The two ways an entity is arranged, whatever its picture is.
@@ -291,7 +300,13 @@ Map<String, PrefabLayout> _cardLayouts({
     gap: 12,
     slots: [
       PrefabSlot('picture', aspect: 16 / 9, options: small),
-      const PrefabSlot('name', flex: 1, options: {'align': 'left'}),
+      const PrefabSlot(
+        'name',
+        flex: 1,
+        options: {
+          'style': {'textAlign': 'left'},
+        },
+      ),
     ],
   ),
 };
@@ -315,8 +330,8 @@ final List<Prefab> builtInPrefabs = [
         'fit': '{{source.fit}}',
         'pad': '{{source.pad}}',
         'alt': '{{source.label}}',
-        'round': 0,
         'frame': true,
+        'style': {'radius': 0},
       }),
       'name': _name,
     },
@@ -351,11 +366,13 @@ final List<Prefab> builtInPrefabs = [
     w: 2,
     vars: const {'source': Variable('clock')},
     parts: const {
-      'time': PrefabPart('text', {'text': '{{source.time}}', 'size': 44}),
+      'time': PrefabPart('text', {
+        'text': '{{source.time}}',
+        'style': {'fontSize': 44},
+      }),
       'date': PrefabPart('text', {
         'text': '{{source.date}}',
-        'size': 14,
-        'colour': '#ffffffb3',
+        'style': {'fontSize': 14, 'color': '#ffffffb3'},
       }),
     },
     layouts: const {
@@ -393,17 +410,15 @@ final List<Prefab> builtInPrefabs = [
       'icon': PrefabPart('icon', {'icon': '{{icon}}', 'size': 46}),
       'temperature': PrefabPart('text', {
         'text': '{{source | default:Choose a place in the editor}}',
-        'size': 38,
+        'style': {'fontSize': 38},
       }),
       'summary': PrefabPart('text', {
         'text': '{{source.summary}}',
-        'size': 14,
-        'colour': '#ffffffb3',
+        'style': {'fontSize': 14, 'color': '#ffffffb3'},
       }),
       'place': PrefabPart('text', {
         'text': '{{source.place}}',
-        'size': 14,
-        'colour': '#ffffff8a',
+        'style': {'fontSize': 14, 'color': '#ffffff8a'},
       }),
     },
     layouts: const {
@@ -452,16 +467,14 @@ final List<Prefab> builtInPrefabs = [
       Trigger.press: [Act('playPause')],
     },
     parts: const {
-      'cover': PrefabPart('picture', {'source': '{{source.art}}', 'round': 6}),
+      'cover': PrefabPart('picture', {'source': '{{source.art}}'}),
       'title': PrefabPart('text', {
         'text': '{{source.title | default:Nothing is playing}}',
-        'size': 15,
-        'weight': 'medium',
+        'style': {'fontSize': 15, 'fontWeight': 'medium'},
       }),
       'summary': PrefabPart('text', {
         'text': '{{summary}}',
-        'size': 13,
-        'colour': '#ffffffb3',
+        'style': {'fontSize': 13, 'color': '#ffffffb3'},
       }),
       'state': PrefabPart('icon', {'icon': '{{stateIcon}}', 'size': 24}),
     },

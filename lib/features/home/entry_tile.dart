@@ -80,6 +80,13 @@ class EntryTile extends ConsumerWidget {
       variablesOf(entry.item, ref.watch(prefabsProvider)),
       TemplateScope.of(context),
     );
+    // Its look as it stands: its prefab's, its own over that, and whatever
+    // of either is written as a template read now.
+    final look = readStyle(ref.watch, {
+      ...?instance?.prefab.style,
+      ...entry.item.style,
+    }, scope.own);
+    final box = BoxStyle.of(look);
     final does = TileActions(
       context,
       ref,
@@ -122,26 +129,21 @@ class EntryTile extends ConsumerWidget {
           scope: scope.inner,
           // Only what does something is landed on; the rest is looked at.
           autofocus: acts && (focus?.take() ?? false),
-          boxStyle: entry.item.style,
+          boxStyle: box,
           onSelect: does.has(Trigger.press) ? press : null,
           onMenu: hold,
           onFocus: onFocus,
         );
-        // What is only looked at has no frame of its own to carry the
-        // look the user gave it.
-        return acts
-            ? tile
-            : StyledBox(
-                style: entry.item.style,
-                radius: 10,
-                padding: const EdgeInsets.all(8),
-                child: tile,
-              );
+        // Its parts take after it. What is only looked at has no frame of
+        // its own to carry the look the user gave it.
+        return StyleScope.under(
+          context,
+          look,
+          acts ? styleOpacity(box, tile) : StyledBox(style: box, child: tile),
+        );
       case WidgetEntry(:final item):
-        final box = StyledBox(
-          style: item.style,
-          radius: 10,
-          padding: const EdgeInsets.all(8),
+        final styled = StyledBox(
+          style: box,
           // A widget reads all its own variables, its private ones too.
           child: TemplateScope(
             values: scope.own,
@@ -152,7 +154,7 @@ class EntryTile extends ConsumerWidget {
         if (!does.has(Trigger.press) &&
             hold == null &&
             item.ref != WidgetKind.button.name) {
-          return box;
+          return styled;
         }
         return FocusTile(
           autofocus: focus?.take() ?? false,
@@ -173,7 +175,7 @@ class EntryTile extends ConsumerWidget {
               color: Colors.white.withValues(alpha: focused ? 0.12 : 0),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: box,
+            child: styled,
           ),
         );
       case PaneEntry():
@@ -213,7 +215,7 @@ class _InPlace extends ConsumerWidget {
         borderRadius: BorderRadius.circular(14),
         clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(view.root.pane.padding ?? 12),
+          padding: EdgeInsets.all(view.root.pane.box.padding ?? 12),
           child: PaneGrid(
             view: view.root,
             tile: (entry) => EntryTile(entry: entry, focus: focus),

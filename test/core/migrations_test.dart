@@ -381,7 +381,10 @@ void main() {
       });
       expect(b.options, isEmpty);
       // What it already set for the part is kept beside it.
-      expect(overridesOf(c, 'name'), {'size': 20, 'hidden': true});
+      expect(overridesOf(c, 'name'), {
+        'style': {'fontSize': 20},
+        'hidden': true,
+      });
       expect(a.toJson().keys, isNot(contains('hideName')));
     });
 
@@ -549,7 +552,7 @@ void main() {
         // Not one of them, for all it starts like one; nor is plain text.
         '{{timetable.next}} {{weather}} time',
       );
-      expect(a.options['size'], 20);
+      expect(a.style['fontSize'], 20);
       final prefab = LauncherConfig.fromJson(save).prefabs.single;
       expect(
         prefab.parts['a']!.options['text'],
@@ -764,6 +767,205 @@ void main() {
       expect(g.options, {'layout': 'row'});
       expect(layout.folderOf(f), 'games');
       expect(f.toJson().keys, isNot(contains('options')));
+    });
+  });
+
+  group('from 11 to 12', () {
+    final save = migrate({
+      'v': 11,
+      'prefabs': [
+        {
+          'id': 'mine',
+          'parts': {
+            'mark': {
+              'kind': 'icon',
+              'icon': 'sun',
+              'size': 30,
+              'colour': '#ff0000',
+            },
+            'says': {'kind': 'text', 'text': 'Hi', 'size': 18, 'bold': true},
+            'cover': {'kind': 'picture', 'source': 'x', 'round': 12},
+          },
+          'layouts': {
+            'row': {
+              'direction': 'row',
+              'parts': [
+                {'part': 'mark'},
+                {
+                  'group': {
+                    'parts': [
+                      {
+                        'part': 'says',
+                        'options': {'align': 'left'},
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+      'layout': {
+        'v': 11,
+        'inbox': 'main',
+        'panels': [
+          {
+            'id': 'home',
+            'pane': {
+              'id': 'main',
+              'padding': 24,
+              'corners': [8, 8, 8, 8],
+              'style': {
+                'colors': ['#000000', '#ffffff'],
+                'stops': [0, 0.8],
+                'angle': 90,
+                'border': '#ffffff55',
+              },
+              'rules': {
+                'app-card': {
+                  'layout': 'row',
+                  'parts': {
+                    'name': {'hidden': true, 'weight': 'bold'},
+                  },
+                },
+              },
+              'items': [
+                {
+                  'id': 't',
+                  'kind': 'widget',
+                  'ref': 'text',
+                  'style': {
+                    'colors': ['#112233'],
+                  },
+                  'options': {
+                    'text': 'Hello',
+                    'size': 20,
+                    'weight': 'medium',
+                    'align': 'right',
+                    'colour': '#00ff00',
+                  },
+                },
+                {
+                  'id': 'i',
+                  'kind': 'widget',
+                  'ref': 'icon',
+                  'options': {'icon': 'sun', 'size': 40, 'colour': '#ffff00'},
+                },
+                {
+                  'id': 'p',
+                  'kind': 'widget',
+                  'ref': 'picture',
+                  'options': {'round': 20},
+                },
+                {
+                  'id': 'w',
+                  'kind': 'prefab',
+                  'ref': 'weather',
+                  'vars': {'source': 'weather'},
+                  'options': {
+                    'parts': {
+                      'icon': {'size': 60, 'colour': '#ffffff'},
+                      'place': {'size': 10, 'hidden': true},
+                    },
+                  },
+                },
+                {
+                  'id': 'c',
+                  'kind': 'pane',
+                  'pane': {
+                    'id': 'inner',
+                    'corners': [0, 4, 8, 12],
+                    'items': <Object?>[],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final config = LauncherConfig.fromJson(save);
+    final root = config.layout.home.root;
+    final [t, i, p, w, c] = root.items;
+
+    test("a box's colours, corners and padding are its look", () {
+      expect(root.style, {
+        'background': {
+          'colors': ['#000000', '#ffffff'],
+          'stops': [0, 0.8],
+          'angle': 90,
+        },
+        'borderColor': '#ffffff55',
+        'radius': 8,
+        'padding': 24,
+      });
+      expect(root.toJson().keys, isNot(contains('padding')));
+      expect(root.toJson().keys, isNot(contains('corners')));
+      expect(c.pane!.style, {
+        'radius': [0, 4, 8, 12],
+      });
+    });
+
+    test("a widget's own look joins that of its box", () {
+      expect(t.style, {
+        'background': '#112233',
+        'color': '#00ff00',
+        'textAlign': 'right',
+        'fontWeight': 'medium',
+        'fontSize': 20,
+      });
+      expect(t.options, {'text': 'Hello'});
+      // The size of a small picture is not one of letters.
+      expect(i.options, {'icon': 'sun', 'size': 40});
+      expect(i.style, {'color': '#ffff00'});
+      expect(p.style, {'radius': 20});
+      expect(p.options, isEmpty);
+    });
+
+    test('so does what is set for a part of a prefab', () {
+      expect(overridesOf(w, 'icon'), {
+        'size': 60,
+        'style': {'color': '#ffffff'},
+      });
+      expect(overridesOf(w, 'place'), {
+        'hidden': true,
+        'style': {'fontSize': 10},
+      });
+      expect(root.rules['app-card'], {
+        'layout': 'row',
+        'parts': {
+          'name': {
+            'hidden': true,
+            'style': {'fontWeight': 'bold'},
+          },
+        },
+      });
+    });
+
+    test("and what the user's own prefabs say of theirs", () {
+      final prefab = config.prefabs.single;
+      expect(prefab.parts['mark']!.options, {
+        'icon': 'sun',
+        'size': 30,
+        'style': {'color': '#ff0000'},
+      });
+      expect(prefab.parts['says']!.options, {
+        'text': 'Hi',
+        'style': {'fontWeight': 'bold', 'fontSize': 18},
+      });
+      expect(prefab.parts['cover']!.options['style'], {'radius': 12});
+      final [mark, says] = instanceOf(
+        prefab,
+        const LayoutItem(id: 'x', kind: ItemKind.prefab, ref: 'mine'),
+      )!.parts;
+      expect(mark.options['size'], 30);
+      // What the layout says of a part is set over the part's own look.
+      expect(says.options['style'], {
+        'fontWeight': 'bold',
+        'fontSize': 18,
+        'textAlign': 'left',
+      });
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:openlauncher/core/layout/layout_item.dart';
+import 'package:openlauncher/core/style/style.dart';
 
 /// The prefab an entity is an instance of unless it names another, and the
 /// one an entity that opens a folder is.
@@ -10,6 +11,22 @@ const folderPrefabId = 'folder-card';
 // values it sets differently (`hidden` among them).
 const layoutOption = 'layout';
 const partsOption = 'parts';
+
+/// Where a part's look is among its options. It is set over property by
+/// property, not as a whole: an instance that gives a name its own colour
+/// goes on taking the size of its letters from the prefab.
+const styleOption = 'style';
+
+/// The options of a part with each of [layers] set over the one before.
+Map<String, Object?> layered(List<Map<String, Object?>> layers) {
+  final style = <String, Object?>{
+    for (final layer in layers) ...styleFromJson(layer[styleOption]),
+  };
+  return {
+    for (final layer in layers) ...layer,
+    styleOption: ?style.isEmpty ? null : style,
+  };
+}
 
 /// Set for a part an instance does not show.
 const hiddenOption = 'hidden';
@@ -46,7 +63,8 @@ Map<String, Object?> overridesOf(LayoutItem item, String part) =>
     };
 
 /// [options] with [values] set for the part [part]; a value of null is
-/// taken away, which hands that value back to the prefab.
+/// taken away, which hands that value back to the prefab. So it is with
+/// each property of a look among them.
 Map<String, Object?> withOverrides(
   Map<String, Object?> options,
   String part,
@@ -58,13 +76,19 @@ Map<String, Object?> withOverrides(
       _ => null,
     },
   };
-  final set = {
-    ...?switch (parts[part]) {
-      final Map<Object?, Object?> set => set.cast<String, Object?>(),
-      _ => null,
+  final was = switch (parts[part]) {
+    final Map<Object?, Object?> set => set.cast<String, Object?>(),
+    _ => const <String, Object?>{},
+  };
+  final style = withStyle(
+    styleFromJson(was[styleOption]),
+    switch (values[styleOption]) {
+      final Map<Object?, Object?> style => style.cast(),
+      _ => const {},
     },
-    ...values,
-  }..removeWhere((_, value) => value == null);
+  );
+  final set = {...was, ...values, styleOption: style.isEmpty ? null : style}
+    ..removeWhere((_, value) => value == null);
   set.isEmpty ? parts.remove(part) : parts[part] = set;
   return {...options, partsOption: parts.isEmpty ? null : parts}
     ..removeWhere((_, value) => value == null);

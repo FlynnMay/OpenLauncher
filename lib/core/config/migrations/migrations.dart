@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 import 'package:openlauncher/core/config/migrations/v10_to_v11.dart';
+import 'package:openlauncher/core/config/migrations/v11_to_v12.dart';
 import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
 import 'package:openlauncher/core/config/migrations/v3_to_v4.dart';
@@ -27,7 +28,7 @@ export 'save_json.dart' show Device, Json;
 ///
 /// A step that has shipped is never changed: saves that went through it
 /// are out there. What it got wrong, a later step puts right.
-const saveVersion = 11;
+const saveVersion = 12;
 
 /// One thing a [Migration] does to a save, by changing [save] in place. It
 /// finds what it is for and leaves the rest be, whatever shape that is in:
@@ -141,6 +142,15 @@ const migrations = [
     to: 11,
     what: 'What opens a folder is an instance of a prefab, drawn from it.',
     rules: [foldersAsInstances],
+  ),
+  Migration(
+    from: 11,
+    to: 12,
+    what:
+        'Everything has one look, a style of named properties, in place '
+        'of a box\'s colours, a pane\'s corners and padding and each '
+        'widget\'s own options.',
+    rules: [stylesAsOne],
   ),
 ];
 

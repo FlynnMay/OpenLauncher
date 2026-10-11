@@ -5,10 +5,26 @@ import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/option_fields.dart';
+import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/variables_settings.dart';
 
 List<WidgetOption> _optionsOf(String kind) =>
     WidgetKind.named(kind)?.options ?? const [];
+
+List<String> _styleOf(String kind) => WidgetKind.named(kind)?.style ?? const [];
+
+/// [part] with the property [key] of its look set to [value], or with a
+/// null handed back to whatever it takes after.
+PrefabPart _restyled(PrefabPart part, String key, Object? value) {
+  final style = withStyle(styleFromJson(part.options[styleOption]), {
+    key: value,
+  });
+  return PrefabPart(part.kind, {
+    for (final MapEntry(:key, :value) in part.options.entries)
+      if (key != styleOption) key: value,
+    if (style.isNotEmpty) styleOption: style,
+  });
+}
 
 /// What one instance of a prefab sets for itself: the prefab it is of, the
 /// layout, and for each part whether it shows and whatever it says
@@ -101,6 +117,24 @@ class InstanceSettings extends StatelessWidget {
               );
             },
           ),
+          // Its look, of which only what differs from the prefab's is kept.
+          ...styleFields(
+            keys: _styleOf(part.kind),
+            style: styleFromJson(part.options[styleOption]),
+            onChanged: (key, value) {
+              final base = layered([
+                ?prefab.parts[part.id]?.options,
+                part.slot.options,
+              ])[styleOption];
+              onChanged(
+                withOverrides(item.options, part.id, {
+                  styleOption: {
+                    key: base is Map && base[key] == value ? null : value,
+                  },
+                }),
+              );
+            },
+          ),
         ],
         if (own)
           Align(
@@ -173,7 +207,28 @@ class PrefabsSettings extends StatelessWidget {
               ),
             ),
           ),
+          ...styleFields(
+            keys: _styleOf(part.kind),
+            style: styleFromJson(part.options[styleOption]),
+            onChanged: (key, value) => _put(
+              prefab.copyWith(
+                parts: {...prefab.parts, id: _restyled(part, key, value)},
+              ),
+            ),
+          ),
         ],
+        // The look every instance starts with.
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text('Its look', style: theme.textTheme.labelLarge),
+        ),
+        ...styleFields(
+          keys: const [...boxStyle, ...textStyle],
+          style: prefab.style,
+          onChanged: (key, value) => _put(
+            prefab.copyWith(style: withStyle(prefab.style, {key: value})),
+          ),
+        ),
         // What its parts read by name, and what an instance may set.
         VariablesSettings(
           variables: prefab.vars,

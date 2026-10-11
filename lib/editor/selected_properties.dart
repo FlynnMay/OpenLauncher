@@ -22,10 +22,10 @@ import 'package:openlauncher/editor/widget_settings.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
-BoxStyle _styleOf(LayoutItem item) => item.pane?.style ?? item.style;
+Style _styleOf(LayoutItem item) => item.pane?.style ?? item.style;
 
 /// A pane's look is its own; anything else's is the item's.
-LayoutItem _withStyle(LayoutItem item, BoxStyle style) => switch (item.pane) {
+LayoutItem _withStyle(LayoutItem item, Style style) => switch (item.pane) {
   null => item.copyWith(style: style),
   final pane => item.withPane(pane.copyWith(style: style)),
 };
@@ -155,10 +155,16 @@ class SelectedProperties extends ConsumerWidget {
                 change((layout) => resizeItems(layout, ids, h: h * 1.0)),
           ),
         ]),
+        // Only what every one of them takes.
         StyleSettings(
-          styles: [for (final item in items) _styleOf(item)],
-          onChanged: (how) =>
-              each((item) => _withStyle(item, how(_styleOf(item)))),
+          keys: items
+              .map((item) => item.styleKeys.toSet())
+              .reduce((all, own) => all.intersection(own)),
+          style: _styleOf(items.first),
+          corner: allPanes ? Pane.defaultCorner : 10,
+          onChanged: (key, value) => each(
+            (item) => _withStyle(item, withStyle(_styleOf(item), {key: value})),
+          ),
         ),
         if (allPanes)
           PaneSettings(

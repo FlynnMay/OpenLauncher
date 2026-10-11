@@ -3,16 +3,20 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_option.dart';
 import 'package:openlauncher/editor/colour_picker.dart';
 import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/corner_settings.dart';
+import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/template_field.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 
 /// The settings [options] describes, each drawn by the kind it is, showing
 /// what [values] has for it. A change is told as the whole of the values
 /// as they are to be; one set back to its usual is no longer among them.
+/// [corner] is how round the corners of what is being set usually are.
 List<Widget> optionFields({
   required List<WidgetOption> options,
   required Map<String, Object?> values,
   required void Function(Map<String, Object?> values) onChanged,
+  double corner = 10,
 }) {
   void set(WidgetOption option, Object? value) => onChanged(
     {...values, option.key: value == option.usual ? null : value}
@@ -57,9 +61,14 @@ List<Widget> optionFields({
         return LabelledRow(
           option.label,
           ChoiceBox<String>(
-            value: option.choices.containsKey(value) ? value as String : null,
-            choices: option.choices,
-            onChanged: (choice) => set(option, choice),
+            // One that may be left unmade has that among its choices.
+            value: option.choices.containsKey(value)
+                ? value as String
+                : option.unset == null
+                ? null
+                : '',
+            choices: {'': ?option.unset, ...option.choices},
+            onChanged: (choice) => set(option, choice.isEmpty ? null : choice),
           ),
         );
       case OptionKind.icon:
@@ -79,12 +88,29 @@ List<Widget> optionFields({
           option.label,
           Align(
             alignment: Alignment.centerLeft,
-            // White until another colour is chosen.
             child: ColourChip(
-              colour: BoxStyle.parseColor(value) ?? 0xFFFFFFFF,
+              colour: BoxStyle.parseColor(value),
               onChanged: (next) =>
                   set(option, next == null ? null : BoxStyle.colorToCss(next)),
             ),
+          ),
+        );
+      case OptionKind.fill:
+        return FillField(
+          label: option.label,
+          value: value,
+          onChanged: (fill) => set(option, fill),
+        );
+      case OptionKind.corners:
+        return CornerSettings(
+          label: option.label,
+          corners: BoxStyle.of({option.key: value}).corners,
+          usual: corner,
+          max: option.max * 1.0,
+          // All alike, they are said once.
+          onChanged: (corners) => set(
+            option,
+            corners?.toSet().length == 1 ? corners!.first : corners,
           ),
         );
     }
@@ -103,9 +129,11 @@ List<Widget> ruleFields({
   required List<WidgetOption> options,
   required Map<String, Object?> json,
   required void Function(String key, Object? value) onChanged,
+  double corner = 10,
 }) => optionFields(
   options: options,
   values: json,
+  corner: corner,
   onChanged: (next) {
     for (final option in options) {
       if (next[option.key] != json[option.key]) {

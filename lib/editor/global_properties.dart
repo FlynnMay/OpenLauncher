@@ -9,6 +9,7 @@ import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/prefab_settings.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
+import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/editor/values_settings.dart';
@@ -44,7 +45,6 @@ class GlobalProperties extends ConsumerWidget {
           title: 'Screen',
           prefabs: ref.watch(prefabsProvider),
           named: false,
-          shaped: false,
           panes: [config.layout.home.root],
           onChanged: (how) => changeLayout(
             context,
@@ -53,6 +53,23 @@ class GlobalProperties extends ConsumerWidget {
               layout,
               Layout.homeId,
               (panel) => panel.withRoot(how(panel.root)),
+            ),
+          ),
+        ),
+        StyleSettings(
+          keys: const ['padding', ...textStyle],
+          style: config.layout.home.root.style,
+          onChanged: (key, value) => changeLayout(
+            context,
+            ref,
+            (layout) => changePanel(
+              layout,
+              Layout.homeId,
+              (panel) => panel.withRoot(
+                panel.root.copyWith(
+                  style: withStyle(panel.root.style, {key: value}),
+                ),
+              ),
             ),
           ),
         ),

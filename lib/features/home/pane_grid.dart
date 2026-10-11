@@ -115,8 +115,10 @@ class PaneGrid extends StatelessWidget {
             ),
             child: grid,
           );
+    // And takes after the pane's look.
+    final styled = StyleScope.under(context, pane.style, scoped);
     final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
-    return frame == null ? scoped : frame.wrap(pane, scoped);
+    return frame == null ? styled : frame.wrap(pane, styled);
   }
 }
 
@@ -126,23 +128,15 @@ class PaneGrid extends StatelessWidget {
 /// part that scrolls: a focused entity grows into it and is cut only at the
 /// pane's own edge. What does not fit the pane's height is reached by moving
 /// the focus down.
-class PaneBox extends StatelessWidget {
+class PaneBox extends ConsumerWidget {
   const PaneBox({super.key, required this.view, required this.tile});
 
   final PaneView view;
   final Widget Function(Entry entry) tile;
 
-  /// The outline of [pane]: each corner as round as the pane says.
-  static BorderRadius shapeOf(Pane pane) => switch (pane.corners) {
-    [final topLeft, final topRight, final bottomRight, final bottomLeft] =>
-      BorderRadius.only(
-        topLeft: Radius.circular(topLeft),
-        topRight: Radius.circular(topRight),
-        bottomRight: Radius.circular(bottomRight),
-        bottomLeft: Radius.circular(bottomLeft),
-      ),
-    _ => BorderRadius.circular(Pane.defaultCorner),
-  };
+  /// The outline of [pane]: each corner as round as its look says.
+  static BorderRadius shapeOf(Pane pane) =>
+      styleShape(pane.box, Pane.defaultCorner);
 
   /// The gap between a title and what is under it.
   static const _underTitle = 10.0;
@@ -152,13 +146,16 @@ class PaneBox extends StatelessWidget {
   static const _overhang = 12.0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final pane = view.pane;
-    final padding = pane.padding ?? Pane.defaultPadding;
+    final box = BoxStyle.of(
+      readStyle(ref.watch, pane.style, TemplateScope.of(context)),
+    );
+    final padding = box.padding ?? Pane.defaultPadding;
     final titled = pane.title.isNotEmpty;
-    final fill = styleFill(pane.style);
-    final border = pane.style.border;
-    final shape = shapeOf(pane);
+    final fill = styleFill(box);
+    final border = box.border;
+    final shape = styleShape(box, Pane.defaultCorner);
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -181,14 +178,18 @@ class PaneBox extends StatelessWidget {
         ),
       ],
     );
-    if (pane.style.isEmpty) {
-      return ClipRect(clipper: const _Inflated(_overhang), child: content);
+    if (box.isEmpty) {
+      return styleOpacity(
+        box,
+        ClipRect(clipper: const _Inflated(_overhang), child: content),
+      );
     }
-    return DecoratedBox(
+    final painted = DecoratedBox(
       decoration: BoxDecoration(
         color: fill.color,
         gradient: fill.gradient,
         borderRadius: shape,
+        boxShadow: styleShadow(box),
       ),
       // The outline is drawn over the pane, not around it: it takes no room.
       position: DecorationPosition.background,
@@ -198,11 +199,12 @@ class PaneBox extends StatelessWidget {
           borderRadius: shape,
           border: border == null
               ? null
-              : Border.all(color: Color(border), width: 2),
+              : Border.all(color: Color(border), width: box.borderWidth),
         ),
         child: ClipRRect(borderRadius: shape, child: content),
       ),
     );
+    return styleOpacity(box, painted);
   }
 }
 

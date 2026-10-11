@@ -106,7 +106,7 @@ class PanelPopup extends ConsumerWidget {
                     ),
                   // The popup's global pane fills it, inside its margins.
                   Padding(
-                    padding: EdgeInsets.all(view.root.pane.padding ?? 0),
+                    padding: EdgeInsets.all(view.root.pane.box.padding ?? 0),
                     child: PaneGrid(
                       view: root,
                       tile: (entry) =>

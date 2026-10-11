@@ -17,6 +17,13 @@ enum OptionKind {
 
   /// The name of one of the pictures a button can have.
   icon,
+
+  /// What a box is filled with: one colour as `#RRGGBBAA`, or a gradient
+  /// as its `colors`, their `stops` and its `angle`.
+  fill,
+
+  /// How round a box's corners are: one number for all four, or four.
+  corners,
 }
 
 /// One setting of a widget: where it is kept in the item's options, what
@@ -49,8 +56,8 @@ class WidgetOption {
   /// For a number.
   final int min, max, step;
 
-  /// For a number that may be left unset, one step below [min]: what that
-  /// is called.
+  /// For a number that may be left unset, one step below [min], and a
+  /// choice that may be left unmade: what that is called.
   final String? unset;
 
   /// Says, from the options as they are, whether this one means anything

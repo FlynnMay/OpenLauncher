@@ -161,7 +161,7 @@ class HomeScreen extends ConsumerWidget {
                                 // included.
                                 SingleChildScrollView(
                                   padding: EdgeInsets.all(
-                                    layout.home.root.pane.padding ?? 0,
+                                    layout.home.root.pane.box.padding ?? 0,
                                   ),
                                   child: PaneGrid(
                                     view: layout.home.root,

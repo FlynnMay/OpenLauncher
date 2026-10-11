@@ -193,18 +193,20 @@ void main() {
               home([
                 Pane(
                   id: 'main',
-                  style: const BoxStyle(
-                    colors: [0xCC3D5AFE, 0x00000000],
-                    angle: 90,
-                    border: 0x55FFFFFF,
-                  ),
+                  style: const {
+                    'background': {
+                      'colors': ['#3d5afecc', '#00000000'],
+                      'angle': 90,
+                    },
+                    'borderColor': '#ffffff55',
+                  },
                   items: [
                     const LayoutItem(
                       id: 'a',
                       kind: ItemKind.prefab,
                       ref: cardPrefabId,
                       vars: {'source': Variable('app:pkg.a')},
-                      style: BoxStyle(colors: [0xFFB71C1C]),
+                      style: {'background': '#b71c1c'},
                     ),
                   ],
                 ),
@@ -312,7 +314,7 @@ void main() {
     testWidgets('a pane pads the same with or without a background', (
       tester,
     ) async {
-      Pane pane(String id, String package, BoxStyle style) =>
+      Pane pane(String id, String package, Style style) =>
           Pane(id: id, columns: 2, style: style, items: [entity(package)]);
       await pumpApp(
         tester,
@@ -322,12 +324,11 @@ void main() {
             removed: const {'app:pkg.c', 'launcher:settings'},
             panels: [
               home([
-                pane('plain', 'pkg.a', BoxStyle.none),
-                pane(
-                  'painted',
-                  'pkg.b',
-                  const BoxStyle(colors: [0xFF224466], border: 0xFFFFFFFF),
-                ),
+                pane('plain', 'pkg.a', const {}),
+                pane('painted', 'pkg.b', const {
+                  'background': '#224466',
+                  'borderColor': '#ffffff',
+                }),
               ]),
             ],
           ).normalised(),

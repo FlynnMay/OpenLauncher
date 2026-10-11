@@ -112,18 +112,7 @@ extension LayoutRepair on Layout {
         ],
         style: pane.style,
         spacing: within(pane.spacing, 0, Pane.maxSpacing),
-        padding: within(pane.padding, 0, Pane.maxPadding),
         rowHeight: within(pane.rowHeight, Pane.minRowHeight, Pane.maxRowHeight),
-        corners: switch (pane.corners) {
-          final corners?
-              when corners.length == 4 &&
-                  corners.every((corner) => corner.isFinite) =>
-            [
-              for (final corner in corners)
-                corner.clamp(0, Pane.maxCorner).toDouble(),
-            ],
-          _ => null,
-        },
         itemW: cells(pane.itemW, columns),
         itemH: cells(pane.itemH, Pane.maxRows),
         rules: pane.rules,

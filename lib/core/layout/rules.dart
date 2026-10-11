@@ -43,14 +43,6 @@ final List<WidgetOption> paneRules = [
     step: 2,
     unset: 'Usual',
   ),
-  WidgetOption(
-    'padding',
-    'Padding',
-    OptionKind.number,
-    max: Pane.maxPadding.round(),
-    step: 2,
-    unset: 'Usual',
-  ),
 ];
 
 /// What a pane that is shown and hidden says of how: a sidebar's rules,

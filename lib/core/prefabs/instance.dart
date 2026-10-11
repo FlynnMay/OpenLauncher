@@ -67,11 +67,11 @@ PrefabInstance? instanceOf(Prefab prefab, LayoutItem item) {
     for (final slot in places(layout))
       if (prefab.parts[slot.part] case final part?)
         () {
-          final options = {
-            ...part.options,
-            ...slot.options,
-            ...overridesOf(item, slot.part),
-          };
+          final options = layered([
+            part.options,
+            slot.options,
+            overridesOf(item, slot.part),
+          ]);
           final hidden = options.remove(hiddenOption) == true;
           return (
             id: slot.part,

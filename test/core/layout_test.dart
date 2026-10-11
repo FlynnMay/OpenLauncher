@@ -5,6 +5,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/core/widgets/widgets.dart';
 
 LayoutItem _item(
   String id, {
@@ -437,17 +438,21 @@ void main() {
 
   test('a pane keeps the padding it is given, within reason', () {
     final layout = Layout.fromJson(const {
+      'v': saveVersion,
       'panels': [
         {
           'id': 'home',
           'pane': {
             'id': 'global',
-            'padding': 24,
+            'style': {'padding': 24},
             'items': [
               {
                 'id': 'i',
                 'kind': 'pane',
-                'pane': {'id': 'a', 'padding': 900},
+                'pane': {
+                  'id': 'a',
+                  'style': {'padding': 900},
+                },
               },
               {
                 'id': 'j',
@@ -459,11 +464,7 @@ void main() {
         },
       ],
     }).normalised();
-    expect(layout.home.root.panes.map((p) => p.padding), [
-      24,
-      Pane.maxPadding,
-      null,
-    ]);
+    expect(layout.home.root.panes.map((p) => p.box.padding), [24, 80, null]);
     final json = layout.toJson();
     expect(Layout.fromJson(json).toJson(), json);
   });
@@ -519,34 +520,91 @@ void main() {
   });
 
   group('BoxStyle', () {
-    test('reads the page\'s colours and writes them back the same', () {
-      final style = BoxStyle.fromJson(const {
-        'colors': ['#3d5afecc', '#000000'],
-        'angle': 495,
-        'border': '#FFFFFF55',
+    test('reads a look and says a fill back the same', () {
+      final style = BoxStyle.of(const {
+        'background': {
+          'colors': ['#3d5afecc', '#000000'],
+          'angle': 495,
+        },
+        'borderColor': '#FFFFFF55',
+        'borderWidth': 4,
+        'radius': [0, 8, 500, -2],
+        'padding': '12',
+        'opacity': 50,
+        'shadow': 8,
       });
       expect(style.colors, [0xCC3D5AFE, 0xFF000000]);
       expect(style.angle, 135);
       expect(style.border, 0x55FFFFFF);
-      expect(style.toJson(), {
+      expect(style.borderWidth, 4);
+      // Each within what a corner can be.
+      expect(style.corners, [0, 8, 120, 0]);
+      // A measure may come as text, which is what a template reads as.
+      expect(style.padding, 12);
+      expect((style.opacity, style.shadow), (0.5, 8));
+      expect(BoxStyle.backgroundOf(style.colors, style.stops, style.angle), {
         'colors': ['#3d5afecc', '#000000ff'],
         'angle': 135,
-        'border': '#ffffff55',
       });
     });
 
     test('leaves out what it does not understand', () {
-      expect(BoxStyle.fromJson('red').isEmpty, isTrue);
-      final style = BoxStyle.fromJson(const {
-        'colors': ['red', 7, '#12345', '#abcdef'],
-        'border': 'none',
+      expect(BoxStyle.of(styleFromJson('red')).isEmpty, isTrue);
+      final style = BoxStyle.of(const {
+        'background': {
+          'colors': ['red', 7, '#12345', '#abcdef'],
+        },
+        'borderColor': 'none',
+        'radius': [1, 2],
       });
       expect(style.colors, [0xFFABCDEF]);
       expect(style.border, isNull);
-      // One colour is flat: no angle to speak of.
-      expect(style.toJson(), {
-        'colors': ['#abcdefff'],
-      });
+      // Anything but one number or four is the usual.
+      expect(style.corners, isNull);
+      expect((style.borderWidth, style.opacity, style.padding), (2, 1, null));
+      // One colour is flat: the colour and nothing else.
+      expect(BoxStyle.backgroundOf(style.colors), '#abcdefff');
+      expect(BoxStyle.of(const {'background': '#abcdef'}).colors, style.colors);
+      expect(BoxStyle.of(const {'radius': 6}).corners, [6, 6, 6, 6]);
+    });
+  });
+
+  group('Style', () {
+    test('only what is taken after is handed down', () {
+      expect(
+        inheritedOf(const {
+          'background': '#000000',
+          'padding': 4,
+          'color': '#ff0000',
+          'fontSize': 20,
+        }),
+        {'color': '#ff0000', 'fontSize': 20},
+      );
+    });
+
+    test('a property set to nothing is handed back', () {
+      expect(
+        withStyle(
+          const {'color': '#ff0000', 'padding': 4},
+          {'padding': null, 'shadow': 2},
+        ),
+        {'color': '#ff0000', 'shadow': 2},
+      );
+    });
+
+    test('everything says which properties mean something to it', () {
+      const text = LayoutItem(id: 't', kind: ItemKind.widget, ref: 'text');
+      const meter = LayoutItem(id: 'm', kind: ItemKind.widget, ref: 'meter');
+      expect(text.styleKeys, [...boxStyle, ...textStyle]);
+      expect(meter.styleKeys, [...boxStyle, 'color']);
+      expect(LayoutItem.of('app:a', id: 'a').styleKeys, containsAll(textStyle));
+      // Each is described, once.
+      final keys = [for (final prop in styleProps) prop.key];
+      expect(keys.toSet(), hasLength(keys.length));
+      for (final kind in WidgetKind.values) {
+        expect(keys, containsAll(kind.style), reason: kind.name);
+      }
+      expect(keys, containsAll([...boxStyle, ...textStyle]));
     });
   });
 
@@ -554,16 +612,24 @@ void main() {
     test('spreads the colours evenly until told where they go', () {
       const style = BoxStyle(colors: [1, 2, 3]);
       expect(style.positions, [0, 0.5, 1]);
-      expect(style.toJson().containsKey('stops'), isFalse);
+      expect(
+        (BoxStyle.backgroundOf(style.colors)! as Map).containsKey('stops'),
+        isFalse,
+      );
     });
 
     test('keeps where each colour was put', () {
-      final style = BoxStyle.fromJson(const {
-        'colors': ['#000000', '#ff0000', '#ffffff'],
-        'stops': [0, 0.8, 1],
+      final style = BoxStyle.of(const {
+        'background': {
+          'colors': ['#000000', '#ff0000', '#ffffff'],
+          'stops': [0, 0.8, 1],
+        },
       });
       expect(style.positions, [0, 0.8, 1]);
-      expect(style.toJson()['stops'], [0, 0.8, 1]);
+      expect(
+        (BoxStyle.backgroundOf(style.colors, style.stops)! as Map)['stops'],
+        [0, 0.8, 1],
+      );
     });
 
     test('drops stops that do not fit the colours', () {
@@ -573,9 +639,11 @@ void main() {
         [0, 0.5, 1.5],
         [0, 'half', 1],
       ]) {
-        final style = BoxStyle.fromJson({
-          'colors': ['#000000', '#ff0000', '#ffffff'],
-          'stops': stops,
+        final style = BoxStyle.of({
+          'background': {
+            'colors': ['#000000', '#ff0000', '#ffffff'],
+            'stops': stops,
+          },
         });
         expect(style.stops, isEmpty, reason: '$stops');
         expect(style.positions, [0, 0.5, 1]);
@@ -795,29 +863,25 @@ void main() {
       expect((copy.itemW, copy.rowHeight), (2, 40));
     });
 
-    test('a pane keeps how round each of its corners is', () {
-      final pane = Pane(id: 'p', corners: const [0, 8, 500, -2]);
+    test('a pane keeps its look through being written and read', () {
+      const style = {
+        'background': '#101820cc',
+        'radius': [0, 8, 20, 4],
+        'color': '#ffd700',
+      };
       final layout = Layout(
         inbox: 'p',
-        panels: [Panel(id: Layout.homeId, root: pane)],
+        panels: [
+          Panel(
+            id: Layout.homeId,
+            root: const Pane(id: 'p', style: style),
+          ),
+        ],
       ).normalised();
-      // Each within what a corner can be.
-      expect(layout.home.root.corners, [0, 8, Pane.maxCorner, 0]);
-      expect(Pane.fromJson(layout.home.root.toJson()).corners, [
-        0,
-        8,
-        Pane.maxCorner,
-        0,
-      ]);
-      // Anything but four numbers is the usual.
-      expect(
-        Pane.fromJson(const {
-          'id': 'p',
-          'corners': [1, 2],
-        }).corners,
-        isNull,
-      );
-      expect(pane.copyWith(corners: null).corners, isNull);
+      expect(layout.home.root.style, style);
+      final read = Pane.fromJson(layout.home.root.toJson());
+      expect(read.style, style);
+      expect(read.box.corners, [0, 8, 20, 4]);
     });
 
     test('what is drawn is what the pane decides', () {

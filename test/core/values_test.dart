@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
+import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/widgets/marquee.dart';
 import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -327,7 +328,10 @@ void main() {
             children: [
               Expanded(
                 child: TextWidget(
-                  options: {'text': '{{motto}} there', 'colour': '#ff0000'},
+                  options: {
+                    'text': '{{motto}} there',
+                    'style': {'color': '#ff0000'},
+                  },
                 ),
               ),
               Expanded(
@@ -361,7 +365,12 @@ void main() {
             child: SizedBox(
               width: 200,
               height: 60,
-              child: TextWidget(options: {'size': 20, ...options}),
+              child: TextWidget(
+                options: {
+                  'style': {'fontSize': 20},
+                  ...options,
+                },
+              ),
             ),
           ),
         ),
@@ -396,5 +405,66 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(tester.hasRunningAnimations, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('text takes after the looks around it, but for its own', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [configStoreProvider.overrideWithValue(MemoryConfigStore())],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => StyleScope.under(
+              context,
+              // The padding is the box's own, and goes no further.
+              const {'color': '#ffd700', 'fontSize': 20, 'padding': 40},
+              const Column(
+                children: [
+                  Expanded(child: TextWidget(options: {'text': 'Plain'})),
+                  Expanded(
+                    child: TextWidget(
+                      options: {
+                        'text': 'Own',
+                        'style': {'color': '#ff0000', 'fontWeight': 'bold'},
+                      },
+                    ),
+                  ),
+                  // A value of a look can be read off anything, like any other.
+                  Expanded(
+                    child: TemplateScope(
+                      values: {'tint': '#00ff00', 'big': 30},
+                      child: TextWidget(
+                        options: {
+                          'text': 'Read',
+                          'style': {'color': '{{tint}}', 'fontSize': '{{big}}'},
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    TextStyle of(String text) => tester.widget<Text>(find.text(text)).style!;
+    expect(
+      (of('Plain').color, of('Plain').fontSize),
+      (const Color(0xFFFFD700), 20),
+    );
+    expect(
+      (of('Own').color, of('Own').fontSize, of('Own').fontWeight),
+      (const Color(0xFFFF0000), 20, FontWeight.w600),
+    );
+    expect(
+      (of('Read').color, of('Read').fontSize),
+      (const Color(0xFF00FF00), 30),
+    );
+    expect(StyleScope.of(tester.element(find.text('Plain'))), {
+      'color': '#ffd700',
+      'fontSize': 20,
+    });
   });
 }
