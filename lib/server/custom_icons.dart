@@ -6,7 +6,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-/// Where user-uploaded card images are kept.
+/// Where user-uploaded entity images are kept.
 final customIconDirProvider = FutureProvider<Directory>((ref) async {
   final support = await getApplicationSupportDirectory();
   return Directory(p.join(support.path, 'custom-icons'));
@@ -43,44 +43,46 @@ String imageContentType(String extension) => switch (extension) {
   _ => 'application/octet-stream',
 };
 
-/// Stores uploaded card images and points the config at them.
+/// Stores uploaded entity images and points the config at them.
 class CustomIcons {
   CustomIcons(this._ref);
 
   final Ref _ref;
 
-  /// Saves [bytes] as the image for [cardId]. Returns false if they are not
+  /// Saves [bytes] as the image for [entityId]. Returns false if they are not
   /// a supported image.
-  Future<bool> set(String cardId, Uint8List bytes) async {
+  Future<bool> set(String entityId, Uint8List bytes) async {
     final extension = sniffImageExtension(bytes);
     if (extension == null) return false;
     final dir = await _ref.read(customIconDirProvider.future);
     await dir.create(recursive: true);
     // A fresh name per upload, so image caches never show the old picture.
     final name =
-        '${cardId.replaceAll(RegExp('[^A-Za-z0-9._-]'), '_')}'
+        '${entityId.replaceAll(RegExp('[^A-Za-z0-9._-]'), '_')}'
         '-${DateTime.now().microsecondsSinceEpoch}.$extension';
     final file = File(p.join(dir.path, name));
     await file.writeAsBytes(bytes, flush: true);
 
-    final previous = await _currentPath(cardId);
-    await _ref.read(configProvider.notifier).setIconOverride(cardId, file.path);
+    final previous = await _currentPath(entityId);
+    await _ref
+        .read(configProvider.notifier)
+        .setIconOverride(entityId, file.path);
     await _deleteIfOurs(previous, dir);
     return true;
   }
 
-  /// Returns [cardId] to its automatic image.
-  Future<void> clear(String cardId) async {
-    final previous = await _currentPath(cardId);
-    await _ref.read(configProvider.notifier).setIconOverride(cardId, null);
+  /// Returns [entityId] to its automatic image.
+  Future<void> clear(String entityId) async {
+    final previous = await _currentPath(entityId);
+    await _ref.read(configProvider.notifier).setIconOverride(entityId, null);
     await _deleteIfOurs(
       previous,
       await _ref.read(customIconDirProvider.future),
     );
   }
 
-  Future<String?> _currentPath(String cardId) async =>
-      (await _ref.read(configProvider.future)).iconOverrides[cardId];
+  Future<String?> _currentPath(String entityId) async =>
+      (await _ref.read(configProvider.future)).iconOverrides[entityId];
 
   Future<void> _deleteIfOurs(String? path, Directory dir) async {
     if (path == null || !p.isWithin(dir.path, path)) return;

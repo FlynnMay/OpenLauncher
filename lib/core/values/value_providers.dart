@@ -3,17 +3,15 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entity_data.dart';
 import 'package:openlauncher/core/values/data_source.dart';
-import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/template.dart';
-import 'package:openlauncher/core/widgets/widgets.dart';
 
 /// What time it is. Replaced in tests.
 final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
-/// The time, told again as each second or each minute begins.
-final _tickProvider = Provider.autoDispose.family<DateTime, bool>((
+/// The time, told again as each second (true) or each minute begins.
+final tickProvider = Provider.autoDispose.family<DateTime, bool>((
   ref,
   seconds,
 ) {
@@ -72,90 +70,12 @@ final sourceValueProvider = FutureProvider.autoDispose
       retry: (_, _) => null,
     );
 
-/// What the root [root] of a template is now: one of the launcher's own
-/// values, or a source of the user's by its id. Null while there is none.
-final valueProvider = Provider.autoDispose.family<Object?, String>((ref, root) {
-  T? config<T>(T Function(LauncherConfig config) of) => ref.watch(
-    configProvider.select(
-      (config) => switch (config.value) {
-        null => null,
-        final config => of(config),
-      },
-    ),
-  );
-  switch (root) {
-    case 'time':
-      final now = ref.watch(_tickProvider(true));
-      return {
-        'text': formatDateTime(now, 'HH:mm'),
-        'hour': now.hour,
-        'minute': now.minute,
-        'second': now.second,
-        'hour12': now.hour % 12 == 0 ? 12 : now.hour % 12,
-        'ampm': now.hour < 12 ? 'am' : 'pm',
-        'epoch': now.millisecondsSinceEpoch,
-      };
-    case 'date':
-      final now = ref.watch(_tickProvider(false));
-      return {
-        'text': formatDateTime(now, 'EEEE d MMMM'),
-        'weekday': dayNames[now.weekday - 1],
-        'day': now.day,
-        'month': now.month,
-        'monthName': monthNames[now.month - 1],
-        'year': now.year,
-        'epoch': now.millisecondsSinceEpoch,
-      };
-    case 'nowPlaying':
-      final playing = ref.watch(nowPlayingProvider).value;
-      if (playing == null) return null;
-      return {
-        'text': playing.title ?? playing.appLabel,
-        'title': playing.title,
-        'artist': playing.artist,
-        'app': playing.appLabel,
-        'playing': playing.playing,
-        'art': playing.artPath,
-      };
-    case 'location':
-      final place = config((config) => config.place);
-      if (place == null) return null;
-      return {
-        'text': place.name,
-        'name': place.name,
-        'latitude': place.latitude,
-        'longitude': place.longitude,
-      };
-    case 'weather':
-      final place = config((config) => config.place);
-      if (place == null) return null;
-      final weather = ref
-          .watch(
-            weatherProvider((
-              latitude: place.latitude,
-              longitude: place.longitude,
-              fahrenheit: false,
-            )),
-          )
-          .value;
-      if (weather == null) return null;
-      return {
-        'text': '${weather.temperature.round()}°',
-        'temperature': weather.temperature,
-        'high': weather.high,
-        'low': weather.low,
-        'description': weather.description,
-      };
-  }
-  final source = config(
-    (config) => config.sources.where((source) => source.id == root).firstOrNull,
-  );
-  return switch (source) {
-    null => null,
-    DataSource(kind: SourceKind.text, :final text) => text,
-    _ => ref.watch(sourceValueProvider(source)).value,
-  };
-});
+/// What the root [root] of a template is now: the data of the entity
+/// with that id, be it the launcher's own (`clock`, `media`...) or a value
+/// of the user's. Null while there is none.
+final valueProvider = Provider.autoDispose.family<Object?, String>(
+  (ref, root) => ref.watch(entityDataProvider(root)),
+);
 
 /// How the template [source] reads now. Whatever watches it is told only
 /// when that changes, however often the values under it do.

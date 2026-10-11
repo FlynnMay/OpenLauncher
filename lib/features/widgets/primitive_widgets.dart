@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/features/home/picture.dart';
@@ -18,13 +20,49 @@ Color _colour(Object? css, [Color otherwise = Colors.white]) =>
       final argb => Color(argb),
     };
 
+/// Values that are only there for the widgets below: what a prefab's
+/// instance reads as `{{source...}}`. Looked in before the launcher's own.
+class TemplateScope extends InheritedWidget {
+  const TemplateScope({super.key, required this.values, required super.child});
+
+  /// By root name.
+  final Map<String, Object?> values;
+
+  @override
+  bool updateShouldNotify(TemplateScope oldWidget) =>
+      !mapEquals(values, oldWidget.values);
+}
+
+/// Says whether the tile the widgets below are part of has the focus, for
+/// those that show it.
+class TileFocus extends InheritedWidget {
+  const TileFocus({super.key, required this.focused, required super.child});
+
+  final bool focused;
+
+  static bool? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TileFocus>()?.focused;
+
+  @override
+  bool updateShouldNotify(TileFocus oldWidget) => focused != oldWidget.focused;
+}
+
 /// A template as it reads now; nothing for no template.
-String _read(WidgetRef ref, Object? template) => template is String
-    ? ref.watch(templateProvider(template))
-    : switch (template) {
-        null => '',
-        _ => '$template',
-      };
+String _read(BuildContext context, WidgetRef ref, Object? template) {
+  if (template is! String) return template == null ? '' : '$template';
+  final scope = context
+      .dependOnInheritedWidgetOfExactType<TemplateScope>()
+      ?.values;
+  if (scope == null) return ref.watch(templateProvider(template));
+  final parsed = Template.parse(template);
+  final values = {
+    for (final root in parsed.roots)
+      root: scope.containsKey(root)
+          ? scope[root]
+          : ref.watch(valueProvider(root)),
+  };
+  return parsed.render((root) => values[root]);
+}
 
 /// Text made of values.
 ///
@@ -35,13 +73,17 @@ String _read(WidgetRef ref, Object? template) => template is String
 /// lines as there is room for) or `scroll` (moving along, at `speed` a
 /// second).
 class TextWidget extends ConsumerWidget {
-  const TextWidget({super.key, required this.options});
+  const TextWidget({super.key, required this.options, this.shrink = false});
 
   final Map<String, Object?> options;
 
+  /// True to take only the room one line needs, where it is one part of
+  /// something laid out around it; otherwise it fills its box.
+  final bool shrink;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final text = _read(ref, options['text']);
+    final text = _read(context, ref, options['text']);
     final size = options['size'];
     final (align, alignment) = switch (options['align']) {
       'left' => (TextAlign.left, Alignment.centerLeft),
@@ -49,12 +91,32 @@ class TextWidget extends ConsumerWidget {
       _ => (TextAlign.center, Alignment.center),
     };
     final style = TextStyle(
-      color: _colour(options['colour']),
+      // In a tile that shows the focus, plain text shows it too.
+      color: _colour(
+        options['colour'],
+        TileFocus.of(context) == false ? Colors.white60 : Colors.white,
+      ),
       fontSize: size is num ? size.toDouble() : 40,
-      fontWeight: options['bold'] == true ? FontWeight.w600 : FontWeight.w300,
+      fontWeight: switch (options['weight']) {
+        'bold' => FontWeight.w600,
+        'medium' => FontWeight.w500,
+        _ when options['bold'] == true => FontWeight.w600,
+        _ => FontWeight.w300,
+      },
       height: 1.15,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    if (shrink) {
+      return Text(
+        text,
+        style: style,
+        textAlign: align,
+        maxLines: 1,
+        overflow: options['overflow'] == 'fade'
+            ? TextOverflow.fade
+            : TextOverflow.ellipsis,
+      );
+    }
     if (text.isEmpty) return const SizedBox.expand();
     if (size is! num) {
       // Made to fit, so never too long.
@@ -121,7 +183,7 @@ class ButtonWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final label = _read(ref, options['label']);
+    final label = _read(context, ref, options['label']);
     final icon = tileIcons[options['icon']];
     final colour = _colour(options['colour']);
     return Row(
@@ -148,8 +210,10 @@ class ButtonWidget extends ConsumerWidget {
 /// A picture from a web address or from a value, such as the cover of
 /// what is playing.
 ///
-/// Options: `source` (a template), `fit` (`cover`, or `contain` to show
-/// all of it), `round` (its corners).
+/// Options: `source` (a template: a web address, a file, or a drawing as
+/// SVG), `fit` (`cover`, or `contain` to show all of it), `pad` (room
+/// left around it), `alt` (what to say when there is none), `round` (its
+/// corners).
 class PictureWidget extends ConsumerWidget {
   const PictureWidget({super.key, required this.options});
 
@@ -157,23 +221,46 @@ class PictureWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final source = _read(ref, options['source']).trim();
+    final source = _read(context, ref, options['source']).trim();
     final round = options['round'];
-    const none = Center(
-      child: Icon(Icons.image_outlined, color: Colors.white24),
+    final pad = double.tryParse(_read(context, ref, options['pad'])) ?? 0;
+    final alt = _read(context, ref, options['alt']);
+    final fit = _read(context, ref, options['fit']) == 'contain'
+        ? BoxFit.contain
+        : BoxFit.cover;
+    // With no picture: what it is called, or the mark of an empty one.
+    final none = Center(
+      child: alt.isEmpty
+          ? const Icon(Icons.image_outlined, color: Colors.white24)
+          : Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                alt,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
     );
     if (source.isEmpty) return none;
     return ClipRRect(
       borderRadius: BorderRadius.circular(round is num ? round.toDouble() : 6),
-      child: Image(
-        image: source.startsWith(RegExp('https?://'))
-            ? NetworkImage(source)
-            : pictureAt(source),
-        fit: options['fit'] == 'contain' ? BoxFit.contain : BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) => none,
+      child: Padding(
+        padding: EdgeInsets.all(pad),
+        // Line art comes as the drawing itself, not as where it is kept.
+        child: source.startsWith('<')
+            ? SvgPicture.string(source, fit: BoxFit.contain)
+            : Image(
+                image: source.startsWith(RegExp('https?://'))
+                    ? NetworkImage(source)
+                    : pictureAt(source),
+                fit: fit,
+                width: double.infinity,
+                height: double.infinity,
+                gaplessPlayback: true,
+                errorBuilder: (_, _, _) => none,
+              ),
       ),
     );
   }
@@ -194,7 +281,7 @@ class MeterWidget extends ConsumerWidget {
       final num number => number.toDouble(),
       _ => otherwise,
     };
-    final value = double.tryParse(_read(ref, options['value']).trim());
+    final value = double.tryParse(_read(context, ref, options['value']).trim());
     final min = number(options['min'], 0), max = number(options['max'], 100);
     final part = value == null || max <= min
         ? 0.0

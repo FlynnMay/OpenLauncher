@@ -1,25 +1,32 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 
 LayoutItem _item(
   String id, {
-  ItemKind kind = ItemKind.card,
+  ItemKind kind = ItemKind.prefab,
   String? ref,
   double w = 1,
   double h = 1,
   double? x,
   double? y,
-}) => LayoutItem(id: id, kind: kind, ref: ref ?? id, w: w, h: h, x: x, y: y);
-
-LauncherCard _card(String name) => LauncherCard(
-  id: 'app:$name',
-  kind: CardKind.app,
-  target: name,
-  label: name,
+}) => LayoutItem(
+  id: id,
+  kind: kind,
+  // An instance is of the prefab a card is, drawn from what [ref] names.
+  ref: kind == ItemKind.prefab ? cardPrefabId : ref ?? id,
+  source: kind == ItemKind.prefab ? ref ?? id : null,
+  w: w,
+  h: h,
+  x: x,
+  y: y,
 );
+
+Entity _entity(String name) =>
+    Entity(id: 'app:$name', kind: appKind, target: name, label: name);
 
 Panel _home(Pane root) => Panel(id: 'home', root: root);
 
@@ -159,8 +166,12 @@ void main() {
         ],
       );
       expect(root.panes.map((p) => p.id), ['global', 'outer', 'inner']);
-      // A card can sit in the global pane, outside every other.
-      expect(root.contents.map((i) => i.ref), ['app:a', 'app:b', 'app:c']);
+      // An entity can sit in the global pane, outside every other.
+      expect(root.contents.map((i) => (i.source ?? i.ref)), [
+        'app:a',
+        'app:b',
+        'app:c',
+      ]);
 
       final layout = Layout(inbox: 'inner', panels: [_home(root)]).normalised();
       expect(layout.inbox, 'inner');
@@ -169,22 +180,26 @@ void main() {
       final json = layout.toJson();
       expect(Layout.fromJson(json).normalised().toJson(), json);
 
-      // New cards turn up in the inbox, however deep it is.
-      final shown = layout.withCards(['app:a', 'app:b', 'app:c', 'app:new']);
+      // New entities turn up in the inbox, however deep it is.
+      final shown = layout.withEntities(['app:a', 'app:b', 'app:c', 'app:new']);
       final inner = shown.home.root.panes.last;
-      expect(inner.items.map((i) => i.ref), ['app:c', 'app:new']);
-      // Removing a card takes it out of every pane.
-      expect(shown.without({'app:b', 'app:c'}).home.items.map((i) => i.ref), [
-        'app:a',
-        'app:new',
-      ]);
+      expect(inner.items.map((i) => (i.source ?? i.ref)), ['app:c', 'app:new']);
+      // Removing an entity takes it out of every pane.
+      expect(
+        shown
+            .without({'app:b', 'app:c'})
+            .home
+            .items
+            .map((i) => (i.source ?? i.ref)),
+        ['app:a', 'app:new'],
+      );
     });
 
     test('normalised repairs what is wrong and keeps what is right', () {
       Pane nest(int depth) => pane(
         'p$depth',
         items: [
-          _item('card$depth', ref: 'app:$depth'),
+          _item('entity$depth', ref: 'app:$depth'),
           if (depth < 6) LayoutItem.pane(nest(depth + 1)),
         ],
       );
@@ -232,7 +247,7 @@ void main() {
       final rail = layout.panel('left')!.root;
       expect(rail.columns, 4);
       expect(rail.items.map((i) => (i.id, i.kind, i.w)), [
-        ('a', ItemKind.card, 3),
+        ('a', ItemKind.prefab, 3),
         ('pane-in-rail', ItemKind.pane, 1),
       ]);
       expect(rail.items.last.pane!.items.single.id, 'b');
@@ -244,11 +259,11 @@ void main() {
       expect(a.id, isNot('a'));
       expect((a.x, a.y, a.w, a.h), (2, 2, 2, Pane.maxRows));
       expect((half.x, half.y), (null, null));
-      expect(open.ref, 'games');
+      expect((open.source ?? open.ref), 'games');
       // Panes deeper than allowed give their contents to the last that is.
       final depths = games.root.panes.map((p) => p.id).toList();
       expect(depths, hasLength(Pane.maxDepth));
-      expect(nested.pane!.contents.map((i) => i.ref), [
+      expect(nested.pane!.contents.map((i) => (i.source ?? i.ref)), [
         for (var depth = 2; depth <= 6; depth++) 'app:$depth',
       ]);
       final ids = [
@@ -367,7 +382,7 @@ void main() {
       }
       expect(top.y, closeTo(1.35, 0.01));
       expect(rest.y!, greaterThan(top.y! + top.h));
-      // One row of six cards against three rows of them.
+      // One row of six entities against three rows of them.
       expect(rest.h, greaterThan(top.h));
 
       // A rail keeps its things, in one list; a plain folder keeps its look.
@@ -378,9 +393,12 @@ void main() {
 
     test('a new home screen is one pane as tall as the screen', () {
       final layout = Layout.initial(['app:b', 'app:gone'])
-          .withCards(['app:a', 'app:b']);
+          .withEntities(['app:a', 'app:b']);
       final item = layout.home.root.items.single;
-      expect(item.pane!.items.map((i) => i.ref), ['app:b', 'app:a']);
+      expect(item.pane!.items.map((i) => (i.source ?? i.ref)), [
+        'app:b',
+        'app:a',
+      ]);
       expect(layout.inbox, item.pane!.id);
       // From under the top margin to the bottom one, on a 540-high screen.
       expect(item.h, closeTo(7.7, 0.1));
@@ -413,7 +431,7 @@ void main() {
     expect((panes[2].spacingX, panes[2].spacingY), (0, 0));
     final json = layout.toJson();
     expect(Layout.fromJson(json).toJson(), json);
-    expect(layout.withCards(['app:x']).home.root.spacing, 4);
+    expect(layout.withEntities(['app:x']).home.root.spacing, 4);
   });
 
   test('a pane keeps the padding it is given, within reason', () {
@@ -449,7 +467,7 @@ void main() {
     expect(Layout.fromJson(json).toJson(), json);
   });
 
-  test('a card can be told to hide its name, and stays told', () {
+  test('an entity can be told to hide its name, and stays told', () {
     final layout = Layout.fromJson(const {
       'panels': [
         {
@@ -464,18 +482,28 @@ void main() {
         },
       ],
     }).normalised();
-    expect(layout.home.items.map((i) => i.hideName), [true, false]);
+    expect(layout.home.items.map((i) => overridesOf(i, 'name')[hiddenOption]), [
+      true,
+      null,
+    ]);
     final items = (layout.toJson()['panels'] as List).first['pane']['items'];
-    expect(items[0]['hideName'], isTrue);
-    expect((items[1] as Map).containsKey('hideName'), isFalse);
+    expect(items[0]['options'], {
+      'parts': {
+        'name': {'hidden': true},
+      },
+    });
+    expect((items[1] as Map).containsKey('options'), isFalse);
   });
 
-  group('removed cards', () {
+  group('removed entities', () {
     test('stay off until placed again', () {
       final layout = Layout.initial(['app:a', 'app:b']).without({'app:b'});
       expect(layout.removed, {'app:b'});
-      final shown = layout.withCards(['app:a', 'app:b', 'app:c']);
-      expect(shown.home.items.map((i) => i.ref), ['app:a', 'app:c']);
+      final shown = layout.withEntities(['app:a', 'app:b', 'app:c']);
+      expect(shown.home.items.map((i) => (i.source ?? i.ref)), [
+        'app:a',
+        'app:c',
+      ]);
 
       // Placing it again is all it takes.
       final again = Layout(
@@ -555,9 +583,9 @@ void main() {
   });
 
   group('resolveLayout', () {
-    final cards = [_card('a'), _card('b'), _card('c')];
+    final entities = [_entity('a'), _entity('b'), _entity('c')];
 
-    test('matches items to cards, folders, widgets and panes', () {
+    test('matches items to entities, folders, widgets and panes', () {
       final config = LauncherConfig(
         iconOverrides: {'panel:games': '/games.png'},
         layout: Layout(
@@ -582,7 +610,7 @@ void main() {
           ],
         ),
       );
-      final view = resolveLayout(cards, config);
+      final view = resolveLayout(entities, config);
       final [folder, clock, pane] = view.home.root.entries;
 
       folder as PanelEntry;
@@ -590,15 +618,15 @@ void main() {
       expect(folder.icon, '/games.png');
       expect(folder.preview.map((c) => c.id), ['app:b']);
       expect(clock, isA<WidgetEntry>());
-      // The card placed nowhere turns up in the inbox pane; the removed
+      // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.
-      final inside = (pane as PaneEntry).view.entries.single as CardEntry;
-      expect(inside.card.id, 'app:a');
+      final inside = (pane as PaneEntry).view.entries.single as EntityEntry;
+      expect(inside.entity.id, 'app:a');
       expect(view.home.root.contents, hasLength(3));
       expect(view.bars, isEmpty);
     });
 
-    test('the same card can be in several places', () {
+    test('the same entity can be in several places', () {
       final config = LauncherConfig(
         layout: Layout(
           inbox: 'global',
@@ -615,8 +643,8 @@ void main() {
           ],
         ).normalised(),
       );
-      final entries = resolveLayout(cards, config).home.root.entries;
-      expect(entries.map((e) => (e as CardEntry).card.id), [
+      final entries = resolveLayout(entities, config).home.root.entries;
+      expect(entries.map((e) => (e as EntityEntry).entity.id), [
         'app:a',
         'app:a',
         'app:b',
@@ -636,7 +664,7 @@ void main() {
       );
       // Along a side it starts as a line of small rows.
       expect(left.root.rowHeight, Pane.barRowHeight);
-      expect(left.root.itemLook, TileLook.row);
+      expect(left.root.rules[cardPrefabId], {layoutOption: 'row'});
       expect(
         (top.edge, top.openWidth, top.openHeight, top.closedSize),
         (BarEdge.top, Panel.fill, 120, 0),
@@ -713,8 +741,8 @@ void main() {
       });
       final root = old.panel('left')!.root;
       expect(
-        (root.rowHeight, root.itemLook, root.itemW),
-        (36, TileLook.row, 1),
+        (root.rowHeight, root.rules[cardPrefabId]?[layoutOption], root.itemW),
+        (36, 'row', 1),
       );
       // Once written by this version it is taken as it is.
       final plain = Layout(
@@ -727,42 +755,44 @@ void main() {
         ],
       );
       expect(
-        Layout.fromJson(plain.toJson()).panel('left')!.root.itemLook,
-        isNull,
+        Layout.fromJson(plain.toJson()).panel('left')!.root.rules,
+        isEmpty,
       );
     });
 
-    test('a pane decides for its cards without changing what they say', () {
+    test('a pane decides for its entities without changing what they say', () {
+      const rules = {
+        cardPrefabId: {
+          layoutOption: 'row',
+          partsOption: {
+            'name': {hiddenOption: true},
+          },
+        },
+      };
       final pane = Pane(
         id: 'p',
-        itemLook: TileLook.row,
         itemW: 2,
-        itemNames: false,
+        rules: rules,
         items: [
           _item('a', w: 3, h: 2),
           _item('clock', kind: ItemKind.widget, ref: 'clock', w: 4),
           LayoutItem.pane(const Pane(id: 'inner'), w: 5),
         ],
       );
-      final [card, widget, inner] = pane.shown;
-      expect(
-        (card.look, card.w, card.h, card.hideName),
-        (TileLook.row, 2, 2, true),
-      );
-      // Only cards and folders are decided for.
+      final [entity, widget, inner] = pane.shown;
+      expect((entity.w, entity.h), (2, 2));
+      expect(entity.options, rules[cardPrefabId]);
+      // Only entities and folders are decided for.
       expect((widget.w, inner.w), (4, 5));
-      // What the card says is still there for when the pane stops.
-      expect((pane.items.first.w, pane.items.first.look), (3, TileLook.card));
-      expect(
-        pane.copyWith(itemLook: null, itemW: null, itemNames: null).decides,
-        isFalse,
-      );
+      expect(widget.options, isEmpty);
+      // What the entity says is still there for when the pane stops.
+      expect(pane.items.first.w, 3);
+      expect(pane.items.first.options, isEmpty);
+      expect(pane.copyWith(itemW: null, rules: const {}).decides, isFalse);
       // And all of it survives being written and read.
       final copy = Pane.fromJson(pane.copyWith(rowHeight: 40.0).toJson());
-      expect(
-        (copy.itemLook, copy.itemW, copy.itemNames, copy.rowHeight),
-        (TileLook.row, 2, false, 40),
-      );
+      expect(copy.rules, rules);
+      expect((copy.itemW, copy.rowHeight), (2, 40));
     });
 
     test('a pane keeps how round each of its corners is', () {
@@ -792,14 +822,7 @@ void main() {
 
     test('what is drawn is what the pane decides', () {
       final view = resolveLayout(
-        const [
-          LauncherCard(
-            id: 'app:a',
-            kind: CardKind.app,
-            target: 'a',
-            label: 'A',
-          ),
-        ],
+        const [Entity(id: 'app:a', kind: appKind, target: 'a', label: 'A')],
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
@@ -808,7 +831,9 @@ void main() {
                 id: Layout.homeId,
                 root: Pane(
                   id: 'main',
-                  itemLook: TileLook.row,
+                  rules: const {
+                    cardPrefabId: {layoutOption: 'row'},
+                  },
                   items: [_item('a', ref: 'app:a')],
                 ),
               ),
@@ -816,7 +841,7 @@ void main() {
           ),
         ),
       );
-      expect(view.home.root.entries.single.item.look, TileLook.row);
+      expect(view.home.root.entries.single.item.options[layoutOption], 'row');
     });
   });
 
@@ -841,14 +866,16 @@ void main() {
       expect(copy.copyWith(wallpapers: const []).wallpaper, isNull);
     });
 
-    test('a config from before layouts keeps its card order', () {
+    test('a config from before layouts keeps its entity order', () {
       final config = LauncherConfig.fromJson(const {
         'order': ['app:b', 'app:a'],
         'hidden': ['app:b', 'app:c'],
         'contextMenu': ['open', 'hide'],
       });
       // What used to be hidden is now removed, wherever it was.
-      expect(config.layout.home.items.map((i) => i.ref), ['app:a']);
+      expect(config.layout.home.items.map((i) => (i.source ?? i.ref)), [
+        'app:a',
+      ]);
       expect(config.layout.removed, {'app:b', 'app:c'});
       // The quick actions that were chosen are buttons in a popup now.
       final menu = config.layout.panel(Layout.menuId)!;

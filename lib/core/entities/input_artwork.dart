@@ -1,6 +1,6 @@
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// Draws the picture for an input card as SVG: a white line drawing on a
+/// Draws the picture for an input entity as SVG: a white line drawing on a
 /// transparent background, used as-is by the TV and by the config page.
 ///
 /// A trailing number in [label] ("HDMI 2") becomes a badge over the corner.

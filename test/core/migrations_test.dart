@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 
 Json _item(String id, String ref, [String kind = 'card']) => {
   'id': id,
@@ -131,15 +132,22 @@ void main() {
         'tizentube-cobalt',
         'mine',
       ]);
-      expect(inner.items.map((i) => i.ref).last, 'app:kept');
+      expect(inner.items.map((i) => (i.source ?? i.ref)).last, 'app:kept');
     });
 
     test('and what went by an id follows it', () {
       expect(layout.inbox, 'inputs');
       expect(layout.removed, {'app:gone'});
-      expect(layout.home.root.items.first.ref, 'inputs');
+      expect(
+        (layout.home.root.items.first.source ??
+            layout.home.root.items.first.ref),
+        'inputs',
+      );
       expect(layout.home.root.items.first.w, 4);
-      expect(layout.home.root.items.last.ref, 'games');
+      expect(
+        (layout.home.root.items.last.source ?? layout.home.root.items.last.ref),
+        'games',
+      );
       expect(layout.panel('games')!.title, 'Games');
       expect(layout.panel('games')!.root.id, 'games/root');
       expect(save['iconOverrides'], {
@@ -151,7 +159,7 @@ void main() {
     });
 
     test('and a sidebar is left looking as it does', () {
-      expect(layout.panel('left')!.root.itemLook, isNull);
+      expect(layout.panel('left')!.root.rules, isEmpty);
       expect(layout.panel('left')!.root.columns, 3);
     });
 
@@ -228,9 +236,12 @@ void main() {
       expect(config.iconOverrides, {'panel:games': '/f.png'});
       // A sidebar from then looks as it did then.
       final left = layout.panel('left')!.root;
-      expect(left.itemLook, TileLook.row);
+      expect(left.rules[cardPrefabId], {layoutOption: 'row'});
       expect(left.rowHeight, 36);
-      expect(left.items.single.ref, 'app:com.example.d');
+      expect(
+        (left.items.single.source ?? left.items.single.ref),
+        'app:com.example.d',
+      );
     });
 
     test('and once there, stays as it is', () {
@@ -304,7 +315,7 @@ void main() {
           .panel(Layout.menuId)!;
       expect(menu.kind, PanelKind.popup);
       expect(menu.root.columns, 1);
-      expect(menu.items.first.ref, 'button');
+      expect((menu.items.first.source ?? menu.items.first.ref), 'button');
       expect(menu.items.first.on.values.single.single.name, 'uninstall');
     });
 
@@ -315,17 +326,244 @@ void main() {
       expect(layout.panel(Layout.menuId), isNull);
       // Read for showing, they are there.
       expect(
-        layout.withCards(const []).panel(Layout.menuId)!.items,
+        layout.withEntities(const []).panel(Layout.menuId)!.items,
         hasLength(5),
       );
       // Emptied by the user, the menu stays empty.
       expect(menuOf(migrate(v3(<Object?>[]))), isEmpty);
       expect(
         Layout.fromJson(migrate(v3(<Object?>[]))['layout']! as Json)
-            .withCards(const [])
+            .withEntities(const [])
             .panel(Layout.menuId)!
             .items,
         isEmpty,
+      );
+    });
+  });
+
+  group('from 4 to 5', () {
+    final layout = Layout.fromJson(const {
+      'v': 4,
+      'inbox': 'main',
+      'panels': [
+        {
+          'id': 'home',
+          'pane': {
+            'id': 'main',
+            'itemLook': 'row',
+            'itemNames': true,
+            'items': [
+              {'id': 'a', 'ref': 'app:a', 'hideName': true, 'look': 'row'},
+              {'id': 'b', 'ref': 'app:b'},
+              {
+                'id': 'c',
+                'ref': 'app:c',
+                'hideName': true,
+                'options': {
+                  'parts': {
+                    'name': {'size': 20},
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    final [a, b, c] = layout.home.items.toList();
+
+    test("a card's own look is what it sets differently from its prefab", () {
+      expect(a.options, {
+        'layout': 'row',
+        'parts': {
+          'name': {'hidden': true},
+        },
+      });
+      expect(b.options, isEmpty);
+      // What it already set for the part is kept beside it.
+      expect(overridesOf(c, 'name'), {'size': 20, 'hidden': true});
+      expect(a.toJson().keys, isNot(contains('hideName')));
+    });
+
+    test('what a pane made of its cards is a rule for each prefab', () {
+      final root = layout.home.root;
+      for (final prefab in [cardPrefabId, folderPrefabId]) {
+        expect(root.rules[prefab], {
+          'layout': 'row',
+          'parts': {
+            'name': {'hidden': false},
+          },
+        });
+      }
+      // The rule counts over the card: its name shows for as long.
+      final shown = instanceOf(builtInPrefabs.first, root.shown.first)!;
+      expect(shown.parts.last.hidden, isFalse);
+      expect(instanceOf(builtInPrefabs.first, a)!.parts.last.hidden, isTrue);
+      expect(Pane.fromJson(root.toJson()).rules, root.rules);
+    });
+  });
+
+  group('from 5 to 6', () {
+    final save = migrate({
+      'v': 5,
+      'prefabs': [
+        {
+          'id': 'big',
+          'on': {
+            'press': [
+              {'do': 'info', 'card': 'app:x'},
+            ],
+          },
+        },
+      ],
+      'layout': {
+        'v': 5,
+        'inbox': 'main',
+        'panels': [
+          {
+            'id': 'home',
+            'pane': {
+              'id': 'main',
+              'items': [
+                {'id': 'a', 'kind': 'card', 'ref': 'app:a'},
+                {
+                  'id': 'b',
+                  'kind': 'card',
+                  'ref': 'app:b',
+                  'options': {'prefab': 'big', 'layout': 'row'},
+                  'on': {
+                    'hold': [
+                      {'do': 'open', 'card': 'app:a'},
+                    ],
+                  },
+                },
+                {
+                  'id': 'c',
+                  'kind': 'card',
+                  'ref': 'app:c',
+                  'options': {'prefab': 'big'},
+                },
+                {'id': 'clock', 'kind': 'widget', 'ref': 'clock'},
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final [a, b, c, clock] = Layout.fromJson(save['layout']! as Json).home.items
+        .toList();
+
+    test('a card is an instance of a prefab drawn from an entity', () {
+      expect(
+        (a.kind, a.ref, a.source),
+        (ItemKind.prefab, cardPrefabId, 'app:a'),
+      );
+      expect((b.ref, b.source), ('big', 'app:b'));
+      expect(b.options, {'layout': 'row'});
+      expect((c.ref, c.source), ('big', 'app:c'));
+      expect(c.options, isEmpty);
+      expect(a.toJson(), {
+        'id': 'a',
+        'kind': 'prefab',
+        'ref': 'app-card',
+        'w': 1,
+        'h': 1,
+        'source': 'app:a',
+      });
+      expect(
+        (clock.kind, clock.ref, clock.source),
+        (ItemKind.widget, 'clock', null),
+      );
+    });
+
+    test('an action is done to an entity', () {
+      expect(b.on.values.single.single.toJson(), {
+        'do': 'open',
+        'entity': 'app:a',
+      });
+      final prefab = LauncherConfig.fromJson(save).prefabs.single;
+      expect(prefab.on.values.single.single.arg('entity'), 'app:x');
+    });
+  });
+
+  group('from 6 to 7', () {
+    Json item(String id, Json more) => {
+      'id': id,
+      'kind': 'widget',
+      'ref': 'text',
+      ...more,
+    };
+    final save = migrate({
+      'v': 6,
+      'prefabs': [
+        {
+          'id': 'big',
+          'parts': {
+            'a': {'kind': 'text', 'text': '{{nowPlaying.title}} at {{time}}'},
+          },
+        },
+      ],
+      'layout': {
+        'v': 6,
+        'inbox': 'main',
+        'panels': [
+          {
+            'id': 'home',
+            'pane': {
+              'id': 'main',
+              'items': [
+                item('a', {
+                  'options': {
+                    'text':
+                        '{{time}} {{ time.hour }}:{{time.minute}} '
+                        '{{date}} {{date.weekday}} {{time | format:h:mm a}} '
+                        '{{nowPlaying}} {{nowPlaying.title | default:None}} '
+                        '{{timetable.next}} {{weather}} time',
+                    'size': 20,
+                  },
+                }),
+                item('b', {
+                  'on': {
+                    'press': [
+                      {'do': 'media', 'command': 'next'},
+                      {'do': 'media'},
+                      {'do': 'open'},
+                    ],
+                  },
+                }),
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final [a, b] = Layout.fromJson(save['layout']! as Json).home.items.toList();
+
+    test('what was a value of the launcher is read off an entity', () {
+      expect(
+        a.options['text'],
+        '{{clock.time}} {{clock.hour}}:{{clock.minute}} '
+        '{{clock.date}} {{clock.weekday}} {{clock | format:h:mm a}} '
+        '{{media}} {{media.title | default:None}} '
+        // Not one of them, for all it starts like one; nor is plain text.
+        '{{timetable.next}} {{weather}} time',
+      );
+      expect(a.options['size'], 20);
+      final prefab = LauncherConfig.fromJson(save).prefabs.single;
+      expect(
+        prefab.parts['a']!.options['text'],
+        '{{media.title}} at {{clock.time}}',
+      );
+    });
+
+    test('the media player is told what to do as its own actions', () {
+      expect(
+        [for (final act in b.on.values.single) act.toJson()],
+        [
+          {'do': 'next', 'entity': 'media'},
+          {'do': 'playPause', 'entity': 'media'},
+          {'do': 'open'},
+        ],
       );
     });
   });

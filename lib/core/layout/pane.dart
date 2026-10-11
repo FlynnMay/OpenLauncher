@@ -3,9 +3,10 @@ import 'package:openlauncher/core/layout/box_style.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
+import 'package:openlauncher/core/prefabs/instance_options.dart';
 
 /// A container with its own cell grid: a background, optionally titled, that
-/// holds cards, widgets and other panes. Every panel has one that fills it,
+/// holds entities, widgets and other panes. Every panel has one that fills it,
 /// the "global" pane; the rest sit inside that, as [ItemKind.pane] items
 /// which give them their place and size.
 @immutable
@@ -21,10 +22,9 @@ class Pane {
     this.padding,
     this.rowHeight,
     this.corners,
-    this.itemLook,
     this.itemW,
     this.itemH,
-    this.itemNames,
+    this.rules = const {},
   });
 
   static const defaultColumns = 5;
@@ -91,32 +91,33 @@ class Pane {
   /// right, bottom right, bottom left. Null for the usual, all round alike.
   final List<double>? corners;
 
-  /// What the pane makes of every card and folder directly in it, whatever
-  /// each says for itself: how it is drawn, how many cells it takes, and
-  /// whether its name shows. Null leaves that to each of them. What a card
-  /// says for itself is kept, and counts again once the pane stops saying.
-  final TileLook? itemLook;
+  /// The size the pane gives every entity and folder directly in it,
+  /// whatever each says for itself. Null leaves that to each of them.
   final double? itemW, itemH;
-  final bool? itemNames;
 
-  /// Whether the pane decides something for the cards in it.
-  bool get decides =>
-      itemLook != null || itemW != null || itemH != null || itemNames != null;
+  /// What the pane says of the instances of a prefab directly in it, by
+  /// the prefab's id: which `layout` they use, and under `parts` whatever
+  /// it sets for a part of them (`{name: {hidden: true}}`). What an
+  /// instance says for itself is kept, and counts again once the rule is
+  /// gone.
+  final Map<String, Map<String, Object?>> rules;
 
-  /// The items as they are to be placed and drawn: cards and folders as the
+  /// Whether the pane decides something for the entities in it.
+  bool get decides => itemW != null || itemH != null || rules.isNotEmpty;
+
+  /// The items as they are to be placed and drawn: entities and folders as the
   /// pane would have them.
   List<LayoutItem> get shown => !decides
       ? items
       : [
           for (final item in items)
-            if (item.kind == ItemKind.card || item.kind == ItemKind.panel)
+            if (item.kind == ItemKind.prefab || item.kind == ItemKind.panel)
               item.copyWith(
-                look: itemLook,
                 w: itemW,
                 h: itemH,
-                hideName: switch (itemNames) {
+                options: switch (rules[prefabIdOf(item)]) {
                   null => null,
-                  final names => !names,
+                  final rule => underRule(item.options, rule),
                 },
               )
             else
@@ -141,10 +142,9 @@ class Pane {
     Object? padding = _keep,
     Object? rowHeight = _keep,
     Object? corners = _keep,
-    Object? itemLook = _keep,
     Object? itemW = _keep,
     Object? itemH = _keep,
-    Object? itemNames = _keep,
+    Map<String, Map<String, Object?>>? rules,
   }) => Pane(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -160,14 +160,9 @@ class Pane {
     corners: identical(corners, _keep)
         ? this.corners
         : corners as List<double>?,
-    itemLook: identical(itemLook, _keep)
-        ? this.itemLook
-        : itemLook as TileLook?,
     itemW: identical(itemW, _keep) ? this.itemW : itemW as double?,
     itemH: identical(itemH, _keep) ? this.itemH : itemH as double?,
-    itemNames: identical(itemNames, _keep)
-        ? this.itemNames
-        : itemNames as bool?,
+    rules: rules ?? this.rules,
   );
 
   Pane withItems(List<LayoutItem> items) => copyWith(items: items);
@@ -176,9 +171,12 @@ class Pane {
   /// each a picture with its name beside it, one cell each.
   Pane asBar() => copyWith(
     rowHeight: barRowHeight,
-    itemLook: TileLook.row,
     itemW: 1.0,
     itemH: 1.0,
+    rules: const {
+      cardPrefabId: {layoutOption: 'row'},
+      folderPrefabId: {layoutOption: 'row'},
+    },
   );
 
   /// This pane and every pane inside it.
@@ -224,11 +222,14 @@ class Pane {
         [for (final corner in corners) (corner as num).toDouble()],
       _ => null,
     },
-    itemLook: TileLook.values
-        .asNameMap()[jsonOptional<String>(json, 'itemLook')],
     itemW: jsonOptional<num>(json, 'itemW')?.toDouble(),
     itemH: jsonOptional<num>(json, 'itemH')?.toDouble(),
-    itemNames: jsonOptional<bool>(json, 'itemNames'),
+    rules: {
+      if (json['rules'] case final Map<Object?, Object?> rules)
+        for (final MapEntry(:key, :value) in rules.entries)
+          if (key is String && value is Map<Object?, Object?>)
+            key: value.cast(),
+    },
   );
 
   Map<String, Object?> toJson() => {
@@ -249,7 +250,6 @@ class Pane {
       final rowHeight => tidy(rowHeight),
     },
     'corners': ?corners?.map(tidy).toList(),
-    'itemLook': ?itemLook?.name,
     'itemW': ?switch (itemW) {
       null => null,
       final itemW => tidy(itemW),
@@ -258,7 +258,7 @@ class Pane {
       null => null,
       final itemH => tidy(itemH),
     },
-    'itemNames': ?itemNames,
+    if (rules.isNotEmpty) 'rules': rules,
     if (!style.isEmpty) 'style': style.toJson(),
     'items': [for (final item in items) item.toJson()],
   };

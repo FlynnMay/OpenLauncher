@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
 import 'package:openlauncher/editor/stage.dart';
@@ -28,23 +28,23 @@ class _Tv extends TvApi {
   @override
   Future<Map<Object?, Object?>> press(
     String what, {
-    String? card,
+    String? entity,
     Map<String, Object?> more = const {},
   }) async {
-    sent.add([what, ?card, if (more.isNotEmpty) more].join(' '));
+    sent.add([what, ?entity, if (more.isNotEmpty) more].join(' '));
     return answers[what] ?? const {};
   }
 }
 
-const _card = LauncherCard(
+const _entity = Entity(
   id: 'app:a',
-  kind: CardKind.app,
+  kind: appKind,
   target: 'app:a',
   label: 'Alpha',
 );
 
 TvState _state() => TvState(
-  cards: const [_card],
+  entities: const [_entity],
   config: LauncherConfig(layout: Layout.initial(['app:a'])),
   widgets: const [],
 );
@@ -92,7 +92,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // The launcher's own home screen, drawing the TV's card: with no
+    // The launcher's own home screen, drawing the TV's entity: with no
     // picture, its name is on it as well as under it.
     expect(find.text('Alpha'), findsNWidgets(2));
 
@@ -107,7 +107,7 @@ void main() {
     expect(find.text('Alpha'), findsNothing);
   });
 
-  testWidgets('a card pressed here is opened on the TV', (tester) async {
+  testWidgets('an entity pressed here is opened on the TV', (tester) async {
     final tv = _Tv()..answers['homeButton'] = {'enabled': true};
     await tester.pumpWidget(
       ProviderScope(
@@ -146,7 +146,7 @@ void main() {
 
       states.add(
         TvState(
-          cards: const [_card],
+          entities: const [_entity],
           config: LauncherConfig(layout: Layout.initial(['app:a'])),
           widgets: const [],
           nowPlaying: NowPlaying(

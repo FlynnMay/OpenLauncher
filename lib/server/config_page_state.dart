@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
@@ -13,12 +14,12 @@ String _iconUrl(String id, String source) =>
     // key.
     '&v=${source.hashCode.toRadixString(36)}';
 
-/// What the config page shows and edits, as JSON: the wallpaper, every card
+/// What the config page shows and edits, as JSON: the wallpaper, every entity
 /// there is (placed or not), the layout, and what there is to choose from.
 final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   ref,
 ) async {
-  final cards = await ref.watch(allCardsProvider.future);
+  final entities = await ref.watch(entitiesProvider.future);
   final config = await ref.watch(configProvider.future);
   final providers = await ref.watch(widgetProvidersProvider.future);
   // Not waited for: the page is worth showing before this is known.
@@ -39,40 +40,43 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'wallpapers': wallpapers,
     // Minutes each one stays, or 0 to stay on the first.
     'wallpaperEvery': config.wallpaperEvery,
-    'cards': [
-      for (final card in cards)
+    'entities': [
+      for (final entity in entities)
         {
-          'id': card.id,
-          'kind': card.kind.name,
-          'label': card.label,
+          'id': entity.id,
+          'kind': entity.kind,
+          // What can be done with it, by the names actions go by.
+          'actions': [
+            for (final action in [
+              ...?entityKind(entity.kind)?.actions,
+              ...entityActions,
+            ])
+              action.name,
+          ],
+          'label': entity.label,
           // What the device calls it; ids in the layout are made from it.
-          'sourceLabel': card.sourceLabel,
+          'sourceLabel': entity.sourceLabel,
           // Whether the user chose the name, rather than the device.
-          'renamed': config.names.containsKey(card.id),
-          // An uploaded picture, or another card's.
+          'renamed': config.names.containsKey(entity.id),
+          // An uploaded picture, or another entity's.
           'customIcon':
-              config.iconOverrides.containsKey(card.id) ||
-              config.iconSources.containsKey(card.id),
-          // The card whose picture this one shows, if any.
-          'iconFrom': config.iconSources[card.id],
-          'wide': card.wideIcon,
-          // Line art, drawn straight on the wallpaper with no card behind.
-          'bare': card.iconPath == null && card.svg != null,
-          'icon': switch (card.iconPath ?? card.svg) {
+              config.iconOverrides.containsKey(entity.id) ||
+              config.iconSources.containsKey(entity.id),
+          // The entity whose picture this one shows, if any.
+          'iconFrom': config.iconSources[entity.id],
+          'wide': entity.wideIcon,
+          // Line art, drawn straight on the wallpaper with no entity behind.
+          'bare': entity.iconPath == null && entity.svg != null,
+          'icon': switch (entity.iconPath ?? entity.svg) {
             null => null,
-            final source => _iconUrl(card.id, source),
+            final source => _iconUrl(entity.id, source),
           },
         },
     ],
-    // Exactly what the TV arranges: cards placed nowhere are already in
-    // their section, and cards that are gone are left out.
-    'layout': config.layout
-        .withCards(
-          cards.map((card) => card.id),
-          names: {for (final card in cards) card.id: card.sourceLabel},
-        )
-        .toJson(),
-    // Pictures the user gave to cards that open a popup, by panel id.
+    // Exactly what the TV arranges: entities placed nowhere are already in
+    // their section, and entities that are gone are left out.
+    'layout': layoutWith(config.layout, entities).toJson(),
+    // Pictures the user gave to entities that open a popup, by panel id.
     'panelIcons': {
       for (final panel in config.layout.panels)
         if (config.iconOverrides[PanelEntry.iconKey(panel.id)] case final path?)

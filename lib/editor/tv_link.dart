@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/misc.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/tv_api.dart';
@@ -10,7 +10,7 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
 /// What makes the launcher run in a browser as it runs on the TV: its
-/// config, cards and wallpaper come from the TV over the network instead of
+/// config, entities and wallpaper come from the TV over the network instead of
 /// from the device, and changes to the config go back the same way. Nothing
 /// above these providers knows the difference.
 final List<Override> tvOverrides = [
@@ -21,8 +21,8 @@ final List<Override> tvOverrides = [
       ref.watch(tvStateProvider.future),
     ),
   ),
-  allCardsProvider.overrideWith(
-    (ref) async => (await ref.watch(tvStateProvider.future)).cards,
+  entitiesProvider.overrideWith(
+    (ref) async => (await ref.watch(tvStateProvider.future)).entities,
   ),
   // Which of them shows, and when the next takes its turn, is worked out
   // here as it is on the TV.
@@ -86,7 +86,7 @@ class TvConfigStore implements ConfigStore {
 /// The device as a browser has it: the TV, at the other end of [TvApi]. What
 /// the launcher here asks the device to do is done there, as if the press
 /// had come from the TV's remote. What apps and inputs there are is not
-/// asked of it: the TV sends its cards ready made.
+/// asked of it: the TV sends its entities ready made.
 class BrowserPlatform extends FakeLauncherPlatform {
   BrowserPlatform(this._api) : super(const [], const []);
 
@@ -98,26 +98,26 @@ class BrowserPlatform extends FakeLauncherPlatform {
     notifyNowPlayingChanged();
   }
 
-  // Here a card's target is its id, which is what the TV knows it by.
+  // Here an entity's target is its id, which is what the TV knows it by.
   @override
   Future<void> launchApp(String packageName) =>
-      _api.press('open', card: packageName);
+      _api.press('open', entity: packageName);
 
   @override
   Future<void> switchToInput(String inputId) =>
-      _api.press('open', card: inputId);
+      _api.press('open', entity: inputId);
 
   @override
   Future<void> openAppInfo(String packageName) =>
-      _api.press('info', card: packageName);
+      _api.press('info', entity: packageName);
 
   @override
   Future<void> uninstallApp(String packageName) =>
-      _api.press('uninstall', card: packageName);
+      _api.press('uninstall', entity: packageName);
 
   @override
   Future<bool> forceStopApp(String packageName) async =>
-      (await _api.press('forceStop', card: packageName))['done'] == true;
+      (await _api.press('forceStop', entity: packageName))['done'] == true;
 
   @override
   Future<void> sendMediaCommand(MediaCommand command) =>

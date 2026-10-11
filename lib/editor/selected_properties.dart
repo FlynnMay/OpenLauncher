@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
-import 'package:openlauncher/editor/card_picker.dart';
 import 'package:openlauncher/editor/controls.dart';
+import 'package:openlauncher/editor/entity_picker.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/picture_settings.dart';
+import 'package:openlauncher/editor/prefab_settings.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/style_settings.dart';
 import 'package:openlauncher/editor/trigger_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/editor/widget_settings.dart';
-import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 
 BoxStyle _styleOf(LayoutItem item) => item.pane?.style ?? item.style;
@@ -29,7 +31,7 @@ LayoutItem _withStyle(LayoutItem item, BoxStyle style) => switch (item.pane) {
 
 /// The settings of what is picked out on the screen. With several things
 /// picked out, only what every one of them has is offered, and a change is
-/// made to them all; what belongs to one thing alone, such as a card's name
+/// made to them all; what belongs to one thing alone, such as an entity's name
 /// and picture, is offered for one thing alone.
 class SelectedProperties extends ConsumerWidget {
   const SelectedProperties({super.key, required this.found});
@@ -49,9 +51,6 @@ class SelectedProperties extends ConsumerWidget {
 
     // What every one of the selected things is decides what is offered.
     final allPanes = items.every((item) => item.kind == ItemKind.pane);
-    final allNamed = items.every(
-      (item) => item.kind == ItemKind.card || item.kind == ItemKind.panel,
-    );
     final folders = ref.watch(selectedPanelsProvider);
     final allFolders =
         items.every((item) => item.kind == ItemKind.panel) &&
@@ -78,8 +77,8 @@ class SelectedProperties extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (single != null && single.kind == ItemKind.card)
-          _CardDetails(cardId: single.ref),
+        if (single != null && single.kind == ItemKind.prefab)
+          _EntityDetails(entityId: single.source ?? ''),
         if (single != null && allFolders)
           _FolderDetails(
             panel: folders.values.single,
@@ -92,10 +91,37 @@ class SelectedProperties extends ConsumerWidget {
             onChanged: (options) =>
                 each((item) => item.copyWith(options: options)),
           ),
+        if (single != null &&
+            (single.kind == ItemKind.prefab ||
+                single.kind == ItemKind.panel)) ...[
+          if (found.single.parent.rules.containsKey(prefabIdOf(single)))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                'The pane this is in has a rule for its prefab, which '
+                'counts over what is set here until the rule is gone.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          InstanceSettings(
+            prefabs: ref.watch(prefabsProvider),
+            item: single,
+            onChanged: (options) =>
+                each((item) => item.copyWith(options: options)),
+            onPrefab: single.kind == ItemKind.prefab
+                ? (id) => each((item) => item.copyWith(ref: id))
+                : null,
+          ),
+        ],
         if (single != null && single.kind != ItemKind.pane)
           TriggerSettings(
             set: single.on,
-            usual: usualTriggers(single),
+            // An entity's are its prefab's.
+            usual: {
+              ...usualTriggers(single),
+              if (single.kind == ItemKind.prefab)
+                ...?ref.watch(prefabsProvider)[prefabIdOf(single)]?.on,
+            },
             panels: {
               for (final panel in layout?.panels ?? const <Panel>[])
                 if (panel.kind == PanelKind.popup)
@@ -105,11 +131,10 @@ class SelectedProperties extends ConsumerWidget {
                     final title => title,
                   },
             },
-            cards: {
-              for (final card
-                  in ref.watch(allCardsProvider).value ??
-                      const <LauncherCard>[])
-                card.id: card.label,
+            entities: {
+              for (final entity
+                  in ref.watch(entitiesProvider).value ?? const <Entity>[])
+                entity.id: entity.label,
             },
             onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
@@ -133,32 +158,6 @@ class SelectedProperties extends ConsumerWidget {
                 change((layout) => resizeItems(layout, ids, h: h * 1.0)),
           ),
         ]),
-        if (allNamed)
-          Section('Name', [
-            TickBox(
-              label: 'Show the name',
-              value: shared(items.map((item) => !item.hideName)),
-              onChanged: (shown) =>
-                  each((item) => item.copyWith(hideName: !shown)),
-            ),
-            LabelledRow(
-              'Drawn',
-              ChoiceBox<TileLook>(
-                value: shared(items.map((item) => item.look)),
-                choices: const {
-                  TileLook.card: 'Name under the picture',
-                  TileLook.row: 'Name beside the picture',
-                },
-                onChanged: (look) => each((item) => item.copyWith(look: look)),
-              ),
-            ),
-            if (found.any((one) => one.parent.decides))
-              Text(
-                'The pane this is in decides some of this for all its '
-                'cards. What is set here counts again when it stops.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-          ]),
         StyleSettings(
           styles: [for (final item in items) _styleOf(item)],
           onChanged: (how) =>
@@ -167,6 +166,7 @@ class SelectedProperties extends ConsumerWidget {
         if (allPanes)
           PaneSettings(
             title: 'Pane',
+            prefabs: ref.watch(prefabsProvider),
             panes: [for (final item in items) item.pane!],
             onChanged: (how) => each((item) => item.withPane(how(item.pane!))),
             children: [
@@ -271,36 +271,38 @@ class SelectedProperties extends ConsumerWidget {
       false;
 }
 
-/// What a card is called and what it looks like, wherever it is placed.
-class _CardDetails extends ConsumerStatefulWidget {
-  const _CardDetails({required this.cardId});
+/// What an entity is called and what it looks like, wherever it is placed.
+class _EntityDetails extends ConsumerStatefulWidget {
+  const _EntityDetails({required this.entityId});
 
-  final String cardId;
+  final String entityId;
 
   @override
-  ConsumerState<_CardDetails> createState() => _CardDetailsState();
+  ConsumerState<_EntityDetails> createState() => _EntityDetailsState();
 }
 
-class _CardDetailsState extends ConsumerState<_CardDetails>
-    with Busy<_CardDetails> {
+class _EntityDetailsState extends ConsumerState<_EntityDetails>
+    with Busy<_EntityDetails> {
   @override
   Widget build(BuildContext context) {
     final api = ref.watch(tvApiProvider);
-    final cards = ref.watch(allCardsProvider).value ?? const <LauncherCard>[];
-    final card = cards.where((card) => card.id == widget.cardId).firstOrNull;
-    if (card == null) return const SizedBox.shrink();
-    final details = ref.watch(tvStateProvider).value?.details[card.id];
+    final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
+    final entity = entities
+        .where((entity) => entity.id == widget.entityId)
+        .firstOrNull;
+    if (entity == null) return const SizedBox.shrink();
+    final details = ref.watch(tvStateProvider).value?.details[entity.id];
     final borrowed = switch (details?.iconFrom) {
       null => null,
-      final from => cards.where((other) => other.id == from).firstOrNull,
+      final from => entities.where((other) => other.id == from).firstOrNull,
     };
-    return Section('Card', [
+    return Section('Source', [
       CommitField(
         label: 'Name',
-        value: card.label,
+        value: entity.label,
         // Emptied, it goes back to the name the TV has for it.
         onChanged: (name) =>
-            whileBusy(() => api.rename(card.id, name.isEmpty ? null : name)),
+            whileBusy(() => api.rename(entity.id, name.isEmpty ? null : name)),
       ),
       if (details?.renamed ?? false)
         Align(
@@ -308,16 +310,16 @@ class _CardDetailsState extends ConsumerState<_CardDetails>
           child: TextButton(
             onPressed: busy
                 ? null
-                : () => whileBusy(() => api.rename(card.id, null)),
+                : () => whileBusy(() => api.rename(entity.id, null)),
             child: const Text("Use the TV's name for it"),
           ),
         ),
       PictureSettings(
-        picture: CardArt(card: card, padding: 10),
+        picture: EntityArt(entity: entity, padding: 10),
         clearLabel: 'Back to its own picture',
-        onPicked: (file) => api.setPicture(card.id, file),
+        onPicked: (file) => api.setPicture(entity.id, file),
         onCleared: details?.customIcon ?? false
-            ? () => api.clearPicture(card.id)
+            ? () => api.clearPicture(entity.id)
             : null,
       ),
       Align(
@@ -326,22 +328,28 @@ class _CardDetailsState extends ConsumerState<_CardDetails>
           onPressed: busy
               ? null
               : () async {
-                  final from = await pickCard(
+                  final from = await pickEntity(
                     context,
-                    title: "Use another card's picture",
-                    cards: [
-                      for (final other in cards)
-                        if (other.id != card.id) other,
+                    title: "Use another one's picture",
+                    entities: [
+                      for (final other in entities)
+                        // Those with a picture to lend: what is put on
+                        // the screen as one.
+                        if (other.id != entity.id &&
+                            entityKind(other.kind)?.prefab != null)
+                          other,
                     ],
                   );
                   if (from != null) {
-                    await whileBusy(() => api.borrowPicture(card.id, from.id));
+                    await whileBusy(
+                      () => api.borrowPicture(entity.id, from.id),
+                    );
                   }
                 },
           icon: const Icon(Icons.collections_outlined),
           label: Text(
             borrowed == null
-                ? "Use another card's picture"
+                ? "Use another one's picture"
                 : 'Showing the picture of ${borrowed.label}',
           ),
         ),
@@ -350,7 +358,7 @@ class _CardDetailsState extends ConsumerState<_CardDetails>
   }
 }
 
-/// What a folder is called and the picture on the card that opens it.
+/// What a folder is called and the picture on the entity that opens it.
 class _FolderDetails extends ConsumerWidget {
   const _FolderDetails({required this.panel, required this.onRenamed});
 

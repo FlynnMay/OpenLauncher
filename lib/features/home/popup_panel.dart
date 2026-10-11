@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
@@ -9,12 +9,12 @@ import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
 /// Opens the popup panel [panelId] over the current screen. Back closes it.
-/// With a [subject] it is that card's menu: named after the card, its
-/// buttons act on the card, and those that cannot are left out.
+/// With a [subject] it is that entity's menu: named after the entity, its
+/// buttons act on the entity, and those that cannot are left out.
 Future<void> showPanelPopup(
   BuildContext context,
   String panelId, {
-  LauncherCard? subject,
+  Entity? subject,
 }) => showGeneralDialog<void>(
   context: context,
   barrierDismissible: true,
@@ -30,7 +30,7 @@ class _PanelPopup extends ConsumerWidget {
   const _PanelPopup({required this.panelId, this.subject});
 
   final String panelId;
-  final LauncherCard? subject;
+  final Entity? subject;
 
   /// The share of the screen's width and height a popup may take.
   static (double, double) _extent(Panel panel) {
@@ -112,7 +112,7 @@ class _PanelPopup extends ConsumerWidget {
                     ),
                   if (root.isEmpty)
                     const Text(
-                      'Nothing here yet. Add cards from the web page.',
+                      'Nothing here yet. Add things from the web page.',
                       style: TextStyle(color: Colors.white60),
                     ),
                   // The popup's global pane fills it, inside its margins.
@@ -131,6 +131,8 @@ class _PanelPopup extends ConsumerWidget {
         ),
       ),
     );
-    return subject == null ? popup : ActionSubject(card: subject, child: popup);
+    return subject == null
+        ? popup
+        : ActionSubject(entity: subject, child: popup);
   }
 }

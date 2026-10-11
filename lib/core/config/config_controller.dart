@@ -35,8 +35,8 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   Future<void> patch(Map<String, Object?> json) =>
       _update((c) => c.patched(json));
 
-  /// Takes a card off every panel. It stays off until it is placed again.
-  Future<void> removeCard(String id) =>
+  /// Takes an entity off every panel. It stays off until it is placed again.
+  Future<void> removeEntity(String id) =>
       _update((c) => c.copyWith(layout: c.layout.without({id}).normalised()));
 
   /// Sets the images and videos behind the home screen, the first being
@@ -51,8 +51,8 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     ),
   );
 
-  /// Sets a custom image for a card; pass null to return to the automatic one.
-  /// Either way the card stops showing another card's picture.
+  /// Sets a custom image for an entity; pass null to return to the automatic one.
+  /// Either way the entity stops showing another entity's picture.
   Future<void> setIconOverride(String id, String? path) => _update(
     (c) => c.copyWith(
       iconOverrides: path == null
@@ -62,7 +62,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     ),
   );
 
-  /// Makes card [id] show the picture of card [from]; null gives it its own
+  /// Makes entity [id] show the picture of entity [from]; null gives it its own
   /// back.
   Future<void> setIconSource(String id, String? from) => _update(
     (c) => c.copyWith(
@@ -72,7 +72,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     ),
   );
 
-  /// Names a card; null or blank returns it to the name the device gives it.
+  /// Names an entity; null or blank returns it to the name the device gives it.
   Future<void> setName(String id, String? name) {
     final trimmed = name?.trim() ?? '';
     return _update(

@@ -8,7 +8,7 @@ class Device {
 
   static const unknown = Device();
 
-  /// What the device calls each card, by card id.
+  /// What the device calls each entity, by entity id.
   final Map<String, String> names;
 }
 

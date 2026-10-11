@@ -104,7 +104,7 @@ class PaneGrid extends StatelessWidget {
 /// A pane inside another: its background, its title and its own grid.
 ///
 /// Its padding is the same with or without a background, and belongs to the
-/// part that scrolls: a focused card grows into it and is cut only at the
+/// part that scrolls: a focused entity grows into it and is cut only at the
 /// pane's own edge. What does not fit the pane's height is reached by moving
 /// the focus down.
 class PaneBox extends StatelessWidget {
@@ -128,7 +128,7 @@ class PaneBox extends StatelessWidget {
   /// The gap between a title and what is under it.
   static const _underTitle = 10.0;
 
-  /// How far past its edge a pane with no background lets a focused card
+  /// How far past its edge a pane with no background lets a focused entity
   /// show. With a background, the edge is the edge.
   static const _overhang = 12.0;
 

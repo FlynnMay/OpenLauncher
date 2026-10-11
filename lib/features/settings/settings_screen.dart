@@ -152,7 +152,7 @@ class SettingsScreen extends ConsumerWidget {
                   leading: const Icon(Icons.qr_code_2),
                   title: const Text('Customise from your phone'),
                   subtitle: const Text(
-                    'Arrange cards, folders, widgets and sidebars, and '
+                    'Arrange apps, folders, widgets and sidebars, and '
                     'choose pictures.',
                   ),
                   onTap: () => RemoteConfigDialog.show(context),

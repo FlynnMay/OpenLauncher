@@ -5,8 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
@@ -100,30 +100,33 @@ void main() {
   }
 
   /// The apps and inputs the page is told about; the launcher's own
-  /// Settings card is listed too, after them.
-  Future<List<Map<String, dynamic>>> cards() async => [
-    for (final Map<String, dynamic> card in (await state())['cards'])
-      if (card['kind'] != 'action') card,
+  /// Settings entity is listed too, after them.
+  Future<List<Map<String, dynamic>>> entities() async => [
+    for (final Map<String, dynamic> entity in (await state())['entities'])
+      // What the device offers: the apps and the inputs.
+      if (entity['kind'] == 'app' || entity['kind'] == 'input') entity,
   ];
 
-  /// The ids of the cards on the TV's home screen, in order.
+  /// The ids of the entities on the TV's home screen, in order.
   Future<List<String>> onTv() async => [
     for (final entry in (await container.read(
       layoutViewProvider.future,
     )).home.root.contents)
-      if (entry is CardEntry && entry.card.kind != CardKind.action)
-        entry.card.id,
+      if (entry is EntityEntry && entry.entity.kind != launcherKind)
+        entry.entity.id,
   ];
 
-  test('state lists every card in display order', () async {
-    expect((await cards()).map((c) => c['id']), [
+  test('state lists every entity in display order', () async {
+    expect((await entities()).map((c) => c['id']), [
       'input:tv/HW1',
       'app:a',
       'app:b',
     ]);
-    expect((await cards()).first, {
+    expect((await entities()).first, {
       'id': 'input:tv/HW1',
       'kind': 'input',
+      // What its kind presents, and what any entity has.
+      'actions': ['open', 'menu', 'remove'],
       'label': 'HDMI 1',
       'sourceLabel': 'HDMI 1',
       'renamed': false,
@@ -135,23 +138,23 @@ void main() {
     });
 
     // Inputs get built-in line art, served to the page as SVG.
-    final icon = (await cards()).first['icon'] as String;
+    final icon = (await entities()).first['icon'] as String;
     final response = await call('GET', icon);
     expect(response.headers['content-type'], 'image/svg+xml');
     expect(
       await response.readAsString(),
       inputArtworkSvg(TvInputKind.hdmi, 'HDMI 1'),
     );
-    expect((await cards()).last['icon'], isNull);
+    expect((await entities()).last['icon'], isNull);
   });
 
   test('state offers the layout and what there is to choose from', () async {
     final page = await state();
-    // Nothing has been arranged yet, so every card is in the one section.
+    // Nothing has been arranged yet, so every entity is in the one section.
     // It sits in the screen's global pane.
     final section = page['layout']['panels'][0]['pane']['items'].single['pane'];
     expect(page['layout']['inbox'], section['id']);
-    expect((section['items'] as List).map((i) => i['ref']), [
+    expect((section['items'] as List).map((i) => i['source'] ?? i['ref']), [
       'input:tv/HW1',
       'app:a',
       'app:b',
@@ -322,19 +325,19 @@ void main() {
     expect(saved.panel('games')!.position, PopupPosition.bottom);
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
-    // which was placed nowhere, in the section for new cards.
+    // which was placed nowhere, in the section for new entities.
     expect(await onTv(), ['app:b', 'input:tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
     final folder = view.home.root.contents.elementAt(1) as PanelEntry;
     expect(folder.preview.single.id, 'app:a');
     final shown = (await state())['layout']['panels'][0]['pane']['items'][1];
-    expect((shown['pane']['items'] as List).map((i) => i['ref']), [
-      'input:tv/HW1',
-      'launcher:settings',
-    ]);
+    expect(
+      (shown['pane']['items'] as List).map((i) => i['source'] ?? i['ref']),
+      ['input:tv/HW1', 'launcher:settings'],
+    );
   });
 
-  test('a folder card can have a picture, removed with the folder', () async {
+  test('a folder entity can have a picture, removed with the folder', () async {
     Map<String, Object?> layout(List<Object?> popups) => {
       'panels': [
         {
@@ -474,7 +477,7 @@ void main() {
         '/api/config',
         body: {
           'sources': [
-            {'id': 'time', 'kind': 'text'},
+            {'id': 'clock', 'kind': 'text'},
             {'id': 'a'},
             {'id': 'a'},
           ],
@@ -501,12 +504,14 @@ void main() {
     expect((await call('GET', '/api/geocode?q=')).statusCode, 400);
   });
 
-  test('cards left out of the layout are removed, not put back', () async {
+  test('entities left out of the layout are removed, not put back', () async {
     final page = await state();
     final layout = page['layout'] as Map<String, dynamic>;
     final section = layout['panels'][0]['pane']['items'][0]['pane'];
-    // What the page does to remove a card: drop its item and say so.
-    (section['items'] as List).removeWhere((i) => i['ref'] == 'input:tv/HW1');
+    // What the page does to remove an entity: drop its item and say so.
+    (section['items'] as List).removeWhere(
+      (i) => (i['source'] ?? i['ref']) == 'input:tv/HW1',
+    );
     layout['removed'] = ['input:tv/HW1'];
     expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
 
@@ -515,11 +520,11 @@ void main() {
     expect(after['layout']['removed'], ['input:tv/HW1']);
     // Still offered, so it can be added again.
     expect(
-      (after['cards'] as List).map((c) => c['id']),
+      (after['entities'] as List).map((c) => c['id']),
       contains('input:tv/HW1'),
     );
 
-    // Adding it again, twice: a card can be in more than one place.
+    // Adding it again, twice: an entity can be in more than one place.
     final again = after['layout'] as Map<String, dynamic>;
     (again['panels'][0]['pane']['items'][0]['pane']['items'] as List).addAll([
       {'id': 'x1', 'ref': 'input:tv/HW1'},
@@ -534,13 +539,13 @@ void main() {
     var response = await call('PUT', '/api/icon?id=app:a', body: _png);
     expect(response.statusCode, 200);
 
-    var card = (await cards()).firstWhere((c) => c['id'] == 'app:a');
-    expect(card['customIcon'], isTrue);
-    expect(card['wide'], isTrue);
+    var entity = (await entities()).firstWhere((c) => c['id'] == 'app:a');
+    expect(entity['customIcon'], isTrue);
+    expect(entity['wide'], isTrue);
     final saved = File(store.config.iconOverrides['app:a']!);
     expect(saved.parent.path, tmp.path);
 
-    response = await call('GET', card['icon'] as String);
+    response = await call('GET', entity['icon'] as String);
     expect(response.headers['content-type'], 'image/png');
     expect(await response.read().expand((b) => b).toList(), _png);
 
@@ -553,60 +558,67 @@ void main() {
     expect(response.statusCode, 200);
     expect(store.config.iconOverrides, isEmpty);
     expect(tmp.listSync(), isEmpty);
-    card = (await cards()).firstWhere((c) => c['id'] == 'app:a');
-    expect(card['customIcon'], isFalse);
+    entity = (await entities()).firstWhere((c) => c['id'] == 'app:a');
+    expect(entity['customIcon'], isFalse);
   });
 
-  test('a card can be renamed and given another card\'s picture', () async {
-    Future<Map<String, dynamic>> card(String id) async =>
-        (await cards()).firstWhere((c) => c['id'] == id);
+  test(
+    'an entity can be renamed and given another entity\'s picture',
+    () async {
+      Future<Map<String, dynamic>> entity(String id) async =>
+          (await entities()).firstWhere((c) => c['id'] == id);
 
-    var response = await call(
-      'PUT',
-      '/api/card?id=app:a',
-      body: {'name': '  Films ', 'iconFrom': 'input:tv/HW1'},
-    );
-    expect(response.statusCode, 200);
-    var a = await card('app:a');
-    expect(a['label'], 'Films');
-    expect(a['renamed'], isTrue);
-    expect(a['iconFrom'], 'input:tv/HW1');
-    expect(a['customIcon'], isTrue);
-    response = await call('GET', a['icon'] as String);
-    expect(response.headers['content-type'], 'image/svg+xml');
+      var response = await call(
+        'PUT',
+        '/api/entity?id=app:a',
+        body: {'name': '  Films ', 'iconFrom': 'input:tv/HW1'},
+      );
+      expect(response.statusCode, 200);
+      var a = await entity('app:a');
+      expect(a['label'], 'Films');
+      expect(a['renamed'], isTrue);
+      expect(a['iconFrom'], 'input:tv/HW1');
+      expect(a['customIcon'], isTrue);
+      response = await call('GET', a['icon'] as String);
+      expect(response.headers['content-type'], 'image/svg+xml');
 
-    // Leaving a key out leaves that part alone.
-    await call('PUT', '/api/card?id=app:a', body: {'name': null});
-    a = await card('app:a');
-    expect(a['label'], 'A');
-    expect(a['iconFrom'], 'input:tv/HW1');
+      // Leaving a key out leaves that part alone.
+      await call('PUT', '/api/entity?id=app:a', body: {'name': null});
+      a = await entity('app:a');
+      expect(a['label'], 'A');
+      expect(a['iconFrom'], 'input:tv/HW1');
 
-    // An uploaded picture and a borrowed one replace each other.
-    await call('PUT', '/api/icon?id=app:a', body: _png);
-    expect(store.config.iconSources, isEmpty);
-    await call('PUT', '/api/card?id=app:b', body: {'iconFrom': 'app:a'});
-    response = await call('GET', (await card('app:b'))['icon'] as String);
-    expect(await response.read().expand((b) => b).toList(), _png);
-    await call('PUT', '/api/card?id=app:a', body: {'iconFrom': 'app:b'});
-    expect(store.config.iconOverrides, isEmpty);
-    expect(tmp.listSync(), isEmpty);
+      // An uploaded picture and a borrowed one replace each other.
+      await call('PUT', '/api/icon?id=app:a', body: _png);
+      expect(store.config.iconSources, isEmpty);
+      await call('PUT', '/api/entity?id=app:b', body: {'iconFrom': 'app:a'});
+      response = await call('GET', (await entity('app:b'))['icon'] as String);
+      expect(await response.read().expand((b) => b).toList(), _png);
+      await call('PUT', '/api/entity?id=app:a', body: {'iconFrom': 'app:b'});
+      expect(store.config.iconOverrides, isEmpty);
+      expect(tmp.listSync(), isEmpty);
 
-    // "Reset picture" undoes a borrowed one too.
-    await call('DELETE', '/api/icon?id=app:a');
-    expect(store.config.iconSources, {'app:b': 'app:a'});
+      // "Reset picture" undoes a borrowed one too.
+      await call('DELETE', '/api/icon?id=app:a');
+      expect(store.config.iconSources, {'app:b': 'app:a'});
 
-    for (final bad in [
-      {'iconFrom': 'app:a'},
-      {'iconFrom': 'app:nope'},
-      {'name': 7},
-      {'name': 'x' * 61},
-    ]) {
-      response = await call('PUT', '/api/card?id=app:a', body: bad);
-      expect(response.statusCode, 400, reason: '$bad');
-    }
-    response = await call('PUT', '/api/card?id=app:nope', body: {'name': 'x'});
-    expect(response.statusCode, 404);
-  });
+      for (final bad in [
+        {'iconFrom': 'app:a'},
+        {'iconFrom': 'app:nope'},
+        {'name': 7},
+        {'name': 'x' * 61},
+      ]) {
+        response = await call('PUT', '/api/entity?id=app:a', body: bad);
+        expect(response.statusCode, 400, reason: '$bad');
+      }
+      response = await call(
+        'PUT',
+        '/api/entity?id=app:nope',
+        body: {'name': 'x'},
+      );
+      expect(response.statusCode, 404);
+    },
+  );
 
   group('wallpaper', () {
     // Just enough of an MP4 for the type to be recognised.
@@ -790,7 +802,7 @@ void main() {
     });
     addTearDown(sub.cancel);
 
-    await cards();
+    await entities();
     await pumpEventQueue();
     expect(events, hasLength(1));
 
@@ -814,6 +826,8 @@ void main() {
     final response = await request.close();
     expect(response.statusCode, 200);
     final state = jsonDecode(await response.transform(utf8.decoder).join());
-    expect(state['cards'], hasLength(4));
+    // An input, two apps, the launcher's settings, and its own four: the
+    // clock, the weather, the place and the media player.
+    expect(state['entities'], hasLength(8));
   });
 }

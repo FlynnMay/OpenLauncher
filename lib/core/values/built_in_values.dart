@@ -1,22 +1,31 @@
-/// A value the launcher has of its own: the root a template names it by,
-/// what it is, and the parts it has beside how it reads whole.
+/// An entity the launcher has of its own that provides data: the id a
+/// template names it by, what it is called, and the parts it has beside
+/// how it reads whole. What each is at the time is its kind's to say, in
+/// `entity_kinds.dart`; this is what the editor lists them from.
 typedef BuiltInValue = ({String root, String label, List<String> parts});
 
-/// The values every launcher has, whatever the user defined.
 const List<BuiltInValue> builtInValues = [
   (
-    root: 'time',
-    label: 'Time',
-    parts: ['hour', 'minute', 'second', 'hour12', 'ampm'],
+    root: 'clock',
+    label: 'Clock',
+    parts: [
+      'time',
+      'date',
+      'hour',
+      'minute',
+      'second',
+      'hour12',
+      'ampm',
+      'weekday',
+      'day',
+      'month',
+      'monthName',
+      'year',
+    ],
   ),
   (
-    root: 'date',
-    label: 'Date',
-    parts: ['weekday', 'day', 'month', 'monthName', 'year'],
-  ),
-  (
-    root: 'nowPlaying',
-    label: 'Now playing',
+    root: 'media',
+    label: 'Media Player',
     parts: ['title', 'artist', 'app', 'playing', 'art'],
   ),
   (
@@ -31,5 +40,6 @@ const List<BuiltInValue> builtInValues = [
   ),
 ];
 
-/// The roots a source of the user's may not be called.
-final builtInRoots = {for (final value in builtInValues) value.root};
+/// The names a value of the user's may not take: the launcher's own
+/// entities, and `source`, which is what an instance is drawn from.
+final builtInRoots = {for (final value in builtInValues) value.root, 'source'};

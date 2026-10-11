@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// A small picture with its name under it and, if given, a note in its
-/// corner: how the catalogue and the card chooser show what there is.
+/// corner: how the catalogue and the entity chooser show what there is.
 class PictureTile extends StatelessWidget {
   const PictureTile({
     super.key,
@@ -16,7 +16,7 @@ class PictureTile extends StatelessWidget {
   final String label;
   final Widget picture;
 
-  /// True for a picture that is shown on a card, as artwork is on the TV.
+  /// True for a picture that is shown on an entity, as artwork is on the TV.
   final bool backed;
   final String? badge;
   final String? tooltip;

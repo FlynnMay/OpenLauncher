@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/corner_settings.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
@@ -15,6 +16,7 @@ class PaneSettings extends StatelessWidget {
     this.named = true,
     this.shaped = true,
     this.children = const [],
+    this.prefabs = const {},
   });
 
   /// The heading the settings go under.
@@ -31,13 +33,23 @@ class PaneSettings extends StatelessWidget {
   /// screen has none to round.
   final bool shaped;
 
+  /// The prefabs there are, by id, for the rules a pane has for each;
+  /// with none given, rules are not offered.
+  final Map<String, Prefab> prefabs;
+
   /// More settings, shown after these.
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [_arrangement, _spacing, if (shaped) _corners, _cards],
+    children: [
+      _arrangement,
+      _spacing,
+      if (shaped) _corners,
+      _entities,
+      if (prefabs.isNotEmpty) _rules,
+    ],
   );
 
   Widget get _arrangement => Section(title, [
@@ -117,42 +129,175 @@ class PaneSettings extends StatelessWidget {
     ),
   ]);
 
-  /// What the pane decides for every card directly in it.
-  Widget get _cards => Section('Cards in it', open: false, [
-    LabelledRow(
-      'Drawn',
-      ChoiceBox<String>(
-        value: shared(panes.map((pane) => pane.itemLook?.name ?? _each)),
-        choices: const {
-          _each: 'As each card says',
-          'card': 'Name under the picture',
-          'row': 'Name beside the picture',
-        },
-        onChanged: (look) => onChanged(
-          (pane) => pane.copyWith(itemLook: TileLook.values.asNameMap()[look]),
+  /// This pane's rule for [prefab] with [key] set to [value]; null takes
+  /// it away, and a rule with nothing left in it goes too.
+  static Pane _ruled(Pane pane, String prefab, String key, Object? value) {
+    final rule = {...?pane.rules[prefab], key: value}
+      ..removeWhere((_, value) => value == null);
+    return pane.copyWith(
+      rules: {
+        for (final MapEntry(:key, :value) in pane.rules.entries)
+          if (key != prefab) key: value,
+        if (rule.isNotEmpty) prefab: rule,
+      },
+    );
+  }
+
+  static bool _builtIn(Prefab prefab) =>
+      builtInPrefabs.any((own) => own.id == prefab.id);
+
+  /// What the pane says of the instances of prefabs directly in it. The
+  /// launcher's own prefabs always have their rule here, so that there is
+  /// somewhere to say how the entities of a pane are laid out; a rule for a
+  /// prefab of the user's is there once it is added.
+  Widget get _rules {
+    bool ruled(Prefab prefab) =>
+        panes.any((pane) => pane.rules.containsKey(prefab.id));
+    final shown = [
+      for (final prefab in prefabs.values)
+        if (_builtIn(prefab) || ruled(prefab)) prefab,
+    ];
+    final addable = [
+      for (final prefab in prefabs.values)
+        if (!shown.contains(prefab) && prefab.layouts.isNotEmpty) prefab,
+    ];
+    return Section('Prefab rules', open: false, [
+      const Padding(
+        padding: EdgeInsets.only(bottom: 8),
+        child: Text(
+          'For everything in this pane made from a prefab. A rule counts '
+          'over what each says for itself.',
         ),
       ),
-    ),
+      for (final prefab in shown) ..._rule(prefab),
+      if (addable.isNotEmpty)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: PopupMenuButton<Prefab>(
+            tooltip: 'Add a rule for a prefab',
+            // A rule has to say something to be one: it starts with the
+            // prefab's first layout.
+            onSelected: (prefab) => onChanged(
+              (pane) => _ruled(
+                pane,
+                prefab.id,
+                layoutOption,
+                prefab.layouts.keys.first,
+              ),
+            ),
+            itemBuilder: (context) => [
+              for (final prefab in addable)
+                PopupMenuItem(value: prefab, child: Text(prefab.name)),
+            ],
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 6,
+                children: [Icon(Icons.add, size: 18), Text('Add a rule')],
+              ),
+            ),
+          ),
+        ),
+    ]);
+  }
+
+  /// The rule for [prefab]: its layout, and whether each part shows.
+  List<Widget> _rule(Prefab prefab) => [
     LabelledRow(
-      'Name',
+      prefab.name,
       ChoiceBox<String>(
-        value: shared(panes.map((pane) => pane.itemNames?.toString() ?? _each)),
-        choices: const {
-          _each: 'As each card says',
-          'true': 'Shown',
-          'false': 'Hidden',
-        },
-        onChanged: (names) => onChanged(
-          (pane) => pane.copyWith(
-            itemNames: switch (names) {
-              'true' => true,
-              'false' => false,
-              _ => null,
+        value: shared(
+          panes.map(
+            (pane) => switch (pane.rules[prefab.id]?[layoutOption]) {
+              final String layout when prefab.layouts.containsKey(layout) =>
+                layout,
+              _ => _each,
             },
+          ),
+        ),
+        choices: {
+          // The launcher's own may leave it to each entity; a rule that
+          // was added says which, or is taken away.
+          // One that says no layout, as a save may, can be given one.
+          if (_builtIn(prefab) ||
+              panes.any((pane) => pane.rules[prefab.id]?[layoutOption] == null))
+            _each: 'As each says',
+          for (final MapEntry(:key, :value) in prefab.layouts.entries)
+            key: value.label.isEmpty ? key : value.label,
+        },
+        onChanged: (layout) => onChanged(
+          (pane) => _ruled(
+            pane,
+            prefab.id,
+            layoutOption,
+            layout == _each ? null : layout,
           ),
         ),
       ),
     ),
+    for (final part in prefab.parts.keys)
+      LabelledRow(
+        '  $part',
+        ChoiceBox<String>(
+          value: shared(
+            panes.map(
+              (pane) => switch (overridesOf(
+                LayoutItem(
+                  id: '',
+                  kind: ItemKind.prefab,
+                  ref: '',
+                  options: pane.rules[prefab.id] ?? const {},
+                ),
+                part,
+              )[hiddenOption]) {
+                true => 'hidden',
+                false => 'shown',
+                _ => _each,
+              },
+            ),
+          ),
+          choices: const {
+            _each: 'As each says',
+            'shown': 'Shown',
+            'hidden': 'Hidden',
+          },
+          onChanged: (shown) => onChanged((pane) {
+            final rule = withOverrides(
+              pane.rules[prefab.id] ?? const {},
+              part,
+              {
+                hiddenOption: switch (shown) {
+                  'shown' => false,
+                  'hidden' => true,
+                  _ => null,
+                },
+              },
+            );
+            return _ruled(pane, prefab.id, partsOption, rule[partsOption]);
+          }),
+        ),
+      ),
+    if (!_builtIn(prefab))
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => onChanged(
+            (pane) => pane.copyWith(
+              rules: {
+                for (final MapEntry(:key, :value) in pane.rules.entries)
+                  if (key != prefab.id) key: value,
+              },
+            ),
+          ),
+          icon: const Icon(Icons.delete_outline, size: 18),
+          label: Text('Take the rule for ${prefab.name} away'),
+        ),
+      ),
+  ];
+
+  /// The size the pane gives every entity directly in it.
+  Widget get _entities => Section('Size of what is in it', open: false, [
     TickBox(
       label: 'All the same size',
       value: shared(panes.map((pane) => pane.itemW != null)),

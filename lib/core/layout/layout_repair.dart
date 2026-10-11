@@ -6,7 +6,7 @@ import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/pane.dart';
 import 'package:openlauncher/core/layout/panel.dart';
 
-/// Making a layout fit to use: what was read made sound, and the cards there
+/// Making a layout fit to use: what was read made sound, and the entities there
 /// are matched to it.
 extension LayoutRepair on Layout {
   /// A copy with everything the rest of the app relies on made true: a home
@@ -75,14 +75,13 @@ extension LayoutRepair on Layout {
         id: fresh(itemIds, item.id, 'item'),
         kind: item.kind,
         ref: repaired?.id ?? item.ref,
+        source: item.source,
         w: w,
         h: fit(item.h.isFinite ? item.h : 1, smallest, Pane.maxRows),
         x: placed ? fit(x, 0, columns - w) : null,
         y: placed ? fit(y, 0, 999) : null,
         options: item.options,
         style: item.style,
-        hideName: item.hideName,
-        look: item.look,
         on: item.on,
         pane: repaired,
       );
@@ -126,10 +125,9 @@ extension LayoutRepair on Layout {
             ],
           _ => null,
         },
-        itemLook: pane.itemLook,
         itemW: cells(pane.itemW, columns),
         itemH: cells(pane.itemH, Pane.maxRows),
-        itemNames: pane.itemNames,
+        rules: pane.rules,
       );
     };
 
@@ -155,7 +153,7 @@ extension LayoutRepair on Layout {
     final placed = {
       for (final panel in result)
         for (final item in panel.items)
-          if (item.kind == ItemKind.card) item.ref,
+          if (item.kind == ItemKind.prefab) ?item.source,
     };
     return Layout(
       panels: result,
@@ -166,20 +164,24 @@ extension LayoutRepair on Layout {
     );
   }
 
-  /// A copy holding only cards in [cardIds]: items for cards that no longer
-  /// exist are dropped, and cards placed nowhere are added to the end of the
-  /// [inbox] pane, in the order given, unless the user [removed] them. Each
-  /// gets an id after what the device calls it, in [names] by card id. The
-  /// quick actions are added too, where the layout has none of its own.
-  Layout withCards(
-    Iterable<String> cardIds, {
+  /// A copy matched to the entities there are. Items drawn from an entity
+  /// that no longer exists are dropped; one is known if it is in [known],
+  /// which unless given is [entityIds]. The entities in [entityIds] that
+  /// are placed nowhere are added to the end of the [inbox] pane, in the
+  /// order given, unless the user [removed] them: these are the ones that
+  /// are put on the screen of themselves, as a new app is. Each gets an id
+  /// after what the device calls it, in [names] by entity id. The quick
+  /// actions are added too, where the layout has none of its own.
+  Layout withEntities(
+    Iterable<String> entityIds, {
     Map<String, String> names = const {},
+    Set<String>? known,
   }) {
-    final known = cardIds.toSet();
+    final there = known ?? entityIds.toSet();
     final kept = rebuild(
       (_, items) => [
         for (final item in items)
-          if (item.kind != ItemKind.card || known.contains(item.ref)) item,
+          if (item.kind != ItemKind.prefab || there.contains(item.source)) item,
       ],
     );
     final placed = {...removed};
@@ -188,26 +190,28 @@ extension LayoutRepair on Layout {
       for (final pane in panel.root.panes) {
         for (final item in pane.items) {
           itemIds.add(item.id);
-          if (item.kind == ItemKind.card) placed.add(item.ref);
+          if (item.source case final source?
+              when item.kind == ItemKind.prefab) {
+            placed.add(source);
+          }
         }
       }
     }
-    // Named after the card, by what it is called if that is known.
-    String autoId(String cardId) {
-      final id = freeId(LayoutItem.autoId(cardId, names[cardId]), itemIds);
+    // Named after the entity, by what it is called if that is known.
+    String autoId(String entityId) {
+      final id = freeId(LayoutItem.autoId(entityId, names[entityId]), itemIds);
       itemIds.add(id);
       return id;
     }
 
     final unplaced = [
-      for (final id in cardIds)
-        if (placed.add(id))
-          LayoutItem(id: autoId(id), kind: ItemKind.card, ref: id),
+      for (final id in entityIds)
+        if (placed.add(id)) LayoutItem.of(id, id: autoId(id)),
     ];
     final filled = kept.rebuild(
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,
     );
-    // Like a card placed nowhere, the quick actions are there before they
+    // Like an entity placed nowhere, the quick actions are there before they
     // are saved: as they usually are, until the user arranges them.
     if (filled.panel(Layout.menuId) != null) return filled;
     return Layout(

@@ -13,8 +13,8 @@ enum Trigger {
 }
 
 /// One thing to do, as it is saved: the name of an `ActionKind` and
-/// whatever that kind is told beside, such as the `card` it is done to. An
-/// action that names no card is done to the card it was set off from.
+/// whatever that kind is told beside, such as the `entity` it is done to. An
+/// action that names no entity is done to the entity it was set off from.
 @immutable
 class Act {
   const Act(this.name, [this.args = const {}]);

@@ -3,7 +3,7 @@ import 'package:openlauncher/core/layout/layout_model.dart';
 
 /// Where a panel is shown. Decided by the panel's id: [Layout.homeId] is the
 /// main screen, [Layout.leftId] and [Layout.rightId] are the rails on the
-/// screen edges, and every other panel is a popup opened from a card.
+/// screen edges, and every other panel is a popup opened from an entity.
 enum PanelKind { home, sidebar, popup }
 
 /// How a pane positions its items on its cell grid.
@@ -20,8 +20,10 @@ enum PaneMode {
 }
 
 enum ItemKind {
-  /// An app, input or launcher action; [LayoutItem.ref] is the card id.
-  card,
+  /// An instance of a prefab: [LayoutItem.ref] is the prefab's id and
+  /// [LayoutItem.source] the id of the entity it is drawn from. What used
+  /// to be called a card is one of these, of the prefab `app-card`.
+  prefab,
 
   /// Opens a popup panel (this is what a folder is); [LayoutItem.ref] is the
   /// panel id.
@@ -33,10 +35,6 @@ enum ItemKind {
   /// A pane inside this one, held in [LayoutItem.pane].
   pane,
 }
-
-/// How a card or a folder is drawn: its picture with its name under it, or
-/// as a row, its picture with its name beside it.
-enum TileLook { card, row }
 
 /// The edge of the screen a sidebar is on.
 enum BarEdge { left, right, top, bottom }

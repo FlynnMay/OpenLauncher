@@ -4,7 +4,7 @@ import 'package:openlauncher/editor/file_pick.dart';
 import 'package:openlauncher/editor/image_carousel.dart';
 
 /// The one picture something has: a carousel of a single image, with the
-/// choosing of a file and the waiting for it done. Used for a card's
+/// choosing of a file and the waiting for it done. Used for an entity's
 /// picture and a folder's.
 class PictureSettings extends StatefulWidget {
   const PictureSettings({

@@ -8,7 +8,7 @@ import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/features/home/picture.dart';
 import 'package:video_player/video_player.dart';
 
-/// Fills its parent with the wallpaper, dimmed so cards stay readable.
+/// Fills its parent with the wallpaper, dimmed so entities stay readable.
 class WallpaperBackground extends ConsumerWidget {
   const WallpaperBackground({super.key});
 

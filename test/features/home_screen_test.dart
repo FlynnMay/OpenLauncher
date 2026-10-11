@@ -7,15 +7,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/prefab_tile.dart';
 import 'package:openlauncher/features/home/sidebar.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
 void main() {
-  testWidgets('shows app cards and launches with the D-pad', (tester) async {
+  testWidgets('shows app entities and launches with the D-pad', (tester) async {
     final platform = FakeLauncherPlatform([
       InstalledApp(packageName: 'pkg.a', label: 'Alpha', isBanner: false),
       InstalledApp(packageName: 'pkg.b', label: 'Beta', isBanner: false),
@@ -35,7 +36,7 @@ void main() {
     expect(find.text('Alpha'), findsWidgets);
     expect(find.text('Beta'), findsWidgets);
 
-    // First card has focus on start; D-pad centre launches it.
+    // First entity has focus on start; D-pad centre launches it.
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(platform.launched, ['pkg.a']);
@@ -84,8 +85,12 @@ void main() {
       ),
     );
 
-    LayoutItem card(String package) =>
-        LayoutItem(id: 'i-$package', kind: ItemKind.card, ref: 'app:$package');
+    LayoutItem entity(String package) => LayoutItem(
+      id: 'i-$package',
+      kind: ItemKind.prefab,
+      ref: cardPrefabId,
+      source: 'app:$package',
+    );
 
     testWidgets('holding OK offers quick actions instead of opening', (
       tester,
@@ -112,7 +117,7 @@ void main() {
       expect(find.text('Force stop'), findsNothing);
     });
 
-    testWidgets('a folder opens a popup that closes when a card is opened', (
+    testWidgets('a folder opens a popup that closes when an entity is opened', (
       tester,
     ) async {
       await pumpApp(
@@ -152,7 +157,7 @@ void main() {
                 id: 'games',
                 title: 'Games',
                 position: PopupPosition.bottom,
-                root: Pane(id: 'in', items: [card('pkg.b')]),
+                root: Pane(id: 'in', items: [entity('pkg.b')]),
               ),
             ],
           ).normalised(),
@@ -175,7 +180,7 @@ void main() {
       expect(find.text('Beta'), findsOneWidget);
     });
 
-    testWidgets('sections and cards are painted the way the user chose', (
+    testWidgets('sections and entities are painted the way the user chose', (
       tester,
     ) async {
       await pumpApp(
@@ -195,8 +200,9 @@ void main() {
                   items: [
                     const LayoutItem(
                       id: 'a',
-                      kind: ItemKind.card,
-                      ref: 'app:pkg.a',
+                      kind: ItemKind.prefab,
+                      ref: cardPrefabId,
+                      source: 'app:pkg.a',
                       style: BoxStyle(colors: [0xFFB71C1C]),
                     ),
                   ],
@@ -225,7 +231,7 @@ void main() {
         contains(const Color(0x55FFFFFF)),
       );
 
-      final card = tester.widget<AnimatedContainer>(
+      final entity = tester.widget<AnimatedContainer>(
         find
             .ancestor(
               of: find.text('Alpha').first,
@@ -234,16 +240,16 @@ void main() {
             .first,
       );
       expect(
-        (card.decoration! as BoxDecoration).color,
+        (entity.decoration! as BoxDecoration).color,
         const Color(0xFFB71C1C),
       );
-      // Still works as a card.
+      // Still works as an entity.
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       expect(platform.launched, ['pkg.a']);
     });
 
-    testWidgets('a card can be shown without its name', (tester) async {
+    testWidgets('an entity can be shown without its name', (tester) async {
       await pumpApp(
         tester,
         LauncherConfig(
@@ -256,9 +262,14 @@ void main() {
                   items: [
                     LayoutItem(
                       id: 'a',
-                      kind: ItemKind.card,
-                      ref: 'app:pkg.a',
-                      hideName: true,
+                      kind: ItemKind.prefab,
+                      ref: cardPrefabId,
+                      source: 'app:pkg.a',
+                      options: {
+                        'parts': {
+                          'name': {'hidden': true},
+                        },
+                      },
                     ),
                   ],
                 ),
@@ -301,7 +312,7 @@ void main() {
       tester,
     ) async {
       Pane pane(String id, String package, BoxStyle style) =>
-          Pane(id: id, columns: 2, style: style, items: [card(package)]);
+          Pane(id: id, columns: 2, style: style, items: [entity(package)]);
       await pumpApp(
         tester,
         LauncherConfig(
@@ -324,7 +335,10 @@ void main() {
       // The whole tile, which does not grow when focused as its picture does.
       Rect tile(String name) => tester.getRect(
         find
-            .ancestor(of: find.text(name).first, matching: find.byType(ArtTile))
+            .ancestor(
+              of: find.text(name).first,
+              matching: find.byType(PrefabTile),
+            )
             .first,
       );
       Rect box(String name) => tester.getRect(
@@ -333,17 +347,20 @@ void main() {
             .first,
       );
       // Beta's pane has a background and an outline; Alpha's has neither.
-      // Each card is the same size, the same distance in from its pane.
+      // Each entity is the same size, the same distance in from its pane.
       final alpha = tile('Alpha'), beta = tile('Beta');
       expect(beta.width, closeTo(alpha.width, 1e-6));
       expect(beta.height, closeTo(alpha.height, 1e-6));
-      for (final (card, pane) in [(alpha, box('Alpha')), (beta, box('Beta'))]) {
-        expect(card.left - pane.left, closeTo(Pane.defaultPadding, 1e-6));
-        expect(card.top - pane.top, closeTo(Pane.defaultPadding, 1e-6));
+      for (final (entity, pane) in [
+        (alpha, box('Alpha')),
+        (beta, box('Beta')),
+      ]) {
+        expect(entity.left - pane.left, closeTo(Pane.defaultPadding, 1e-6));
+        expect(entity.top - pane.top, closeTo(Pane.defaultPadding, 1e-6));
       }
     });
 
-    testWidgets('a pane too short for its cards shows their tops', (
+    testWidgets('a pane too short for its entities shows their tops', (
       tester,
     ) async {
       await pumpApp(
@@ -360,13 +377,13 @@ void main() {
                   mode: PaneMode.grid,
                   columns: 12,
                   items: [
-                    // One row tall, but its two columns make cards far
+                    // One row tall, but its two columns make entities far
                     // taller than that.
                     LayoutItem.pane(
                       Pane(
                         id: 'short',
                         columns: 2,
-                        items: [card('pkg.a'), card('pkg.b')],
+                        items: [entity('pkg.a'), entity('pkg.b')],
                       ),
                       x: 2,
                       y: 1,
@@ -383,7 +400,7 @@ void main() {
       Rect of(Finder finder) => tester.getRect(finder.first);
       final pane = of(find.byType(PaneBox));
       Rect tile(String name) => of(
-        find.ancestor(of: find.text(name), matching: find.byType(ArtTile)),
+        find.ancestor(of: find.text(name), matching: find.byType(PrefabTile)),
       );
       expect(tile('Alpha').height, greaterThan(pane.height));
       // Whichever has the focus, its top is inside the pane with room to
@@ -419,7 +436,7 @@ void main() {
             panels: [
               home([const Pane(id: 'main')]),
               Panel.empty(Layout.leftId).withRoot(
-                Panel.empty(Layout.leftId).root.withItems([card('pkg.c')]),
+                Panel.empty(Layout.leftId).root.withItems([entity('pkg.c')]),
               ),
             ],
           ).normalised(),
@@ -466,7 +483,8 @@ void main() {
                     opening: opening,
                     reveal: reveal,
                   ).withRoot(
-                    Panel.empty(Layout.leftId).root.withItems([card('pkg.c')]),
+                    Panel.empty(Layout.leftId).root
+                        .withItems([entity('pkg.c')]),
                   ),
                 ],
               ).normalised(),
@@ -512,7 +530,7 @@ void main() {
             panels: [
               home([const Pane(id: 'main')]),
               Panel.empty(Layout.topId).withRoot(
-                Panel.empty(Layout.topId).root.withItems([card('pkg.c')]),
+                Panel.empty(Layout.topId).root.withItems([entity('pkg.c')]),
               ),
             ],
           ).normalised(),

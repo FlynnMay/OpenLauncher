@@ -4,6 +4,9 @@ import 'package:openlauncher/core/config/migrations/save_json.dart';
 import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
 import 'package:openlauncher/core/config/migrations/v3_to_v4.dart';
+import 'package:openlauncher/core/config/migrations/v4_to_v5.dart';
+import 'package:openlauncher/core/config/migrations/v5_to_v6.dart';
+import 'package:openlauncher/core/config/migrations/v6_to_v7.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -20,7 +23,7 @@ export 'save_json.dart' show Device, Json;
 ///
 /// A step that has shipped is never changed: saves that went through it
 /// are out there. What it got wrong, a later step puts right.
-const saveVersion = 4;
+const saveVersion = 7;
 
 /// One thing a [Migration] does to a save, by changing [save] in place. It
 /// finds what it is for and leaves the rest be, whatever shape that is in:
@@ -58,7 +61,7 @@ const migrations = [
     to: 2,
     what:
         'Panels hold a pane in place of sections, sidebars are panels like '
-        'any other, there can be several wallpapers, and hidden cards are '
+        'any other, there can be several wallpapers, and hidden entities are '
         'removed ones.',
     rules: [
       wallpaperToWallpapers,
@@ -82,6 +85,30 @@ const migrations = [
         'The quick actions are a popup of buttons in the layout, not a '
         'list of names beside it.',
     rules: [menuAsPanel],
+  ),
+  Migration(
+    from: 4,
+    to: 5,
+    what:
+        'How an entity is drawn is what it sets differently from its prefab, '
+        'and what a pane makes of its entities is a rule for each prefab.',
+    rules: [cardLooksAsOverrides, paneLooksAsRules],
+  ),
+  Migration(
+    from: 5,
+    to: 6,
+    what:
+        'A card is an instance of a prefab drawn from an entity, and says '
+        'so; an action is done to an entity.',
+    rules: [cardsAsInstances, prefabActsOnEntities],
+  ),
+  Migration(
+    from: 6,
+    to: 7,
+    what:
+        'The time, the date and what plays are entities, read by their '
+        'ids, and the media player presents its own actions.',
+    rules: [valuesAsEntities],
   ),
 ];
 

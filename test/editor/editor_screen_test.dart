@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/main.dart';
@@ -22,14 +22,14 @@ class _Tv extends TvApi {
   @override
   Future<Map<Object?, Object?>> press(
     String what, {
-    String? card,
+    String? entity,
     Map<String, Object?> more = const {},
   }) async => const {'enabled': true};
 }
 
-const _card = LauncherCard(
+const _entity = Entity(
   id: 'app:a',
-  kind: CardKind.app,
+  kind: appKind,
   target: 'app:a',
   label: 'Alpha',
 );
@@ -48,7 +48,7 @@ void main() {
           tvStateProvider.overrideWith(
             (ref) => Stream.value(
               TvState(
-                cards: const [_card],
+                entities: const [_entity],
                 config: LauncherConfig(layout: Layout.initial(['app:a'])),
                 widgets: const [],
               ),
@@ -83,7 +83,7 @@ void main() {
     await tester.tap(inTree('Alpha'));
     await tester.pumpAndSettle();
     final picked = ref.read(selectedProvider).single;
-    expect(picked.item.ref, 'app:a');
+    expect((picked.item.source ?? picked.item.ref), 'app:a');
 
     await tester.tap(inTree('Home screen'));
     await tester.pumpAndSettle();

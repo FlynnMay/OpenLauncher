@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
@@ -17,13 +17,13 @@ sealed class Entry {
   final LayoutItem item;
 }
 
-class CardEntry extends Entry {
-  const CardEntry(super.item, this.card);
+class EntityEntry extends Entry {
+  const EntityEntry(super.item, this.entity);
 
-  final LauncherCard card;
+  final Entity entity;
 }
 
-/// A card that opens a popup: a folder, or any other panel.
+/// An entity that opens a popup: a folder, or any other panel.
 class PanelEntry extends Entry {
   const PanelEntry(
     super.item,
@@ -34,15 +34,15 @@ class PanelEntry extends Entry {
 
   final Panel panel;
 
-  /// The first few cards inside, for drawing the folder's face.
-  final List<LauncherCard> preview;
+  /// The first few entities inside, for drawing the folder's face.
+  final List<Entity> preview;
 
   /// A picture the user chose for it, as an absolute path.
   final String? icon;
 
   String get label => panel.title.isEmpty ? 'Folder' : panel.title;
 
-  /// The key of a panel card's picture in `LauncherConfig.iconOverrides`.
+  /// The key of a panel entity's picture in `LauncherConfig.iconOverrides`.
   static String iconKey(String panelId) => 'panel:$panelId';
 }
 
@@ -90,7 +90,7 @@ class PanelView {
   bool get isEmpty => root.isEmpty;
 }
 
-/// The layout with every item matched to the card, panel, widget or pane it
+/// The layout with every item matched to the entity, panel, widget or pane it
 /// stands for: what the TV draws.
 @immutable
 class LayoutView {
@@ -106,23 +106,32 @@ class LayoutView {
 
 const _previewCount = 4;
 
-/// Matches [config]'s layout against the [cards] there are. Cards placed
-/// nowhere appear in the inbox pane, unless the user removed them.
-LayoutView resolveLayout(List<LauncherCard> cards, LauncherConfig config) {
-  final byId = {for (final card in cards) card.id: card};
-  final layout = config.layout.withCards(
-    byId.keys,
-    names: {for (final card in cards) card.id: card.sourceLabel},
-  );
+/// [layout] matched to the [entities] there are: what is drawn from one
+/// that is gone is dropped, and those of a kind that is put on the screen
+/// of itself, placed nowhere, are in the inbox.
+Layout layoutWith(Layout layout, List<Entity> entities) => layout.withEntities(
+  [
+    for (final entity in entities)
+      if (entityKind(entity.kind)?.prefab != null) entity.id,
+  ],
+  known: {for (final entity in entities) entity.id},
+  names: {for (final entity in entities) entity.id: entity.sourceLabel},
+);
 
-  List<LauncherCard> preview(Panel panel) => [
+/// Matches [config]'s layout against the [entities] there are. Entities placed
+/// nowhere appear in the inbox pane, unless the user removed them.
+LayoutView resolveLayout(List<Entity> entities, LauncherConfig config) {
+  final byId = {for (final entity in entities) entity.id: entity};
+  final layout = layoutWith(config.layout, entities);
+
+  List<Entity> preview(Panel panel) => [
     for (final item in panel.items)
-      if (item.kind == ItemKind.card) byId[item.ref]!,
+      if (item.kind == ItemKind.prefab) byId[item.source]!,
   ].take(_previewCount).toList();
 
   late PaneView Function(Pane) view;
   Entry entry(LayoutItem item) => switch (item.kind) {
-    ItemKind.card => CardEntry(item, byId[item.ref]!),
+    ItemKind.prefab => EntityEntry(item, byId[item.source]!),
     ItemKind.widget => WidgetEntry(item),
     ItemKind.pane => PaneEntry(item, view(item.pane!)),
     ItemKind.panel => () {
@@ -149,7 +158,7 @@ LayoutView resolveLayout(List<LauncherCard> cards, LauncherConfig config) {
 
 /// The layout as the TV shows it, kept current with the device and config.
 final layoutViewProvider = FutureProvider<LayoutView>((ref) async {
-  final cards = await ref.watch(allCardsProvider.future);
+  final entities = await ref.watch(entitiesProvider.future);
   final config = await ref.watch(configProvider.future);
-  return resolveLayout(cards, config);
+  return resolveLayout(entities, config);
 });

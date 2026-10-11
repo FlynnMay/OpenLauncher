@@ -130,7 +130,7 @@ void main() {
           ...saved,
           saved.first, // The same id again.
           {'id': 'Not An Id'},
-          {'id': 'time'},
+          {'id': 'clock'},
           {'name': 'No id'},
           'nonsense',
           {'id': 'fast', 'every': 1},
@@ -225,22 +225,22 @@ void main() {
 
     test('the launcher has the time and the date', () async {
       final c = container(LauncherConfig());
-      expect(await reads(c, '{{time}}'), '15:04');
+      expect(await reads(c, '{{clock.time}}'), '15:04');
       expect(
-        await reads(c, '{{time.hour12}}:{{time.minute}} {{time.ampm}}'),
+        await reads(c, '{{clock.hour12}}:{{clock.minute}} {{clock.ampm}}'),
         '3:4 pm',
       );
-      expect(await reads(c, '{{time | format:hh:mm:ss a}}'), '03:04:09 pm');
-      expect(await reads(c, '{{date}}'), 'Sunday 11 October');
+      expect(await reads(c, '{{clock | format:hh:mm:ss a}}'), '03:04:09 pm');
+      expect(await reads(c, '{{clock.date}}'), 'Sunday 11 October');
       expect(
-        await reads(c, '{{date.monthName}} {{date.year}}'),
+        await reads(c, '{{clock.monthName}} {{clock.year}}'),
         'October 2026',
       );
     });
 
     test('what is playing, and nothing when nothing is', () async {
       final c = container(LauncherConfig());
-      const template = '{{nowPlaying.title | default:Silence}}';
+      const template = '{{media.title | default:Silence}}';
       expect(await reads(c, template), 'Silence');
       platform.playing = NowPlaying(
         packageName: 'p',
@@ -252,7 +252,7 @@ void main() {
       platform.notifyNowPlayingChanged();
       expect(await reads(c, template), 'Song');
       expect(
-        await reads(c, '{{nowPlaying.artist}} on {{nowPlaying.app}}'),
+        await reads(c, '{{media.artist}} on {{media.app}}'),
         'Band on Player',
       );
     });
@@ -308,6 +308,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          launcherPlatformProvider.overrideWithValue(
+            FakeLauncherPlatform(const [], const []),
+          ),
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(

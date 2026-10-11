@@ -30,8 +30,8 @@ enum WidgetKind {
 
   /// The options a new widget of this kind starts with.
   Map<String, Object?> get starter => switch (this) {
-    text => const {'text': '{{time}}'},
-    meter => const {'value': '{{time.second}}', 'max': 60},
+    text => const {'text': '{{clock.time}}'},
+    meter => const {'value': '{{clock.second}}', 'max': 60},
     button => const {'label': 'Button'},
     _ => const {},
   };
@@ -92,11 +92,18 @@ enum WidgetKind {
         usual: 'center',
         choices: {'left': 'Left', 'center': 'In the middle', 'right': 'Right'},
       ),
-      const WidgetOption('bold', 'Bold', OptionKind.toggle, usual: false),
+      const WidgetOption(
+        'weight',
+        'Letters',
+        OptionKind.choice,
+        usual: 'light',
+        choices: {'light': 'Light', 'medium': 'Medium', 'bold': 'Bold'},
+      ),
       const WidgetOption('colour', 'Colour', OptionKind.colour),
     ],
     picture => const [
       WidgetOption('source', 'Web address or value', OptionKind.template),
+      WidgetOption('alt', 'Says, with no picture', OptionKind.template),
       WidgetOption(
         'fit',
         'Shown',

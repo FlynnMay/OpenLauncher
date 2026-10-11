@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/dragging.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/picture_tile.dart';
 import 'package:openlauncher/editor/tv_api.dart';
-import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/tile_icons.dart';
 
 /// Everything that can be put on the TV: dragged from here onto the screen,
@@ -27,26 +27,34 @@ class _CatalogueState extends ConsumerState<Catalogue> {
 
   /// What there is to add, under the heading it is listed under.
   Map<String, List<_Offer>> _offers(Layout layout) {
-    final all = ref.watch(allCardsProvider).value ?? const [];
+    final all = ref.watch(entitiesProvider).value ?? const [];
     final widgets = ref.watch(tvStateProvider).value?.widgets ?? const [];
     final counts = placedCounts(layout);
+    // The entities that are not placed of themselves, such as the media
+    // player: what they do is offered as buttons that do it.
+    final standing = [
+      for (final entity in all)
+        if (entityKind(entity.kind) case final kind? when kind.prefab == null)
+          entity,
+    ];
     // Named, and given the id that goes with its name, when it is placed.
     final folder = Panel.empty(layout.panelIdFor('Folder'), title: 'Folder');
-    _Offer card(LauncherCard card) => _Offer(
+    _Offer entity(Entity entity) => _Offer(
       Dragged(
-        item: LayoutItem(
-          id: layout.itemIdFor(LayoutItem.autoId(card.id, card.sourceLabel)),
-          kind: ItemKind.card,
-          ref: card.id,
+        item: LayoutItem.of(
+          entity.id,
+          id: layout.itemIdFor(
+            LayoutItem.autoId(entity.id, entity.sourceLabel),
+          ),
         ),
-        label: card.label,
-        picture: CardArt(card: card, padding: 4),
+        label: entity.label,
+        picture: EntityArt(entity: entity, padding: 4),
       ),
-      backed: !CardArt.isBare(card),
-      count: counts[card.id] ?? 0,
+      backed: !EntityArt.isBare(entity),
+      count: counts[entity.id] ?? 0,
     );
-    List<_Offer> cards(bool Function(LauncherCard card) which) {
-      final offers = all.where(which).map(card).toList();
+    List<_Offer> entities(bool Function(Entity entity) which) {
+      final offers = all.where(which).map(entity).toList();
       // What is not on the TV yet comes first; otherwise as the TV has them.
       return [
         ...offers.where((offer) => offer.count == 0),
@@ -103,13 +111,34 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       // quick actions or anywhere else.
       'Buttons': [
         for (final kind in actionKinds)
-          _Offer(
-            Dragged(
-              item: actionButton(layout.itemIdFor(kind.label), kind),
-              label: kind.label,
-              picture: SymbolArt(tileIcons[kind.icon] ?? Icons.smart_button),
+          // What only one entity does comes below, already told which.
+          if (!standing.any(
+            (entity) =>
+                entityKind(entity.kind)!.actions
+                    .any((action) => action.name == kind.name),
+          ))
+            _Offer(
+              Dragged(
+                item: actionButton(layout.itemIdFor(kind.label), kind),
+                label: kind.label,
+                picture: SymbolArt(tileIcons[kind.icon] ?? Icons.smart_button),
+              ),
             ),
-          ),
+        for (final entity in standing)
+          for (final action in entityKind(entity.kind)!.actions)
+            _Offer(
+              Dragged(
+                item: actionButton(
+                  layout.itemIdFor(action.label),
+                  action,
+                  entity: entity.id,
+                ),
+                label: action.label,
+                picture: SymbolArt(
+                  tileIcons[action.icon] ?? Icons.smart_button,
+                ),
+              ),
+            ),
       ],
       'Folders': [
         for (final panel in layout.panels)
@@ -128,8 +157,12 @@ class _CatalogueState extends ConsumerState<Catalogue> {
               ),
             ),
       ],
-      'Inputs': cards((card) => card.kind == CardKind.input),
-      'Apps': cards((card) => card.kind != CardKind.input),
+      // Whatever kinds of entity there are, each under what it is called.
+      // Those that are put on the screen as something of their own; the
+      // rest are read and acted on by what is.
+      for (final kind in entityKinds)
+        if (kind.prefab != null)
+          kind.label: entities((entity) => entity.kind == kind.name),
     };
   }
 
@@ -227,7 +260,7 @@ class _Offer {
 
   final Dragged dragged;
 
-  /// True for a picture that is shown on a card, as artwork is on the TV.
+  /// True for a picture that is shown on an entity, as artwork is on the TV.
   final bool backed;
 
   /// How many times it is on the TV already.

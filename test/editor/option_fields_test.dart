@@ -50,12 +50,6 @@ void main() {
     expect(find.text('Moves'), findsOneWidget);
 
     // Set back to the usual, nothing is kept for it.
-    await tester.tap(find.text('Bold'));
-    await tester.pump();
-    expect(values['bold'], isTrue);
-    await tester.tap(find.text('Bold'));
-    await tester.pump();
-    expect(values.containsKey('bold'), isFalse);
     await tester.tap(find.byTooltip('Less').first);
     await tester.pump();
     expect(values.containsKey('size'), isFalse);

@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// A card one cell big at column [x], row [y], in [panes].
+/// An entity one cell big at column [x], row [y], in [panes].
 NavSpot<String> _at(
   String id,
   double x,
@@ -84,7 +84,7 @@ void main() {
       final noP1 = spots.where((s) => s.id != 'p1').toList();
       // With nothing else of its own pane that way: the child pane.
       expect(_go('p0', NavDirection.right, noP1), 'q0');
-      // From the last card of p: the pane around it, past the sibling s.
+      // From the last entity of p: the pane around it, past the sibling s.
       expect(_go('p1', NavDirection.right, spots), 'loose1');
       // And only with nothing there either, the sibling.
       final noLoose = spots.where((s) => s.id != 'loose1').toList();
@@ -92,36 +92,33 @@ void main() {
     });
 
     test(
-      'from the global pane, panes on it are entered at their nearest card',
+      'from the global pane, panes on it are entered at their nearest entity',
       () {
-        // Its own pane first: the other loose card, however far.
+        // Its own pane first: the other loose entity, however far.
         expect(_go('loose0', NavDirection.right, spots), 'loose1');
         final alone = spots.where((s) => s.id != 'loose1').toList();
         expect(_go('loose0', NavDirection.right, alone), 'p0');
       },
     );
 
-    test(
-      'leaving a pane, straight ahead beats the pane around off to the side',
-      () {
-        // A row of cards in pane b, a pane a directly above it, and one card
-        // of the global pane far up in the corner.
-        final stacked = [
-          _at('corner', 0, 0),
-          _at('a0', 3, 1, ['g', 'a']),
-          _at('b0', 3, 2, ['g', 'b']),
-          _at('b1', 4, 2, ['g', 'b']),
-        ];
-        expect(_go('b0', NavDirection.up, stacked), 'a0');
-        // With nothing straight ahead, the pane around comes before a sibling.
-        final askew = [
-          _at('corner', 0, 0),
-          _at('a0', 6, 1, ['g', 'a']),
-          _at('b0', 3, 2, ['g', 'b']),
-        ];
-        expect(_go('b0', NavDirection.up, askew), 'corner');
-      },
-    );
+    test('leaving a pane, straight ahead beats the pane around off to the side', () {
+      // A row of entities in pane b, a pane a directly above it, and one entity
+      // of the global pane far up in the corner.
+      final stacked = [
+        _at('corner', 0, 0),
+        _at('a0', 3, 1, ['g', 'a']),
+        _at('b0', 3, 2, ['g', 'b']),
+        _at('b1', 4, 2, ['g', 'b']),
+      ];
+      expect(_go('b0', NavDirection.up, stacked), 'a0');
+      // With nothing straight ahead, the pane around comes before a sibling.
+      final askew = [
+        _at('corner', 0, 0),
+        _at('a0', 6, 1, ['g', 'a']),
+        _at('b0', 3, 2, ['g', 'b']),
+      ];
+      expect(_go('b0', NavDirection.up, askew), 'corner');
+    });
 
     test('from an inner pane, out to the pane around it', () {
       expect(_go('q0', NavDirection.right, spots), 'p1');

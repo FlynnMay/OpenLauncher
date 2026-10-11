@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
@@ -20,14 +20,14 @@ typedef WidgetOffer = ({
   Map<String, Object?> options,
 });
 
-/// What the user has changed about a card, beyond where it is.
-typedef CardDetails = ({bool renamed, bool customIcon, String? iconFrom});
+/// What the user has changed about an entity, beyond where it is.
+typedef EntityDetails = ({bool renamed, bool customIcon, String? iconFrom});
 
 /// What the TV says it has: the same things the launcher on the TV works
 /// from, with every picture as the address the TV serves it at.
 class TvState {
   const TvState({
-    required this.cards,
+    required this.entities,
     required this.config,
     required this.widgets,
     this.details = const {},
@@ -38,15 +38,15 @@ class TvState {
     this.nowPlaying,
   });
 
-  /// Every card, with the user's names and pictures already applied.
-  final List<LauncherCard> cards;
+  /// Every entity, with the user's names and pictures already applied.
+  final List<Entity> entities;
 
   /// The layout, the pictures of folders and the options.
   final LauncherConfig config;
   final List<WidgetOffer> widgets;
 
-  /// By card id.
-  final Map<String, CardDetails> details;
+  /// By entity id.
+  final Map<String, EntityDetails> details;
 
   /// Every wallpaper, by the name the TV knows it by, in order.
   final List<({String id, Wallpaper wallpaper})> wallpapers;
@@ -111,8 +111,8 @@ class TvApi {
   Future<TvState> _state(Map<Object?, Object?> json) async {
     final providers = json['widgetProviders'] as List;
     return TvState(
-      cards: await Future.wait([
-        for (final Map card in json['cards'] as List) _card(card),
+      entities: await Future.wait([
+        for (final Map entity in json['entities'] as List) _entity(entity),
       ]),
       // Every plain setting comes as it is saved, whatever there are.
       config:
@@ -147,11 +147,11 @@ class TvApi {
             ),
       ],
       details: {
-        for (final Map card in json['cards'] as List)
-          card['id'] as String: (
-            renamed: card['renamed'] == true,
-            customIcon: card['customIcon'] == true,
-            iconFrom: card['iconFrom'] as String?,
+        for (final Map entity in json['entities'] as List)
+          entity['id'] as String: (
+            renamed: entity['renamed'] == true,
+            customIcon: entity['customIcon'] == true,
+            iconFrom: entity['iconFrom'] as String?,
           ),
       },
       wallpapers: [
@@ -187,12 +187,12 @@ class TvApi {
     );
   }
 
-  Future<LauncherCard> _card(Map<Object?, Object?> json) async {
+  Future<Entity> _entity(Map<Object?, Object?> json) async {
     final icon = json['icon'] as String?;
     final bare = json['bare'] == true && icon != null;
-    return LauncherCard(
+    return Entity(
       id: json['id'] as String,
-      kind: CardKind.values.byName(json['kind'] as String),
+      kind: json['kind'] as String,
       target: json['id'] as String,
       label: json['label'] as String,
       sourceLabel: json['sourceLabel'] as String?,
@@ -250,22 +250,22 @@ class TvApi {
   Future<Object?> sourceValue(String id) async =>
       (await _ask('GET', '/api/source${_id(id)}') as Map)['value'];
 
-  /// Gives the card [id], or the card of the popup `panel:<id>`, the
+  /// Gives the entity [id], or the entity of the popup `panel:<id>`, the
   /// picture [file].
   Future<void> setPicture(String id, PickedFile file) =>
       _upload('PUT', '/api/icon${_id(id)}', file);
 
-  /// Returns a card to its own picture, whether it had one given to it or
-  /// borrowed another card's.
+  /// Returns an entity to its own picture, whether it had one given to it or
+  /// borrowed another entity's.
   Future<void> clearPicture(String id) => _ask('DELETE', '/api/icon${_id(id)}');
 
-  /// Has the card [id] show the picture of the card [from].
+  /// Has the entity [id] show the picture of the entity [from].
   Future<void> borrowPicture(String id, String from) =>
-      _ask('PUT', '/api/card${_id(id)}', {'iconFrom': from});
+      _ask('PUT', '/api/entity${_id(id)}', {'iconFrom': from});
 
-  /// Names the card [id]; null gives it back the name the TV has for it.
+  /// Names the entity [id]; null gives it back the name the TV has for it.
   Future<void> rename(String id, String? name) =>
-      _ask('PUT', '/api/card${_id(id)}', {'name': name});
+      _ask('PUT', '/api/entity${_id(id)}', {'name': name});
 
   Future<void> addWallpaper(PickedFile file) =>
       _upload('POST', '/api/wallpapers', file);
@@ -278,15 +278,15 @@ class TvApi {
   Future<void> arrangeWallpapers({List<String>? order, int? every}) =>
       _ask('PUT', '/api/wallpapers', {'order': ?order, 'every': ?every});
 
-  /// Has the TV do [what], as a press on its remote would; [card] is the id
-  /// of the card pressed, if it was one. Returns what the TV said of it.
+  /// Has the TV do [what], as a press on its remote would; [entity] is the id
+  /// of the entity pressed, if it was one. Returns what the TV said of it.
   Future<Map<Object?, Object?>> press(
     String what, {
-    String? card,
+    String? entity,
     Map<String, Object?> more = const {},
   }) async => await _ask(
     'POST',
-    '/api/remote${card == null ? '' : _id(card)}',
+    '/api/remote${entity == null ? '' : _id(entity)}',
     {'do': what, ...more},
   ) as Map;
 

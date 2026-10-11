@@ -11,15 +11,15 @@ class TriggerSettings extends StatelessWidget {
     required this.set,
     required this.usual,
     required this.panels,
-    required this.cards,
+    required this.entities,
     required this.onChanged,
   });
 
   /// What was set for the thing, and what it does where nothing was.
   final Triggers set, usual;
 
-  /// The popups and the cards there are, by id, with what each is called.
-  final Map<String, String> panels, cards;
+  /// The popups and the entities there are, by id, with what each is called.
+  final Map<String, String> panels, entities;
   final void Function(Triggers set) onChanged;
 
   static const _nothing = '';
@@ -61,16 +61,16 @@ class TriggerSettings extends StatelessWidget {
             ),
           ),
           if (act != null && kind != null) ...[
-            if (kind.needs != Needs.nothing)
+            if (actionNeedsEntity(kind.name))
               LabelledRow(
                 '  to',
                 ChoiceBox<String>(
-                  value: cards.containsKey(act.arg('card'))
-                      ? act.arg('card')
+                  value: entities.containsKey(act.arg('entity'))
+                      ? act.arg('entity')
                       : _nothing,
-                  choices: {_nothing: 'The card it belongs to', ...cards},
+                  choices: {_nothing: 'Its own source', ...entities},
                   onChanged: (id) => _change(trigger, [
-                    told('card', id == _nothing ? null : id),
+                    told('entity', id == _nothing ? null : id),
                   ]),
                 ),
               ),

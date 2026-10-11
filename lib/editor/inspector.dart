@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/editor/global_properties.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/object_tree.dart';
@@ -23,7 +23,7 @@ class Inspector extends ConsumerWidget {
     String name(Found one) => objectName(
       one.item,
       ref.watch(configProvider).value?.layout,
-      ref.watch(allCardsProvider).value ?? const [],
+      ref.watch(entitiesProvider).value ?? const [],
     );
 
     return ListView(

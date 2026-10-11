@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -21,7 +21,7 @@ final configStoreProvider = Provider<ConfigStore>(
     device: () async => Device(
       names: {
         for (final input in await ref.read(tvInputsProvider.future))
-          LauncherCard.inputId(input.id): input.label,
+          Entity.inputId(input.id): input.label,
       },
     ),
   ),

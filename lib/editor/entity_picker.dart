@@ -1,37 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/editor/picture_tile.dart';
-import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/features/home/entity_art.dart';
 
-/// Lets the user choose one of [cards]; null if they choose none.
-Future<LauncherCard?> pickCard(
+/// Lets the user choose one of [entities]; null if they choose none.
+Future<Entity?> pickEntity(
   BuildContext context, {
   required String title,
-  required List<LauncherCard> cards,
-}) => showDialog<LauncherCard>(
+  required List<Entity> entities,
+}) => showDialog<Entity>(
   context: context,
-  builder: (_) => _CardPicker(title: title, cards: cards),
+  builder: (_) => _EntityPicker(title: title, entities: entities),
 );
 
-class _CardPicker extends StatefulWidget {
-  const _CardPicker({required this.title, required this.cards});
+class _EntityPicker extends StatefulWidget {
+  const _EntityPicker({required this.title, required this.entities});
 
   final String title;
-  final List<LauncherCard> cards;
+  final List<Entity> entities;
 
   @override
-  State<_CardPicker> createState() => _CardPickerState();
+  State<_EntityPicker> createState() => _EntityPickerState();
 }
 
-class _CardPickerState extends State<_CardPicker> {
+class _EntityPickerState extends State<_EntityPicker> {
   String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final query = _query.trim().toLowerCase();
-    final cards = [
-      for (final card in widget.cards)
-        if (card.label.toLowerCase().contains(query)) card,
+    final entities = [
+      for (final entity in widget.entities)
+        if (entity.label.toLowerCase().contains(query)) entity,
     ];
     return AlertDialog(
       title: Text(widget.title),
@@ -54,12 +54,12 @@ class _CardPickerState extends State<_CardPicker> {
               child: GridView(
                 gridDelegate: pictureTileGrid,
                 children: [
-                  for (final card in cards)
+                  for (final entity in entities)
                     PictureTile(
-                      label: card.label,
-                      picture: CardArt(card: card, padding: 4),
-                      backed: !CardArt.isBare(card),
-                      onTap: () => Navigator.pop(context, card),
+                      label: entity.label,
+                      picture: EntityArt(entity: entity, padding: 4),
+                      backed: !EntityArt.isBare(entity),
+                      onTap: () => Navigator.pop(context, entity),
                     ),
                 ],
               ),

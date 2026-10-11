@@ -43,7 +43,7 @@ class Panel {
 
   final String id;
 
-  /// Shown as the heading of a popup and as the label of cards opening it.
+  /// Shown as the heading of a popup and as the label of entities opening it.
   final String title;
 
   /// The pane that fills the panel, edge to edge.
@@ -81,7 +81,7 @@ class Panel {
   bool get opensAcross => edge == BarEdge.left || edge == BarEdge.right;
 
   /// The sizes a sidebar on this edge has unless told otherwise: along a
-  /// side it is as tall as the screen and a few cards wide, closed to a
+  /// side it is as tall as the screen and a few entities wide, closed to a
   /// strip of their pictures; along the top or bottom it is as wide as the
   /// screen and out of sight until the focus goes there.
   double get openWidth => width ?? (opensAcross ? 260 : fill);
@@ -105,7 +105,7 @@ class Panel {
       columns: Pane.globalColumns,
     ),
     // A side bar is one column of rows; one along the top or bottom is a
-    // row of cards.
+    // row of entities.
     PanelKind.sidebar => switch (edgeOf(panelId)) {
       BarEdge.top || BarEdge.bottom => Pane(id: rootId(panelId), columns: 8),
       _ => Pane(id: rootId(panelId), columns: 1).asBar(),

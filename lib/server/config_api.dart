@@ -4,8 +4,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/widgets/widgets.dart';
@@ -74,9 +75,9 @@ class ConfigApi {
       ('GET', 'api/source') => _sourceValue(id),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
       ('POST', 'api/remote') => _remote(id, await _body(request)),
-      ('PUT', 'api/card') => _withCard(
+      ('PUT', 'api/entity') => _withEntity(
         id,
-        (id) async => _setCard(id, await _body(request)),
+        (id) async => _setEntity(id, await _body(request)),
       ),
       ('GET', 'api/icon') => _withPicture(id, _icon),
       ('PUT', 'api/icon') => _withPicture(id, (id) => _uploadIcon(id, request)),
@@ -113,19 +114,19 @@ class ConfigApi {
     throw const FormatException('Expected a JSON object');
   }
 
-  /// Runs [action] only if [id] names a card that currently exists.
-  Future<Response> _withCard(
+  /// Runs [action] only if [id] names an entity that currently exists.
+  Future<Response> _withEntity(
     String? id,
     Future<Response> Function(String id) action,
   ) async {
-    final cards = await _ref.read(allCardsProvider.future);
-    if (id == null || !cards.any((card) => card.id == id)) {
-      return _error(404, 'Unknown card');
+    final entities = await _ref.read(entitiesProvider.future);
+    if (id == null || !entities.any((entity) => entity.id == id)) {
+      return _error(404, 'Unknown entity');
     }
     return action(id);
   }
 
-  /// Like [_withCard], but [id] may also name the card of a popup panel
+  /// Like [_withEntity], but [id] may also name the entity of a popup panel
   /// (`panel:<panel id>`), which can have a picture too.
   Future<Response> _withPicture(
     String? id,
@@ -136,7 +137,7 @@ class ConfigApi {
       (panel) =>
           panel.kind == PanelKind.popup && PanelEntry.iconKey(panel.id) == id,
     );
-    return isPanel ? action(id!) : _withCard(id, action);
+    return isPanel ? action(id!) : _withEntity(id, action);
   }
 
   /// Replaces the whole layout with the one the page sends.
@@ -156,10 +157,10 @@ class ConfigApi {
     return _ok();
   }
 
-  /// Sets a card's `name` and the card it takes its picture from
+  /// Sets an entity's `name` and the entity it takes its picture from
   /// (`iconFrom`); null undoes either, and whichever the body leaves out
   /// stays as it is.
-  Future<Response> _setCard(String id, Map<String, Object?> body) async {
+  Future<Response> _setEntity(String id, Map<String, Object?> body) async {
     final config = _ref.read(configProvider.notifier);
     final name = body['name'], from = body['iconFrom'];
     if (name is! String?) {
@@ -169,10 +170,10 @@ class ConfigApi {
       throw const FormatException('That name is too long');
     }
     if (body.containsKey('iconFrom')) {
-      final cards = await _ref.read(allCardsProvider.future);
+      final entities = await _ref.read(entitiesProvider.future);
       if (from != null &&
-          (from == id || !cards.any((card) => card.id == from))) {
-        throw const FormatException('"iconFrom" must name another card');
+          (from == id || !entities.any((entity) => entity.id == from))) {
+        throw const FormatException('"iconFrom" must name another entity');
       }
       // An uploaded picture is replaced by the borrowed one.
       await _ref.read(customIconsProvider).clear(id);
@@ -222,47 +223,52 @@ class ConfigApi {
   }
 
   /// Does on the TV what a press on the remote would (`do`): `open`, `info`,
-  /// `uninstall` or `forceStop` the card [id], `media` (`command`), `setup`,
+  /// `uninstall` or `forceStop` the entity [id], `media` (`command`), `setup`,
   /// `tvSettings`, or `homeButton`, which switches it if `enabled` is given
   /// and says how it stands.
   Future<Response> _remote(String? id, Map<String, Object?> body) async {
     final platform = _ref.read(launcherPlatformProvider);
     Response reply([Map<String, Object?> said = const {}]) =>
         Response.ok(jsonEncode(said), headers: _json);
-    Future<Response> onCard(
-      Future<Map<String, Object?>?> Function(LauncherCard card) action, {
+    Future<Response> onEntity(
+      Future<Map<String, Object?>?> Function(Entity entity) action, {
       bool appOnly = true,
-    }) => _withCard(id, (id) async {
-      final cards = await _ref.read(allCardsProvider.future);
-      final card = cards.firstWhere((card) => card.id == id);
-      if (appOnly && card.kind != CardKind.app) {
-        throw const FormatException('That card is not an app');
+    }) => _withEntity(id, (id) async {
+      final entities = await _ref.read(entitiesProvider.future);
+      final entity = entities.firstWhere((entity) => entity.id == id);
+      if (appOnly && entity.kind != appKind) {
+        throw const FormatException('That entity is not an app');
       }
-      return reply(await action(card) ?? const {});
+      return reply(await action(entity) ?? const {});
     });
     try {
       switch (body['do']) {
         case 'open':
-          return await onCard(appOnly: false, (card) async {
-            if (card.kind == CardKind.action) {
-              throw const FormatException('That card opens nothing on the TV');
+          return await onEntity(appOnly: false, (entity) async {
+            if (entity.kind == launcherKind) {
+              throw const FormatException('That opens nothing on the TV');
             }
-            await _ref.read(cardActionsProvider).launch(card);
+            // As pressing something drawn from it would.
+            await _ref
+                .read(actionRunnerProvider)
+                .run(const Act('open'), subject: entity);
             return null;
           });
         case 'info':
-          return await onCard((card) async {
-            await platform.openAppInfo(card.target);
+          return await onEntity((entity) async {
+            await platform.openAppInfo(entity.target);
             return null;
           });
         case 'uninstall':
-          return await onCard((card) async {
-            await platform.uninstallApp(card.target);
+          return await onEntity((entity) async {
+            await platform.uninstallApp(entity.target);
             return null;
           });
         case 'forceStop':
-          return await onCard(
-            (card) async => {'done': await platform.forceStopApp(card.target)},
+          return await onEntity(
+            (entity) async => {
+              'done': await platform.forceStopApp(entity.target),
+            },
           );
         case 'media':
           final command = MediaCommand.values
@@ -333,15 +339,15 @@ class ConfigApi {
   }
 
   Future<Response> _icon(String id) async {
-    final cards = await _ref.read(allCardsProvider.future);
+    final entities = await _ref.read(entitiesProvider.future);
     final config = await _ref.read(configProvider.future);
-    // Null for the card of a popup, which only has a picture if given one.
-    final card = cards.where((card) => card.id == id).firstOrNull;
+    // Null for the entity of a popup, which only has a picture if given one.
+    final entity = entities.where((entity) => entity.id == id).firstOrNull;
     // The URL carries a version, so the image behind it never changes.
     const cache = {'cache-control': 'public, max-age=31536000, immutable'};
-    final path = card == null ? config.iconOverrides[id] : card.iconPath;
+    final path = entity == null ? config.iconOverrides[id] : entity.iconPath;
     if (path == null) {
-      return switch (card?.svg) {
+      return switch (entity?.svg) {
         null => _error(404, 'No icon'),
         final svg => Response.ok(
           svg,

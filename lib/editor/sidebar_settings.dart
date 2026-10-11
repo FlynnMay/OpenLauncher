@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
@@ -220,7 +221,7 @@ class SidebarSettings extends ConsumerWidget {
             ),
           ),
           LabelledRow(
-            'Its cards',
+            'What is in it',
             ChoiceBox<BarReveal>(
               value: panel.reveal,
               choices: const {
@@ -244,7 +245,12 @@ class SidebarSettings extends ConsumerWidget {
             ),
           ),
         ]),
-        PaneSettings(title: 'Its pane', panes: [panel.root], onChanged: pane),
+        PaneSettings(
+          title: 'Its pane',
+          prefabs: ref.watch(prefabsProvider),
+          panes: [panel.root],
+          onChanged: pane,
+        ),
         StyleSettings(
           styles: [panel.root.style],
           onChanged: (how) =>

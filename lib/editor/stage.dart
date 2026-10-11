@@ -13,7 +13,7 @@ import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/snapping.dart';
 import 'package:openlauncher/editor/stage_geometry.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
-import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
@@ -84,9 +84,9 @@ class _StageState extends ConsumerState<Stage> {
             ),
           ),
         );
-      case CardEntry(:final card):
+      case EntityEntry(:final entity):
         return DragHandle(
-          data: dragged(card.label, CardArt(card: card, padding: 4)),
+          data: dragged(entity.label, EntityArt(entity: entity, padding: 4)),
           child: still,
         );
       case PanelEntry():

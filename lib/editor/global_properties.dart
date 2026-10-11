@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
+import 'package:openlauncher/editor/prefab_settings.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
@@ -14,7 +16,7 @@ import 'package:openlauncher/editor/wallpaper_settings.dart';
 
 /// What is set for the launcher as a whole, shown while nothing on the
 /// screen is picked out: the wallpaper, how the screen itself arranges
-/// things, the menu a held card opens, and notifications.
+/// things, the menu a held entity opens, and notifications.
 class GlobalProperties extends ConsumerWidget {
   const GlobalProperties({super.key});
 
@@ -40,6 +42,7 @@ class GlobalProperties extends ConsumerWidget {
         // The screen is a pane like any other, only without a name.
         PaneSettings(
           title: 'Screen',
+          prefabs: ref.watch(prefabsProvider),
           named: false,
           shaped: false,
           panes: [config.layout.home.root],
@@ -88,11 +91,17 @@ class GlobalProperties extends ConsumerWidget {
           onPlace: (place) =>
               controller.change((c) => c.copyWith(place: () => place)),
         ),
+        PrefabsSettings(
+          prefabs: ref.watch(prefabsProvider),
+          own: config.prefabs,
+          onChanged: (prefabs) =>
+              controller.change((c) => c.copyWith(prefabs: prefabs)),
+        ),
         Section('Quick actions', open: false, [
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Text(
-              'What a held card offers: a popup of buttons, arranged like '
+              'What holding OK on something offers: a popup of buttons, arranged like '
               'any folder. Buttons for it are under Add.',
             ),
           ),

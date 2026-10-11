@@ -1,20 +1,18 @@
 import 'package:flutter/foundation.dart';
 
-/// What a card does when selected. New kinds (shortcuts, ...) are added here
-/// and given a source in `cards_provider.dart`. Declaration order is the
-/// default display order.
-enum CardKind {
-  input,
-  app,
+// The names of the kinds of entity the launcher comes with; what each is
+// and does is in `entity_kinds.dart`, and there may be any number more.
+const appKind = 'app';
+const inputKind = 'input';
+const launcherKind = 'launcher';
 
-  /// Something the launcher itself does, such as opening its settings.
-  action,
-}
-
-/// One tile on the home screen, after user config has been applied.
+/// Something a prefab can be drawn from and do things to: an app, one of
+/// the TV's inputs, a screen of the launcher's own, and whatever other
+/// kinds there come to be. It says what it is called, what it looks like,
+/// and, through its kind, what can be done with it.
 @immutable
-class LauncherCard {
-  const LauncherCard({
+class Entity {
+  const Entity({
     required this.id,
     required this.kind,
     required this.target,
@@ -27,39 +25,40 @@ class LauncherCard {
 
   /// Stable key used by config and the command API, e.g. `app:com.example`.
   final String id;
-  final CardKind kind;
 
-  /// Kind-specific launch target: the package name for [CardKind.app], the
-  /// TV input id for [CardKind.input].
+  /// The name of its `EntityKind`.
+  final String kind;
+
+  /// What its kind knows it by: an app's package name, a TV input's id.
   final String target;
   final String label;
 
   /// What the device calls it, whatever the user has named it since. The
-  /// ids of cards that are not apps are made from this in the layout, so
+  /// ids of entities that are not apps are made from this in the layout, so
   /// that they say what the thing is.
   final String sourceLabel;
 
   /// Absolute path of the image to show, or null to fall back to the label.
   final String? iconPath;
 
-  /// True when [iconPath] is 16:9 artwork that should fill the card.
+  /// True when [iconPath] is 16:9 artwork that should fill the entity.
   final bool wideIcon;
 
   /// Built-in line art, as SVG markup, shown when there is no [iconPath].
-  /// Cards drawn this way have no background of their own.
+  /// Entities drawn this way have no background of their own.
   final String? svg;
 
   static String appId(String packageName) => 'app:$packageName';
   static String inputId(String tvInputId) => 'input:$tvInputId';
 
-  /// The card that opens the launcher's settings. It can be placed like
+  /// The entity that opens the launcher's settings. It can be placed like
   /// any other; while it is nowhere, the home screen shows a button instead.
-  static const settings = LauncherCard(
+  static const settings = Entity(
     id: 'launcher:settings',
-    kind: CardKind.action,
+    kind: launcherKind,
     target: 'settings',
     label: 'Settings',
-    // A cog, in the same line drawing as the input cards.
+    // A cog, in the same line drawing as the input entities.
     svg:
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90" '
         'fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" '
@@ -69,8 +68,8 @@ class LauncherCard {
         '5.7"/></svg>',
   );
 
-  /// This card under another name.
-  LauncherCard withLabel(String label) => LauncherCard(
+  /// This entity under another name.
+  Entity withLabel(String label) => Entity(
     id: id,
     kind: kind,
     target: target,
@@ -81,8 +80,8 @@ class LauncherCard {
     svg: svg,
   );
 
-  /// This card looking like [other].
-  LauncherCard withPictureOf(LauncherCard other) => LauncherCard(
+  /// This entity looking like [other].
+  Entity withPictureOf(Entity other) => Entity(
     id: id,
     kind: kind,
     target: target,
@@ -95,7 +94,7 @@ class LauncherCard {
 
   @override
   bool operator ==(Object other) =>
-      other is LauncherCard &&
+      other is Entity &&
       other.id == id &&
       other.kind == kind &&
       other.target == target &&

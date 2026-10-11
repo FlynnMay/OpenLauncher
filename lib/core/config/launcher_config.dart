@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/values/built_in_values.dart';
 import 'package:openlauncher/core/values/data_source.dart';
 import 'package:openlauncher/core/widgets/weather.dart';
@@ -53,19 +54,20 @@ class LauncherConfig {
     this.toasts = const ToastOptions(),
     this.sources = const [],
     this.place,
+    this.prefabs = const [],
   }) : layout = layout ?? Layout.initial();
 
-  /// Where every card, folder and widget is.
+  /// Where every entity, folder and widget is.
   final Layout layout;
 
-  /// Card id -> absolute path of a user-chosen image. Cards that open a
+  /// Entity id -> absolute path of a user-chosen image. Entities that open a
   /// popup are keyed `panel:<panel id>`.
   final Map<String, String> iconOverrides;
 
-  /// Card id -> id of the card whose picture it shows instead of its own.
+  /// Entity id -> id of the entity whose picture it shows instead of its own.
   final Map<String, String> iconSources;
 
-  /// Card id -> the name the user gave it.
+  /// Entity id -> the name the user gave it.
   final Map<String, String> names;
 
   /// Absolute paths of the images and videos shown behind the home screen;
@@ -93,6 +95,10 @@ class LauncherConfig {
   /// the `weather` value is the weather of.
   final Place? place;
 
+  /// The prefabs the user made, and their changed copies of the launcher's
+  /// own, which stand in for those by having the same id.
+  final List<Prefab> prefabs;
+
   /// The parts of the config that are carried whole between the TV and
   /// whatever edits it: told in the state, set through `PUT /api/config`,
   /// sent back by the editor when they change. **A new setting that is
@@ -100,7 +106,7 @@ class LauncherConfig {
   /// anywhere else.** What is not here needs more than carrying: the layout
   /// (repaired, and its pictures tidied), and whatever holds the paths of
   /// files on the TV, which no page may choose.
-  static const openKeys = ['toasts', 'sources', 'place'];
+  static const openKeys = ['toasts', 'sources', 'place', 'prefabs'];
 
   /// The [openKeys] parts as they are saved; one that is not set is null.
   Map<String, Object?> get open {
@@ -128,6 +134,7 @@ class LauncherConfig {
     List<DataSource>? sources,
     // A function, so that it can be taken away: null leaves it as it is.
     Place? Function()? place,
+    List<Prefab>? prefabs,
   }) => LauncherConfig(
     layout: layout ?? this.layout,
     iconOverrides: iconOverrides ?? this.iconOverrides,
@@ -138,6 +145,7 @@ class LauncherConfig {
     toasts: toasts ?? this.toasts,
     sources: sources ?? this.sources,
     place: place == null ? this.place : place(),
+    prefabs: prefabs ?? this.prefabs,
   );
 
   /// Reads a saved config of any version: an older one is brought up to
@@ -182,6 +190,7 @@ class LauncherConfig {
     },
     sources: DataSource.listFromJson(json['sources'], taken: builtInRoots),
     place: placeFromJson(json['place']),
+    prefabs: Prefab.listFromJson(json['prefabs']),
   );
 
   /// A place as it is saved, or null for anything else.
@@ -222,7 +231,7 @@ class LauncherConfig {
       // A broken layout must not take the wallpaper and pictures with it.
       debugPrint('Saved layout unreadable, starting a new one: $e');
     }
-    // In the order the cards were in, where a config still says.
+    // In the order the entities were in, where a config still says.
     return Layout.initial([
       if (json['order'] case final List<Object?> order)
         ...order.whereType<String>(),
@@ -240,5 +249,6 @@ class LauncherConfig {
     'toasts': toasts.toJson(),
     'sources': [for (final source in sources) source.toJson()],
     'place': ?placeToJson(place),
+    'prefabs': [for (final prefab in prefabs) prefab.toJson()],
   };
 }

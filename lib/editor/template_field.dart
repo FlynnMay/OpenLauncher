@@ -64,8 +64,31 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
     super.dispose();
   }
 
-  Widget _offer(String path) =>
-      MenuItemButton(onPressed: () => _insert(path), child: Text('{{$path}}'));
+  /// Offers [values], the paths there are under what each is called, and
+  /// writes in the one chosen.
+  Future<void> _choose(Map<String, List<String>> values) async {
+    final path = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Put a value in'),
+        children: [
+          for (final MapEntry(key: name, value: paths) in values.entries)
+            ExpansionTile(
+              title: Text(name),
+              children: [
+                for (final path in paths)
+                  ListTile(
+                    dense: true,
+                    title: Text('{{$path}}'),
+                    onTap: () => Navigator.pop(context, path),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+    if (path != null && mounted) _insert(path);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +96,20 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
     final sources = ref.watch(
       configProvider.select((config) => config.value?.sources ?? const []),
     );
+    // Kept up to date while the field shows, so that each single thing a
+    // value of the user's last answered with can be offered.
+    final values = {
+      for (final value in builtInValues)
+        value.label: [
+          value.root,
+          for (final part in value.parts) '${value.root}.$part',
+        ],
+      for (final source in sources)
+        (source.name.isEmpty ? source.id : source.name): valuePaths(
+          source.id,
+          ref.watch(valueProvider(source.id)),
+        ).keys.take(_mostParts).toList(),
+    };
     final reads = widget.value.contains('{{')
         ? ref.watch(templateProvider(widget.value))
         : null;
@@ -88,37 +125,10 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
               labelText: widget.label,
               isDense: true,
               border: const OutlineInputBorder(),
-              suffixIcon: MenuAnchor(
-                builder: (context, menu, _) => IconButton(
-                  tooltip: 'Put a value in',
-                  icon: const Icon(Icons.data_object),
-                  onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-                ),
-                menuChildren: [
-                  for (final value in builtInValues)
-                    SubmenuButton(
-                      menuChildren: [
-                        _offer(value.root),
-                        for (final part in value.parts)
-                          _offer('${value.root}.$part'),
-                      ],
-                      child: Text(value.label),
-                    ),
-                  for (final source in sources)
-                    SubmenuButton(
-                      menuChildren: [
-                        // Each single thing it last answered with.
-                        for (final path in valuePaths(
-                          source.id,
-                          ref.watch(valueProvider(source.id)),
-                        ).keys.take(_mostParts))
-                          _offer(path),
-                      ],
-                      child: Text(
-                        source.name.isEmpty ? source.id : source.name,
-                      ),
-                    ),
-                ],
+              suffixIcon: IconButton(
+                tooltip: 'Put a value in',
+                icon: const Icon(Icons.data_object),
+                onPressed: () => _choose(values),
               ),
             ),
             onSubmitted: (_) => _take(),

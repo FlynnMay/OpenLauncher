@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// How the box behind a section or a card is painted: nothing, one colour,
+/// How the box behind a section or an entity is painted: nothing, one colour,
 /// or a gradient, each colour with its own transparency, and optionally an
 /// outline. Chosen on the config page.
 @immutable

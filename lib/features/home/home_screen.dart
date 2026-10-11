@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
@@ -77,11 +77,11 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Whether the Settings card is somewhere the user can get to.
+  /// Whether the Settings entity is somewhere the user can get to.
   static bool _hasSettings(LayoutView layout) => layout.panels.values.any(
     (view) => view.panel.items.any(
       (item) =>
-          item.kind == ItemKind.card && item.ref == LauncherCard.settings.id,
+          item.kind == ItemKind.prefab && item.source == Entity.settings.id,
     ),
   );
 }
@@ -105,7 +105,7 @@ class _Header extends ConsumerWidget {
             label: 'Set as Home',
             onPressed: () => SettingsScreen.show(context),
           ),
-        // The way in to Settings is a card like any other; this stands in
+        // The way in to Settings is an entity like any other; this stands in
         // for it while it has been removed, so there is always a way in.
         if (!settingsPlaced)
           _HeaderButton(

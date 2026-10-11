@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
-import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/prefab_tile.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 import 'package:openlauncher/features/widgets/widget_tile.dart';
@@ -23,7 +26,7 @@ class TileFrame extends InheritedWidget {
 }
 
 /// Draws one layout entry and gives it its behaviour, which is whatever its
-/// triggers say (`triggersOf`): a card is only a button that came with a
+/// triggers say (`triggersOf`): an entity is only a button that came with a
 /// press and a hold already set. A pane draws what is in it the same way.
 class EntryTile extends ConsumerWidget {
   const EntryTile({
@@ -35,10 +38,10 @@ class EntryTile extends ConsumerWidget {
 
   final Entry entry;
 
-  /// Gives the starting focus to the first card on screen.
+  /// Gives the starting focus to the first entity on screen.
   final FirstFocus? focus;
 
-  /// True inside a popup, which closes when one of its cards is opened.
+  /// True inside a popup, which closes when one of its entities is opened.
   final bool inPopup;
 
   @override
@@ -57,15 +60,34 @@ class EntryTile extends ConsumerWidget {
             EntryTile(entry: inner, focus: focus, inPopup: inPopup),
       );
     }
-    // In a card's menu, what is pressed is done to that card.
+    // In an entity's menu, what is pressed is done to that entity.
     final menuOf = ActionSubject.of(context);
+    // An entity, and an entity that opens a folder, is an instance of a prefab,
+    // which says what it is made of and what it does; the instance says
+    // only where it differs. One whose prefab is gone is drawn as the
+    // launcher's own for its kind.
+    final instance = switch (entry) {
+      EntityEntry(:final item) || PanelEntry(:final item) => () {
+        final own = ref.watch(
+          prefabsProvider.select((prefabs) => prefabs[prefabIdOf(item)]),
+        );
+        final usual = builtInPrefabs.firstWhere(
+          (prefab) =>
+              prefab.id ==
+              (item.kind == ItemKind.panel ? folderPrefabId : cardPrefabId),
+        );
+        return (own == null ? null : instanceOf(own, item)) ??
+            instanceOf(usual, item);
+      }(),
+      _ => null,
+    };
     final does = TileActions(
       context,
       ref,
-      triggersOf(entry.item),
-      subject: entry is CardEntry ? entry.card : menuOf,
+      instance?.triggers(entry.item) ?? triggersOf(entry.item),
+      subject: entry is EntityEntry ? entry.entity : menuOf,
       inPopup: inPopup,
-      closes: inPopup && (entry is CardEntry || menuOf != null),
+      closes: inPopup && (entry is EntityEntry || menuOf != null),
     );
     void press() => does.fire(Trigger.press);
     final hold = does.has(Trigger.hold)
@@ -79,30 +101,28 @@ class EntryTile extends ConsumerWidget {
           }
         : null;
     switch (entry) {
-      case CardEntry(:final card):
-        return ArtTile(
-          label: card.label,
-          art: CardArt(
-            card: card,
-            padding: entry.item.look == TileLook.card ? 14 : 4,
-          ),
-          bare: CardArt.isBare(card),
+      case EntityEntry(:final entity):
+        return PrefabTile(
+          instance: instance!,
+          // Kept current, as anything an entity provides is.
+          source: switch (ref.watch(entityDataProvider(entity.id))) {
+            final Map<Object?, Object?> data => data.cast(),
+            _ => const {},
+          },
+          bare: EntityArt.isBare(entity),
           autofocus: focus?.take() ?? false,
-          style: entry.item.look,
-          showLabel: !entry.item.hideName,
           boxStyle: entry.item.style,
           onSelect: press,
           onMenu: hold,
           onFocus: onFocus,
         );
-      case PanelEntry():
-        return ArtTile(
-          label: entry.label,
-          art: FolderArt(entry: entry),
+      case PanelEntry(:final panel):
+        return PrefabTile(
+          instance: instance!,
+          source: folderValues(panel),
+          custom: {'folder': FolderArt(entry: entry)},
           bare: FolderArt.isBare(entry),
           autofocus: focus?.take() ?? false,
-          style: entry.item.look,
-          showLabel: !entry.item.hideName,
           boxStyle: entry.item.style,
           onSelect: press,
           onMenu: hold,

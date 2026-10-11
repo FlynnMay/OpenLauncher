@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/widgets/widget_kind.dart';
 import 'package:openlauncher/editor/selection.dart';
@@ -9,37 +9,40 @@ import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tree_view.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 
-/// What the thing [item] places is called: a card by its name, a pane by
-/// its title, a folder card by the folder it opens.
-String objectName(LayoutItem item, Layout? layout, List<LauncherCard> cards) =>
-    switch (item.kind) {
-      ItemKind.card =>
-        cards.where((card) => card.id == item.ref).firstOrNull?.label ?? 'Card',
-      // A button by what it says, where that is plain to read.
-      ItemKind.widget => switch (item.options['label']) {
-        final String label when label.isNotEmpty && !label.contains('{{') =>
-          label,
-        _ => WidgetKind.named(item.ref)?.label ?? 'Widget',
-      },
-      ItemKind.pane => switch (item.pane?.title) {
-        null || '' => 'Pane',
-        final title => title,
-      },
-      ItemKind.panel => switch (layout?.panel(item.ref)?.title) {
-        null || '' => 'Folder',
-        final title => title,
-      },
-    };
+/// What the thing [item] places is called: an entity by its name, a pane by
+/// its title, a folder entity by the folder it opens.
+String objectName(
+  LayoutItem item,
+  Layout? layout,
+  List<Entity> entities,
+) => switch (item.kind) {
+  ItemKind.prefab =>
+    entities.where((entity) => entity.id == item.source).firstOrNull?.label ??
+        'Prefab',
+  // A button by what it says, where that is plain to read.
+  ItemKind.widget => switch (item.options['label']) {
+    final String label when label.isNotEmpty && !label.contains('{{') => label,
+    _ => WidgetKind.named(item.ref)?.label ?? 'Widget',
+  },
+  ItemKind.pane => switch (item.pane?.title) {
+    null || '' => 'Pane',
+    final title => title,
+  },
+  ItemKind.panel => switch (layout?.panel(item.ref)?.title) {
+    null || '' => 'Folder',
+    final title => title,
+  },
+};
 
 IconData objectIcon(ItemKind kind) => switch (kind) {
-  ItemKind.card => Icons.crop_16_9,
+  ItemKind.prefab => Icons.crop_16_9,
   ItemKind.widget => Icons.widgets_outlined,
   ItemKind.pane => Icons.dashboard_outlined,
   ItemKind.panel => Icons.folder_outlined,
 };
 
 /// Everything on the TV as a tree: the home screen, each sidebar and each
-/// folder, and under them the panes, cards and widgets as they are nested.
+/// folder, and under them the panes, entities and widgets as they are nested.
 /// A press picks a thing out, as a press on it on the screen does; a press
 /// on a sidebar or a folder brings it up on the screen.
 class ObjectTree extends ConsumerWidget {
@@ -54,7 +57,7 @@ class ObjectTree extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = ref.watch(configProvider).value?.layout;
     if (layout == null) return const SizedBox.shrink();
-    final cards = ref.watch(allCardsProvider).value ?? const <LauncherCard>[];
+    final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final selection = ref.watch(selectionProvider);
     final bar = ref.watch(barProvider);
 
@@ -63,7 +66,7 @@ class ObjectTree extends ConsumerWidget {
         TreeNode(
           id: item.id,
           value: item.id,
-          label: objectName(item, layout, cards),
+          label: objectName(item, layout, entities),
           leading: _icon(objectIcon(item.kind)),
           children: switch (item.pane) {
             null => const [],

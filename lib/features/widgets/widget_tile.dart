@@ -7,7 +7,7 @@ import 'package:openlauncher/features/widgets/media_widget.dart';
 import 'package:openlauncher/features/widgets/primitive_widgets.dart';
 import 'package:openlauncher/features/widgets/weather_widget.dart';
 
-/// Draws the widget a layout item stands for. Widgets have no card behind
+/// Draws the widget a layout item stands for. Widgets have no entity behind
 /// them: they sit straight on the wallpaper.
 class WidgetTile extends StatelessWidget {
   const WidgetTile({super.key, required this.item, this.compact = false});
@@ -17,17 +17,29 @@ class WidgetTile extends StatelessWidget {
   /// True in a closed rail, where a widget gets a small square.
   final bool compact;
 
+  /// The widget of the kind called [kind], set up by [options]. [shrink]
+  /// has one that can take only the room it needs do so.
+  static Widget of(
+    String kind,
+    Map<String, Object?> options, {
+    bool shrink = false,
+  }) => switch (WidgetKind.named(kind)) {
+    WidgetKind.clock => ClockWidget(options: options),
+    WidgetKind.weather => WeatherWidget(options: options),
+    WidgetKind.media => const MediaWidget(),
+    WidgetKind.text => TextWidget(options: options, shrink: shrink),
+    WidgetKind.picture => PictureWidget(options: options),
+    WidgetKind.meter => MeterWidget(options: options),
+    WidgetKind.button => ButtonWidget(options: options),
+    // Needs the item it is, which the device knows it by; and what was
+    // made by a newer version of the launcher.
+    WidgetKind.android || null => const SizedBox.shrink(),
+  };
+
   @override
   Widget build(BuildContext context) => switch (WidgetKind.named(item.ref)) {
-    WidgetKind.clock => ClockWidget(options: item.options),
-    WidgetKind.weather => WeatherWidget(options: item.options),
-    WidgetKind.media => MediaWidget(compact: compact),
     WidgetKind.android => AppWidgetView(item: item),
-    WidgetKind.text => TextWidget(options: item.options),
-    WidgetKind.picture => PictureWidget(options: item.options),
-    WidgetKind.meter => MeterWidget(options: item.options),
-    WidgetKind.button => ButtonWidget(options: item.options),
-    // Made by a newer version of the launcher.
-    null => const SizedBox.shrink(),
+    WidgetKind.media => MediaWidget(compact: compact),
+    _ => of(item.ref, item.options),
   };
 }

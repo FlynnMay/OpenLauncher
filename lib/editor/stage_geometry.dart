@@ -92,10 +92,10 @@ Set<ResizeHandle> resizeHandles(
   Pane pane,
   double least,
 ) {
-  // A card whose size its pane decides has none to change.
+  // An entity whose size its pane decides has none to change.
   final decided =
       (pane.itemW != null || pane.itemH != null) &&
-      (item.kind == ItemKind.card || item.kind == ItemKind.panel);
+      (item.kind == ItemKind.prefab || item.kind == ItemKind.panel);
   if (decided) return const {};
   bool across(int side) =>
       side == 0 ||

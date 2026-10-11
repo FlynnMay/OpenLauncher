@@ -93,7 +93,7 @@ class BarReplay extends Notifier<bool> {
   }
 }
 
-/// The popups the selected folder cards open, by panel id.
+/// The popups the selected folder entities open, by panel id.
 final selectedPanelsProvider = Provider<Map<String, Panel>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
   final panels = <String, Panel>{};

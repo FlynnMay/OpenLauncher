@@ -22,7 +22,7 @@ class Layout {
   static const topId = 'top';
   static const bottomId = 'bottom';
 
-  /// The popup a held card opens: the quick actions, a button for each.
+  /// The popup a held entity opens: the quick actions, a button for each.
   static const menuId = 'quick-actions';
 
   /// The ids of the sidebars there can be, one for each edge.
@@ -31,7 +31,7 @@ class Layout {
   static const _firstPane = 'main';
 
   /// The home screen with one pane showing [order] first and then every
-  /// other card.
+  /// other entity.
   factory Layout.initial([List<String> order = const []]) => Layout(
     inbox: _firstPane,
     panels: [
@@ -42,11 +42,7 @@ class Layout {
             id: _firstPane,
             items: [
               for (final id in order)
-                LayoutItem(
-                  id: LayoutItem.autoId(id),
-                  kind: ItemKind.card,
-                  ref: id,
-                ),
+                LayoutItem.of(id, id: LayoutItem.autoId(id)),
             ],
           ),
         ]),
@@ -56,11 +52,11 @@ class Layout {
 
   final List<Panel> panels;
 
-  /// The pane that shows cards not placed anywhere, such as newly installed
+  /// The pane that shows entities not placed anywhere, such as newly installed
   /// apps.
   final String inbox;
 
-  /// Cards the user took off the screen altogether. They are not put back
+  /// Entities the user took off the screen altogether. They are not put back
   /// in the [inbox]; placing one anywhere takes it off this list.
   final Set<String> removed;
 
@@ -110,13 +106,14 @@ class Layout {
     ],
   );
 
-  /// A copy with every card in [cardIds] taken off all panels and noted as
+  /// A copy with every entity in [entityIds] taken off all panels and noted as
   /// [removed].
-  Layout without(Set<String> cardIds) => rebuild(
+  Layout without(Set<String> entityIds) => rebuild(
     (_, items) => [
       for (final item in items)
-        if (item.kind != ItemKind.card || !cardIds.contains(item.ref)) item,
+        if (item.kind != ItemKind.prefab || !entityIds.contains(item.source))
+          item,
     ],
-    removed: {...removed, ...cardIds},
+    removed: {...removed, ...entityIds},
   );
 }

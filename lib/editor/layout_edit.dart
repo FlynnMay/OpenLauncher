@@ -160,7 +160,7 @@ Layout _rebuilt(
 
 /// [layout] with [item] put where [drop] says, and taken from wherever it
 /// was before if it was anywhere. [panel] is a new popup that comes with it,
-/// when the item is a card that opens one. The caller has made sure that
+/// when the item is an entity that opens one. The caller has made sure that
 /// [refusal] has nothing against it.
 Layout dropItem(Layout layout, LayoutItem item, Drop drop, {Panel? panel}) {
   final found = findPane(layout, drop.pane)!;
@@ -210,12 +210,12 @@ Layout dropItem(Layout layout, LayoutItem item, Drop drop, {Panel? panel}) {
       return pane.id == target.id ? into(rest) : rest;
     },
     added: panel,
-    // A card that is placed is no longer one the user took off.
-    removed: {...layout.removed}..remove(item.ref),
+    // An entity that is placed is no longer one the user took off.
+    removed: {...layout.removed}..remove(item.source),
   );
 }
 
-/// [layout] without the item [id] and whatever is in it. Cards that are then
+/// [layout] without the item [id] and whatever is in it. Entities that are then
 /// on no panel are noted as removed, so the TV does not put them back as if
 /// they were new apps.
 Layout removeItem(Layout layout, String id) {
@@ -241,7 +241,7 @@ Layout removeItem(Layout layout, String id) {
   final placed = {
     for (final panel in rest.panels)
       for (final item in panel.items)
-        if (item.kind == ItemKind.card) item.ref,
+        if (item.kind == ItemKind.prefab) ?item.source,
   };
   return Layout(
     inbox: rest.inbox,
@@ -249,7 +249,9 @@ Layout removeItem(Layout layout, String id) {
     removed: {
       ...rest.removed,
       for (final item in gone)
-        if (item.kind == ItemKind.card && !placed.contains(item.ref)) item.ref,
+        if (item.source case final source?
+            when item.kind == ItemKind.prefab && !placed.contains(source))
+          source,
     },
   );
 }
@@ -415,8 +417,8 @@ Layout changePanel(Layout layout, String id, Panel Function(Panel) change) =>
       ],
     );
 
-/// [layout] without the popup [id], the cards that open it, and what was in
-/// it; cards that are then nowhere are noted as removed.
+/// [layout] without the popup [id], the entities that open it, and what was in
+/// it; entities that are then nowhere are noted as removed.
 Layout removePanel(Layout layout, String id) {
   final panel = layout.panel(id);
   if (panel == null) return layout;
@@ -441,8 +443,9 @@ Layout removePanel(Layout layout, String id) {
     removed: {
       ...rest.removed,
       for (final item in panel.items)
-        if (item.kind == ItemKind.card && !placed.containsKey(item.ref))
-          item.ref,
+        if (item.source case final source?
+            when item.kind == ItemKind.prefab && !placed.containsKey(source))
+          source,
     },
   );
 }
@@ -495,13 +498,13 @@ String? edgeNear(
 Layout withInbox(Layout layout, String paneId) =>
     Layout(inbox: paneId, removed: layout.removed, panels: layout.panels);
 
-/// How many times each card is somewhere in [layout], by card id.
+/// How many times each entity is somewhere in [layout], by entity id.
 Map<String, int> placedCounts(Layout layout) {
   final counts = <String, int>{};
   for (final panel in layout.panels) {
     for (final item in panel.items) {
-      if (item.kind == ItemKind.card) {
-        counts[item.ref] = (counts[item.ref] ?? 0) + 1;
+      if (item.source case final source? when item.kind == ItemKind.prefab) {
+        counts[source] = (counts[source] ?? 0) + 1;
       }
     }
   }

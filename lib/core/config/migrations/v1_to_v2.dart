@@ -12,12 +12,27 @@ void wallpaperToWallpapers(Json save, Device device) {
   save.remove('wallpaper');
 }
 
+/// Puts the items of [pane] back as this step wrote them. It builds its
+/// panes with the launcher's own models, which write an item as it is
+/// written now; the steps after this one were written for how an item was
+/// written then, a card that names what it shows as `ref`.
+void _asWritten(Json pane) {
+  for (final item in itemsOf(pane)) {
+    if (item['kind'] == 'prefab' && item['source'] is String) {
+      item['kind'] = 'card';
+      item['ref'] = item.remove('source');
+    }
+  }
+}
+
 /// From before layouts there is only the order the cards were in: they go
 /// in that order into the one pane a new home screen has. The order is
 /// left where it was, for a layout that turns out not to be readable.
 void orderToLayout(Json save, Device device) {
   if (save['layout'] is Map) return;
-  save['layout'] = Layout.initial([...stringsIn(save['order'])]).toJson();
+  final layout = Layout.initial([...stringsIn(save['order'])]).toJson();
+  panesOf(layout).forEach(_asWritten);
+  save['layout'] = layout;
 }
 
 /// A panel's stack of sections becomes the one pane that fills it, each
@@ -28,10 +43,12 @@ void sectionsToPanes(Json save, Device device) {
   for (final panel in panelsOf(layout)) {
     final id = panel['id'];
     if (panel['pane'] == null && panel['sections'] != null && id is String) {
-      panel['pane'] = paneFromSections(
+      final pane = paneFromSections(
         id,
         jsonList(panel, 'sections', Pane.fromJson),
       ).toJson();
+      panesIn(pane).forEach(_asWritten);
+      panel['pane'] = pane;
     }
     panel.remove('sections');
   }
