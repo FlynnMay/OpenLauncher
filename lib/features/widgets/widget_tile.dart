@@ -26,6 +26,7 @@ class WidgetTile extends StatelessWidget {
     WidgetKind.text => TextWidget(options: item.options),
     WidgetKind.picture => PictureWidget(options: item.options),
     WidgetKind.meter => MeterWidget(options: item.options),
+    WidgetKind.button => ButtonWidget(options: item.options),
     // Made by a newer version of the launcher.
     null => const SizedBox.shrink(),
   };

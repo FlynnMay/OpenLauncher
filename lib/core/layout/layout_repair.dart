@@ -1,3 +1,4 @@
+import 'package:openlauncher/core/actions/defaults.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_item.dart';
@@ -21,6 +22,7 @@ extension LayoutRepair on Layout {
     if (!panelIds.contains(Layout.homeId)) {
       unique.insert(0, Panel.empty(Layout.homeId));
     }
+
     final popups = {
       for (final panel in unique)
         if (panel.kind == PanelKind.popup) panel.id,
@@ -81,6 +83,7 @@ extension LayoutRepair on Layout {
         style: item.style,
         hideName: item.hideName,
         look: item.look,
+        on: item.on,
         pane: repaired,
       );
     }
@@ -166,7 +169,8 @@ extension LayoutRepair on Layout {
   /// A copy holding only cards in [cardIds]: items for cards that no longer
   /// exist are dropped, and cards placed nowhere are added to the end of the
   /// [inbox] pane, in the order given, unless the user [removed] them. Each
-  /// gets an id after what the device calls it, in [names] by card id.
+  /// gets an id after what the device calls it, in [names] by card id. The
+  /// quick actions are added too, where the layout has none of its own.
   Layout withCards(
     Iterable<String> cardIds, {
     Map<String, String> names = const {},
@@ -200,8 +204,16 @@ extension LayoutRepair on Layout {
         if (placed.add(id))
           LayoutItem(id: autoId(id), kind: ItemKind.card, ref: id),
     ];
-    return kept.rebuild(
+    final filled = kept.rebuild(
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,
+    );
+    // Like a card placed nowhere, the quick actions are there before they
+    // are saved: as they usually are, until the user arranges them.
+    if (filled.panel(Layout.menuId) != null) return filled;
+    return Layout(
+      panels: [...filled.panels, usualMenuPanel()],
+      inbox: filled.inbox,
+      removed: filled.removed,
     );
   }
 }

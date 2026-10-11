@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -167,38 +168,92 @@ void main() {
       ];
       platform.notifyInputsChanged();
       await pumpEventQueue();
-      final actions = container.read(cardActionsProvider);
+      final actions = container.read(actionRunnerProvider);
       final [input, app, _] = await cards();
+      Future<List<String>> offered(LauncherCard card) async {
+        final view = await container.read(layoutViewProvider.future);
+        return [
+          for (final item in view.panels[Layout.menuId]!.panel.items)
+            if (triggersOf(
+              item,
+            )[Trigger.press]!.every((act) => actions.applies(act, card)))
+              item.options['label'] as String,
+        ];
+      }
 
-      expect(await actions.actionsFor(app), CardAction.values);
+      expect(await offered(app), [
+        'Open',
+        'App info',
+        'Force stop',
+        'Uninstall',
+        'Remove',
+      ]);
       // An input is not an app: nothing to stop or uninstall.
-      expect(await actions.actionsFor(input), [
-        CardAction.open,
-        CardAction.remove,
-      ]);
-      await container.read(configProvider.notifier).setContextMenu([
-        CardAction.uninstall,
-        CardAction.open,
-      ]);
-      expect(await actions.actionsFor(app), [
-        CardAction.uninstall,
-        CardAction.open,
-      ]);
+      expect(await offered(input), ['Open', 'Remove']);
 
-      expect(await actions.perform(CardAction.uninstall, app), isNull);
-      expect(await actions.perform(CardAction.forceStop, app), contains('A'));
+      expect(await actions.run(const Act('uninstall'), subject: app), isNull);
+      expect(
+        await actions.run(const Act('forceStop'), subject: app),
+        contains('A'),
+      );
       expect(platform.appActions, ['uninstall a', 'stop a']);
+      // Not something done to an input, nor without a card at all.
+      expect(await actions.run(const Act('uninstall'), subject: input), isNull);
+      expect(await actions.run(const Act('uninstall')), isNull);
+      expect(platform.appActions, hasLength(2));
+      // An action can name its own card, whatever it was set off from.
+      await actions.run(const Act('info', {'card': 'app:b'}), subject: input);
+      expect(platform.appActions.last, 'info b');
+      // One made by a newer launcher does nothing.
+      expect(await actions.run(const Act('teleport'), subject: app), isNull);
 
       // Without ADB the TV's own screen is opened instead.
       platform.canForceStop = false;
       expect(
-        await actions.perform(CardAction.forceStop, app),
+        await actions.run(const Act('forceStop'), subject: app),
         contains('Force stop'),
       );
       expect(platform.appActions.last, 'info a');
 
-      await actions.perform(CardAction.remove, app);
+      await actions.run(const Act('open'), subject: app);
+      expect(platform.launched.last, 'a');
+
+      await actions.run(const Act('remove'), subject: app);
       expect(await ids(), ['input:tv/HW15', 'app:b']);
+    });
+
+    test('a thing does what was set for it, else the usual for its kind', () {
+      const card = LayoutItem(id: 'a', kind: ItemKind.card, ref: 'app:a');
+      expect(triggersOf(card), {
+        Trigger.press: [const Act('open')],
+        Trigger.hold: [const Act('menu')],
+      });
+      final quiet = LayoutItem.fromJson({
+        ...card.toJson(),
+        'on': {
+          'hold': <Object?>[],
+          'focus': [
+            {'do': 'media', 'command': 'pause'},
+            {'no': 'name'},
+          ],
+          'shake': [
+            {'do': 'open'},
+          ],
+        },
+      });
+      expect(triggersOf(quiet), {
+        Trigger.press: [const Act('open')],
+        Trigger.hold: <Act>[],
+        Trigger.focus: [
+          const Act('media', {'command': 'pause'}),
+        ],
+      });
+      expect(LayoutItem.fromJson(quiet.toJson()).on, quiet.on);
+      expect(card.toJson().containsKey('on'), isFalse);
+      const folder = LayoutItem(id: 'f', kind: ItemKind.panel, ref: 'games');
+      expect(triggersOf(folder)[Trigger.press], [
+        const Act('panel', {'panel': 'games'}),
+      ]);
     });
   });
 

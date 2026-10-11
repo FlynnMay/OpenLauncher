@@ -14,6 +14,7 @@ class ArtTile extends StatelessWidget {
     required this.art,
     required this.onSelect,
     this.onMenu,
+    this.onFocus,
     this.bare = false,
     this.autofocus = false,
     this.style = TileLook.card,
@@ -36,6 +37,7 @@ class ArtTile extends StatelessWidget {
   final bool bare;
   final VoidCallback onSelect;
   final void Function(bool held)? onMenu;
+  final void Function(bool focused)? onFocus;
   final bool autofocus;
   final TileLook style;
 
@@ -46,6 +48,7 @@ class ArtTile extends StatelessWidget {
       autofocus: autofocus,
       onSelect: onSelect,
       onMenu: onMenu,
+      onFocus: onFocus,
       focusedScale: style == TileLook.card ? 1.08 : 1.04,
       builder: (context, focused) {
         final fill = styleFill(boxStyle);

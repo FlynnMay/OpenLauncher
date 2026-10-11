@@ -182,22 +182,11 @@ class ConfigApi {
     return _ok();
   }
 
-  /// Sets the quick actions (`contextMenu`), how notifications pop up
-  /// (`toasts`), the values the user defined (`sources`) and where the TV
+  /// Sets how notifications pop up (`toasts`), the values the user defined (`sources`) and where the TV
   /// is (`place`, or null for nowhere); whichever the body leaves out stays
   /// as it is.
   Future<Response> _setOptions(Map<String, Object?> body) async {
     final config = _ref.read(configProvider.notifier);
-    if (body['contextMenu'] case final menu?) {
-      final actions = [
-        if (menu is List)
-          for (final name in menu) ?CardAction.named(name),
-      ];
-      if (menu is! List || actions.length != menu.length) {
-        throw const FormatException('"contextMenu" must list action ids');
-      }
-      await config.setContextMenu(actions.toSet().toList());
-    }
     if (body['toasts'] case final toasts?) {
       if (toasts is! Map<String, Object?>) {
         throw const FormatException('"toasts" must be an object');

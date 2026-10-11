@@ -62,7 +62,7 @@ void main() {
     expect(tv.sent, ['layout']);
 
     // What was sent is what the TV now has.
-    await store.save(emptied.copyWith(contextMenu: const [CardAction.open]));
+    await store.save(emptied.copyWith(toasts: const ToastOptions(seconds: 9)));
     expect(tv.sent, ['layout', 'options']);
   });
 

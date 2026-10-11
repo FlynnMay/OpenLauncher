@@ -7,6 +7,7 @@ import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/place_search.dart';
 import 'package:openlauncher/editor/template_field.dart';
 import 'package:openlauncher/editor/tv_api.dart';
+import 'package:openlauncher/features/home/tile_icons.dart';
 
 /// What one widget on the screen is set to show; different for each kind
 /// of widget, and nothing at all for a kind with nothing to set.
@@ -233,6 +234,27 @@ class WidgetSettings extends ConsumerWidget {
             value: options['shape'] == 'ring' ? 'ring' : 'bar',
             choices: const {'bar': 'A bar', 'ring': 'A ring'},
             onChanged: (shape) => _set('shape', shape),
+          ),
+        ),
+        _colour('Colour'),
+      ],
+      WidgetKind.button => [
+        TemplateField(
+          label: 'Says',
+          value: _text('label'),
+          onChanged: (label) => _set('label', label.isEmpty ? null : label),
+        ),
+        LabelledRow(
+          'Picture',
+          ChoiceBox<String>(
+            value: tileIcons.containsKey(options['icon'])
+                ? options['icon'] as String
+                : '',
+            choices: {
+              '': 'None',
+              for (final name in tileIcons.keys) name: name,
+            },
+            onChanged: (icon) => _set('icon', icon.isEmpty ? null : icon),
           ),
         ),
         _colour('Colour'),

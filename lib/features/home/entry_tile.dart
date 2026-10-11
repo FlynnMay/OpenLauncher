@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
-import 'package:openlauncher/features/home/context_menu.dart';
+import 'package:openlauncher/core/widgets/widget_kind.dart';
+import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/popup_panel.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
-import 'package:openlauncher/features/settings/settings_screen.dart';
+import 'package:openlauncher/features/home/tile_actions.dart';
 import 'package:openlauncher/features/widgets/widget_tile.dart';
 
 /// Puts something around every tile drawn under it. The TV has none; the
@@ -22,9 +22,9 @@ class TileFrame extends InheritedWidget {
   bool updateShouldNotify(TileFrame oldWidget) => wrap != oldWidget.wrap;
 }
 
-/// Draws one layout entry and gives it its behaviour: cards open (hold for
-/// quick actions), folders show their popup, widgets do their own thing,
-/// and a pane draws what is in it the same way.
+/// Draws one layout entry and gives it its behaviour, which is whatever its
+/// triggers say (`triggersOf`): a card is only a button that came with a
+/// press and a hold already set. A pane draws what is in it the same way.
 class EntryTile extends ConsumerWidget {
   const EntryTile({
     super.key,
@@ -41,29 +41,6 @@ class EntryTile extends ConsumerWidget {
   /// True inside a popup, which closes when one of its cards is opened.
   final bool inPopup;
 
-  Future<void> _open(
-    BuildContext context,
-    WidgetRef ref,
-    LauncherCard card,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final actions = ref.read(cardActionsProvider);
-    if (inPopup) navigator.pop();
-    if (card.kind == CardKind.action) {
-      // The launcher's own screens; there is only the one so far.
-      await SettingsScreen.open(navigator);
-      return;
-    }
-    try {
-      await actions.launch(card);
-    } on Object catch (error) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not open ${card.label}: $error')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tile = _tile(context, ref);
@@ -73,6 +50,34 @@ class EntryTile extends ConsumerWidget {
 
   Widget _tile(BuildContext context, WidgetRef ref) {
     final entry = this.entry;
+    if (entry case PaneEntry(:final view)) {
+      return PaneBox(
+        view: view,
+        tile: (inner) =>
+            EntryTile(entry: inner, focus: focus, inPopup: inPopup),
+      );
+    }
+    // In a card's menu, what is pressed is done to that card.
+    final menuOf = ActionSubject.of(context);
+    final does = TileActions(
+      context,
+      ref,
+      triggersOf(entry.item),
+      subject: entry is CardEntry ? entry.card : menuOf,
+      inPopup: inPopup,
+      closes: inPopup && (entry is CardEntry || menuOf != null),
+    );
+    void press() => does.fire(Trigger.press);
+    final hold = does.has(Trigger.hold)
+        ? (bool held) {
+            does.fire(Trigger.hold, held: held);
+          }
+        : null;
+    final onFocus = does.has(Trigger.focus) || does.has(Trigger.blur)
+        ? (bool focused) {
+            does.fire(focused ? Trigger.focus : Trigger.blur);
+          }
+        : null;
     switch (entry) {
       case CardEntry(:final card):
         return ArtTile(
@@ -86,14 +91,9 @@ class EntryTile extends ConsumerWidget {
           style: entry.item.look,
           showLabel: !entry.item.hideName,
           boxStyle: entry.item.style,
-          onSelect: () => _open(context, ref, card),
-          onMenu: (held) => showCardMenu(
-            context,
-            ref,
-            card,
-            held: held,
-            open: () => _open(context, ref, card),
-          ),
+          onSelect: press,
+          onMenu: hold,
+          onFocus: onFocus,
         );
       case PanelEntry():
         return ArtTile(
@@ -104,21 +104,47 @@ class EntryTile extends ConsumerWidget {
           style: entry.item.look,
           showLabel: !entry.item.hideName,
           boxStyle: entry.item.style,
-          onSelect: () => showPanelPopup(context, entry.panel.id),
+          onSelect: press,
+          onMenu: hold,
+          onFocus: onFocus,
         );
       case WidgetEntry(:final item):
-        return StyledBox(
+        final box = StyledBox(
           style: item.style,
           radius: 10,
           padding: const EdgeInsets.all(8),
           child: WidgetTile(item: item),
         );
-      case PaneEntry(:final view):
-        return PaneBox(
-          view: view,
-          tile: (inner) =>
-              EntryTile(entry: inner, focus: focus, inPopup: inPopup),
+        // Anything given something to do can be landed on and pressed.
+        if (!does.has(Trigger.press) &&
+            hold == null &&
+            item.ref != WidgetKind.button.name) {
+          return box;
+        }
+        return FocusTile(
+          autofocus: focus?.take() ?? false,
+          focusedScale: 1.03,
+          onSelect: press,
+          onMenu: hold,
+          onFocus: onFocus,
+          builder: (context, focused) => AnimatedContainer(
+            duration: FocusTile.duration,
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: focused ? Colors.white : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: focused ? 0.12 : 0),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: box,
+          ),
         );
+      case PaneEntry():
+        throw StateError('Drawn above');
     }
   }
 }

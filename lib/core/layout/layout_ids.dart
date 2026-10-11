@@ -64,6 +64,7 @@ extension LayoutIds on Layout {
   Set<String> get paneIds => {for (final pane in _panes) pane.id};
   Set<String> get panelIds => {
     Layout.homeId,
+    Layout.menuId,
     ...Layout.barIds,
     for (final panel in panels) panel.id,
   };

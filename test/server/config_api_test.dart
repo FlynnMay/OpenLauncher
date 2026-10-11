@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -164,12 +165,13 @@ void main() {
       'text',
       'picture',
       'meter',
+      'button',
     ]);
-    expect(
-      (page['actions'] as List).map((a) => a['id']),
-      CardAction.values.map((a) => a.name),
+    // The quick actions are a popup in the layout like any folder.
+    final menu = (page['layout']['panels'] as List).firstWhere(
+      (panel) => panel['id'] == Layout.menuId,
     );
-    expect(page['contextMenu'], hasLength(CardAction.values.length));
+    expect(menu['pane']['items'], hasLength(usualMenu.length));
     expect(page['toasts'], const ToastOptions().toJson());
     expect(page['notificationAccess'], isTrue);
   });
@@ -375,18 +377,8 @@ void main() {
     expect((await state())['panelIcons'], isEmpty);
   });
 
-  test('options set the quick actions and notification pop-ups', () async {
+  test('options set the notification pop-ups', () async {
     var response = await call(
-      'PUT',
-      '/api/options',
-      body: {
-        'contextMenu': ['uninstall', 'open', 'open'],
-      },
-    );
-    expect(response.statusCode, 200);
-    expect(store.config.contextMenu, [CardAction.uninstall, CardAction.open]);
-
-    response = await call(
       'PUT',
       '/api/options',
       body: {
@@ -399,17 +391,8 @@ void main() {
       'position': 'bottomLeft',
       'seconds': 30,
     });
-    // Each call only touches what it names.
-    expect(store.config.contextMenu, hasLength(2));
-    expect((await state())['contextMenu'], ['uninstall', 'open']);
 
-    response = await call(
-      'PUT',
-      '/api/options',
-      body: {
-        'contextMenu': ['explode'],
-      },
-    );
+    response = await call('PUT', '/api/options', body: {'toasts': 'loud'});
     expect(response.statusCode, 400);
   });
 
@@ -810,12 +793,12 @@ void main() {
       'PUT',
       '/api/options',
       body: {
-        'contextMenu': ['open'],
+        'toasts': {'seconds': 9},
       },
     );
     await pumpEventQueue();
     expect(events, hasLength(2));
-    expect(events.last['contextMenu'], ['open']);
+    expect(events.last['toasts']['seconds'], 9);
   });
 
   test('the real server answers over HTTP', () async {

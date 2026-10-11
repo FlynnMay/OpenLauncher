@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -11,6 +12,7 @@ import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/picture_settings.dart';
 import 'package:openlauncher/editor/selection.dart';
 import 'package:openlauncher/editor/style_settings.dart';
+import 'package:openlauncher/editor/trigger_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/editor/widget_settings.dart';
@@ -39,6 +41,7 @@ class SelectedProperties extends ConsumerWidget {
     final ids = {for (final one in found) one.item.id};
     final items = [for (final one in found) one.item];
     final single = items.length == 1 ? items.single : null;
+    final layout = ref.watch(configProvider).value?.layout;
     void change(Layout Function(Layout layout) how) =>
         changeLayout(context, ref, how);
     void each(LayoutItem Function(LayoutItem item) how) =>
@@ -88,6 +91,27 @@ class SelectedProperties extends ConsumerWidget {
             item: single,
             onChanged: (options) =>
                 each((item) => item.copyWith(options: options)),
+          ),
+        if (single != null && single.kind != ItemKind.pane)
+          TriggerSettings(
+            set: single.on,
+            usual: usualTriggers(single),
+            panels: {
+              for (final panel in layout?.panels ?? const <Panel>[])
+                if (panel.kind == PanelKind.popup)
+                  panel.id: switch (panel.title) {
+                    '' =>
+                      panel.id == Layout.menuId ? 'Quick actions' : 'Folder',
+                    final title => title,
+                  },
+            },
+            cards: {
+              for (final card
+                  in ref.watch(allCardsProvider).value ??
+                      const <LauncherCard>[])
+                card.id: card.label,
+            },
+            onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
         Section('Size', [
           NumberStepper(

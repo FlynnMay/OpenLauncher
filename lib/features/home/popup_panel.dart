@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/home/entry_tile.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/tile_actions.dart';
 
 /// Opens the popup panel [panelId] over the current screen. Back closes it.
-Future<void> showPanelPopup(BuildContext context, String panelId) =>
-    showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 150),
-      transitionBuilder: (_, animation, _, child) =>
-          FadeTransition(opacity: animation, child: child),
-      pageBuilder: (_, _, _) => _PanelPopup(panelId: panelId),
-    );
+/// With a [subject] it is that card's menu: named after the card, its
+/// buttons act on the card, and those that cannot are left out.
+Future<void> showPanelPopup(
+  BuildContext context,
+  String panelId, {
+  LauncherCard? subject,
+}) => showGeneralDialog<void>(
+  context: context,
+  barrierDismissible: true,
+  barrierLabel: 'Close',
+  barrierColor: Colors.black54,
+  transitionDuration: const Duration(milliseconds: 150),
+  transitionBuilder: (_, animation, _, child) =>
+      FadeTransition(opacity: animation, child: child),
+  pageBuilder: (_, _, _) => _PanelPopup(panelId: panelId, subject: subject),
+);
 
 class _PanelPopup extends ConsumerWidget {
-  const _PanelPopup({required this.panelId});
+  const _PanelPopup({required this.panelId, this.subject});
 
   final String panelId;
+  final LauncherCard? subject;
 
   /// The share of the screen's width and height a popup may take.
   static (double, double) _extent(Panel panel) {
@@ -40,11 +49,32 @@ class _PanelPopup extends ConsumerWidget {
     final view = ref.watch(layoutViewProvider).value?.panels[panelId];
     if (view == null) return const SizedBox.shrink();
     final panel = view.panel;
+    final subject = this.subject;
+    final root = subject == null
+        ? view.root
+        : () {
+            final offered = offeredFor(
+              view.root,
+              subject,
+              ref.watch(actionRunnerProvider),
+            );
+            return PaneView(
+              view.root.pane.withItems([
+                for (final entry in offered) entry.item,
+              ]),
+              offered,
+            );
+          }();
+    final title = switch (panel.title) {
+      '' =>
+        subject?.label ?? (panel.id == Layout.menuId ? 'Quick actions' : ''),
+      final title => title,
+    };
     final screen = MediaQuery.sizeOf(context);
     final (width, height) = _extent(panel);
     final centred = panel.position == PopupPosition.center;
     final focus = FirstFocus();
-    return TileTraversal(
+    final popup = TileTraversal(
       child: Align(
         alignment: switch (panel.position) {
           PopupPosition.center => Alignment.center,
@@ -70,15 +100,17 @@ class _PanelPopup extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (panel.title.isNotEmpty)
+                  if (title.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Text(
-                        panel.title,
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                  if (view.isEmpty)
+                  if (root.isEmpty)
                     const Text(
                       'Nothing here yet. Add cards from the web page.',
                       style: TextStyle(color: Colors.white60),
@@ -87,7 +119,7 @@ class _PanelPopup extends ConsumerWidget {
                   Padding(
                     padding: EdgeInsets.all(view.root.pane.padding ?? 0),
                     child: PaneGrid(
-                      view: view.root,
+                      view: root,
                       tile: (entry) =>
                           EntryTile(entry: entry, focus: focus, inPopup: true),
                     ),
@@ -99,5 +131,6 @@ class _PanelPopup extends ConsumerWidget {
         ),
       ),
     );
+    return subject == null ? popup : ActionSubject(card: subject, child: popup);
   }
 }

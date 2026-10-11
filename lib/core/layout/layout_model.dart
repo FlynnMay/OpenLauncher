@@ -22,6 +22,9 @@ class Layout {
   static const topId = 'top';
   static const bottomId = 'bottom';
 
+  /// The popup a held card opens: the quick actions, a button for each.
+  static const menuId = 'quick-actions';
+
   /// The ids of the sidebars there can be, one for each edge.
   static const barIds = [leftId, rightId, topId, bottomId];
 

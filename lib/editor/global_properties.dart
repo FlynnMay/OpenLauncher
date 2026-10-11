@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/actions.dart';
 import 'package:openlauncher/editor/controls.dart';
 import 'package:openlauncher/editor/layout_edit.dart';
-import 'package:openlauncher/editor/order_list.dart';
 import 'package:openlauncher/editor/pane_settings.dart';
 import 'package:openlauncher/editor/sidebar_settings.dart';
 import 'package:openlauncher/editor/tv_api.dart';
+import 'package:openlauncher/editor/tv_screen.dart';
 import 'package:openlauncher/editor/values_settings.dart';
 import 'package:openlauncher/editor/wallpaper_settings.dart';
 
@@ -87,12 +86,24 @@ class GlobalProperties extends ConsumerWidget {
           onSources: controller.setSources,
           onPlace: controller.setPlace,
         ),
-        Section('Menu on holding OK', open: false, [
-          OrderList<CardAction>(
-            all: CardAction.values,
-            chosen: config.contextMenu,
-            label: (action) => action.label,
-            onChanged: controller.setContextMenu,
+        Section('Quick actions', open: false, [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'What a held card offers: a popup of buttons, arranged like '
+              'any folder. Buttons for it are under Add.',
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                TvScreen.closePopups();
+                TvScreen.openPopup(Layout.menuId);
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Arrange them'),
+            ),
           ),
         ]),
         Section('Notifications', open: false, [

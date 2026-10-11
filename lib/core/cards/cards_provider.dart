@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/cards/card_action.dart';
 import 'package:openlauncher/core/cards/input_artwork.dart';
 import 'package:openlauncher/core/cards/launcher_card.dart';
 import 'package:openlauncher/core/config/config.dart';
@@ -135,7 +134,8 @@ List<LauncherCard> arrangeCards(
 
 final cardActionsProvider = Provider<CardActions>(CardActions.new);
 
-/// Things that can be done with a card; shared by the TV UI and web server.
+/// Opening a card; shared by the TV UI and web server. What else is done
+/// with a card is an `ActionKind`.
 class CardActions {
   CardActions(this._ref);
 
@@ -149,35 +149,4 @@ class CardActions {
     // The launcher's own screens are opened by the UI showing the card.
     CardKind.action => throw UnsupportedError('Not something to launch'),
   };
-
-  /// The quick actions that apply to [card], in the user's order.
-  Future<List<CardAction>> actionsFor(LauncherCard card) async => [
-    for (final action in (await _ref.read(configProvider.future)).contextMenu)
-      if (card.kind == CardKind.app || !action.appOnly) action,
-  ];
-
-  /// Does [action] to [card]. Returns something to tell the user, if there
-  /// is anything to tell.
-  Future<String?> perform(CardAction action, LauncherCard card) async {
-    switch (action) {
-      case CardAction.open:
-        await launch(card);
-      case CardAction.info:
-        await _platform.openAppInfo(card.target);
-      case CardAction.uninstall:
-        await _platform.uninstallApp(card.target);
-      case CardAction.remove:
-        await _ref.read(configProvider.notifier).removeCard(card.id);
-        return '${card.label} was removed. Add it again from the web page.';
-      case CardAction.forceStop:
-        if (await _platform.forceStopApp(card.target)) {
-          return '${card.label} was stopped.';
-        }
-        // The launcher could not do it; the TV's own screen can.
-        await _platform.openAppInfo(card.target);
-        return 'Choose "Force stop" here. Run automatic setup in Settings '
-            'to stop apps straight from the menu.';
-    }
-    return null;
-  }
 }

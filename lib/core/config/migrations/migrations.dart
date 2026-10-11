@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher/core/config/migrations/v3_to_v4.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -19,7 +20,7 @@ export 'save_json.dart' show Device, Json;
 ///
 /// A step that has shipped is never changed: saves that went through it
 /// are out there. What it got wrong, a later step puts right.
-const saveVersion = 3;
+const saveVersion = 4;
 
 /// One thing a [Migration] does to a save, by changing [save] in place. It
 /// finds what it is for and leaves the rest be, whatever shape that is in:
@@ -73,6 +74,14 @@ const migrations = [
     what: 'Items, panes and folders go by ids that say what they are.',
     rules: [readableIds],
     needsDevice: true,
+  ),
+  Migration(
+    from: 3,
+    to: 4,
+    what:
+        'The quick actions are a popup of buttons in the layout, not a '
+        'list of names beside it.',
+    rules: [menuAsPanel],
   ),
 ];
 

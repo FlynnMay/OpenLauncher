@@ -135,6 +135,7 @@ class FocusTile extends StatefulWidget {
     required this.builder,
     required this.onSelect,
     this.onMenu,
+    this.onFocus,
     this.autofocus = false,
     this.focusedScale = 1.08,
   });
@@ -145,6 +146,9 @@ class FocusTile extends StatefulWidget {
   /// Called with true when the menu was asked for by holding OK, in which
   /// case the button is still down.
   final void Function(bool held)? onMenu;
+
+  /// Called as the focus arrives (true) and as it leaves.
+  final void Function(bool focused)? onFocus;
   final bool autofocus;
   final double focusedScale;
 
@@ -163,6 +167,7 @@ class _FocusTileState extends State<FocusTile> {
 
   void _onFocusChange(bool focused) {
     setState(() => _focused = focused);
+    widget.onFocus?.call(focused);
     if (!focused) {
       _cancelHold();
       return;

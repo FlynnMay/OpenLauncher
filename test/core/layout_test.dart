@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -826,7 +827,6 @@ void main() {
         iconOverrides: {'app:a': '/x.png'},
         wallpapers: ['/w.mp4', '/x.png'],
         wallpaperEvery: 30,
-        contextMenu: [CardAction.uninstall, CardAction.open],
         toasts: const ToastOptions(
           enabled: false,
           position: ToastPosition.bottomLeft,
@@ -850,7 +850,13 @@ void main() {
       // What used to be hidden is now removed, wherever it was.
       expect(config.layout.home.items.map((i) => i.ref), ['app:a']);
       expect(config.layout.removed, {'app:b', 'app:c'});
-      expect(config.contextMenu, [CardAction.open, CardAction.remove]);
+      // The quick actions that were chosen are buttons in a popup now.
+      final menu = config.layout.panel(Layout.menuId)!;
+      expect(menu.items.map((item) => item.options['label']), [
+        'Open',
+        'Remove',
+      ]);
+      expect(menu.items.last.on[Trigger.press], [const Act('remove')]);
       expect(config.toasts.enabled, isTrue);
     });
 

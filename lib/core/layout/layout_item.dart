@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/layout/box_style.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
@@ -20,6 +21,7 @@ class LayoutItem {
     this.style = BoxStyle.none,
     this.hideName = false,
     this.look = TileLook.card,
+    this.on = const {},
     this.pane,
   });
 
@@ -31,7 +33,8 @@ class LayoutItem {
       options = const {},
       style = BoxStyle.none,
       hideName = false,
-      look = TileLook.card;
+      look = TileLook.card,
+      on = const {};
 
   /// Unique within the layout.
   final String id;
@@ -59,6 +62,10 @@ class LayoutItem {
   /// How a card or folder is drawn; the pane it is in may say otherwise
   /// for everything in it ([Pane.itemLook]).
   final TileLook look;
+
+  /// What it does, by what sets it off, where that is not the usual for
+  /// its kind (`usualTriggers`).
+  final Triggers on;
 
   /// The pane this item is, for [ItemKind.pane].
   final Pane? pane;
@@ -88,6 +95,7 @@ class LayoutItem {
     style: style,
     hideName: hideName,
     look: look,
+    on: on,
     pane: pane,
   );
 
@@ -98,6 +106,7 @@ class LayoutItem {
     BoxStyle? style,
     bool? hideName,
     TileLook? look,
+    Triggers? on,
     Map<String, Object?>? options,
     double? w,
     double? h,
@@ -113,6 +122,7 @@ class LayoutItem {
     style: style ?? this.style,
     hideName: hideName ?? this.hideName,
     look: look ?? this.look,
+    on: on ?? this.on,
     pane: pane,
   );
 
@@ -130,6 +140,7 @@ class LayoutItem {
     style: style,
     hideName: hideName,
     look: look,
+    on: on,
     pane: pane,
   );
 
@@ -161,6 +172,7 @@ class LayoutItem {
         jsonOptional<String>(json, 'look'),
         .card,
       ),
+      on: triggersFromJson(json['on']),
       pane: pane,
     );
   }
@@ -183,6 +195,7 @@ class LayoutItem {
     if (!style.isEmpty) 'style': style.toJson(),
     if (hideName) 'hideName': true,
     if (look != TileLook.card) 'look': look.name,
+    if (on.isNotEmpty) 'on': triggersToJson(on),
     'pane': ?pane?.toJson(),
   };
 }

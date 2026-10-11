@@ -15,7 +15,12 @@ String objectName(LayoutItem item, Layout? layout, List<LauncherCard> cards) =>
     switch (item.kind) {
       ItemKind.card =>
         cards.where((card) => card.id == item.ref).firstOrNull?.label ?? 'Card',
-      ItemKind.widget => WidgetKind.named(item.ref)?.label ?? 'Widget',
+      // A button by what it says, where that is plain to read.
+      ItemKind.widget => switch (item.options['label']) {
+        final String label when label.isNotEmpty && !label.contains('{{') =>
+          label,
+        _ => WidgetKind.named(item.ref)?.label ?? 'Widget',
+      },
       ItemKind.pane => switch (item.pane?.title) {
         null || '' => 'Pane',
         final title => title,
@@ -93,8 +98,14 @@ class ObjectTree extends ConsumerWidget {
               if (popup.kind == PanelKind.popup)
                 panel(
                   popup,
-                  popup.title.isEmpty ? 'Folder' : popup.title,
-                  Icons.folder_open_outlined,
+                  popup.title.isNotEmpty
+                      ? popup.title
+                      : popup.id == Layout.menuId
+                      ? 'Quick actions'
+                      : 'Folder',
+                  popup.id == Layout.menuId
+                      ? Icons.more_horiz
+                      : Icons.folder_open_outlined,
                 ),
           ],
           // With nothing picked out, what the settings beside the screen

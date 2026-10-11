@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/built_in_values.dart';
@@ -51,7 +50,6 @@ class LauncherConfig {
     this.names = const {},
     this.wallpapers = const [],
     this.wallpaperEvery = 0,
-    this.contextMenu = CardAction.values,
     this.toasts = const ToastOptions(),
     this.sources = const [],
     this.place,
@@ -85,9 +83,6 @@ class LauncherConfig {
   /// The first wallpaper, which is the only one unless they take turns.
   String? get wallpaper => wallpapers.firstOrNull;
 
-  /// The quick actions offered when a card is held down, in order.
-  final List<CardAction> contextMenu;
-
   final ToastOptions toasts;
 
   /// The values the user defined, which text on the screen can be made of
@@ -105,7 +100,6 @@ class LauncherConfig {
     Map<String, String>? names,
     List<String>? wallpapers,
     int? wallpaperEvery,
-    List<CardAction>? contextMenu,
     ToastOptions? toasts,
     List<DataSource>? sources,
     // A function, so that it can be taken away: null leaves it as it is.
@@ -117,7 +111,6 @@ class LauncherConfig {
     names: names ?? this.names,
     wallpapers: wallpapers ?? this.wallpapers,
     wallpaperEvery: wallpaperEvery ?? this.wallpaperEvery,
-    contextMenu: contextMenu ?? this.contextMenu,
     toasts: toasts ?? this.toasts,
     sources: sources ?? this.sources,
     place: place == null ? this.place : place(),
@@ -158,12 +151,6 @@ class LauncherConfig {
     wallpaperEvery: switch (json['wallpaperEvery']) {
       final num minutes => minutes.toInt().clamp(0, maxWallpaperEvery),
       _ => 0,
-    },
-    contextMenu: switch (json['contextMenu']) {
-      final List<Object?> names => [
-        for (final name in names) ?CardAction.named(name),
-      ],
-      _ => CardAction.values,
     },
     toasts: switch (json['toasts']) {
       final Map<Object?, Object?> toasts => ToastOptions.fromJson(toasts),
@@ -226,7 +213,6 @@ class LauncherConfig {
     'names': names,
     'wallpapers': wallpapers,
     'wallpaperEvery': wallpaperEvery,
-    'contextMenu': [for (final action in contextMenu) action.name],
     'toasts': toasts.toJson(),
     'sources': [for (final source in sources) source.toJson()],
     'place': ?placeToJson(place),

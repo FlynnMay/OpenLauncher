@@ -112,8 +112,8 @@ void main() {
     final layout = Layout.fromJson(save['layout']! as Json);
 
     test('ids say what the thing is', () {
-      expect(save['v'], 3);
-      expect((save['layout']! as Json)['v'], 3);
+      expect(save['v'], saveVersion);
+      expect((save['layout']! as Json)['v'], saveVersion);
       final root = layout.home.root;
       expect(root.items.map((i) => i.id), [
         'pane-inputs',
@@ -271,5 +271,62 @@ void main() {
       }),
       throwsFormatException,
     );
+  });
+
+  group('from 3 to 4', () {
+    Json v3([Object? menu]) => {
+      'v': 3,
+      'contextMenu': ?menu,
+      'layout': {
+        'v': 3,
+        'inbox': 'main',
+        'panels': [
+          {
+            'id': 'home',
+            'pane': {'id': 'home/root', 'items': <Object?>[]},
+          },
+        ],
+      },
+    };
+    List<Object?> menuOf(Json save) => [
+      for (final panel in (save['layout']! as Json)['panels']! as List)
+        if ((panel as Json)['id'] == 'quick-actions')
+          for (final item in (panel['pane']! as Json)['items']! as List)
+            ((item as Json)['options']! as Json)['label'],
+    ];
+
+    test('the chosen quick actions become buttons in a popup', () {
+      final save = migrate(v3(['uninstall', 'hide', 'explode', 'open']));
+      expect(save.containsKey('contextMenu'), isFalse);
+      expect(menuOf(save), ['Uninstall', 'Remove', 'Open']);
+      final menu = Layout.fromJson(save['layout']! as Json)
+          .normalised()
+          .panel(Layout.menuId)!;
+      expect(menu.kind, PanelKind.popup);
+      expect(menu.root.columns, 1);
+      expect(menu.items.first.ref, 'button');
+      expect(menu.items.first.on.values.single.single.name, 'uninstall');
+    });
+
+    test('a save that chose none is left to the usual ones', () {
+      final save = migrate(v3());
+      expect(menuOf(save), isEmpty);
+      final layout = Layout.fromJson(save['layout']! as Json).normalised();
+      expect(layout.panel(Layout.menuId), isNull);
+      // Read for showing, they are there.
+      expect(
+        layout.withCards(const []).panel(Layout.menuId)!.items,
+        hasLength(5),
+      );
+      // Emptied by the user, the menu stays empty.
+      expect(menuOf(migrate(v3(<Object?>[]))), isEmpty);
+      expect(
+        Layout.fromJson(migrate(v3(<Object?>[]))['layout']! as Json)
+            .withCards(const [])
+            .panel(Layout.menuId)!
+            .items,
+        isEmpty,
+      );
+    });
   });
 }

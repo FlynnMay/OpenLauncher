@@ -93,11 +93,6 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
       for (final provider in providers)
         {'id': provider.id, 'label': provider.label, 'app': provider.appLabel},
     ],
-    'actions': [
-      for (final action in CardAction.values)
-        {'id': action.name, 'label': action.label},
-    ],
-    'contextMenu': [for (final action in config.contextMenu) action.name],
     'toasts': config.toasts.toJson(),
     // The values the user defined, and where the TV is said to be.
     'sources': [for (final source in config.sources) source.toJson()],

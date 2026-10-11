@@ -122,10 +122,6 @@ class TvApi {
               in (json['panelIcons'] as Map).entries)
             PanelEntry.iconKey(key as String): _at(value as String).toString(),
         },
-        contextMenu: [
-          for (final name in json['contextMenu'] as List)
-            ?CardAction.named(name),
-        ],
         toasts: ToastOptions.fromJson(json['toasts'] as Map),
         sources: DataSource.listFromJson(json['sources']),
         place: LauncherConfig.placeFromJson(json['place']),
@@ -245,7 +241,6 @@ class TvApi {
 
   Future<void> setOptions(LauncherConfig config) =>
       _ask('PUT', '/api/options', {
-        'contextMenu': [for (final action in config.contextMenu) action.name],
         'toasts': config.toasts.toJson(),
         'sources': [for (final source in config.sources) source.toJson()],
         'place': LauncherConfig.placeToJson(config.place),

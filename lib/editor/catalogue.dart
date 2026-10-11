@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/cards/cards.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -9,6 +10,7 @@ import 'package:openlauncher/editor/layout_edit.dart';
 import 'package:openlauncher/editor/picture_tile.dart';
 import 'package:openlauncher/editor/tv_api.dart';
 import 'package:openlauncher/features/home/card_tile.dart';
+import 'package:openlauncher/features/home/tile_icons.dart';
 
 /// Everything that can be put on the TV: dragged from here onto the screen,
 /// or tapped to go where new apps go. Dragging something from the screen
@@ -97,9 +99,21 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
           ),
       ],
+      // One for each thing a button can do, ready to be dropped into the
+      // quick actions or anywhere else.
+      'Buttons': [
+        for (final kind in actionKinds)
+          _Offer(
+            Dragged(
+              item: actionButton(layout.itemIdFor(kind.label), kind),
+              label: kind.label,
+              picture: SymbolArt(tileIcons[kind.icon] ?? Icons.smart_button),
+            ),
+          ),
+      ],
       'Folders': [
         for (final panel in layout.panels)
-          if (panel.kind == PanelKind.popup)
+          if (panel.kind == PanelKind.popup && panel.id != Layout.menuId)
             _Offer(
               Dragged(
                 item: LayoutItem(

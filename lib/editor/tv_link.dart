@@ -67,7 +67,6 @@ class TvConfigStore implements ConfigStore {
   Future<LauncherConfig> load() async => _known = (await _state).config;
 
   static String _options(LauncherConfig config) => jsonEncode([
-    [for (final action in config.contextMenu) action.name],
     config.toasts,
     config.sources,
     LauncherConfig.placeToJson(config.place),

@@ -12,6 +12,9 @@ enum WidgetKind {
   picture('Picture', 2, 2),
   meter('Meter', 2, 1),
 
+  /// Something to press: what it does is in the item's triggers.
+  button('Button', 2, 1),
+
   /// A widget provided by an installed app; the item's `provider` option
   /// says which.
   android('App widget', 2, 2);
@@ -27,6 +30,7 @@ enum WidgetKind {
   Map<String, Object?> get starter => switch (this) {
     text => const {'text': '{{time}}'},
     meter => const {'value': '{{time.second}}', 'max': 60},
+    button => const {'label': 'Button'},
     _ => const {},
   };
 

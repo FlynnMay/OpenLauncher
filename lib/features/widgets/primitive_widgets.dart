@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/features/home/picture.dart';
+import 'package:openlauncher/features/home/tile_icons.dart';
 import 'package:openlauncher/features/widgets/marquee.dart';
 
 // The three a widget of the user's own is put together from. Each shows
@@ -104,6 +105,42 @@ class TextWidget extends ConsumerWidget {
           ),
         ),
       },
+    );
+  }
+}
+
+/// Something to press: a small picture and a line of text, either of which
+/// may be left out. What pressing it does is in its item's triggers, and
+/// how it shows the focus is its tile's business.
+///
+/// Options: `label` (a template), `icon` (a name in `tileIcons`), `colour`.
+class ButtonWidget extends ConsumerWidget {
+  const ButtonWidget({super.key, required this.options});
+
+  final Map<String, Object?> options;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final label = _read(ref, options['label']);
+    final icon = tileIcons[options['icon']];
+    final colour = _colour(options['colour']);
+    return Row(
+      mainAxisAlignment: label.isEmpty
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
+      spacing: 10,
+      children: [
+        if (icon != null) Icon(icon, color: colour, size: 20),
+        if (label.isNotEmpty)
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colour, fontSize: 14),
+            ),
+          ),
+      ],
     );
   }
 }
