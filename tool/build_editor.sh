@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the web editor (lib/editor) and puts what a browser needs of it in
 # assets/editor/, from where the TV serves it as its page. Run it before
-# building the app.
+# building the app. Takes the build mode: release (default) or debug.
 #
 # Flutter bundles an asset folder without its subfolders, so the files are
 # laid flat: "/" in a path becomes "__". Each is gzipped, which is how the
@@ -9,10 +9,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+mode=${1:-release}
 out=build/editor
 dest=assets/editor
 
-flutter build web --release -t lib/editor/main.dart -o "$out" \
+flutter build web "--$mode" -t lib/editor/main.dart -o "$out" \
   --base-href / --no-web-resources-cdn --no-wasm-dry-run
 
 find "$dest" -type f ! -name .gitkeep -delete
