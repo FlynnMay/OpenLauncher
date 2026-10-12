@@ -6,13 +6,29 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
-/// The entity the menu [id] was opened for, from its `source` variable.
-Entity? subjectOf(WidgetRef ref, String id) => switch (ref.watch(
-  runtimeVarsProvider.select((all) => all[id]?[Component.sourceVar]),
-)) {
-  final String source => ref.watch(entitiesProvider).value?.byId(source),
-  _ => null,
-};
+/// The entity [pane]'s entity-typed variables hold, [runtime] values first.
+Entity? _subject(
+  Component pane,
+  Map<String, Object?>? runtime,
+  Iterable<Entity> entities,
+) => pane
+    .handedWith(runtime ?? const {})
+    .map(entities.byId)
+    .nonNulls
+    .firstOrNull;
+
+/// The entity the menu [id] was opened for.
+Entity? subjectOf(WidgetRef ref, String id) {
+  final pane = ref.watch(
+    layoutViewProvider.select((layout) => layout.value?.pane(id)),
+  );
+  if (pane == null) return null;
+  return _subject(
+    pane,
+    ref.watch(runtimeVarsProvider.select((all) => all[id])),
+    ref.watch(entitiesProvider).value ?? const [],
+  );
+}
 
 /// Watches each docked pane's `open` variable and runs its reveal or hide
 /// chain when it changes.
@@ -40,9 +56,7 @@ class _DockHostState extends ConsumerState<DockHost> {
       // A menu with no applicable actions is not shown.
       if (open) {
         final entities = ref.read(entitiesProvider).value ?? const <Entity>[];
-        final source = all[id]?[Component.sourceVar];
-        if (source is String &&
-            entities.byId(source) != null &&
+        if (_subject(pane, all[id], entities) != null &&
             offeredFor(pane, ref.read, entities).isEmpty) {
           Future.microtask(() => vars.set(id, openVar, false));
           continue;

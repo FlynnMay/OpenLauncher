@@ -145,6 +145,67 @@ void main() {
       expect(find.text('Beta'), findsWidgets);
     });
 
+    testWidgets('a menu goes by its entity variable, whatever its name', (
+      tester,
+    ) async {
+      Component button(String label, String action) => Component(
+        id: 'pick-$action',
+        kind: 'button',
+        options: {'label': label},
+        on: {
+          Trigger.press: [
+            Act(action, {'entity': '{{target.id}}'}),
+          ],
+        },
+      );
+      await pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'main',
+            layers: [
+              home(
+                [Component.pane(id: 'main')],
+                [
+                  folderPane('pick').copyWith(
+                    vars: const {
+                      'target': Variable(null, type: VarType.entity),
+                    },
+                    children: [
+                      button('Start it', 'open'),
+                      button('Play it', 'playPause'),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ).normalised(),
+        ),
+      );
+      final vars = ProviderScope.containerOf(
+        tester.element(find.byType(OpenLauncherApp)),
+      ).read(runtimeVarsProvider.notifier);
+      Future<void> openFor(String entity) async {
+        vars.set('pick', 'target', entity);
+        vars.set('pick', openVar, true);
+        await tester.pumpAndSettle();
+      }
+
+      // Neither can be done to the clock: the menu is not shown.
+      await openFor('clock');
+      expect(find.text('Start it'), findsNothing);
+
+      // An app has nothing to play.
+      await openFor('app:pkg.a');
+      expect(find.text('Start it'), findsOneWidget);
+      expect(find.text('Play it'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(platform.launched, ['pkg.a']);
+      expect(find.text('Start it'), findsNothing);
+    });
+
     testWidgets('a folder opens a popup that closes when an entity is opened', (
       tester,
     ) async {

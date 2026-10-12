@@ -237,10 +237,15 @@ class Component {
   bool get isInstance => prefab != null;
 
   /// Ids held by its entity-typed variables.
-  Iterable<String> get handed => [
-    for (final variable in vars.values)
+  Iterable<String> get handed => handedWith(const {});
+
+  /// [handed], with [runtime] values over the saved ones.
+  Iterable<String> handedWith(Map<String, Object?> runtime) => [
+    for (final MapEntry(key: name, value: variable) in vars.entries)
       if (variable.type == VarType.entity)
-        if (variable.value case final String id when id.isNotEmpty) id,
+        if (runtime.containsKey(name) ? runtime[name] : variable.value
+            case final String id when id.isNotEmpty)
+          id,
   ];
 
   // Typed access to a pane's options.
