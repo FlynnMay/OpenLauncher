@@ -7,7 +7,6 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
-import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
@@ -24,17 +23,6 @@ final List<Override> tvOverrides = [
   ),
   entitiesProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).entities,
-  ),
-  // Rotation is computed locally, as on the TV.
-  wallpapersProvider.overrideWith(
-    (ref) => [
-      for (final one
-          in ref.watch(tvStateProvider).value?.wallpapers ?? const [])
-        one.wallpaper,
-    ],
-  ),
-  wallpaperEveryProvider.overrideWith(
-    (ref) => ref.watch(tvStateProvider).value?.wallpaperEvery ?? 0,
   ),
   actionRunnerProvider.overrideWith(
     (ref) => TvActionRunner(ref, ref.watch(tvApiProvider)),

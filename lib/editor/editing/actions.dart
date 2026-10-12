@@ -38,6 +38,22 @@ Future<void> changeLayout(
   }
 }
 
+/// Changes the config through its controller; a change the TV refuses is
+/// reported and the TV's config read again.
+Future<void> changeConfig(
+  BuildContext context,
+  WidgetRef ref,
+  Future<void> Function(ConfigController controller) change,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await change(ref.read(configProvider.notifier));
+  } on Object catch (error) {
+    messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
+    ref.invalidate(configProvider);
+  }
+}
+
 /// Why [dragged] cannot go into pane [paneId] of what is being edited, or
 /// null.
 String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {

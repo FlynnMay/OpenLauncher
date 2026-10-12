@@ -18,9 +18,20 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     await ref.read(configStoreProvider).save(next);
   }
 
-  /// Replaces the layout, repaired first.
-  Future<void> setLayout(Layout layout) =>
-      _update((c) => c.copyWith(layout: layout.normalised()));
+  /// Replaces the layout, repaired first. The pictures of folders it no
+  /// longer has go with them.
+  Future<void> setLayout(Layout layout) => _update((c) {
+    final next = layout.normalised();
+    final folders = {for (final pane in next.docked) Layout.iconKey(pane.id)};
+    return c.copyWith(
+      layout: next,
+      iconOverrides: {
+        for (final MapEntry(:key, :value) in c.iconOverrides.entries)
+          if (!key.startsWith(Layout.iconKey('')) || folders.contains(key))
+            key: value,
+      },
+    );
+  });
 
   /// Applies [how] to the config.
   Future<void> change(LauncherConfig Function(LauncherConfig config) how) =>
@@ -63,12 +74,16 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     ),
   );
 
-  /// Makes [id] show [from]'s picture; null restores its own.
+  /// Makes [id] show [from]'s picture, in place of a custom one; null
+  /// restores its own.
   Future<void> setIconSource(String id, String? from) => _update(
     (c) => c.copyWith(
       iconSources: from == null
           ? ({...c.iconSources}..remove(id))
           : {...c.iconSources, id: from},
+      iconOverrides: from == null
+          ? c.iconOverrides
+          : ({...c.iconOverrides}..remove(id)),
     ),
   );
 

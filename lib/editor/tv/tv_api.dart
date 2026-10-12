@@ -8,7 +8,6 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
@@ -21,8 +20,8 @@ typedef ComponentOffer = ({
   Map<String, Object?> options,
 });
 
-/// The user's changes to an entity.
-typedef EntityDetails = ({bool renamed, bool customIcon, String? iconFrom});
+/// A file uploaded to the TV; [used] if the TV's config points at it.
+typedef MediaFile = ({String id, String url, int bytes, bool used});
 
 /// The TV's state, with every picture as a URL.
 class TvState {
@@ -30,9 +29,6 @@ class TvState {
     required this.entities,
     required this.config,
     required this.components,
-    this.details = const {},
-    this.wallpapers = const [],
-    this.wallpaperEvery = 0,
     this.widgetProviders = const {},
     this.notificationAccess = true,
     this.homeButton = true,
@@ -45,13 +41,6 @@ class TvState {
 
   final LauncherConfig config;
   final List<ComponentOffer> components;
-
-  final Map<String, EntityDetails> details;
-
-  /// By id, in order.
-  final List<({String id, Wallpaper wallpaper})> wallpapers;
-
-  final int wallpaperEvery;
 
   /// App widget ids with their labels.
   final Map<String, String> widgetProviders;
@@ -74,13 +63,19 @@ final tvStateProvider = StreamProvider<TvState>(
 
 /// The TV's HTTP API, at this page's origin.
 class TvApi {
-  final _client = http.Client();
+  TvApi({http.Client? client}) : _client = client ?? http.Client();
+
+  final http.Client _client;
   final _base = Uri.base;
 
   /// Line art by URL; the URL changes with the drawing.
   final _drawings = <String, Future<String>>{};
 
   Uri _at(String path) => _base.resolve(path);
+
+  String _mediaUrl(String id) => _at('/api/media/$id').toString();
+
+  static String _mediaId(String url) => Uri.parse(url).pathSegments.last;
 
   /// Follows the TV's event stream, reconnecting when it drops. Fails only if
   /// the first connection does.
@@ -111,22 +106,23 @@ class TvApi {
 
   Future<TvState> _state(Map<Object?, Object?> json) async {
     final providers = json['widgetProviders'] as List;
+    final config = LauncherConfig.fromJson({
+      'v': saveVersion,
+      ...(json['config'] as Map).cast<String, Object?>(),
+      'layout': json['layout'],
+    });
     return TvState(
       entities: await Future.wait([
         for (final Map entity in json['entities'] as List) _entity(entity),
       ]),
-      config:
-          LauncherConfig.fromJson({
-            'v': saveVersion,
-            ...(json['config'] as Map).cast<String, Object?>(),
-            'layout': json['layout'],
-          }).copyWith(
-            iconOverrides: {
-              for (final MapEntry(:key, :value)
-                  in (json['folderIcons'] as Map).entries)
-                Layout.iconKey(key as String): _at(value as String).toString(),
-            },
-          ),
+      // Files arrive as ids.
+      config: config.copyWith(
+        iconOverrides: {
+          for (final MapEntry(:key, value: id) in config.iconOverrides.entries)
+            key: _mediaUrl(id),
+        },
+        wallpapers: [for (final id in config.wallpapers) _mediaUrl(id)],
+      ),
       components: [
         for (final Map component in json['components'] as List)
           // One offer per app widget.
@@ -146,25 +142,6 @@ class TvApi {
               },
             ),
       ],
-      details: {
-        for (final Map entity in json['entities'] as List)
-          entity['id'] as String: (
-            renamed: entity['renamed'] == true,
-            customIcon: entity['customIcon'] == true,
-            iconFrom: entity['iconFrom'] as String?,
-          ),
-      },
-      wallpapers: [
-        for (final Map wallpaper in json['wallpapers'] as List)
-          (
-            id: wallpaper['id'] as String,
-            wallpaper: Wallpaper(
-              _at(wallpaper['url'] as String).toString(),
-              WallpaperKind.values.byName(wallpaper['kind'] as String),
-            ),
-          ),
-      ],
-      wallpaperEvery: (json['wallpaperEvery'] as num).toInt(),
       widgetProviders: {
         for (final Map provider in providers)
           provider['id'] as String: '${provider['app']}: ${provider['label']}',
@@ -233,46 +210,56 @@ class TvApi {
     return jsonDecode(text);
   }
 
-  Future<void> _upload(String method, String path, PickedFile file) async {
-    final reply = await file.send(method, _at(path));
-    if (reply.status != 200) throw _refused(reply.status, reply.body);
-  }
-
   static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
 
   Future<void> setLayout(Layout layout) =>
       _ask('PUT', '/api/layout', layout.toJson());
 
+  /// Sends the changed config keys, files as ids.
   Future<void> setConfig(Map<String, Object?> changed) =>
-      _ask('PUT', '/api/config', changed);
+      _ask('PUT', '/api/config', {
+        ...changed,
+        if (changed['iconOverrides'] case final Map<Object?, Object?> pictures)
+          'iconOverrides': {
+            for (final MapEntry(:key, :value) in pictures.entries)
+              key: _mediaId(value as String),
+          },
+        if (changed['wallpapers'] case final List<Object?> wallpapers)
+          'wallpapers': [for (final url in wallpapers) _mediaId(url as String)],
+      });
+
+  /// Uploads [file] and returns its URL; nothing points at it until the
+  /// config does.
+  Future<String> upload(PickedFile file, {bool wallpaper = false}) async {
+    final reply = await file.send(
+      'POST',
+      _at('/api/media?as=${wallpaper ? 'wallpaper' : 'picture'}'),
+    );
+    if (reply.status != 200) throw _refused(reply.status, reply.body);
+    return _mediaUrl((jsonDecode(reply.body) as Map)['id'] as String);
+  }
+
+  /// Every uploaded file, newest first.
+  Future<List<MediaFile>> media() async => [
+    for (final Map file in (await _ask('GET', '/api/media') as Map)['files'])
+      (
+        id: file['id'] as String,
+        url: _mediaUrl(file['id'] as String),
+        bytes: (file['bytes'] as num).toInt(),
+        used: file['used'] == true,
+      ),
+  ];
+
+  /// Deletes an unused file.
+  Future<void> deleteMedia(String id) => _ask('DELETE', '/api/media${_id(id)}');
+
+  /// Deletes every unused file; returns how many.
+  Future<int> deleteUnusedMedia() async =>
+      ((await _ask('DELETE', '/api/media') as Map)['deleted'] as num).toInt();
 
   /// What entity [id]'s `http` feed reads, fetched by the TV.
   Future<Object?> feedValue(String id) async =>
       (await _ask('GET', '/api/feed${_id(id)}') as Map)['value'];
-
-  /// [id] may also be a folder's `Layout.iconKey`.
-  Future<void> setPicture(String id, PickedFile file) =>
-      _upload('PUT', '/api/icon${_id(id)}', file);
-
-  /// Clears an uploaded or borrowed picture.
-  Future<void> clearPicture(String id) => _ask('DELETE', '/api/icon${_id(id)}');
-
-  Future<void> borrowPicture(String id, String from) =>
-      _ask('PUT', '/api/entity${_id(id)}', {'iconFrom': from});
-
-  /// Null restores the device's name.
-  Future<void> rename(String id, String? name) =>
-      _ask('PUT', '/api/entity${_id(id)}', {'name': name});
-
-  Future<void> addWallpaper(PickedFile file) =>
-      _upload('POST', '/api/wallpapers', file);
-
-  Future<void> removeWallpaper(String id) =>
-      _ask('DELETE', '/api/wallpaper${_id(id)}');
-
-  /// A null argument is left unchanged.
-  Future<void> arrangeWallpapers({List<String>? order, int? every}) =>
-      _ask('PUT', '/api/wallpapers', {'order': ?order, 'every': ?every});
 
   /// Runs [act] on the TV; returns its message.
   Future<String?> act(Act act) async =>

@@ -125,26 +125,42 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       }
     });
     final surface = Theme.of(context).colorScheme.surfaceContainerLow;
+    // Where the toolbar has no room for the two labels.
+    final roomy = MediaQuery.sizeOf(context).width >= EditorScreen._wide;
     return Scaffold(
       backgroundColor: const Color(0xFF101014),
       appBar: AppBar(
         title: const Text('OpenLauncher'),
         actions: [
-          if (_editing) ...const [SnapButton(), LayersButton()],
+          if (_editing)
+            IconButtonTheme(
+              data: IconButtonThemeData(
+                style: roomy
+                    ? null
+                    : IconButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [SnapButton(), LayersButton(), MediaButton()],
+              ),
+            ),
           const SizedBox(width: 8),
           SegmentedButton<bool>(
             showSelectedIcon: false,
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: true,
-                icon: Icon(Icons.edit_outlined),
-                label: Text('Edit'),
+                icon: const Icon(Icons.edit_outlined),
+                label: roomy ? const Text('Edit') : null,
                 tooltip: 'Move things about and add new ones',
               ),
               ButtonSegment(
                 value: false,
-                icon: Icon(Icons.tv_outlined),
-                label: Text('Use'),
+                icon: const Icon(Icons.tv_outlined),
+                label: roomy ? const Text('Use') : null,
                 tooltip: 'Use it as on the TV: arrow keys, Enter, or tap',
               ),
             ],

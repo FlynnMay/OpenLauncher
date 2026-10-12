@@ -3,8 +3,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/wallpaper/wallpaper.dart';
-import 'package:openlauncher/server/wallpaper_store.dart';
+import 'package:openlauncher/server/media_store.dart';
 import 'package:path/path.dart' as p;
 
 String _iconUrl(String id, String source) =>
@@ -12,7 +11,7 @@ String _iconUrl(String id, String source) =>
     // The source's hash is the cache key.
     '&v=${source.hashCode.toRadixString(36)}';
 
-/// The state the editor loads: wallpapers, entities, layout and choices.
+/// The state the editor loads: entities, layout, config and choices.
 final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   ref,
 ) async {
@@ -21,33 +20,13 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   final providers = await ref.watch(widgetProvidersProvider.future);
   // Not awaited; the page should not wait for it.
   final playing = ref.watch(nowPlayingProvider).value;
-  final wallpapers = [
-    for (final path in config.wallpapers)
-      if (Wallpaper.fromPath(path) case final wallpaper?)
-        {
-          'id': WallpaperStore.idOf(path),
-          'kind': wallpaper.kind.name,
-          // Immutable URL.
-          'url':
-              '/api/wallpaper?id='
-              '${Uri.encodeQueryComponent(WallpaperStore.idOf(path))}',
-        },
-  ];
   return {
-    'wallpapers': wallpapers,
-    'wallpaperEvery': config.wallpaperEvery,
     'entities': [
       for (final entity in entities)
         {
           // As it is: its actions, feed and prefab with it.
           ...entity.toJson(),
           'name': entity.name,
-          'renamed': config.names.containsKey(entity.id),
-          // An uploaded or borrowed picture.
-          'customIcon':
-              config.iconOverrides.containsKey(entity.id) ||
-              config.iconSources.containsKey(entity.id),
-          'iconFrom': config.iconSources[entity.id],
           // The icon is sent as a URL.
           'data': {
             ...entity.data,
@@ -59,12 +38,6 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     // As the TV draws it: unplaced entities in the inbox, missing ones
     // dropped.
     'layout': layoutWith(config.layout, entities).toJson(),
-    // Folder pictures by the folder's id.
-    'folderIcons': {
-      for (final pane in config.layout.docked)
-        if (config.iconOverrides[Layout.iconKey(pane.id)] case final path?)
-          pane.id: _iconUrl(Layout.iconKey(pane.id), path),
-    },
     'components': [
       for (final kind in ComponentRegistry.values)
         // App widgets only where some exist.
@@ -80,8 +53,9 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
       for (final provider in providers)
         {'id': provider.id, 'label': provider.label, 'app': provider.appLabel},
     ],
-    // Plain-data settings; set with `PUT /api/config`.
-    'config': config.open,
+    // Everything but the layout, files by id (served at `/api/media/<id>`);
+    // set with `PUT /api/config`.
+    'config': MediaStore.withIds(config.open),
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
     'homeButton': {
       'enabled': await ref.watch(homeButtonEnabledProvider.future),
@@ -99,7 +73,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
             'art': switch (playing.artPath) {
               null => null,
               final path =>
-                '/api/media/art?id=${Uri.encodeQueryComponent(p.basename(path))}',
+                '/api/playing/art?id=${Uri.encodeQueryComponent(p.basename(path))}',
             },
           },
   };

@@ -90,6 +90,7 @@ class LauncherConfig {
   final Layout layout;
 
   /// Entity id -> image path. A folder's picture is under `Layout.iconKey`.
+  /// In the editor the paths are the TV's URLs.
   final Map<String, String> iconOverrides;
 
   /// Entity id -> the entity whose picture it shows.
@@ -107,6 +108,8 @@ class LauncherConfig {
   /// One week.
   static const maxWallpaperEvery = 7 * 24 * 60;
 
+  static const maxWallpapers = 12;
+
   String? get wallpaper => wallpapers.firstOrNull;
 
   final ToastOptions toasts;
@@ -122,8 +125,20 @@ class LauncherConfig {
 
   /// Config keys sent whole between the TV and the editor (`PUT
   /// /api/config`). A new plain-data setting is a field plus its name here.
-  /// The layout and file paths are handled separately.
-  static const openKeys = ['toasts', 'entities', 'place', 'prefabs'];
+  /// The layout is sent separately; [fileKeys] travel as file ids.
+  static const openKeys = [
+    'toasts',
+    'entities',
+    'place',
+    'prefabs',
+    'names',
+    'iconSources',
+    'wallpaperEvery',
+    ...fileKeys,
+  ];
+
+  /// The [openKeys] that point at uploaded files.
+  static const fileKeys = ['iconOverrides', 'wallpapers'];
 
   /// The [openKeys] values as saved.
   Map<String, Object?> get open {
@@ -181,13 +196,12 @@ class LauncherConfig {
 
   factory LauncherConfig._current(Json json) => LauncherConfig(
     layout: _savedLayout(json),
-    iconOverrides: {
-      ...?(json['iconOverrides'] as Map?)?.cast<String, String>(),
-    },
+    iconOverrides: _strings(json['iconOverrides']),
     iconSources: _strings(json['iconSources']),
     names: _strings(json['names']),
     wallpapers: switch (json['wallpapers']) {
-      final List<Object?> paths => paths.whereType<String>().toList(),
+      final List<Object?> paths =>
+        paths.whereType<String>().take(maxWallpapers).toList(),
       _ => const [],
     },
     wallpaperEvery: switch (json['wallpaperEvery']) {

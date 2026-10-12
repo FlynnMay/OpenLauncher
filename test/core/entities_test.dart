@@ -169,6 +169,13 @@ void main() {
       expect(store.config.iconOverrides, {'app:a': '/x.png'});
       await config.setIconOverride('app:a', null);
       expect(store.config.iconOverrides, isEmpty);
+
+      // A custom picture and a borrowed one replace each other.
+      await config.setIconOverride('app:a', '/x.png');
+      await config.setIconSource('app:a', 'app:b');
+      expect(store.config.iconOverrides, isEmpty);
+      await config.setIconOverride('app:a', '/x.png');
+      expect(store.config.iconSources, isEmpty);
     });
 
     test('entities refresh when the device reports a package change', () async {

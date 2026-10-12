@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +175,9 @@ void main() {
       );
       addTearDown(container.dispose);
       final config = container.read(configProvider.notifier);
+      final layout = jsonEncode(
+        (await container.read(configProvider.future)).layout,
+      );
       await config.patch({
         'entities': [
           {
@@ -186,10 +191,10 @@ void main() {
           },
         ],
         'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
-        // Not one of the plain settings: left alone.
-        'wallpapers': ['/etc/passwd'],
+        // Not set this way: left alone.
+        'layout': {'layers': []},
       });
-      expect(store.config.wallpapers, isEmpty);
+      expect(jsonEncode(store.config.layout), layout);
       final read = LauncherConfig.fromJson(store.config.toJson());
       expect(read.entities.map((entity) => entity.id), ['motto']);
       expect(read.place?.name, 'Perth');

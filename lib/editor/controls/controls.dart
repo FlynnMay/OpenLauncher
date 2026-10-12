@@ -11,6 +11,7 @@ export 'gradient_bar.dart';
 export 'id_label.dart';
 export 'image_carousel.dart';
 export 'labelled_row.dart';
+export 'media_preview.dart';
 export 'number_field.dart';
 export 'option_fields.dart';
 export 'picture_tile.dart';

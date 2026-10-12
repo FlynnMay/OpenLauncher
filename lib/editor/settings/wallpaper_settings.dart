@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
-import 'package:openlauncher/features/home/picture.dart';
 
 /// The wallpapers and their rotation.
 class WallpaperSettings extends ConsumerStatefulWidget {
   const WallpaperSettings({super.key});
-
-  static const max = 12;
 
   /// Rotation intervals, in minutes.
   static const turns = {
@@ -32,12 +30,15 @@ class _WallpaperSettingsState extends ConsumerState<WallpaperSettings>
   @override
   Widget build(BuildContext context) {
     final api = ref.watch(tvApiProvider);
-    final state = ref.watch(tvStateProvider).value;
-    final wallpapers = state?.wallpapers ?? const [];
-    final every = state?.wallpaperEvery ?? 0;
+    final config = ref.watch(configProvider).value;
+    final wallpapers = config?.wallpapers ?? const <String>[];
+    final every = config?.wallpaperEvery ?? 0;
+    Future<void> change(
+      Future<void> Function(ConfigController controller) how,
+    ) => whileBusy(() => changeConfig(context, ref, how));
     return Section('Wallpaper', [
       ImageCarousel(
-        max: WallpaperSettings.max,
+        max: LauncherConfig.maxWallpapers,
         empty: 'A plain background',
         addLabel: 'Add a picture or video',
         firstLabel: every == 0
@@ -45,42 +46,35 @@ class _WallpaperSettingsState extends ConsumerState<WallpaperSettings>
             : 'Show this one first',
         busy: busy,
         images: [
-          for (final (:id, :wallpaper) in wallpapers)
-            CarouselImage(
-              id: id,
-              child: switch (wallpaper.kind) {
-                WallpaperKind.image => Image(
-                  image: ResizeImage(pictureAt(wallpaper.path), width: 640),
-                  fit: BoxFit.cover,
-                ),
-                WallpaperKind.video => const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 4,
-                    children: [
-                      Icon(Icons.movie_outlined, size: 32),
-                      Text('Video'),
-                    ],
-                  ),
-                ),
-              },
-            ),
+          for (final url in wallpapers)
+            CarouselImage(id: url, child: MediaPreview(url)),
         ],
         onAdd: () => whileBusy(() async {
           final file = await pickFile(
             accept: 'image/*,video/mp4,video/webm,.mkv',
           );
-          if (file != null) await api.addWallpaper(file);
+          if (file == null) return;
+          final url = await api.upload(file, wallpaper: true);
+          if (!context.mounted) return;
+          await changeConfig(
+            context,
+            ref,
+            (c) => c.setWallpapers([...wallpapers, url]),
+          );
         }),
-        onRemove: (id) => whileBusy(() => api.removeWallpaper(id)),
-        onFirst: (id) => whileBusy(
-          () => api.arrangeWallpapers(
-            order: [
-              id,
-              for (final other in wallpapers)
-                if (other.id != id) other.id,
-            ],
-          ),
+        // The file stays on the TV; Media deletes it.
+        onRemove: (url) => change(
+          (c) => c.setWallpapers([
+            for (final other in wallpapers)
+              if (other != url) other,
+          ]),
+        ),
+        onFirst: (url) => change(
+          (c) => c.setWallpapers([
+            url,
+            for (final other in wallpapers)
+              if (other != url) other,
+          ]),
         ),
       ),
       if (wallpapers.length > 1)
@@ -89,8 +83,7 @@ class _WallpaperSettingsState extends ConsumerState<WallpaperSettings>
           ChoiceBox<int>(
             value: WallpaperSettings.turns.containsKey(every) ? every : null,
             choices: WallpaperSettings.turns,
-            onChanged: (minutes) =>
-                whileBusy(() => api.arrangeWallpapers(every: minutes)),
+            onChanged: (minutes) => change((c) => c.setWallpaperEvery(minutes)),
           ),
         ),
     ]);

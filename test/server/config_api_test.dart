@@ -14,8 +14,7 @@ import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_api.dart';
 import 'package:openlauncher/server/config_server.dart';
-import 'package:openlauncher/server/custom_icons.dart';
-import 'package:openlauncher/server/wallpaper_store.dart';
+import 'package:openlauncher/server/media_store.dart';
 import 'package:shelf/shelf.dart';
 
 // The smallest valid PNG header is enough: the server only sniffs the type.
@@ -52,9 +51,8 @@ void main() {
             [TvInput(id: 'tv/HW1', label: 'HDMI 1', kind: TvInputKind.hdmi)],
           ),
         ),
-        customIconDirProvider.overrideWith((ref) => tmp),
-        wallpaperDirProvider.overrideWith(
-          (ref) => Directory('${tmp.path}/wallpaper'),
+        mediaDirProvider.overrideWith(
+          (ref, use) => Directory('${tmp.path}/${use.folder}'),
         ),
         feedFetcherProvider.overrideWithValue((feed) async {
           if (feed.address.host == 'broken') throw Exception('No answer');
@@ -97,6 +95,19 @@ void main() {
     final response = await call('GET', '/api/state');
     expect(response.statusCode, 200);
     return jsonDecode(await response.readAsString());
+  }
+
+  /// Uploads [bytes] for [use] and returns the file's id.
+  Future<String> upload(Object bytes, {String use = 'picture'}) async {
+    final response = await call('POST', '/api/media?as=$use', body: bytes);
+    expect(response.statusCode, 200);
+    return jsonDecode(await response.readAsString())['id'];
+  }
+
+  /// Every uploaded file, as the media manager is told of them.
+  Future<List<Map<String, dynamic>>> media() async {
+    final response = await call('GET', '/api/media');
+    return (jsonDecode(await response.readAsString())['files'] as List).cast();
   }
 
   /// The apps and inputs the page is told about; the launcher's own
@@ -143,9 +154,6 @@ void main() {
       'placed': true,
       'label': 'HDMI 1',
       'name': 'HDMI 1',
-      'renamed': false,
-      'customIcon': false,
-      'iconFrom': null,
       // What there is to read of it, its picture as where to fetch it.
       'data': {'input': 'tv/HW1', 'icon': isA<String>(), 'shape': 'line'},
     });
@@ -298,13 +306,16 @@ void main() {
       'title': 'Song',
       'artist': 'Singer',
       'playing': true,
-      'art': '/api/media/art?id=art-1.png',
+      'art': '/api/playing/art?id=art-1.png',
     });
     final art = await call('GET', playing['art']);
     expect(art.statusCode, 200);
     expect(art.headers['content-type'], 'image/png');
     // A cover that has since been replaced is not passed off as the old one.
-    expect((await call('GET', '/api/media/art?id=art-0.png')).statusCode, 404);
+    expect(
+      (await call('GET', '/api/playing/art?id=art-0.png')).statusCode,
+      404,
+    );
   });
 
   test('a new layout is saved, repaired and shown on the TV', () async {
@@ -417,53 +428,48 @@ void main() {
     );
   });
 
-  test('a folder entity can have a picture, removed with the folder', () async {
-    Map<String, Object?> layout(List<Object?> folders) => {
-      'layers': [
-        {
-          'id': 'home',
-          'root': {'id': 'home/root', 'kind': 'pane', 'children': folders},
-        },
-      ],
-    };
-    await call(
-      'PUT',
-      '/api/layout',
-      body: layout([
-        {
-          'id': 'games',
-          'kind': 'pane',
-          'options': {'title': 'Games', 'dock': 'center'},
-        },
-      ]),
-    );
-    expect(
-      (await call('PUT', '/api/icon?id=folder:nope', body: _png)).statusCode,
-      404,
-    );
-    expect(
-      (await call(
+  test(
+    'a folder\'s picture goes with the folder, and its file stays',
+    () async {
+      Map<String, Object?> layout(List<Object?> folders) => {
+        'layers': [
+          {
+            'id': 'home',
+            'root': {'id': 'home/root', 'kind': 'pane', 'children': folders},
+          },
+        ],
+      };
+      await call(
         'PUT',
-        '/api/icon?id=folder:home/root',
-        body: _png,
-      )).statusCode,
-      404,
-    );
-    expect(
-      (await call('PUT', '/api/icon?id=folder:games', body: _png)).statusCode,
-      200,
-    );
+        '/api/layout',
+        body: layout([
+          {
+            'id': 'games',
+            'kind': 'pane',
+            'options': {'title': 'Games', 'dock': 'center'},
+          },
+        ]),
+      );
+      final id = await upload(_png);
+      await call(
+        'PUT',
+        '/api/config',
+        body: {
+          'iconOverrides': {'folder:games': id},
+        },
+      );
+      expect((await state())['config']['iconOverrides'], {'folder:games': id});
+      final response = await call('GET', '/api/media/$id');
+      expect(response.headers['content-type'], 'image/png');
 
-    final url = (await state())['folderIcons']['games'] as String;
-    final response = await call('GET', url);
-    expect(response.headers['content-type'], 'image/png');
-    expect(tmp.listSync(), hasLength(1));
-
-    await call('PUT', '/api/layout', body: layout([]));
-    expect(store.config.iconOverrides, isEmpty);
-    expect(tmp.listSync(), isEmpty);
-    expect((await state())['folderIcons'], isEmpty);
-  });
+      await call('PUT', '/api/layout', body: layout([]));
+      expect(store.config.iconOverrides, isEmpty);
+      // Only the media manager deletes files.
+      expect(await media(), [
+        {'id': id, 'bytes': _png.length, 'used': false},
+      ]);
+    },
+  );
 
   test('plain settings are set as they are saved', () async {
     var response = await call(
@@ -484,16 +490,19 @@ void main() {
     response = await call('PUT', '/api/config', body: {'toasts': 'loud'});
     expect(response.statusCode, 200);
     expect(store.config.toasts.enabled, isTrue);
-    // Only the plain settings are set this way: never the paths of files.
+    // Files are named by id, never by path.
     response = await call(
       'PUT',
       '/api/config',
       body: {
-        'wallpapers': ['/etc/passwd'],
+        'wallpapers': ['/etc/passwd', '../config.json'],
+        'iconOverrides': {'app:a': '/etc/passwd'},
       },
     );
-    expect(response.statusCode, 400);
+    expect(response.statusCode, 200);
     expect(store.config.wallpapers, isEmpty);
+    expect(store.config.iconOverrides, isEmpty);
+    expect((await call('PUT', '/api/config', body: {'v': 1})).statusCode, 400);
   });
 
   test(
@@ -635,93 +644,100 @@ void main() {
     expect(store.config.layout.removed, isEmpty);
   });
 
-  test('custom image upload, download and reset', () async {
-    var response = await call('PUT', '/api/icon?id=app:a', body: _png);
-    expect(response.statusCode, 200);
+  test('an uploaded picture is used once the config points at it', () async {
+    final id = await upload(_png);
+    expect(store.config.iconOverrides, isEmpty);
+    expect((await media()).single['used'], isFalse);
 
-    var entity = (await entities()).firstWhere((c) => c['id'] == 'app:a');
-    expect(entity['customIcon'], isTrue);
+    var response = await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'iconOverrides': {'app:a': id},
+      },
+    );
+    expect(response.statusCode, 200);
+    final entity = (await entities()).firstWhere((c) => c['id'] == 'app:a');
     expect(entity['data']['shape'], 'banner');
     final saved = File(store.config.iconOverrides['app:a']!);
-    expect(saved.parent.path, tmp.path);
-
+    expect(saved.parent.path, '${tmp.path}/custom-icons');
     response = await call('GET', entity['data']['icon'] as String);
     expect(response.headers['content-type'], 'image/png');
     expect(await response.read().expand((b) => b).toList(), _png);
+    expect((await state())['config']['iconOverrides'], {'app:a': id});
+    expect((await media()).single['used'], isTrue);
 
-    // A second upload replaces the first file rather than leaving it behind.
-    await call('PUT', '/api/icon?id=app:a', body: _png);
-    expect(saved.existsSync(), isFalse);
-    expect(tmp.listSync(), hasLength(1));
+    // A file in use is not deleted.
+    expect((await call('DELETE', '/api/media?id=$id')).statusCode, 409);
 
-    response = await call('DELETE', '/api/icon?id=app:a');
-    expect(response.statusCode, 200);
+    // A second picture leaves the first on the TV, unused.
+    final second = await upload(_png);
+    await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'iconOverrides': {'app:a': second},
+      },
+    );
+    expect(saved.existsSync(), isTrue);
+    expect(
+      {for (final file in await media()) file['id']: file['used']},
+      {id: false, second: true},
+    );
+
+    // Deleting the unused takes only those.
+    response = await call('DELETE', '/api/media');
+    expect(jsonDecode(await response.readAsString()), {'deleted': 1});
+    expect((await media()).single['id'], second);
+    expect((await call('DELETE', '/api/media?id=$id')).statusCode, 404);
+
+    // An id with no file points at nothing.
+    await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'iconOverrides': {'app:a': id},
+      },
+    );
     expect(store.config.iconOverrides, isEmpty);
-    expect(tmp.listSync(), isEmpty);
-    entity = (await entities()).firstWhere((c) => c['id'] == 'app:a');
-    expect(entity['customIcon'], isFalse);
   });
 
-  test(
-    'an entity can be renamed and given another entity\'s picture',
-    () async {
-      Future<Map<String, dynamic>> entity(String id) async =>
-          (await entities()).firstWhere((c) => c['id'] == id);
+  test('an entity is renamed and given another entity\'s picture', () async {
+    Future<Map<String, dynamic>> entity(String id) async =>
+        (await entities()).firstWhere((c) => c['id'] == id);
 
-      var response = await call(
-        'PUT',
-        '/api/entity?id=app:a',
-        body: {'name': '  Films ', 'iconFrom': 'input:tv/HW1'},
-      );
-      expect(response.statusCode, 200);
-      var a = await entity('app:a');
-      expect(a['label'], 'Films');
-      expect(a['renamed'], isTrue);
-      expect(a['iconFrom'], 'input:tv/HW1');
-      expect(a['customIcon'], isTrue);
-      response = await call('GET', a['data']['icon'] as String);
-      expect(response.headers['content-type'], 'image/svg+xml');
+    var response = await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'names': {'app:a': 'Films'},
+        'iconSources': {'app:a': 'input:tv/HW1'},
+      },
+    );
+    expect(response.statusCode, 200);
+    var a = await entity('app:a');
+    expect(a['label'], 'Films');
+    response = await call('GET', a['data']['icon'] as String);
+    expect(response.headers['content-type'], 'image/svg+xml');
+    final config = (await state())['config'];
+    expect(config['names'], {'app:a': 'Films'});
+    expect(config['iconSources'], {'app:a': 'input:tv/HW1'});
 
-      // Leaving a key out leaves that part alone.
-      await call('PUT', '/api/entity?id=app:a', body: {'name': null});
-      a = await entity('app:a');
-      expect(a['label'], 'A');
-      expect(a['iconFrom'], 'input:tv/HW1');
+    // A key left out is left alone.
+    await call('PUT', '/api/config', body: {'names': {}});
+    a = await entity('app:a');
+    expect(a['label'], 'A');
+    expect(store.config.iconSources, {'app:a': 'input:tv/HW1'});
 
-      // An uploaded picture and a borrowed one replace each other.
-      await call('PUT', '/api/icon?id=app:a', body: _png);
-      expect(store.config.iconSources, isEmpty);
-      await call('PUT', '/api/entity?id=app:b', body: {'iconFrom': 'app:a'});
-      response = await call(
-        'GET',
-        (await entity('app:b'))['data']['icon'] as String,
-      );
-      expect(await response.read().expand((b) => b).toList(), _png);
-      await call('PUT', '/api/entity?id=app:a', body: {'iconFrom': 'app:b'});
-      expect(store.config.iconOverrides, isEmpty);
-      expect(tmp.listSync(), isEmpty);
-
-      // "Reset picture" undoes a borrowed one too.
-      await call('DELETE', '/api/icon?id=app:a');
-      expect(store.config.iconSources, {'app:b': 'app:a'});
-
-      for (final bad in [
-        {'iconFrom': 'app:a'},
-        {'iconFrom': 'app:nope'},
-        {'name': 7},
-        {'name': 'x' * 61},
-      ]) {
-        response = await call('PUT', '/api/entity?id=app:a', body: bad);
-        expect(response.statusCode, 400, reason: '$bad');
-      }
-      response = await call(
-        'PUT',
-        '/api/entity?id=app:nope',
-        body: {'name': 'x'},
-      );
-      expect(response.statusCode, 404);
-    },
-  );
+    response = await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'names': {'app:a': 'x' * 61},
+      },
+    );
+    expect(response.statusCode, 400);
+  });
 
   group('wallpaper', () {
     // Just enough of an MP4 for the type to be recognised.
@@ -734,89 +750,87 @@ void main() {
       ...List.filled(40, 7),
     ]);
 
-    /// The first wallpaper, which is the one shown.
-    Future<Map<String, dynamic>?> wallpaper() async {
-      final response = await call('GET', '/api/state');
-      final all = jsonDecode(await response.readAsString())['wallpapers'];
-      return (all as List).firstOrNull;
-    }
+    Future<List<String>> wallpapers() async =>
+        ((await state())['config']['wallpapers'] as List).cast();
 
-    test('video upload becomes the wallpaper and can be removed', () async {
-      expect(await wallpaper(), isNull);
+    test(
+      'an uploaded video is the wallpaper once the config lists it',
+      () async {
+        expect(await wallpapers(), isEmpty);
 
-      var response = await call('POST', '/api/wallpapers', body: mp4);
-      expect(response.statusCode, 200);
-      final state = (await wallpaper())!;
-      expect(state['kind'], 'video');
-      final saved = File(store.config.wallpaper!);
-      expect(saved.readAsBytesSync(), mp4);
-      expect(
-        container.read(wallpaperProvider),
-        Wallpaper(saved.path, WallpaperKind.video),
-      );
+        final id = await upload(mp4, use: 'wallpaper');
+        expect(id, endsWith('.mp4'));
+        expect(store.config.wallpaper, isNull);
+        var response = await call(
+          'PUT',
+          '/api/config',
+          body: {
+            'wallpapers': [id],
+          },
+        );
+        expect(response.statusCode, 200);
+        expect(await wallpapers(), [id]);
+        final saved = File(store.config.wallpaper!);
+        expect(saved.readAsBytesSync(), mp4);
+        expect(
+          container.read(wallpaperProvider),
+          Wallpaper(saved.path, WallpaperKind.video),
+        );
 
-      response = await call('GET', state['url'] as String);
-      expect(response.statusCode, 200);
-      expect(response.headers['content-type'], 'video/mp4');
-      expect(response.headers['content-length'], '${mp4.length}');
+        response = await call('GET', '/api/media/$id');
+        expect(response.statusCode, 200);
+        expect(response.headers['content-type'], 'video/mp4');
+        expect(response.headers['content-length'], '${mp4.length}');
 
-      // With none named, all of them go, and their files with them.
-      await call('POST', '/api/wallpapers', body: _png);
-      response = await call('DELETE', '/api/wallpaper');
-      expect(saved.existsSync(), isFalse);
-      expect(response.statusCode, 200);
-      expect(await wallpaper(), isNull);
-      expect(store.config.wallpaper, isNull);
-      expect(Directory('${tmp.path}/wallpaper').listSync(), isEmpty);
-    });
+        // Off the list, its file stays until it is deleted as media.
+        await call('PUT', '/api/config', body: {'wallpapers': []});
+        expect(store.config.wallpaper, isNull);
+        expect(saved.existsSync(), isTrue);
+        expect((await call('DELETE', '/api/media?id=$id')).statusCode, 200);
+        expect(saved.existsSync(), isFalse);
+      },
+    );
 
-    test('several wallpapers are kept, ordered, timed and removed', () async {
-      Future<List<Map<String, dynamic>>> all() async =>
-          ((await state())['wallpapers'] as List).cast();
-
-      expect(
-        (await call('POST', '/api/wallpapers', body: mp4)).statusCode,
-        200,
-      );
-      await call('POST', '/api/wallpapers', body: _png);
-      var list = await all();
-      expect([for (final one in list) one['kind']], ['video', 'image']);
-      // The first is the one shown.
-      expect(container.read(wallpaperProvider)?.kind, WallpaperKind.video);
-
-      // Each is served by its own name.
-      final picture = await call('GET', list[1]['url'] as String);
-      expect(picture.headers['content-type'], 'image/png');
-
-      var response = await call(
+    test('several wallpapers are kept in the order given, and timed', () async {
+      final video = await upload(mp4, use: 'wallpaper');
+      final picture = await upload(_png, use: 'wallpaper');
+      await call(
         'PUT',
-        '/api/wallpapers',
+        '/api/config',
         body: {
-          'order': [list[1]['id'], list[0]['id']],
-          'every': 15,
+          'wallpapers': [video, picture],
+          'wallpaperEvery': 15,
         },
       );
-      expect(response.statusCode, 200);
-      expect([for (final one in await all()) one['kind']], ['image', 'video']);
-      expect((await state())['wallpaperEvery'], 15);
+      // The first is the one shown.
+      expect(container.read(wallpaperProvider)?.kind, WallpaperKind.video);
+      expect(store.config.wallpaperEvery, 15);
+      expect((await state())['config']['wallpaperEvery'], 15);
+
+      await call(
+        'PUT',
+        '/api/config',
+        body: {
+          'wallpapers': [picture, video, 'nothing.png'],
+        },
+      );
+      expect(await wallpapers(), [picture, video]);
       expect(store.config.wallpaperEvery, 15);
 
-      response = await call('DELETE', '/api/wallpaper?id=${list[0]['id']}');
-      expect(response.statusCode, 200);
-      expect([for (final one in await all()) one['kind']], ['image']);
-      expect(Directory('${tmp.path}/wallpaper').listSync(), hasLength(1));
-      expect(
-        (await call('DELETE', '/api/wallpaper?id=nothing.png')).statusCode,
-        404,
+      await call(
+        'PUT',
+        '/api/config',
+        body: {'wallpapers': List.filled(20, picture)},
       );
+      expect(store.config.wallpapers, hasLength(LauncherConfig.maxWallpapers));
     });
 
     test('serves byte ranges for video playback', () async {
-      await call('POST', '/api/wallpapers', body: mp4);
+      final id = await upload(mp4, use: 'wallpaper');
       Future<Response> range(String value) => api.handle(
         Request(
           'GET',
-          Uri.parse('http://tv/api/wallpaper'),
+          Uri.parse('http://tv/api/media/$id'),
           headers: {'range': value},
         ),
       );
@@ -839,15 +853,19 @@ void main() {
     });
 
     test('rejects files that are not pictures or videos', () async {
-      final response = await call(
+      var response = await call(
         'POST',
-        '/api/wallpapers',
+        '/api/media?as=wallpaper',
         body: utf8.encode('just some text'),
       );
       expect(response.statusCode, 415);
-      expect(store.config.wallpaper, isNull);
+      // A video is not a picture.
+      response = await call('POST', '/api/media?as=picture', body: mp4);
+      expect(response.statusCode, 415);
+      expect((await call('POST', '/api/media', body: _png)).statusCode, 400);
+      expect(await media(), isEmpty);
       expect(Directory('${tmp.path}/wallpaper').listSync(), isEmpty);
-      expect((await call('GET', '/api/wallpaper')).statusCode, 404);
+      expect((await call('GET', '/api/media/nothing.png')).statusCode, 404);
     });
 
     test('recognises WebM and Matroska', () {
@@ -875,7 +893,7 @@ void main() {
 
     expect(await status('GET', '/nope'), 404);
     expect(await status('PUT', '/api/hidden?id=app:a', body: {}), 404);
-    expect(await status('DELETE', '/api/icon?id=app:zzz'), 404);
+    expect(await status('GET', '/api/icon?id=app:zzz'), 404);
     expect(await status('PUT', '/api/layout', body: 'not json'), 400);
     expect(
       await status(
@@ -888,10 +906,9 @@ void main() {
       400,
     );
     expect(
-      await status('PUT', '/api/icon?id=app:a', body: utf8.encode('hello')),
+      await status('POST', '/api/media?as=picture', body: utf8.encode('hello')),
       415,
     );
-    expect(store.config.iconOverrides, isEmpty);
   });
 
   test('event stream sends the state now and after each change', () async {
