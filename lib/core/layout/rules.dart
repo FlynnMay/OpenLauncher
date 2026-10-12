@@ -158,7 +158,30 @@ final List<ComponentOption> paneRules = [
     defaultValue: false,
     when: _canScrollDown,
   ),
+  const ComponentOption(
+    'scrollbar',
+    'Scroll bar',
+    OptionKind.choice,
+    unset: 'None',
+    choices: {'thumb': 'Thumb', 'progress': 'Progress'},
+    when: _scrolls,
+  ),
+  const ComponentOption(
+    'scrollbarShow',
+    'Show scroll bar',
+    OptionKind.choice,
+    defaultValue: 'always',
+    choices: {'always': 'Always', 'auto': 'While scrolling'},
+    when: _hasScrollbar,
+  ),
 ];
+
+bool _scrolls(Map<String, Object?> options) => _onCells(options)
+    ? options['scrollY'] != false || options['scrollX'] == true
+    : _canScrollAcross(options) && options['scrollX'] == true ||
+          _canScrollDown(options) && options['scrollY'] == true;
+bool _hasScrollbar(Map<String, Object?> options) =>
+    _scrolls(options) && Component.scrollbars.contains(options['scrollbar']);
 
 // A fitted row or column is scaled to its box, so has nothing to scroll.
 bool _canScrollAcross(Map<String, Object?> options) =>

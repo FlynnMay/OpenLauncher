@@ -12,6 +12,7 @@ import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/pane_scrollbar.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/wallpaper/wallpaper_background.dart';
 
@@ -209,8 +210,11 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// Whether the Settings card is placed anywhere.
-  static Widget _scrolling(Component root, Widget child) =>
-      root.scrollsDown ? SingleChildScrollView(child: child) : child;
+  static Widget _scrolling(Component root, Widget child) => PaneScrollbars.over(
+    root,
+    root.style,
+    root.scrollsDown ? SingleChildScrollView(child: child) : child,
+  );
 
   static bool _hasSettings(Layout layout) =>
       layout.items.any((item) => item.handed.contains(settingsEntity.id));

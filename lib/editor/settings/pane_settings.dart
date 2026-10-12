@@ -5,6 +5,7 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/dock_settings.dart';
+import 'package:openlauncher/editor/settings/style_settings.dart';
 import 'package:openlauncher/editor/settings/trigger_settings.dart';
 import 'package:openlauncher/editor/settings/variables_settings.dart';
 
@@ -56,6 +57,18 @@ class PaneSettings extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _arrangement,
+      if (panes.every((pane) => pane.scrollbar != null))
+        Section(
+          'Scroll bar',
+          styleFields(
+            keys: scrollbarStyle,
+            style: panes.first.style,
+            onChanged: (key, value) => onChanged(
+              (pane) =>
+                  pane.copyWith(style: withStyle(pane.style, {key: value})),
+            ),
+          ),
+        ),
       _entities,
       if (prefabs.isNotEmpty) _rules,
       // One pane at a time.

@@ -13,6 +13,7 @@ import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/pane_scrollbar.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
@@ -620,6 +621,188 @@ void main() {
         shown.cellWidth,
         PaneMetrics(pane.withOption('scrollX', null), 400).cellWidth,
       );
+    });
+
+    test('a scroll bar is placed by how far the pane is scrolled', () {
+      ScrollMetrics at(
+        double pixels, [
+        AxisDirection direction = AxisDirection.down,
+      ]) => FixedScrollMetrics(
+        minScrollExtent: 0,
+        maxScrollExtent: 300,
+        pixels: pixels,
+        viewportDimension: 100,
+        axisDirection: direction,
+        devicePixelRatio: 1,
+      );
+      const box = Size(200, 108);
+      const look = ScrollbarStyle();
+      // A quarter is in view: a thumb a quarter of the track, at the right.
+      final top = barRects(box, at(0), look)!;
+      expect(top.track, const Rect.fromLTRB(190, 4, 196, 104));
+      expect(top.thumb, const Rect.fromLTRB(190, 4, 196, 29));
+      expect(barRects(box, at(150), look)!.thumb.top, 41.5);
+      expect(barRects(box, at(300), look)!.thumb.bottom, 104);
+      // Past either end it stays on its track.
+      expect(barRects(box, at(-40), look)!.thumb, top.thumb);
+      // No shorter than its least, and inside the track's sides.
+      final small = barRects(
+        box,
+        at(0),
+        const ScrollbarStyle(minLength: 40, inset: 1, start: true),
+      )!;
+      expect(small.thumb, const Rect.fromLTRB(5, 5, 9, 45));
+
+      // Progress fills from the start, and its gradient spans the whole.
+      final half = barRects(box, at(150), look, progress: true)!;
+      expect(half.thumb, const Rect.fromLTRB(190, 4, 196, 54));
+      expect(half.travel, half.track);
+      expect(barRects(box, at(0), look, progress: true)!.thumb.height, 0);
+
+      // Across, at the bottom; mirrored, it starts from the right. With one
+      // each way the corner is left free.
+      final across = barRects(box, at(0, AxisDirection.right), look)!;
+      expect(across.track, const Rect.fromLTRB(4, 98, 196, 104));
+      expect(across.thumb.left, 4);
+      expect(barRects(box, at(0, AxisDirection.left), look)!.thumb.right, 196);
+      expect(
+        barRects(box, at(0, AxisDirection.right), look, both: true)!.track,
+        const Rect.fromLTRB(4, 98, 186, 104),
+      );
+      // Half the edge, in its middle.
+      expect(
+        barRects(box, at(0), const ScrollbarStyle(length: 0.5))!.track,
+        const Rect.fromLTRB(190, 29, 196, 79),
+      );
+      // Nothing to scroll, nothing to show.
+      expect(
+        barRects(
+          box,
+          FixedScrollMetrics(
+            minScrollExtent: 0,
+            maxScrollExtent: 0,
+            pixels: 0,
+            viewportDimension: 100,
+            axisDirection: AxisDirection.down,
+            devicePixelRatio: 1,
+          ),
+          look,
+        ),
+        isNull,
+      );
+    });
+
+    testWidgets('a pane draws the scroll bar it is given', (tester) async {
+      Future<void> pump(
+        Map<String, Object?> rules, [
+        Map<String, Object?> style = const {},
+      ]) async {
+        // Each from the start: nothing scrolled, the first tile focused.
+        await tester.pumpWidget(const SizedBox());
+        await pumpApp(
+          tester,
+          LauncherConfig(
+            layout: Layout(
+              inbox: 'p',
+              removed: const {'launcher:settings'},
+              layers: [
+                home([
+                  Component.pane(
+                    id: 'p',
+                    columns: 2,
+                    rules: {'scrollX': true, 'scrollY': false, ...rules},
+                    style: style,
+                    children: [
+                      entity('pkg.a'),
+                      entity('pkg.b'),
+                      entity('pkg.c'),
+                    ],
+                  ),
+                ]),
+              ],
+            ).normalised(),
+          ),
+        );
+      }
+
+      final bars = find.byType(PaneScrollbars);
+      final paint = find.descendant(
+        of: bars,
+        matching: find.byType(CustomPaint),
+      );
+      await pump(const {});
+      expect(bars, findsNothing);
+
+      // Two of three columns in view: a thumb two thirds of the track.
+      await pump(
+        const {'scrollbar': 'thumb'},
+        const {'scrollbarThumb': '#ff0000', 'scrollbarSize': 10},
+      );
+      await tester.pumpAndSettle();
+      final box = tester.getSize(bars);
+      final track = box.width - 8;
+      RRect bar(double left, double width) => RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, box.height - 14, width, 10),
+        const Radius.circular(5),
+      );
+      const red = Color(0xFFFF0000);
+      final view = tester.getSize(
+        find.descendant(of: bars, matching: find.byType(SingleChildScrollView)),
+      );
+      final grid = tester.getSize(find.byType(PaneScope).last);
+      final thumb = track * view.width / grid.width;
+      expect(thumb, closeTo(track * 2 / 3, 8));
+      expect(paint, paints..rrect(rrect: bar(4, thumb), color: red));
+      // No track unless it is given one.
+      expect(paint, paintsExactlyCountTimes(#drawRRect, 1));
+      // At the far end once the focus is there.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        paint,
+        paints..rrect(rrect: bar(4 + track - thumb, thumb), color: red),
+      );
+      expect(tester.takeException(), isNull);
+
+      // Progress: a track, and a fill that is all of it at the end.
+      await pump(
+        const {'scrollbar': 'progress'},
+        const {'scrollbarThumb': '#ff0000', 'scrollbarSize': 10},
+      );
+      await tester.pumpAndSettle();
+      expect(paint, paints..rrect(rrect: bar(4, track)));
+      expect(paint, paintsExactlyCountTimes(#drawRRect, 1));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        paint,
+        paints
+          ..rrect(rrect: bar(4, track))
+          ..rrect(rrect: bar(4, track), color: red),
+      );
+
+      // One that hides is gone a while after the last movement.
+      await pump(const {'scrollbar': 'thumb', 'scrollbarShow': 'auto'});
+      double shown() => tester
+          .widget<FadeTransition>(
+            find.descendant(of: bars, matching: find.byType(FadeTransition)),
+          )
+          .opacity
+          .value;
+      expect(shown(), 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(shown(), 1);
+      await tester.pumpAndSettle();
+      expect(shown(), 0);
     });
 
     testWidgets('a row scrolls along itself when set to', (tester) async {

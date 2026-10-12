@@ -16,10 +16,19 @@ class Section extends StatefulWidget {
 }
 
 class _SectionState extends State<Section> {
-  late bool _open =
+  late bool _open = _remembered;
+
+  bool get _remembered =>
       PageStorage.maybeOf(context)?.readState(context, identifier: _memory)
           as bool? ??
       widget.open;
+
+  @override
+  void didUpdateWidget(Section old) {
+    super.didUpdateWidget(old);
+    // Reused for another section when one appears above it.
+    if (old.title != widget.title) _open = _remembered;
+  }
 
   ValueKey<String> get _memory => ValueKey('section ${widget.title}');
 

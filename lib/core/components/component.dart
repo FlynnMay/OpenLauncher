@@ -189,6 +189,8 @@ class Component {
   static const docks = ['left', 'right', 'top', 'bottom', 'center', inline];
   static const inline = 'inline';
 
+  static const scrollbars = ['thumb', 'progress'];
+
   /// The variable name the built-in prefabs use for their entity. Nothing
   /// else gives this name special meaning.
   static const sourceVar = 'source';
@@ -304,6 +306,18 @@ class Component {
   };
 
   bool get _fitted => mode.inLine && fit;
+
+  /// What shows how far it is scrolled: `thumb` (a scroll bar), `progress`
+  /// (a bar that fills), or null for nothing.
+  String? get scrollbar => switch (options['scrollbar']) {
+    final String kind
+        when scrollbars.contains(kind) && (scrollsAcross || scrollsDown) =>
+      kind,
+    _ => null,
+  };
+
+  /// Whether its scroll bar shows only while it scrolls.
+  bool get scrollbarHides => options['scrollbarShow'] == 'auto';
 
   /// The columns its children can be placed on.
   int get reach => scrollsAcross ? maxReach : columns;

@@ -3,6 +3,7 @@ library;
 
 export 'package:openlauncher/core/components/component.dart';
 export 'package:openlauncher/core/style/box_style.dart';
+export 'package:openlauncher/core/style/scrollbar_style.dart';
 export 'package:openlauncher/core/style/style.dart';
 
 export 'layer.dart';

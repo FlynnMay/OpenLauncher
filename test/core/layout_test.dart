@@ -164,6 +164,48 @@ void main() {
       );
     });
 
+    test('a scroll bar is for a pane that scrolls, and reads its look', () {
+      final pane = Component.pane(id: 'p', rules: const {'scrollbar': 'thumb'});
+      expect((pane.scrollbar, pane.scrollbarHides), ('thumb', false));
+      expect(pane.withOption('scrollY', false).scrollbar, isNull);
+      expect(pane.withOption('scrollbar', 'spinner').scrollbar, isNull);
+      expect(pane.withOption('scrollbarShow', 'auto').scrollbarHides, isTrue);
+
+      const plain = ScrollbarStyle();
+      final unset = ScrollbarStyle.of(const {});
+      expect(
+        (unset.size, unset.margin, unset.length, unset.opacity, unset.start),
+        (plain.size, plain.margin, plain.length, plain.opacity, plain.start),
+      );
+      expect(unset.thumb.colors, isEmpty);
+      final look = ScrollbarStyle.of(const {
+        'scrollbarSide': 'start',
+        'scrollbarSize': 10,
+        'scrollbarLength': 50,
+        'scrollbarOpacity': 80,
+        // More than leaves any thumb.
+        'scrollbarInset': 20,
+        'scrollbarThumb': {
+          'colors': ['#ff0000', '#0000ff'],
+          'angle': 90,
+        },
+        'scrollbarThumbRadius': 2,
+        'scrollbarTrack': '#00000080',
+        'scrollbarTrackBorder': '#ffffff',
+        'scrollbarTrackBorderWidth': 'thick',
+      });
+      expect(
+        (look.start, look.size, look.length, look.opacity),
+        (true, 10, 0.5, 0.8),
+      );
+      expect(look.inset, 4.5);
+      expect((look.thumb.colors.length, look.thumb.angle), (2, 90));
+      expect(look.thumb.corners, [2, 2, 2, 2]);
+      expect(look.track.colors, [0x80000000]);
+      expect((look.track.border, look.track.borderWidth), (0xFFFFFFFF, 2));
+      expect(look.track.corners, isNull);
+    });
+
     test('several without a position fill rows under the rest', () {
       final placed = placeItems(
         [

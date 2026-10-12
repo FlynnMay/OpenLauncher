@@ -5,6 +5,7 @@ import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/pane_scrollbar.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 
 /// Gives the initial focus to the first tile that asks.
@@ -174,7 +175,8 @@ class PaneBox extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pane = this.pane;
     final outer = TemplateScope.of(context);
-    final box = BoxStyle.of(readStyle(ref.watch, pane.style, outer));
+    final look = readStyle(ref.watch, pane.style, outer);
+    final box = BoxStyle.of(look);
     final padding = box.padding ?? Component.defaultPadding;
     // The title may read the pane's own variables.
     final title = !pane.title.contains('{{')
@@ -212,9 +214,13 @@ class PaneBox extends ConsumerWidget {
           : grid,
     );
     // What does not scroll is cut off at the box.
-    final scroll = pane.scrollsDown
-        ? SingleChildScrollView(clipBehavior: Clip.none, child: padded)
-        : padded;
+    final scroll = PaneScrollbars.over(
+      pane,
+      look,
+      pane.scrollsDown
+          ? SingleChildScrollView(clipBehavior: Clip.none, child: padded)
+          : padded,
+    );
     final content = Column(
       mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.stretch,

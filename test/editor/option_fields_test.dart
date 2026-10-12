@@ -96,10 +96,21 @@ void main() {
 
     // Everything a box and text take, each drawn by the kind it is.
     await tester.pumpWidget(form(const [...boxStyle, ...textStyle]));
-    for (final prop in styleProps) {
+    for (final prop in stylePropsOf(const [...boxStyle, ...textStyle])) {
       expect(find.text(prop.label), findsOneWidget, reason: prop.key);
     }
     expect(find.text('Individual corners'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // A scroll bar's are the rest of them.
+    await tester.pumpWidget(form(scrollbarStyle));
+    for (final prop in stylePropsOf(scrollbarStyle)) {
+      expect(find.text(prop.label), findsOneWidget, reason: prop.key);
+    }
+    expect(
+      {...boxStyle, ...textStyle, ...scrollbarStyle},
+      {for (final prop in styleProps) prop.key},
+    );
     expect(tester.takeException(), isNull);
   });
 

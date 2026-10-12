@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
@@ -126,6 +127,38 @@ void main() {
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
     expect(pane.options.containsKey('scrollY'), isFalse);
+
+    // A scroll bar is chosen, then its look has a section of its own.
+    expect(find.text('Thickness'), findsNothing);
+    await tester.tap(find.text('None'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Progress').last);
+    await tester.pumpAndSettle();
+    expect(pane.scrollbar, 'progress');
+    expect(find.text('Show scroll bar'), findsOneWidget);
+    for (final prop in stylePropsOf(scrollbarStyle)) {
+      expect(find.text(prop.label), findsOneWidget, reason: prop.key);
+    }
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(NumberField, 'Thickness'),
+        matching: find.byTooltip('Increase'),
+      ),
+    );
+    await tester.pump();
+    expect(pane.style, {'scrollbarSize': 7});
+    // One that scrolls neither way has none to show.
+    await tester.tap(find.text('Vertical scroll'));
+    await tester.pump();
+    expect(pane.scrollsDown, isFalse);
+    await tester.tap(find.text('Horizontal scroll'));
+    await tester.pump();
+    expect(pane.scrollbar, isNull);
+    expect(find.text('Scroll bar'), findsNothing);
+    expect(find.text('Thickness'), findsNothing);
+    await tester.tap(find.text('Vertical scroll'));
+    await tester.pump();
+    expect(pane.scrollbar, 'progress');
 
     // A row has the one along it, a column the other, off until ticked.
     redraw(() => pane = Component.pane(id: 'p', mode: PaneMode.row));

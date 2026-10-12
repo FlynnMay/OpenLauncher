@@ -13,6 +13,7 @@ import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/pane_scrollbar.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
@@ -239,7 +240,13 @@ class ComponentView extends ConsumerWidget {
       values: scope.inner,
       child: TileLook(
         box: box,
-        child: LinePane(pane: c, inner: inLine, focus: focus, popup: popup),
+        child: LinePane(
+          pane: c,
+          style: look,
+          inner: inLine,
+          focus: focus,
+          popup: popup,
+        ),
       ),
     );
     // Without actions it is not focusable.
@@ -291,12 +298,16 @@ class LinePane extends StatelessWidget {
   const LinePane({
     super.key,
     required this.pane,
+    this.style = const {},
     this.inner = false,
     this.focus,
     this.popup,
   });
 
   final Component pane;
+
+  /// The pane's style, templates read.
+  final Style style;
 
   /// Nested in another row or column.
   final bool inner;
@@ -358,10 +369,14 @@ class LinePane extends StatelessWidget {
       // Cut off a little outside, so a focused child can grow.
       return ClipRect(
         clipper: const Inflated(PaneBox.overhang),
-        child: SingleChildScrollView(
-          scrollDirection: row ? Axis.horizontal : Axis.vertical,
-          clipBehavior: Clip.none,
-          child: flex,
+        child: PaneScrollbars.over(
+          pane,
+          style,
+          SingleChildScrollView(
+            scrollDirection: row ? Axis.horizontal : Axis.vertical,
+            clipBehavior: Clip.none,
+            child: flex,
+          ),
         ),
       );
     }
