@@ -13,6 +13,8 @@ import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import '../support/packs.dart';
+
 String _render(String source, Map<String, Object?> values) =>
     Template.parse(source).render((root) => values[root]);
 
@@ -284,7 +286,7 @@ void main() {
       expect(find.text('Song'), findsOneWidget);
       // Told by a comparison, and by a conditional variable.
       expect(find.text('Band · Player'), findsOneWidget);
-      expect(find.byIcon(Icons.pause_circle_outline), findsOneWidget);
+      expect(packIcon('material:pause_circle'), findsOneWidget);
 
       playing.playing = NowPlaying(
         packageName: 'p',
@@ -295,7 +297,7 @@ void main() {
       playing.notifyNowPlayingChanged();
       await tester.pumpAndSettle();
       expect(find.text('Player'), findsOneWidget);
-      expect(find.byIcon(Icons.play_arrow_outlined), findsOneWidget);
+      expect(packIcon('material:play_arrow'), findsOneWidget);
     });
 
     test('a pane and a folder are read by their ids', () async {

@@ -400,14 +400,18 @@ final List<Prefab> builtInPrefabs = [
           null,
           when: '{{source.sky}}',
           cases: [
-            VarCase(VarTest.equals, 'clear', 'sun'),
-            VarCase(VarTest.equals, 'partlyCloudy', 'partly'),
-            VarCase(VarTest.equals, 'cloudy', 'cloud'),
-            VarCase(VarTest.equals, 'fog', 'fog'),
-            VarCase(VarTest.equals, 'snow', 'snow'),
-            VarCase(VarTest.equals, 'storm', 'storm'),
+            VarCase(VarTest.equals, 'clear', 'material:sunny'),
+            VarCase(
+              VarTest.equals,
+              'partlyCloudy',
+              'material:partly_cloudy_day',
+            ),
+            VarCase(VarTest.equals, 'cloudy', 'material:cloud'),
+            VarCase(VarTest.equals, 'fog', 'material:foggy'),
+            VarCase(VarTest.equals, 'snow', 'material:weather_snowy'),
+            VarCase(VarTest.equals, 'storm', 'material:thunderstorm'),
           ],
-          otherwise: 'rain',
+          otherwise: 'material:rainy',
           exposed: false,
         ),
         // Description, plus high / low when known.
@@ -472,8 +476,8 @@ final List<Prefab> builtInPrefabs = [
         'stateIcon': Variable(
           null,
           when: '{{source.playing}}',
-          cases: [VarCase(VarTest.equals, 'true', 'pause')],
-          otherwise: 'play',
+          cases: [VarCase(VarTest.equals, 'true', 'material:pause_circle')],
+          otherwise: 'material:play_arrow',
           exposed: false,
         ),
         // Artist and app, or only the app.

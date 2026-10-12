@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -8,6 +9,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
@@ -29,6 +31,7 @@ class TvState {
     required this.entities,
     required this.config,
     required this.components,
+    this.packs = const [],
     this.widgetProviders = const {},
     this.notificationAccess = true,
     this.homeButton = true,
@@ -41,6 +44,9 @@ class TvState {
 
   final LauncherConfig config;
   final List<ComponentOffer> components;
+
+  /// The packs installed on the TV.
+  final List<Pack> packs;
 
   /// App widget ids with their labels.
   final Map<String, String> widgetProviders;
@@ -141,6 +147,10 @@ class TvApi {
                 'provider': ?provider?['id'],
               },
             ),
+      ],
+      packs: [
+        if (json['packs'] case final List<Object?> packs)
+          for (final pack in packs) ?Pack.fromJson(pack),
       ],
       widgetProviders: {
         for (final Map provider in providers)
@@ -256,6 +266,22 @@ class TvApi {
   /// Deletes every unused file; returns how many.
   Future<int> deleteUnusedMedia() async =>
       ((await _ask('DELETE', '/api/media') as Map)['deleted'] as num).toInt();
+
+  /// A file of [pack] on the TV; null if it has none at [path].
+  Future<Uint8List?> packFile(Pack pack, String path) async {
+    final reply = await _client.get(_at('/api/packs/${pack.id}/$path'));
+    return reply.statusCode == 200 ? reply.bodyBytes : null;
+  }
+
+  /// Installs the pack in [file] (a `.zip`) and returns its id.
+  Future<String> installPack(PickedFile file) async {
+    final reply = await file.send('POST', _at('/api/packs'));
+    if (reply.status != 200) throw _refused(reply.status, reply.body);
+    return (jsonDecode(reply.body) as Map)['id'] as String;
+  }
+
+  /// Removes a pack nothing uses.
+  Future<void> removePack(String id) => _ask('DELETE', '/api/packs${_id(id)}');
 
   /// What entity [id]'s `http` feed reads, fetched by the TV.
   Future<Object?> feedValue(String id) async =>

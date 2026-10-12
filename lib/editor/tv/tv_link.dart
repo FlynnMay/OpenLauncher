@@ -6,6 +6,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
@@ -26,6 +27,10 @@ final List<Override> tvOverrides = [
   entitiesProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).entities,
   ),
+  packsProvider.overrideWith(
+    (ref) async => (await ref.watch(tvStateProvider.future)).packs,
+  ),
+  packReaderProvider.overrideWith((ref) => ref.watch(tvApiProvider).packFile),
   actionRunnerProvider.overrideWith(
     (ref) => TvActionRunner(ref, ref.watch(tvApiProvider)),
   ),

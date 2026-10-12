@@ -4,4 +4,5 @@ export 'global_properties.dart';
 export 'inspector.dart';
 export 'media_manager.dart';
 export 'object_tree.dart';
+export 'pack_manager.dart';
 export 'selected_properties.dart';

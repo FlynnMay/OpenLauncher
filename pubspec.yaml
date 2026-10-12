@@ -43,6 +43,7 @@ dependencies:
   http: ^1.6.0
   web: ^1.1.1
   shelf_static: ^1.1.3
+  archive: ^4.5.1
 
 dev_dependencies:
   flutter_test:
@@ -66,6 +67,8 @@ flutter:
   assets:
     # The web editor, built by tool/build_editor.sh.
     - assets/editor/
+    # The built-in packs, zipped by tool/build_packs.dart from packs/.
+    - assets/packs/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

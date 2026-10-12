@@ -24,15 +24,9 @@ class MediaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: 'Media',
-    onPressed: () => showDialog<void>(
-      context: context,
-      builder: (context) => const Dialog(
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(width: 920, height: 680, child: MediaManager()),
-      ),
-    ),
-    icon: const Icon(Icons.perm_media_outlined),
+    tooltip: MediaManager.title,
+    onPressed: () => MediaManager.show(context),
+    icon: const Icon(MediaManager.icon),
   );
 }
 
@@ -40,6 +34,17 @@ class MediaButton extends StatelessWidget {
 /// here; removing a picture or wallpaper elsewhere just stops using its file.
 class MediaManager extends ConsumerStatefulWidget {
   const MediaManager({super.key});
+
+  static const title = 'Media';
+  static const icon = Icons.perm_media_outlined;
+
+  static Future<void> show(BuildContext context) => showDialog<void>(
+    context: context,
+    builder: (context) => const Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(width: 920, height: 680, child: MediaManager()),
+    ),
+  );
 
   /// [bytes] as a size to read.
   static String sizeOf(int bytes) => bytes < 1024 * 1024
@@ -91,7 +96,7 @@ class _MediaManagerState extends ConsumerState<MediaManager>
           child: Row(
             spacing: 12,
             children: [
-              Text('Media', style: theme.textTheme.titleLarge),
+              Text(MediaManager.title, style: theme.textTheme.titleLarge),
               Expanded(
                 child: Text(
                   all.isEmpty

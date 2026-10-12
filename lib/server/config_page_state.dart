@@ -3,6 +3,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/server/media_store.dart';
 import 'package:path/path.dart' as p;
 
@@ -56,6 +57,10 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     // Everything but the layout, files by id (served at `/api/media/<id>`);
     // set with `PUT /api/config`.
     'config': MediaStore.withIds(config.open),
+    // Their files are served at `/api/packs/<id>/<path>`.
+    'packs': [
+      for (final pack in await ref.watch(packsProvider.future)) pack.toJson(),
+    ],
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
     'homeButton': {
       'enabled': await ref.watch(homeButtonEnabledProvider.future),

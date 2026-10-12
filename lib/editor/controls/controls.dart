@@ -9,6 +9,8 @@ export 'dialogs.dart';
 export 'file_pick.dart';
 export 'fill_field.dart';
 export 'gradient_bar.dart';
+export 'icon_field.dart';
+export 'icon_picker.dart';
 export 'id_label.dart';
 export 'image_carousel.dart';
 export 'labelled_row.dart';

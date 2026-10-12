@@ -149,13 +149,35 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  HistoryButtons(),
-                  SnapButton(),
-                  LayersButton(),
-                  MediaButton(),
+                  const HistoryButtons(),
+                  const SnapButton(),
+                  const LayersButton(),
+                  if (roomy) ...const [MediaButton(), PacksButton()],
+                  // Without the room, the two share a menu.
+                  if (!roomy)
+                    PopupMenuButton<Future<void> Function(BuildContext)>(
+                      tooltip: 'Media and packs',
+                      onSelected: (show) => show(context),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: MediaManager.show,
+                          child: ListTile(
+                            leading: Icon(MediaManager.icon),
+                            title: Text(MediaManager.title),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: PackManager.show,
+                          child: ListTile(
+                            leading: Icon(PackManager.icon),
+                            title: Text(PackManager.title),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

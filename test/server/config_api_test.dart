@@ -9,6 +9,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -16,6 +17,8 @@ import 'package:openlauncher/server/config_api.dart';
 import 'package:openlauncher/server/config_server.dart';
 import 'package:openlauncher/server/media_store.dart';
 import 'package:shelf/shelf.dart';
+
+import '../support/packs.dart';
 
 // The smallest valid PNG header is enough: the server only sniffs the type.
 final _png = Uint8List.fromList([
@@ -53,6 +56,10 @@ void main() {
         ),
         mediaDirProvider.overrideWith(
           (ref, use) => Directory('${tmp.path}/${use.folder}'),
+        ),
+        packsDirProvider.overrideWith((ref) => Directory('${tmp.path}/packs')),
+        bundledPacksProvider.overrideWithValue(
+          BundledPacks({'core': packZip('core')}),
         ),
         feedFetcherProvider.overrideWithValue((feed) async {
           if (feed.address.host == 'broken') throw Exception('No answer');
@@ -147,7 +154,7 @@ void main() {
           'run': 'switchInput',
           'with': {'input': '{{self.input}}'},
           'label': 'Open',
-          'icon': 'play',
+          'icon': 'material:play_arrow',
         },
       },
       'prefab': 'app-card',
@@ -909,6 +916,57 @@ void main() {
       await status('POST', '/api/media?as=picture', body: utf8.encode('hello')),
       415,
     );
+  });
+
+  test('packs are listed, served, installed and removed', () async {
+    Future<List<Object?>> packs() async => [
+      for (final Map pack in (await state())['packs']) pack['id'],
+    ];
+    expect((await state())['packs'], [
+      {
+        'id': 'core',
+        'name': 'Pack core',
+        'version': '1',
+        'author': '',
+        'licence': '',
+        'builtIn': true,
+        'bytes': isPositive,
+        'icons': ['core'],
+      },
+    ]);
+
+    // A pack's files are read by the editor from the TV.
+    var response = await call('GET', '/api/packs/core/icons/core.json');
+    expect(response.statusCode, 200);
+    expect(response.headers['cache-control'], 'no-cache');
+    expect(jsonDecode(await response.readAsString())['font'], 'core.ttf');
+    response = await call('GET', '/api/packs/core/fonts/core.ttf');
+    expect(await response.read().expand((chunk) => chunk).toList(), fontBytes);
+    for (final path in [
+      '/api/packs/core/icons/none.json',
+      '/api/packs/none/pack.json',
+      '/api/packs/core',
+      '/api/packs/core/%2e%2e/%2e%2e/config.json',
+    ]) {
+      expect((await call('GET', path)).statusCode, 404, reason: path);
+    }
+
+    response = await call('POST', '/api/packs', body: packZip('mdi'));
+    expect(response.statusCode, 200);
+    expect(jsonDecode(await response.readAsString()), {'id': 'mdi'});
+    expect(await packs(), ['core', 'mdi']);
+
+    response = await call('POST', '/api/packs', body: [1, 2, 3]);
+    expect(response.statusCode, 415);
+    expect(jsonDecode(await response.readAsString()), {
+      'error': 'Not a zip file',
+    });
+
+    expect((await call('DELETE', '/api/packs')).statusCode, 400);
+    expect((await call('DELETE', '/api/packs?id=none')).statusCode, 404);
+    expect((await call('DELETE', '/api/packs?id=core')).statusCode, 409);
+    expect((await call('DELETE', '/api/packs?id=mdi')).statusCode, 200);
+    expect(await packs(), ['core']);
   });
 
   test('event stream sends the state now and after each change', () async {

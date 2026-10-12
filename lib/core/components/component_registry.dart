@@ -7,7 +7,7 @@ enum ComponentRegistry {
   picture('Picture', 2, 2),
   meter('Meter', 2, 1),
 
-  /// A built-in icon, by name.
+  /// A pack's icon, by name.
   icon('Icon', 1, 1),
 
   /// A folder's picture, or a preview of its contents.
@@ -106,7 +106,7 @@ enum ComponentRegistry {
       ComponentOption('icon', 'Icon', OptionKind.icon),
     ],
     icon => const [
-      ComponentOption('icon', 'Icon', OptionKind.template),
+      ComponentOption('icon', 'Icon', OptionKind.icon),
       ComponentOption(
         'size',
         'Size',

@@ -48,3 +48,7 @@ app.*.map.json
 # The built web editor (tool/build_editor.sh)
 /assets/editor/*
 !/assets/editor/.gitkeep
+
+# The built-in packs, zipped (tool/build_packs.dart)
+/assets/packs/*
+!/assets/packs/.gitkeep

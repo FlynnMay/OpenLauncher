@@ -30,25 +30,25 @@ const appActions = {
     run: 'launchApp',
     bound: _package,
     label: 'Open',
-    icon: 'play',
+    icon: 'material:play_arrow',
   ),
   'info': EntityAction(
     run: 'openAppInfo',
     bound: _package,
     label: 'App info',
-    icon: 'info',
+    icon: 'material:info',
   ),
   'forceStop': EntityAction(
     run: 'forceStopApp',
     bound: {..._package, 'label': '{{self.label}}'},
     label: 'Force stop',
-    icon: 'stop',
+    icon: 'material:cancel',
   ),
   'uninstall': EntityAction(
     run: 'uninstallApp',
     bound: _package,
     label: 'Uninstall',
-    icon: 'delete',
+    icon: 'material:delete',
   ),
 };
 
@@ -77,7 +77,7 @@ const inputActions = {
     run: 'switchInput',
     bound: {'input': '{{self.input}}'},
     label: 'Open',
-    icon: 'play',
+    icon: 'material:play_arrow',
   ),
 };
 
@@ -115,14 +115,14 @@ Entity layoutEntity(String layer) => Entity(
       bound: _layer,
       args: {'what': [], 'to': []},
       label: 'Add',
-      icon: 'add',
+      icon: 'material:add_circle',
     ),
     'remove': EntityAction(
       run: 'removeItem',
       bound: _layer,
       args: {'what': []},
       label: 'Remove',
-      icon: 'remove',
+      icon: 'material:do_not_disturb_on',
     ),
   },
 );

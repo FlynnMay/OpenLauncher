@@ -8,10 +8,10 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/marquee.dart';
+import 'package:openlauncher/features/components/pack_icon.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
-import 'package:openlauncher/features/home/tile_icons.dart';
 
 // The primitive components. Text options are templates; style is merged over
 // what is inherited.
@@ -179,8 +179,8 @@ class TextComponent extends ConsumerWidget {
 /// may be left out. What pressing it does is in its item's triggers, and
 /// how it shows the focus is its tile's business.
 ///
-/// Options: `label` (a template), `icon` (a name in `tileIcons`). Look:
-/// `color`, `fontSize`.
+/// Options: `label` and `icon` (templates; the icon reads as a pack icon's
+/// name, `set:name`). Look: `color`, `fontSize`.
 class ButtonComponent extends ConsumerWidget {
   const ButtonComponent({super.key, required this.options});
 
@@ -189,7 +189,7 @@ class ButtonComponent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final label = _read(context, ref, options['label']);
-    final icon = tileIcons[options['icon']];
+    final icon = _read(context, ref, options['icon']).trim();
     final look = _style(context, ref, options);
     final colour = _colour(look['color']);
     final size = BoxStyle.number(look['fontSize'], 1) ?? 14;
@@ -199,7 +199,7 @@ class ButtonComponent extends ConsumerWidget {
           : MainAxisAlignment.start,
       spacing: 10,
       children: [
-        if (icon != null) Icon(icon, color: colour, size: size + 6),
+        if (icon.isNotEmpty) PackIcon(icon, color: colour, size: size + 6),
         if (label.isNotEmpty)
           Expanded(
             child: Text(
@@ -214,11 +214,11 @@ class ButtonComponent extends ConsumerWidget {
   }
 }
 
-/// One of the launcher's small pictures, by its name; a value can say
-/// which, as the weather says the sky's.
+/// An icon from a pack; a value can say which, as the weather says the
+/// sky's.
 ///
-/// Options: `icon` (a template that reads as a name in `tileIcons`), `size`
-/// (none to fill the box). Look: `color`.
+/// Options: `icon` (a template that reads as a pack icon's name,
+/// `set:name`), `size` (none to fill the box). Look: `color`.
 class IconComponent extends ConsumerWidget {
   const IconComponent({super.key, required this.options});
 
@@ -226,15 +226,12 @@ class IconComponent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final icon = tileIcons[_read(context, ref, options['icon']).trim()];
+    final icon = _read(context, ref, options['icon']).trim();
     final size = options['size'];
     final colour = _colour(_style(context, ref, options)['color']);
-    if (icon == null) {
-      return SizedBox.square(dimension: size is num ? size.toDouble() : null);
-    }
     return size is num
-        ? Icon(icon, color: colour, size: size.toDouble())
-        : FittedBox(child: Icon(icon, color: colour));
+        ? PackIcon(icon, color: colour, size: size.toDouble())
+        : FittedBox(child: PackIcon(icon, color: colour));
   }
 }
 

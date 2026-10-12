@@ -13,7 +13,7 @@ enum OptionKind {
   /// `#RRGGBBAA`.
   colour,
 
-  /// A built-in icon name.
+  /// A pack icon's name (`set:name`), or a template that reads as one.
   icon,
 
   /// A colour, or a gradient (`colors`, `stops`, `angle`).

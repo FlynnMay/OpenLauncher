@@ -7,11 +7,11 @@ import 'package:openlauncher/editor/controls/commit_field.dart';
 import 'package:openlauncher/editor/controls/corner_settings.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
 import 'package:openlauncher/editor/controls/fill_field.dart';
+import 'package:openlauncher/editor/controls/icon_field.dart';
 import 'package:openlauncher/editor/controls/labelled_row.dart';
 import 'package:openlauncher/editor/controls/number_field.dart';
 import 'package:openlauncher/editor/controls/template_field.dart';
 import 'package:openlauncher/editor/controls/tick_box.dart';
-import 'package:openlauncher/features/home/tile_icons.dart';
 
 /// Generated fields for [options] showing [values]. Reports the whole value
 /// map; a value reset to its default is removed. [mixed] keys show as mixed.
@@ -100,16 +100,10 @@ List<Widget> optionFields({
           ),
         );
       case OptionKind.icon:
-        return LabelledRow(
-          option.label,
-          ChoiceBox<String>(
-            value: tileIcons.containsKey(value) ? value as String : '',
-            choices: {
-              '': 'None',
-              for (final name in tileIcons.keys) name: name,
-            },
-            onChanged: (name) => set(option, name.isEmpty ? null : name),
-          ),
+        return IconField(
+          label: option.label,
+          value: value is String ? value : '',
+          onChanged: (name) => set(option, name.isEmpty ? null : name),
         );
       case OptionKind.colour:
         return LabelledRow(

@@ -7,6 +7,7 @@ import 'package:openlauncher/core/config/migrations/v16_to_v17.dart';
 import 'package:openlauncher/core/config/migrations/v17_to_v18.dart';
 import 'package:openlauncher/core/config/migrations/v18_to_v19.dart';
 import 'package:openlauncher/core/config/migrations/v19_to_v20.dart';
+import 'package:openlauncher/core/config/migrations/v20_to_v21.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -15,7 +16,7 @@ export 'save_json.dart' show Device, Json;
 /// To change the saved format: add a [Migration] to the end of [migrations]
 /// with its rules in a new file, bump this, and have the models read and
 /// write only the new form. Never edit a shipped step.
-const saveVersion = 20;
+const saveVersion = 21;
 
 /// The oldest version that can still be migrated.
 const oldestVersion = 14;
@@ -95,6 +96,14 @@ const migrations = [
         'A value the user made is an entity like any other, saved whole: '
         'what it reads is its feed or its data.',
     rules: [sourcesToEntities],
+  ),
+  Migration(
+    from: 20,
+    to: 21,
+    what:
+        'An icon is named by the set it is from, as in material:home; the '
+        'sets come in packs.',
+    rules: [iconsNamedBySet],
   ),
 ];
 

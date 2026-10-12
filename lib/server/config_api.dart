@@ -8,6 +8,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/server/config_page_state.dart';
 import 'package:openlauncher/server/editor_files.dart';
@@ -33,6 +34,7 @@ class ConfigApi {
   static const maxNameLength = 60;
 
   static const _media = 'api/media/';
+  static const _packs = 'api/packs/';
   static const _json = {'content-type': 'application/json; charset=utf-8'};
 
   final Ref _ref;
@@ -55,6 +57,8 @@ class ConfigApi {
       return _error(400, e.message);
     } on MediaRefused catch (e) {
       return _error(e.status, e.message);
+    } on PackRefused catch (e) {
+      return _error(e.status, e.message);
     }
   }
 
@@ -70,7 +74,11 @@ class ConfigApi {
           .pathOf(path.substring(_media.length));
       return _file(request, file, 'No such file');
     }
+    if (request.method == 'GET' && path.startsWith(_packs)) {
+      return _packFile(request, path.substring(_packs.length));
+    }
     final media = _ref.read(mediaStoreProvider);
+    final packs = _ref.read(packStoreProvider);
     return switch ((request.method, path)) {
       ('GET', 'api/state') => Response.ok(
         jsonEncode(await _ref.read(configPageStateProvider.future)),
@@ -103,6 +111,15 @@ class ConfigApi {
           );
         }
         await media.delete(id);
+        return _ok();
+      }(),
+      ('POST', 'api/packs') => () async {
+        final pack = await packs.install(request.read());
+        return Response.ok(jsonEncode({'id': pack.id}), headers: _json);
+      }(),
+      ('DELETE', 'api/packs') => () async {
+        if (id == null) throw const FormatException('"id" must name a pack');
+        await packs.delete(id);
         return _ok();
       }(),
       _ => _error(404, 'Not found'),
@@ -229,6 +246,23 @@ class ConfigApi {
       request,
     );
     return response.change(headers: _forGood);
+  }
+
+  /// Serves a pack's file, given as `<pack id>/<path in the pack>`. Checked
+  /// with the TV each time: a pack can be replaced by one of the same
+  /// version.
+  Future<Response> _packFile(Request request, String name) async {
+    final at = name.indexOf('/');
+    final path = at < 0
+        ? null
+        : await _ref
+              .read(packStoreProvider)
+              .pathOf(name.substring(0, at), name.substring(at + 1));
+    if (path == null) return _error(404, 'No such file');
+    final response = await createFileHandler(path, url: request.url.path)(
+      request,
+    );
+    return response.change(headers: const {'cache-control': 'no-cache'});
   }
 
   static const _forGood = {
