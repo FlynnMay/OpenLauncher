@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/components/weather.dart';
+import 'package:openlauncher/core/config/app_version.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/user_entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefab.dart';
+import 'package:openlauncher/core/updates/update.dart';
 
 enum ToastPosition { topLeft, topRight, bottomLeft, bottomRight }
 
@@ -85,6 +87,7 @@ class LauncherConfig {
     this.entities = const [],
     this.place,
     this.prefabs = const [],
+    this.updates = const UpdateOptions(),
   }) : layout = layout ?? Layout.initial();
 
   final Layout layout;
@@ -123,11 +126,15 @@ class LauncherConfig {
   /// User prefabs; one with a built-in's id replaces it.
   final List<Prefab> prefabs;
 
+  /// What is done about a newer release of the launcher.
+  final UpdateOptions updates;
+
   /// Config keys sent whole between the TV and the editor (`PUT
   /// /api/config`). A new plain-data setting is a field plus its name here.
   /// The layout is sent separately; [fileKeys] travel as file ids.
   static const openKeys = [
     'toasts',
+    'updates',
     'entities',
     'place',
     'prefabs',
@@ -165,6 +172,7 @@ class LauncherConfig {
     // A function so that null can be passed.
     Place? Function()? place,
     List<Prefab>? prefabs,
+    UpdateOptions? updates,
   }) => LauncherConfig(
     layout: layout ?? this.layout,
     iconOverrides: iconOverrides ?? this.iconOverrides,
@@ -176,9 +184,11 @@ class LauncherConfig {
     entities: entities ?? this.entities,
     place: place == null ? this.place : place(),
     prefabs: prefabs ?? this.prefabs,
+    updates: updates ?? this.updates,
   );
 
-  /// Reads a saved config, migrating older versions first.
+  /// Reads a saved config, migrating older versions first. Throws
+  /// [FormatException] for one from a newer release.
   factory LauncherConfig.fromJson(
     Map<String, dynamic> saved, {
     Device device = Device.unknown,
@@ -188,6 +198,7 @@ class LauncherConfig {
     try {
       return migrate(saved, device: device);
     } on FormatException catch (e) {
+      if (isNewer(saved)) rethrow;
       // A bad layout must not lose the rest of the config.
       debugPrint('Saved layout unreadable, starting a new one: $e');
       return {...saved, 'v': saveVersion}..remove('layout');
@@ -215,6 +226,10 @@ class LauncherConfig {
     entities: userEntitiesFromJson(json['entities']),
     place: placeFromJson(json['place']),
     prefabs: Prefab.listFromJson(json['prefabs']),
+    updates: switch (json['updates']) {
+      final Map<Object?, Object?> updates => UpdateOptions.fromJson(updates),
+      _ => const UpdateOptions(),
+    },
   );
 
   static Place? placeFromJson(Object? json) => switch (json) {
@@ -259,6 +274,7 @@ class LauncherConfig {
 
   Map<String, dynamic> toJson() => {
     'v': saveVersion,
+    'app': appVersion,
     'layout': layout.toJson(),
     'iconOverrides': iconOverrides,
     'iconSources': iconSources,
@@ -269,5 +285,6 @@ class LauncherConfig {
     'entities': [for (final entity in entities) entity.toJson()],
     'place': ?placeToJson(place),
     'prefabs': [for (final prefab in prefabs) prefab.toJson()],
+    'updates': updates.toJson(),
   };
 }

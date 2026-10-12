@@ -10,6 +10,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
@@ -37,6 +38,7 @@ class TvState {
     this.homeButton = true,
     this.canManageHomeButton = false,
     this.nowPlaying,
+    this.update = const UpdateState(),
   });
 
   /// With the user's names and pictures applied.
@@ -58,6 +60,9 @@ class TvState {
   final bool canManageHomeButton;
 
   final NowPlaying? nowPlaying;
+
+  /// Where the TV stands against the latest release.
+  final UpdateState update;
 }
 
 final tvApiProvider = Provider<TvApi>((ref) => TvApi());
@@ -179,6 +184,7 @@ class TvApi {
         ),
         _ => null,
       },
+      update: UpdateState.fromJson(json['update']),
     );
   }
 

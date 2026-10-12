@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 final notificationsProvider = StreamProvider<AppNotification>(
@@ -29,8 +30,9 @@ class _ToastOverlayState extends ConsumerState<ToastOverlay> {
   ToastOptions get _options =>
       ref.read(configProvider).value?.toasts ?? const ToastOptions();
 
-  void _add(AppNotification notification) {
-    if (!_options.enabled) return;
+  /// [own] is the launcher's, shown whatever is set for other apps'.
+  void _add(AppNotification notification, {bool own = false}) {
+    if (!own && !_options.enabled) return;
     _waiting.add(notification);
     while (_waiting.length > _maxWaiting) {
       _waiting.removeFirst();
@@ -57,6 +59,25 @@ class _ToastOverlayState extends ConsumerState<ToastOverlay> {
     ref.listen(notificationsProvider, (_, next) {
       if (next case AsyncData(:final value)) _add(value);
     });
+    // Once for each release found.
+    ref.listen(
+      updateStateProvider.select(
+        (update) => update.available ? update.latest : null,
+      ),
+      (_, version) {
+        final mode = ref.read(configProvider).value?.updates.mode;
+        if (version == null || mode != UpdateMode.notify) return;
+        _add(
+          AppNotification(
+            packageName: '',
+            appLabel: 'OpenLauncher',
+            title: 'Update available',
+            text: 'Version $version can be installed from Settings.',
+          ),
+          own: true,
+        );
+      },
+    );
     final position =
         ref.watch(configProvider).value?.toasts.position ??
         ToastPosition.topRight;

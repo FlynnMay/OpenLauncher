@@ -156,6 +156,12 @@ abstract class LauncherHostApi {
   /// Asks the TV to uninstall an app; the TV confirms with the user.
   void uninstallApp(String packageName);
 
+  /// Installs the downloaded APK at [path] over this app through the TV's ADB
+  /// service, then opens the launcher again. The install ends this process,
+  /// so an answer is only ever why it did not happen.
+  @async
+  SetupResult installUpdate(String path);
+
   /// Stops an app through the TV's ADB service. False when that is not
   /// available, e.g. before [runAutomaticSetup] has been allowed.
   @async

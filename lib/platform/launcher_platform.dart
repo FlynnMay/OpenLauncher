@@ -44,6 +44,10 @@ abstract class LauncherPlatform {
   /// the Home button. The TV asks the user to allow it.
   Future<SetupResult> runAutomaticSetup();
 
+  /// Installs the APK at [path] over the launcher, which restarts it. Only
+  /// returns if it could not: [SetupResult.detail] says why.
+  Future<SetupResult> installUpdate(String path);
+
   Future<void> openAppInfo(String packageName);
 
   /// The device confirms with the user.
@@ -129,6 +133,9 @@ class AndroidLauncherPlatform implements LauncherPlatform, LauncherFlutterApi {
 
   @override
   Future<SetupResult> runAutomaticSetup() => _host.runAutomaticSetup();
+
+  @override
+  Future<SetupResult> installUpdate(String path) => _host.installUpdate(path);
 
   @override
   Future<void> openAppInfo(String packageName) =>

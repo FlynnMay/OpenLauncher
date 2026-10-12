@@ -789,6 +789,30 @@ class LauncherHostApi {
     );
   }
 
+  /// Installs the downloaded APK at [path] over this app through the TV's ADB
+  /// service, then opens the launcher again. The install ends this process,
+  /// so an answer is only ever why it did not happen.
+  Future<SetupResult> installUpdate(String path) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.installUpdate$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[path],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as SetupResult;
+  }
+
   /// Stops an app through the TV's ADB service. False when that is not
   /// available, e.g. before [runAutomaticSetup] has been allowed.
   Future<bool> forceStopApp(String packageName) async {

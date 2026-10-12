@@ -1,7 +1,20 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// The release key, kept out of git: android/key.properties (storeFile,
+// storePassword, keyAlias, keyPassword). Without it, the debug key signs.
+val keyFile = rootProject.file("key.properties")
+val key = Properties().apply { if (keyFile.exists()) keyFile.inputStream().use(::load) }
+
+/** 0.1.0 -> 100. An update must have a higher code than what it replaces. */
+fun versionCodeOf(name: String): Int {
+    val (major, minor, patch) = name.split(".").map(String::toInt)
+    return major * 10000 + minor * 100 + patch
 }
 
 android {
@@ -22,20 +35,27 @@ android {
         // The embedded ADB client (dadb) needs java.util.Base64, added in API 26.
         minSdk = 26
         targetSdk = flutter.targetSdkVersion
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
-        versionCode = flutter.versionCode
+        // Both from the version in pubspec.yaml.
+        versionCode = versionCodeOf(flutter.versionName)
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    signingConfigs {
+        if (keyFile.exists()) {
+            create("release") {
+                storeFile = file(key.getProperty("storeFile"))
+                storePassword = key.getProperty("storePassword")
+                keyAlias = key.getProperty("keyAlias")
+                keyPassword = key.getProperty("keyPassword")
+            }
         }
+    }
+
+    buildTypes {
+        // Debug builds too, so that one installs over a release.
+        val signing = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+        release { signingConfig = signing }
+        debug { signingConfig = signing }
     }
 }
 

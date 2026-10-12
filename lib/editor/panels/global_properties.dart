@@ -92,6 +92,7 @@ class GlobalProperties extends ConsumerWidget {
             onChanged: (toasts) => controller.patch({'toasts': toasts}),
           ),
         ]),
+        const UpdateSettings(),
       ],
     );
   }

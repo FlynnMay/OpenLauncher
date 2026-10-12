@@ -4,6 +4,8 @@ import android.content.Context
 import dadb.AdbKeyPair
 import dadb.Dadb
 import java.io.File
+import java.net.ConnectException
+import java.net.SocketTimeoutException
 
 /**
  * A shell on the TV's own ADB service, reached the way a computer would
@@ -23,6 +25,18 @@ internal object LocalAdb {
     fun <T> use(context: Context, authTimeoutMs: Int, block: (Dadb) -> T): T =
         Dadb.create("127.0.0.1", PORT, keyPair(context), CONNECT_TIMEOUT_MS, authTimeoutMs)
             .use(block)
+
+    /** Why a [use] threw: debugging off, not allowed, or something else. */
+    fun failure(e: Exception): SetupResult {
+        val causes = generateSequence<Throwable>(e) { it.cause }.toList()
+        return when {
+            causes.any { it is ConnectException } ->
+                SetupResult(SetupOutcome.ADB_UNAVAILABLE)
+            causes.any { it is SocketTimeoutException } ->
+                SetupResult(SetupOutcome.NOT_AUTHORISED)
+            else -> SetupResult(SetupOutcome.FAILED, e.message ?: e.javaClass.simpleName)
+        }
+    }
 
     /** This app's ADB identity, created once so the TV can remember allowing it. */
     private fun keyPair(context: Context): AdbKeyPair {

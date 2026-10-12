@@ -90,6 +90,19 @@ class FakeLauncherPlatform implements LauncherPlatform {
     return SetupResult(outcome: setupOutcome);
   }
 
+  /// The APKs handed over to install, and what the device says of each.
+  final installed = <String>[];
+  SetupResult installResult = SetupResult(
+    outcome: SetupOutcome.failed,
+    detail: 'There is no TV here.',
+  );
+
+  @override
+  Future<SetupResult> installUpdate(String path) async {
+    installed.add(path);
+    return installResult;
+  }
+
   /// What was done to apps, e.g. `uninstall fake.plex`.
   final appActions = <String>[];
   bool canForceStop = true;

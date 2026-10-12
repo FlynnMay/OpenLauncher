@@ -10,6 +10,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -19,6 +20,7 @@ import 'package:openlauncher/server/media_store.dart';
 import 'package:shelf/shelf.dart';
 
 import '../support/packs.dart';
+import '../support/updates.dart';
 
 // The smallest valid PNG header is enough: the server only sniffs the type.
 final _png = Uint8List.fromList([
@@ -60,6 +62,9 @@ void main() {
         packsDirProvider.overrideWith((ref) => Directory('${tmp.path}/packs')),
         bundledPacksProvider.overrideWithValue(
           BundledPacks({'core': packZip('core')}),
+        ),
+        updateSourceProvider.overrideWithValue(
+          FakeUpdateSource(release(later)),
         ),
         feedFetcherProvider.overrideWithValue((feed) async {
           if (feed.address.host == 'broken') throw Exception('No answer');
@@ -288,6 +293,49 @@ void main() {
     expect((await act('dance', on: 'system')).statusCode, 400);
     expect((await call('POST', '/api/act', body: {})).statusCode, 400);
   });
+
+  test(
+    'the page is told of updates, and has the TV check and install',
+    () async {
+      expect((await state())['update'], containsPair('available', false));
+      final checked = await call(
+        'POST',
+        '/api/act',
+        body: {'do': 'check', 'entity': 'updates'},
+      );
+      expect(
+        jsonDecode(await checked.readAsString())['message'],
+        startsWith('Update available'),
+      );
+      expect((await state())['update'], {
+        'current': appVersion,
+        'latest': later,
+        'available': true,
+        'notes': 'Fixes.',
+        'status': 'idle',
+        'progress': 0,
+        'error': null,
+      });
+
+      await call(
+        'POST',
+        '/api/act',
+        body: {'do': 'install', 'entity': 'updates'},
+      );
+      final platform =
+          container.read(launcherPlatformProvider) as FakeLauncherPlatform;
+      expect(platform.installed, ['/cache/update.apk']);
+      // What is done about them is a setting like any other.
+      await call(
+        'PUT',
+        '/api/config',
+        body: {
+          'updates': {'mode': 'auto'},
+        },
+      );
+      expect(store.config.updates.mode, UpdateMode.auto);
+    },
+  );
 
   test('what is playing is told, with its cover', () async {
     expect((await state())['nowPlaying'], isNull);
@@ -1009,6 +1057,6 @@ void main() {
     // An input, two apps, the launcher's settings, and those there is one
     // of: the clock, the weather, the place, the media player, the system,
     // the layers, the variables and the layout.
-    expect(state['entities'], hasLength(12));
+    expect(state['entities'], hasLength(13));
   });
 }

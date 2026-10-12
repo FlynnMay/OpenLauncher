@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
+import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/features/remote/remote_config_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -70,16 +71,53 @@ class SettingsScreen extends ConsumerWidget {
     await _do(ref, 'homeButton', {'enabled': enabled});
   }
 
-  /// Has the system entity do [action]; returns its message or the error.
+  /// Checks for an update, or offers the one found and installs it.
+  Future<void> _update(BuildContext context, WidgetRef ref) async {
+    final update = ref.read(updateStateProvider);
+    if (update.busy) return;
+    if (!update.available) {
+      await _do(ref, 'check', const {}, 'updates');
+      return;
+    }
+    final install = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('OpenLauncher ${update.latest}'),
+        content: SingleChildScrollView(
+          child: Text(
+            update.notes.isEmpty
+                ? 'The launcher restarts when the update is installed.'
+                : update.notes,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Install'),
+          ),
+        ],
+      ),
+    );
+    // The tile says how it goes, and why if it fails.
+    if (install == true) await _do(ref, 'install', const {}, 'updates');
+  }
+
+  /// Has [entity] do [action]; returns its message or the error.
   static Future<String?> _do(
     WidgetRef ref,
     String action, [
     Map<String, Object?> args = const {},
+    String entity = 'system',
   ]) async {
     try {
       return await ref
           .read(actionRunnerProvider)
-          .run(Act(action, {entityArg: 'system', ...args}));
+          .run(Act(action, {entityArg: entity, ...args}));
     } on Object catch (error) {
       return 'It could not be done\n$error';
     }
@@ -89,6 +127,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final homeEnabled = ref.watch(homeButtonEnabledProvider).value ?? false;
     final canManage = ref.watch(canManageHomeButtonProvider).value ?? false;
+    final update = ref.watch(updateStateProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Center(
@@ -141,6 +180,16 @@ class SettingsScreen extends ConsumerWidget {
                     'choose pictures.',
                   ),
                   onTap: () => RemoteConfigDialog.show(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.system_update_alt),
+                  title: const Text('Updates'),
+                  subtitle: Text(
+                    update.available && update.status == UpdateStatus.idle
+                        ? '${update.summary}. Press to install.'
+                        : update.summary,
+                  ),
+                  onTap: () => _update(context, ref),
                 ),
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),

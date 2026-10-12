@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/components.dart';
+import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/features/components/app_widget.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/notifications/toast_overlay.dart';
@@ -23,6 +24,7 @@ class OpenLauncherApp extends ConsumerWidget {
     ref.watch(configServerProvider);
     ref.watch(widgetCleanupProvider);
     ref.watch(_homeButtonRecheckProvider);
+    ref.watch(updateScheduleProvider);
     return MaterialApp(
       title: 'OpenLauncher',
       debugShowCheckedModeBanner: false,

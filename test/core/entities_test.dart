@@ -696,6 +696,7 @@ void main() {
         'location',
         'media',
         'system',
+        'updates',
         'layers',
         'variables',
         // The home layer's layout.

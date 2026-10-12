@@ -119,6 +119,9 @@ class LauncherBridge(
     override suspend fun runAutomaticSetup(): SetupResult =
         withContext(Dispatchers.IO) { DeviceSetup(context).run() }
 
+    override suspend fun installUpdate(path: String): SetupResult =
+        withContext(Dispatchers.IO) { UpdateInstaller(context).run(path) }
+
     override fun openAppInfo(packageName: String) = context.startActivity(
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri(packageName))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

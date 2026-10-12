@@ -1,8 +1,6 @@
 package com.maypoint.openlauncher
 
 import android.content.Context
-import java.net.ConnectException
-import java.net.SocketTimeoutException
 import kotlinx.coroutines.delay
 
 /**
@@ -38,14 +36,7 @@ class DeviceSetup(private val context: Context) {
             }
             if (refusal != null) return SetupResult(SetupOutcome.FAILED, refusal)
         } catch (e: Exception) {
-            val causes = generateSequence<Throwable>(e) { it.cause }.toList()
-            return when {
-                causes.any { it is ConnectException } ->
-                    SetupResult(SetupOutcome.ADB_UNAVAILABLE)
-                causes.any { it is SocketTimeoutException } ->
-                    SetupResult(SetupOutcome.NOT_AUTHORISED)
-                else -> SetupResult(SetupOutcome.FAILED, e.message ?: e.javaClass.simpleName)
-            }
+            return LocalAdb.failure(e)
         }
         // Off then on, with a pause the system can observe: a service that was
         // already on but had been refused is only retried when the setting changes.

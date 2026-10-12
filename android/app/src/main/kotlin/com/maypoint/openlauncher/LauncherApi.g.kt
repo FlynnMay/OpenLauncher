@@ -672,6 +672,12 @@ interface LauncherHostApi {
   /** Asks the TV to uninstall an app; the TV confirms with the user. */
   fun uninstallApp(packageName: String)
   /**
+   * Installs the downloaded APK at [path] over this app through the TV's ADB
+   * service, then opens the launcher again. The install ends this process,
+   * so an answer is only ever why it did not happen.
+   */
+  suspend fun installUpdate(path: String): SetupResult
+  /**
    * Stops an app through the TV's ADB service. False when that is not
    * available, e.g. before [runAutomaticSetup] has been allowed.
    */
@@ -885,6 +891,25 @@ interface LauncherHostApi {
               LauncherApiPigeonUtils.wrapError(exception)
             }
             reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.openlauncher.LauncherHostApi.installUpdate$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val pathArg = args[0] as String
+            CoroutineScope(Dispatchers.Main).launch {
+              val wrapped: List<Any?> = try {
+                listOf(api.installUpdate(pathArg))
+              } catch (exception: Throwable) {
+                LauncherApiPigeonUtils.wrapError(exception)
+              }
+              reply.reply(wrapped)
+            }
           }
         } else {
           channel.setMessageHandler(null)

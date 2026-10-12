@@ -4,6 +4,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/server/media_store.dart';
 import 'package:path/path.dart' as p;
 
@@ -61,6 +62,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'packs': [
       for (final pack in await ref.watch(packsProvider.future)) pack.toJson(),
     ],
+    'update': ref.watch(updateStateProvider).toJson(),
     'notificationAccess': await ref.watch(notificationAccessProvider.future),
     'homeButton': {
       'enabled': await ref.watch(homeButtonEnabledProvider.future),

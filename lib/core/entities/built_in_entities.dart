@@ -107,6 +107,24 @@ const builtInEntities = [
     },
   ),
   Entity(
+    id: 'updates',
+    category: 'updates',
+    label: 'Updates',
+    feed: Feed('updates'),
+    actions: {
+      'check': EntityAction(
+        run: 'checkForUpdate',
+        label: 'Check for updates',
+        icon: 'material:refresh',
+      ),
+      'install': EntityAction(
+        run: 'installUpdate',
+        label: 'Install update',
+        icon: 'material:download',
+      ),
+    },
+  ),
+  Entity(
     id: 'layers',
     category: 'layers',
     label: 'Layers',

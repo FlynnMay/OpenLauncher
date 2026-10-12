@@ -6,6 +6,7 @@ export 'place_search.dart';
 export 'prefab_settings.dart';
 export 'style_settings.dart';
 export 'trigger_settings.dart';
+export 'update_settings.dart';
 export 'values_settings.dart';
 export 'variables_settings.dart';
 export 'wallpaper_settings.dart';

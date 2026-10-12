@@ -22,24 +22,5 @@ Json? layoutOf(Json save) => switch (save['layout']) {
   _ => null,
 };
 
-List<Json> panelsOf(Json layout) => objectsIn(layout, 'panels');
-
-List<Json> itemsOf(Json pane) => objectsIn(pane, 'items');
-
-/// [pane] and every pane inside it.
-Iterable<Json> panesIn(Json pane) sync* {
-  yield pane;
-  for (final item in itemsOf(pane)) {
-    if (item['pane'] case final Json inner) yield* panesIn(inner);
-  }
-}
-
-/// Every pane of [layout].
-Iterable<Json> panesOf(Json layout) sync* {
-  for (final panel in panelsOf(layout)) {
-    if (panel['pane'] case final Json root) yield* panesIn(root);
-  }
-}
-
 Iterable<String> stringsIn(Object? json) =>
     json is List<Object?> ? json.whereType<String>() : const [];

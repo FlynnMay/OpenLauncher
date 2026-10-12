@@ -56,8 +56,8 @@ class FileConfigStore implements ConfigStore {
       final json =
           jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       final version = versionOf(json);
-      if (version < oldestVersion) {
-        // Too old to migrate: keep a copy and start fresh.
+      if (isNewer(json)) {
+        // From a newer release: keep a copy and start fresh.
         await file.copy(p.join(file.parent.path, 'config.v$version.json'));
         return LauncherConfig();
       }

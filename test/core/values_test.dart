@@ -203,21 +203,6 @@ void main() {
       expect(store.config.entities, hasLength(1));
     });
 
-    test('a value saved before they were entities becomes one', () {
-      final read = LauncherConfig.fromJson({
-        'v': 19,
-        'sources': [
-          {'id': 'motto', 'name': 'Motto', 'kind': 'text', 'text': 'Hi'},
-          {'id': 'lounge', 'kind': 'http', 'url': 'http://ha/x', 'every': 30},
-        ],
-      });
-      expect(read.entities, [
-        _fixed('motto', 'Hi', name: 'Motto'),
-        _asked('lounge', 'http://ha/x', every: 30),
-      ]);
-      expect(read.toJson().containsKey('sources'), isFalse);
-    });
-
     test('the form keeps what it does not show, and makes actions', () {
       final operations = [
         Operation(

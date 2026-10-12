@@ -5,6 +5,7 @@ import 'package:openlauncher/core/operations/managers/layer_operations.dart';
 import 'package:openlauncher/core/operations/managers/layout_operations.dart';
 import 'package:openlauncher/core/operations/managers/media_operations.dart';
 import 'package:openlauncher/core/operations/managers/system_operations.dart';
+import 'package:openlauncher/core/operations/managers/update_operations.dart';
 import 'package:openlauncher/core/operations/managers/variable_operations.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
@@ -40,6 +41,7 @@ final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
     InputOperationsManager(platform),
     MediaOperationsManager(platform),
     SystemOperationsManager(ref),
+    UpdateOperationsManager(ref),
     LayerOperationsManager(ref),
     VariableOperationsManager(ref),
     LayoutOperationsManager(ref),

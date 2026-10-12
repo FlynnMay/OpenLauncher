@@ -5,6 +5,7 @@ import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/entity_action.dart';
 import 'package:openlauncher/core/entities/http_feed.dart';
 import 'package:openlauncher/core/layers/layers.dart';
+import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
 
@@ -82,6 +83,19 @@ final Map<String, FeedRead> feeds = {
       'app': playing.appLabel,
       'playing': playing.playing,
       'art': playing.artPath,
+    };
+  },
+  'updates': (ref, entity, feed) {
+    final update = ref.watch(updateStateProvider);
+    return {
+      'text': update.current,
+      'current': update.current,
+      'latest': update.latest,
+      'available': update.available,
+      'status': update.status.name,
+      'progress': update.progress,
+      'notes': update.notes,
+      'error': update.error,
     };
   },
   // The saved layers and those made since.
