@@ -166,6 +166,9 @@ class Component {
   static const globalColumns = 12;
   static const maxColumns = 24;
 
+  /// Columns of a pane that scrolls across.
+  static const maxReach = 999;
+
   /// Tallest a component can be, in cells.
   static const maxRows = 60;
 
@@ -287,6 +290,23 @@ class Component {
   /// Children take their natural size, then the whole row or column is scaled
   /// to fit its box.
   bool get fit => options['fit'] == true;
+
+  /// Whether it scrolls across: a row or cells, when ticked. Cells then
+  /// stop wrapping at [columns].
+  bool get scrollsAcross =>
+      options['scrollX'] == true && mode != PaneMode.column && !_fitted;
+
+  /// Whether it scrolls down: cells unless unticked, a column when ticked.
+  bool get scrollsDown => switch (mode) {
+    PaneMode.row => false,
+    PaneMode.column => options['scrollY'] == true && !fit,
+    _ => options['scrollY'] != false,
+  };
+
+  bool get _fitted => mode.inLine && fit;
+
+  /// The columns its children can be placed on.
+  int get reach => scrollsAcross ? maxReach : columns;
 
   /// Cross-axis alignment in a row or column pane: `start`, `center`, `end`
   /// or `stretch`.

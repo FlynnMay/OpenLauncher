@@ -70,4 +70,80 @@ void main() {
     // The launcher's own cannot be taken away, only left to each entity.
     expect(find.textContaining('Remove rule for App card'), findsNothing);
   });
+
+  testWidgets('scrolling each way is a tick box', (tester) async {
+    tester.view.physicalSize = const Size(500, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var pane = Component.pane(id: 'p');
+    var changes = 0;
+    late StateSetter redraw;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          launcherPlatformProvider.overrideWithValue(
+            FakeLauncherPlatform(const [], const []),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  redraw = setState;
+                  return PaneSettings(
+                    title: 'Pane',
+                    panes: [pane],
+                    onChanged: (how) => setState(() {
+                      changes++;
+                      pane = how(pane);
+                    }),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    bool? ticked(String label) => tester
+        .widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, label))
+        .value;
+    // Cells scroll down as they come, and nothing is saved for it.
+    expect(
+      (ticked('Horizontal scroll'), ticked('Vertical scroll')),
+      (false, true),
+    );
+
+    await tester.tap(find.text('Horizontal scroll'));
+    await tester.pump();
+    await tester.tap(find.text('Vertical scroll'));
+    await tester.pump();
+    expect((pane.scrollsAcross, pane.scrollsDown), (true, false));
+    expect(pane.options, containsPair('scrollY', false));
+    expect(changes, 2);
+    await tester.tap(find.text('Vertical scroll'));
+    await tester.pump();
+    expect(pane.options.containsKey('scrollY'), isFalse);
+
+    // A row has the one along it, a column the other, off until ticked.
+    redraw(() => pane = Component.pane(id: 'p', mode: PaneMode.row));
+    await tester.pump();
+    expect(ticked('Horizontal scroll'), isFalse);
+    expect(find.text('Vertical scroll'), findsNothing);
+
+    redraw(() => pane = Component.pane(id: 'p', mode: PaneMode.column));
+    await tester.pump();
+    expect(find.text('Horizontal scroll'), findsNothing);
+    expect(ticked('Vertical scroll'), isFalse);
+    changes = 0;
+    await tester.tap(find.text('Vertical scroll'));
+    await tester.pump();
+    expect(pane.options, containsPair('scrollY', true));
+    expect(changes, 1);
+    await tester.tap(find.text('Vertical scroll'));
+    await tester.pump();
+    expect(pane.options.containsKey('scrollY'), isFalse);
+  });
 }

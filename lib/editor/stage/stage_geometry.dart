@@ -8,11 +8,8 @@ import 'package:openlauncher/editor/stage/tv_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// [id]'s placement in [pane], as drawn.
-Placement placementIn(Component pane, String id) => placeItems(
-  pane.shown,
-  pane.columns,
-  pane.mode,
-)[pane.children.indexWhere((item) => item.id == id)];
+Placement placementIn(Component pane, String id) =>
+    placementsOf(pane)[pane.children.indexWhere((item) => item.id == id)];
 
 /// The drop for [item] released [at] a point of [pane]'s grid, snapped to
 /// [step].
@@ -25,7 +22,7 @@ Drop dropAt(
 ) {
   if (pane.mode == PaneMode.flow) {
     // Before the first child after the pointer, in reading order.
-    final placed = placeItems(pane.shown, pane.columns, pane.mode);
+    final placed = placementsOf(pane);
     String? before;
     for (final (index, other) in pane.children.indexed) {
       if (other.id == item.id) continue;
@@ -42,7 +39,7 @@ Drop dropAt(
   // unsnapped free pane.
   final free = pane.mode == PaneMode.free;
   final w = (free ? item.w : item.w.roundToDouble())
-      .clamp(free ? Component.minFreeSpan : 1, pane.columns)
+      .clamp(free ? Component.minFreeSpan : 1, pane.reach)
       .toDouble();
   final h = (free ? item.h : item.h.roundToDouble())
       .clamp(free ? Component.minFreeSpan : 1, Component.maxRows)
@@ -52,7 +49,7 @@ Drop dropAt(
   );
   return Drop(
     pane.id,
-    x: snapTo(cell.dx, step).clamp(0, pane.columns - w).toDouble(),
+    x: snapTo(cell.dx, step).clamp(0, pane.reach - w).toDouble(),
     y: snapTo(cell.dy, step).clamp(0, 999).toDouble(),
   );
 }
@@ -93,7 +90,7 @@ Set<ResizeHandle> resizeHandles(
   bool across(int side) =>
       side == 0 ||
       placed.w > least ||
-      (side < 0 ? placed.x > 0 : placed.x + placed.w < pane.columns);
+      (side < 0 ? placed.x > 0 : placed.x + placed.w < pane.reach);
   bool down(int side) =>
       side == 0 ||
       placed.h > least ||
@@ -129,7 +126,7 @@ Set<ResizeHandle> resizeHandles(
       ? snapTo(
           placed.x + placed.w + by.dx,
           step,
-        ).clamp(left + least, pane.columns)
+        ).clamp(left + least, pane.reach)
       : placed.x + placed.w;
   final bottom = handle.dy > 0
       ? snapTo(
@@ -143,7 +140,7 @@ Set<ResizeHandle> resizeHandles(
     x: left * 1.0,
     y: top * 1.0,
     w: flows
-        ? (placed.w + handle.dx * columns).clamp(1, pane.columns) * 1.0
+        ? (placed.w + handle.dx * columns).clamp(1, pane.reach) * 1.0
         : (right - left) * 1.0,
     h: flows
         ? (placed.h + handle.dy * rows).clamp(1, Component.maxRows) * 1.0

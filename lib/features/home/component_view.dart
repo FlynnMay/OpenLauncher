@@ -303,10 +303,15 @@ class LinePane extends StatelessWidget {
   final FirstFocus? focus;
   final String? popup;
 
+  /// Whether it scrolls along its line.
+  bool get _scrolls =>
+      pane.mode == PaneMode.row ? pane.scrollsAcross : pane.scrollsDown;
+
   Widget? _place(Component child) {
     if (child.isDocked || child.hidden && !child.keep) return null;
-    // Nothing is shared out when the pane is fitted.
-    final sized = !pane.fit && (child.flex != null || child.aspect != null);
+    // Nothing is shared out when the pane is fitted or scrolls.
+    final flex = _scrolls ? null : child.flex;
+    final sized = !pane.fit && (flex != null || child.aspect != null);
     Widget placed = ComponentView(
       key: ValueKey(child.id),
       component: child,
@@ -323,9 +328,7 @@ class LinePane extends StatelessWidget {
     if (child.aspect case final aspect?) {
       placed = AspectRatio(aspectRatio: aspect, child: placed);
     }
-    return child.flex == null
-        ? placed
-        : Expanded(flex: child.flex!.round(), child: placed);
+    return flex == null ? placed : Expanded(flex: flex.round(), child: placed);
   }
 
   @override
@@ -333,7 +336,9 @@ class LinePane extends StatelessWidget {
     final row = pane.mode == PaneMode.row;
     final flex = Flex(
       direction: row ? Axis.horizontal : Axis.vertical,
-      mainAxisSize: pane.fit || inner ? MainAxisSize.min : MainAxisSize.max,
+      mainAxisSize: pane.fit || inner || _scrolls
+          ? MainAxisSize.min
+          : MainAxisSize.max,
       mainAxisAlignment: inner
           ? MainAxisAlignment.center
           : MainAxisAlignment.start,
@@ -349,6 +354,17 @@ class LinePane extends StatelessWidget {
       spacing: pane.gap,
       children: [for (final child in pane.shown) ?_place(child)],
     );
+    if (_scrolls) {
+      // Cut off a little outside, so a focused child can grow.
+      return ClipRect(
+        clipper: const Inflated(PaneBox.overhang),
+        child: SingleChildScrollView(
+          scrollDirection: row ? Axis.horizontal : Axis.vertical,
+          clipBehavior: Clip.none,
+          child: flex,
+        ),
+      );
+    }
     // Scaled to the box once, at the top level.
     return pane.fit && !inner ? FittedBox(child: flex) : flex;
   }

@@ -165,7 +165,9 @@ List<Widget> ruleFields({
   mixed: mixed,
   onChanged: (next) {
     for (final option in options) {
-      if (next[option.key] != json[option.key]) {
+      // Two options may share a key, each applying at a different time.
+      if ((option.when?.call(json) ?? true) &&
+          next[option.key] != json[option.key]) {
         onChanged(option.key, next[option.key]);
       }
     }

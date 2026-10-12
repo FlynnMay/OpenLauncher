@@ -179,7 +179,7 @@ Layout dropItem(Layout layout, Component item, Drop drop, {Component? folder}) {
   final found = findPane(layout, drop.pane)!;
   final target = found.pane;
   final whole = target.mode != PaneMode.free;
-  final columns = target.columns * 1.0;
+  final columns = target.reach * 1.0;
   final w = min(whole ? max(1.0, item.w.roundToDouble()) : item.w, columns);
   final h = whole
       ? item.h.roundToDouble().clamp(1.0, Component.maxRows * 1.0)
@@ -198,12 +198,12 @@ Layout dropItem(Layout layout, Component item, Drop drop, {Component? folder}) {
       case PaneMode.grid:
         return settle(
           [...items, item.sized(w, h, x: drop.x, y: drop.y)],
-          target.columns,
+          target.reach,
           fixed: drop.x == null ? null : item.id,
         );
       case PaneMode.free:
         // Below everything, when no position is given.
-        final below = rowCount(placeItems(items, target.columns, target.mode))
+        final below = rowCount(placeItems(items, target.reach, target.mode))
             .ceilToDouble();
         return [
           ...items,
@@ -316,12 +316,12 @@ Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
         for (final item in items)
           if (ids.contains(item.id))
             () {
-              final wide = fit(w ?? item.w, pane.columns * 1.0);
+              final wide = fit(w ?? item.w, pane.reach * 1.0);
               return item.sized(
                 wide,
                 fit(h ?? item.h, Component.maxRows * 1.0),
                 // Kept inside the pane's width.
-                x: item.x?.clamp(0, pane.columns - wide).toDouble(),
+                x: item.x?.clamp(0, pane.reach - wide).toDouble(),
                 y: item.y,
               );
             }()
@@ -331,7 +331,7 @@ Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
       if (pane.mode == PaneMode.grid) {
         for (final item in items) {
           if (ids.contains(item.id)) {
-            next = settle(next, pane.columns, fixed: item.id);
+            next = settle(next, pane.reach, fixed: item.id);
           }
         }
       }
@@ -363,7 +363,7 @@ Layout reshapeItem(
         item,
   ];
   return pane.mode == PaneMode.grid
-      ? settle(next, pane.columns, fixed: id)
+      ? settle(next, pane.reach, fixed: id)
       : next;
 });
 
@@ -411,6 +411,11 @@ Component withRule(Component pane, String key, Object? value) => switch (key) {
     value is num ? value.toInt() : Component.defaultColumns,
   ),
   'dock' => withDock(pane, value is String ? value : null),
+  // No longer scrolling across, its children go back inside its columns.
+  'scrollX' when value != true && !pane.mode.inLine => withColumns(
+    pane.withOption(key, null),
+    pane.columns,
+  ),
   'width' ||
   'height' when value == Component.fill => pane.withOption(key, 'fill'),
   _ => pane.withOption(key, value == '' ? null : value),
@@ -454,7 +459,7 @@ Component withDock(Component pane, String? dock) {
 Component withMode(Component pane, PaneMode mode) {
   // A row or column keeps its children in order.
   if (mode.inLine) return pane.withOption('mode', mode.name);
-  final placed = placeItems(pane.children, pane.columns, pane.mode);
+  final placed = placeItems(pane.children, pane.reach, pane.mode);
   final whole = mode != PaneMode.free;
   double size(double value) => whole ? max(1.0, value.roundToDouble()) : value;
   final List<Component> items;
@@ -487,12 +492,14 @@ Component withMode(Component pane, PaneMode mode) {
   return pane
       .withOption('mode', mode.name)
       .copyWith(
-        children: mode == PaneMode.grid ? settle(items, pane.columns) : items,
+        children: mode == PaneMode.grid ? settle(items, pane.reach) : items,
       );
 }
 
 /// Sets the column count, refitting what no longer fits.
 Component withColumns(Component pane, int columns) {
+  // Nothing is past the end of one that scrolls across.
+  if (pane.scrollsAcross) return pane.withOption('columns', columns);
   final items = [
     for (final item in pane.children)
       () {

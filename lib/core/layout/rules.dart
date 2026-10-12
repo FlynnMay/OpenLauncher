@@ -28,7 +28,7 @@ List<ComponentOption> transformOptions(Iterable<Component> parents) {
       ),
     ];
   }
-  final columns = parents.map((pane) => pane.columns).reduce(min);
+  final columns = parents.map((pane) => pane.reach).reduce(min);
   return [
     ComponentOption(
       'w',
@@ -136,7 +136,35 @@ final List<ComponentOption> paneRules = [
     },
     when: _inLine,
   ),
+  const ComponentOption(
+    'scrollX',
+    'Horizontal scroll',
+    OptionKind.toggle,
+    defaultValue: false,
+    when: _canScrollAcross,
+  ),
+  // Cells scroll down unless told not to.
+  const ComponentOption(
+    'scrollY',
+    'Vertical scroll',
+    OptionKind.toggle,
+    defaultValue: true,
+    when: _onCells,
+  ),
+  const ComponentOption(
+    'scrollY',
+    'Vertical scroll',
+    OptionKind.toggle,
+    defaultValue: false,
+    when: _canScrollDown,
+  ),
 ];
+
+// A fitted row or column is scaled to its box, so has nothing to scroll.
+bool _canScrollAcross(Map<String, Object?> options) =>
+    _onCells(options) || options['mode'] == 'row' && options['fit'] != true;
+bool _canScrollDown(Map<String, Object?> options) =>
+    options['mode'] == 'column' && options['fit'] != true;
 
 bool _inLine(Map<String, Object?> options) =>
     options['mode'] == 'row' || options['mode'] == 'column';

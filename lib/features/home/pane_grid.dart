@@ -18,10 +18,19 @@ class FirstFocus {
 /// Cell sizes of a pane at a given width.
 @immutable
 class PaneMetrics {
+  /// From the width of its whole grid, which is wider than the pane when it
+  /// scrolls across.
   PaneMetrics(Component pane, double width)
+    : this._(pane, width, columnsOf(pane));
+
+  /// From the width the pane shows.
+  PaneMetrics.shown(Component pane, double width)
+    : this._(pane, width, pane.columns);
+
+  PaneMetrics._(Component pane, double width, int columns)
     : gapX = pane.spacingX,
       gapY = pane.spacingY,
-      cellWidth = (width - (pane.columns - 1) * pane.spacingX) / pane.columns,
+      cellWidth = (width - (columns - 1) * pane.spacingX) / columns,
       _rowHeight = pane.rowHeight;
 
   final double gapX, gapY, cellWidth;
@@ -72,12 +81,17 @@ class PaneGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final pane = this.pane;
     final shown = pane.shown;
+    final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
     final grid = LayoutBuilder(
       builder: (context, constraints) {
-        final metrics = PaneMetrics(pane, constraints.maxWidth);
-        final placements = placeItems(shown, pane.columns, pane.mode);
+        final metrics = PaneMetrics.shown(pane, constraints.maxWidth);
+        final placements = placementsOf(pane);
         final rows = rowCount(placements);
-        return SizedBox(
+        final across = pane.scrollsAcross;
+        final cells = SizedBox(
+          width: across
+              ? metrics.across(columnsOf(pane, placements) * 1.0)
+              : null,
           height: rows == 0 ? 0 : metrics.down(rows),
           child: PaneScope(
             panes: [...PaneScope.of(context), pane.id],
@@ -97,6 +111,15 @@ class PaneGrid extends StatelessWidget {
             ),
           ),
         );
+        // Framed inside the scroll area, so the editor finds the whole grid.
+        final framed = frame == null ? cells : frame.wrap(pane, cells);
+        return across
+            ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                child: framed,
+              )
+            : framed;
       },
     );
     // Children can read the pane's variables.
@@ -114,14 +137,13 @@ class PaneGrid extends StatelessWidget {
             ),
             child: grid,
           );
-    final styled = StyleScope.under(context, pane.style, scoped);
-    final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
-    return frame == null ? styled : frame.wrap(pane, styled);
+    return StyleScope.under(context, pane.style, scoped);
   }
 }
 
-/// A pane in its box: background, title and a scrolling grid. Padding is
-/// inside the scroll area, so a focused tile can grow into it.
+/// A pane in its box: background, title and its grid, scrolling the ways the
+/// pane says. Padding is inside the scroll area, so a focused tile can grow
+/// into it.
 class PaneBox extends ConsumerWidget {
   const PaneBox({
     super.key,
@@ -146,7 +168,7 @@ class PaneBox extends ConsumerWidget {
   static const _underTitle = 10.0;
 
   /// How far a focused tile may show past a pane with no background.
-  static const _overhang = 12.0;
+  static const overhang = 12.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -169,8 +191,7 @@ class PaneBox extends ConsumerWidget {
     final border = box.border;
     final shape = styleShape(box, Component.defaultCorner);
     final grid = PaneGrid(pane: pane, tile: tile);
-    final scroll = SingleChildScrollView(
-      clipBehavior: Clip.none,
+    final padded = Padding(
       padding: EdgeInsets.fromLTRB(
         padding,
         titled ? _underTitle : padding,
@@ -190,6 +211,10 @@ class PaneBox extends ConsumerWidget {
             )
           : grid,
     );
+    // What does not scroll is cut off at the box.
+    final scroll = pane.scrollsDown
+        ? SingleChildScrollView(clipBehavior: Clip.none, child: padded)
+        : padded;
     final content = Column(
       mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -205,7 +230,7 @@ class PaneBox extends ConsumerWidget {
     if (box.isEmpty) {
       return styleOpacity(
         box,
-        ClipRect(clipper: const _Inflated(_overhang), child: content),
+        ClipRect(clipper: const Inflated(PaneBox.overhang), child: content),
       );
     }
     final painted = DecoratedBox(
@@ -232,8 +257,9 @@ class PaneBox extends ConsumerWidget {
   }
 }
 
-class _Inflated extends CustomClipper<Rect> {
-  const _Inflated(this.by);
+/// Clips [by] outside the box.
+class Inflated extends CustomClipper<Rect> {
+  const Inflated(this.by);
 
   final double by;
 
@@ -241,7 +267,7 @@ class _Inflated extends CustomClipper<Rect> {
   Rect getClip(Size size) => (Offset.zero & size).inflate(by);
 
   @override
-  bool shouldReclip(_Inflated oldClipper) => oldClipper.by != by;
+  bool shouldReclip(Inflated oldClipper) => oldClipper.by != by;
 }
 
 class PaneTitle extends StatelessWidget {

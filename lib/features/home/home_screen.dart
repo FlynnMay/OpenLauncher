@@ -132,12 +132,17 @@ class HomeScreen extends ConsumerWidget {
                         if (!empty)
                           // The root pane fills the screen; margins are the
                           // user's.
-                          SingleChildScrollView(
-                            padding: EdgeInsets.all(root.box.padding ?? 0),
-                            child: PaneGrid(
-                              pane: root,
-                              tile: (entry) =>
-                                  ComponentView(component: entry, focus: focus),
+                          _scrolling(
+                            root,
+                            Padding(
+                              padding: EdgeInsets.all(root.box.padding ?? 0),
+                              child: PaneGrid(
+                                pane: root,
+                                tile: (entry) => ComponentView(
+                                  component: entry,
+                                  focus: focus,
+                                ),
+                              ),
                             ),
                           )
                         else if (first)
@@ -204,6 +209,9 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// Whether the Settings card is placed anywhere.
+  static Widget _scrolling(Component root, Widget child) =>
+      root.scrollsDown ? SingleChildScrollView(child: child) : child;
+
   static bool _hasSettings(Layout layout) =>
       layout.items.any((item) => item.handed.contains(settingsEntity.id));
 }

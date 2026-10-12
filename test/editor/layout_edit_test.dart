@@ -503,6 +503,31 @@ void main() {
       );
     });
 
+    test('a pane that stops scrolling across takes its children back', () {
+      final pane = Component.pane(
+        id: 'p',
+        mode: PaneMode.grid,
+        columns: 3,
+        rules: const {'scrollX': true},
+        children: [entity('a', x: 0, y: 0), entity('b', w: 2, x: 6, y: 0)],
+      );
+      // Past its own columns while it scrolls, whatever their number.
+      expect(withRule(pane, 'columns', 2).children.last.x, 6);
+      final dropped = dropItem(
+        home(pane),
+        entity('c'),
+        const Drop('p', x: 9, y: 0),
+      );
+      expect(findPane(dropped, 'p')!.pane.children.last.x, 9);
+
+      final back = withRule(pane, 'scrollX', null);
+      expect(back.options.containsKey('scrollX'), isFalse);
+      expect(
+        [for (final item in back.children) (item.x, item.y)],
+        [(0, 0), (1, 0)],
+      );
+    });
+
     test('only an edge within reach takes it, the nearest free one', () {
       const all = barEdges;
       expect(edgeNear(480, 270, 960, 540, all), isNull);

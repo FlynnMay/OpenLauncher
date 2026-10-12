@@ -278,7 +278,7 @@ class PaneSettings extends StatelessWidget {
         value: shared(panes.map((pane) => pane.itemW!)),
         mixed: panes.map((pane) => pane.itemW).toSet().length > 1,
         min: 1,
-        max: panes.map((pane) => pane.columns).reduce((a, b) => a < b ? a : b),
+        max: panes.map((pane) => pane.reach).reduce((a, b) => a < b ? a : b),
         onChanged: (w) => onChanged((pane) => pane.withOption('itemW', w)),
       ),
       NumberField(

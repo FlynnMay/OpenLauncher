@@ -109,6 +109,61 @@ void main() {
       expect(rowCount(placed), 3);
     });
 
+    test('a pane that scrolls across keeps its children on one row', () {
+      final items = [_item('a'), _item('b', w: 2), _item('c'), _item('d')];
+      final wraps = Component.pane(id: 'p', columns: 3, children: items);
+      expect(rowCount(placementsOf(wraps)), 2);
+      expect(columnsOf(wraps), 3);
+
+      final across = wraps.withOption('scrollX', true);
+      expect(placementsOf(across), const [
+        Placement(0, 0, 1, 1),
+        Placement(1, 0, 2, 1),
+        Placement(3, 0, 1, 1),
+        Placement(4, 0, 1, 1),
+      ]);
+      // Its grid is as wide as they reach, and never narrower than its own.
+      expect(columnsOf(across), 5);
+      expect(columnsOf(across.copyWith(children: [_item('a')])), 3);
+    });
+
+    test('cells scroll down unless told not to, lines only when told to', () {
+      Component pane(PaneMode mode, [Map<String, Object?> rules = const {}]) =>
+          Component.pane(id: 'p', mode: mode, rules: rules);
+      const both = {'scrollX': true, 'scrollY': true};
+      for (final mode in [PaneMode.flow, PaneMode.grid, PaneMode.free]) {
+        expect(
+          (pane(mode).scrollsAcross, pane(mode).scrollsDown),
+          (false, true),
+        );
+        final off = pane(mode, const {'scrollY': false});
+        expect(off.scrollsDown, isFalse);
+        expect(pane(mode, both).scrollsAcross, isTrue);
+      }
+      // A row scrolls along itself only, and so does a column.
+      expect(pane(PaneMode.row).scrollsAcross, isFalse);
+      expect(pane(PaneMode.column).scrollsDown, isFalse);
+      expect(
+        (
+          pane(PaneMode.row, both).scrollsAcross,
+          pane(PaneMode.row, both).scrollsDown,
+        ),
+        (true, false),
+      );
+      expect(
+        (
+          pane(PaneMode.column, both).scrollsAcross,
+          pane(PaneMode.column, both).scrollsDown,
+        ),
+        (false, true),
+      );
+      // Scaled to its box, there is nothing to scroll.
+      expect(
+        pane(PaneMode.row, const {...both, 'fit': true}).scrollsAcross,
+        isFalse,
+      );
+    });
+
     test('several without a position fill rows under the rest', () {
       final placed = placeItems(
         [

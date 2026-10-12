@@ -82,7 +82,7 @@ extension LayoutRepair on Layout {
             : repaired.copyWith(id: fresh(item.id, 'item'));
         return;
       }
-      final columns = parent.columns;
+      final columns = parent.reach;
       // Fractions only in a free pane.
       final free = parent.mode == PaneMode.free;
       double fit(double value, num low, num high) =>

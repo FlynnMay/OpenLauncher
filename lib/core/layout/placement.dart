@@ -130,6 +130,20 @@ List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
   return placed.cast();
 }
 
+/// [pane]'s children placed as drawn.
+List<Placement> placementsOf(Component pane) =>
+    placeItems(pane.shown, pane.reach, pane.mode);
+
+/// The columns of [pane]'s grid: its own, and as many more as its children
+/// reach when it scrolls across.
+int columnsOf(Component pane, [List<Placement>? placements]) =>
+    !pane.scrollsAcross
+    ? pane.columns
+    : (placements ?? placementsOf(pane)).fold(
+        pane.columns,
+        (columns, p) => max(columns, (p.x + p.w).ceil()),
+      );
+
 /// The number of rows [placements] reach.
 double rowCount(Iterable<Placement> placements) =>
     placements.fold(0, (rows, p) => max(rows, p.y + p.h));

@@ -534,6 +534,171 @@ void main() {
       expect(platform.launched, ['pkg.b']);
     });
 
+    testWidgets('a pane scrolls the ways it is set to', (tester) async {
+      Future<void> pump(Map<String, Object?> rules) => pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'p',
+            removed: const {'launcher:settings'},
+            layers: [
+              home([
+                Component.pane(
+                  id: 'p',
+                  columns: 2,
+                  rules: rules,
+                  children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
+                ),
+              ]),
+            ],
+          ).normalised(),
+        ),
+      );
+      Rect of(Finder finder) => tester.getRect(finder.first);
+      Rect tile(String name) => of(
+        find.ancestor(
+          of: find.text(name),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is ComponentView && widget.component.isInstance,
+          ),
+        ),
+      );
+      Iterable<Axis> scrolls() => tester
+          .widgetList<SingleChildScrollView>(
+            find.descendant(
+              of: find.byType(PaneBox),
+              matching: find.byType(SingleChildScrollView),
+            ),
+          )
+          .map((view) => view.scrollDirection);
+
+      // As it comes: wrapped at its columns, scrolling down.
+      await pump(const {});
+      expect(scrolls(), [Axis.vertical]);
+      expect(tile('Gamma').top, greaterThan(tile('Alpha').top));
+      expect(tile('Gamma').left, tile('Alpha').left);
+
+      // Across: one row, its cells no narrower, the third out of sight until
+      // the focus gets there.
+      final cell = tile('Alpha').size;
+      await pump(const {'scrollX': true, 'scrollY': false});
+      await tester.pumpAndSettle();
+      expect(scrolls(), [Axis.horizontal]);
+      final pane = of(find.byType(PaneBox));
+      expect(tile('Alpha').size, cell);
+      expect(tile('Gamma').top, tile('Alpha').top);
+      expect(tile('Gamma').left, greaterThan(pane.right - 20));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(tile('Gamma').right, lessThan(pane.right));
+      expect(tile('Alpha').left, lessThan(pane.left));
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(platform.launched, ['pkg.c']);
+
+      // Neither: nothing in it scrolls.
+      await pump(const {'scrollY': false});
+      await tester.pumpAndSettle();
+      expect(scrolls(), isEmpty);
+      expect(tile('Gamma').top, greaterThan(tile('Alpha').top));
+    });
+
+    test('cells measure the same from the whole grid as from the pane', () {
+      final pane = Component.pane(
+        id: 'p',
+        columns: 2,
+        rules: const {'scrollX': true},
+        children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
+      );
+      final shown = PaneMetrics.shown(pane, 400);
+      // The editor has only the grid's own box, three columns wide here.
+      final whole = PaneMetrics(pane, shown.across(3));
+      expect(whole.cellWidth, closeTo(shown.cellWidth, 1e-9));
+      expect(
+        shown.cellWidth,
+        PaneMetrics(pane.withOption('scrollX', null), 400).cellWidth,
+      );
+    });
+
+    testWidgets('a row scrolls along itself when set to', (tester) async {
+      Component label(String id) => Component(
+        id: id,
+        kind: 'text',
+        options: {'text': id},
+        on: {
+          Trigger.press: const [
+            Act('open', {'entity': 'app:pkg.a'}),
+          ],
+        },
+      );
+      Future<void> pump(Map<String, Object?> rules) => pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'global',
+            removed: const {
+              'app:pkg.a',
+              'app:pkg.b',
+              'app:pkg.c',
+              'launcher:settings',
+            },
+            layers: [
+              Layer(
+                id: Layout.homeId,
+                root: Component.pane(
+                  id: 'global',
+                  mode: PaneMode.grid,
+                  columns: 12,
+                  children: [
+                    Component.pane(
+                      id: 'line',
+                      mode: PaneMode.row,
+                      rules: {'gap': 400, ...rules},
+                      children: [
+                        for (final id in ['one', 'two', 'three', 'four'])
+                          label(id),
+                      ],
+                      x: 2,
+                      y: 1,
+                      w: 4,
+                      h: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ).normalised(),
+        ),
+      );
+      final line = find.byWidgetPredicate(
+        (widget) => widget is LinePane && widget.pane.id == 'line',
+      );
+      Finder scroll() => find.descendant(
+        of: line,
+        matching: find.byType(SingleChildScrollView),
+      );
+      await pump(const {'scrollX': true});
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.widget<SingleChildScrollView>(scroll()).scrollDirection,
+        Axis.horizontal,
+      );
+      final box = tester.getRect(line);
+      expect(tester.getRect(find.text('four')).left, greaterThan(box.right));
+      for (var step = 0; step < 3; step++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+      }
+      // At the end of the row, with only its focused growth past the box.
+      expect(
+        tester.getRect(find.text('four')).right,
+        lessThan(box.right + PaneBox.overhang),
+      );
+      expect(tester.getRect(find.text('one')).right, lessThan(box.left));
+    });
+
     testWidgets('a sidebar opens while the focus is in it', (tester) async {
       await pumpApp(
         tester,
