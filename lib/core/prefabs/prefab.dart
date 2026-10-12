@@ -56,17 +56,43 @@ class Prefab {
   Iterable<Component> get parts =>
       root.all.skip(1).where((component) => !component.isPane);
 
+  /// The variant instances use unless they name another.
+  String? get defaultVariant => variants.keys.firstOrNull;
+
+  /// [variant] if there is one of that name, else the default.
+  String? variantNamed(String? variant) =>
+      variants.containsKey(variant) ? variant : defaultVariant;
+
+  /// Whether [variant] is the tree as built: the default, with no overrides
+  /// of its own.
+  bool isBase(String? variant) {
+    final name = variantNamed(variant);
+    return name == null ||
+        name == defaultVariant && variants[name]!.overrides.isEmpty;
+  }
+
+  /// The root as [variant] has it, ids unchanged.
+  Component rootAs(String? variant) => withOverrides(
+    root,
+    variants[variantNamed(variant)]?.overrides ?? const {},
+  );
+
   /// The variant [instance] uses, falling back to the first.
   String? variantOf(Component instance) =>
       variants.containsKey(instance.variant)
       ? instance.variant
       : variants.keys.firstOrNull;
 
-  Prefab copyWith({String? id, String? name, Component? root}) => Prefab(
+  Prefab copyWith({
+    String? id,
+    String? name,
+    Component? root,
+    Map<String, PrefabVariant>? variants,
+  }) => Prefab(
     id: id ?? this.id,
     name: name ?? this.name,
     root: root ?? this.root,
-    variants: variants,
+    variants: variants ?? this.variants,
   );
 
   /// Replaces the descendant [id] with what [change] returns.
@@ -128,6 +154,19 @@ class Prefab {
       },
   };
 }
+
+/// [root]'s tree with [overrides] applied; ids are kept.
+Component withOverrides(Component root, Overrides overrides) =>
+    overrides.isEmpty
+    ? root
+    : root
+          .overridden(overrides[root.id])
+          .copyWith(
+            children: [
+              for (final child in root.children)
+                withOverrides(child, overrides),
+            ],
+          );
 
 /// The concrete component for [instance]: the prefab's tree with the
 /// variant's overrides, then the instance's. Variables, style and triggers
@@ -369,6 +408,7 @@ final List<Prefab> builtInPrefabs = [
             VarCase(VarTest.equals, 'storm', 'storm'),
           ],
           otherwise: 'rain',
+          exposed: false,
         ),
         // Description, plus high / low when known.
         'summary': Variable(
@@ -378,6 +418,7 @@ final List<Prefab> builtInPrefabs = [
           otherwise:
               '{{source.description}}  ·  '
               '{{source.high | round}}° / {{source.low | round}}°',
+          exposed: false,
         ),
       },
       [
@@ -433,6 +474,7 @@ final List<Prefab> builtInPrefabs = [
           when: '{{source.playing}}',
           cases: [VarCase(VarTest.equals, 'true', 'pause')],
           otherwise: 'play',
+          exposed: false,
         ),
         // Artist and app, or only the app.
         'summary': Variable(
@@ -440,6 +482,7 @@ final List<Prefab> builtInPrefabs = [
           when: '{{source.artist}}',
           cases: [VarCase(VarTest.equals, '', '{{source.app}}')],
           otherwise: '{{source.artist}} · {{source.app}}',
+          exposed: false,
         ),
       },
       on: const {

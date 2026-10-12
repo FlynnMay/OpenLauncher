@@ -19,6 +19,7 @@ class PaneSettings extends StatelessWidget {
     this.children = const [],
     this.prefabs = const {},
     this.dockable = true,
+    this.exposable = false,
   });
 
   final String title;
@@ -35,6 +36,9 @@ class PaneSettings extends StatelessWidget {
 
   /// Whether it can be docked; a layer's root cannot.
   final bool dockable;
+
+  /// It is a prefab's root, whose variables instances can show.
+  final bool exposable;
 
   /// The chains a docked pane runs: when it is shown and hidden, and for one
   /// with a closed strip, when the focus comes and goes.
@@ -71,6 +75,7 @@ class PaneSettings extends StatelessWidget {
       if (panes.length == 1)
         VariablesSettings(
           variables: panes.single.vars,
+          exposable: exposable,
           onChanged: (vars) => onChanged((pane) => pane.copyWith(vars: vars)),
         ),
     ],

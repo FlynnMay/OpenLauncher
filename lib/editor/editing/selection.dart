@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/editing/layout_edit.dart';
+import 'package:openlauncher/editor/editing/prefab_mode.dart';
 
 /// Ids of the selected components.
 final selectionProvider = NotifierProvider<Selection, Set<String>>(
@@ -55,9 +56,9 @@ class SelectSeveral extends Notifier<bool> {
   void set(bool several) => state = several;
 }
 
-/// The selected components as they are in the layout now.
+/// The selected components as they are now, in what is being edited.
 final selectedProvider = Provider<List<Found>>((ref) {
-  final layout = ref.watch(configProvider).value?.layout;
+  final layout = ref.watch(editedLayoutProvider);
   final ids = ref.watch(selectionProvider);
   return layout == null || ids.isEmpty ? const [] : findItems(layout, ids);
 });

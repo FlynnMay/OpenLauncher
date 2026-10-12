@@ -25,6 +25,11 @@ class RuntimeVars extends Notifier<Map<String, Map<String, Object?>>> {
     ...state,
     component: {...?state[component], name: value},
   };
+
+  /// Forgets what was set on [component].
+  void clear(String component) {
+    if (state.containsKey(component)) state = {...state}..remove(component);
+  }
 }
 
 /// Evaluates [template], looking names up in [scope] first, then as entity or

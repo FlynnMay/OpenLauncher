@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
@@ -11,10 +12,14 @@ class VariablesSettings extends ConsumerStatefulWidget {
     required this.variables,
     required this.onChanged,
     this.note,
+    this.exposable = false,
   });
 
   final Variables variables;
   final void Function(Variables variables) onChanged;
+
+  /// They are a prefab's own, each with a tick for showing on its instances.
+  final bool exposable;
 
   /// A note shown above them.
   final String? note;
@@ -63,6 +68,7 @@ class _VariablesSettingsState extends ConsumerState<VariablesSettings> {
       ListField(
         option: variableOptions(
           entities: {for (final entity in entities) entity.id: entity.label},
+          exposable: widget.exposable,
         ),
         records: [
           for (final one in variablesToForm(widget.variables))
@@ -76,6 +82,126 @@ class _VariablesSettingsState extends ConsumerState<VariablesSettings> {
         ],
         onChanged: _take,
       ),
+    ]);
+  }
+}
+
+/// An instance's values for its prefab's exposed variables, each in a field
+/// of its type. One left alone follows the prefab.
+class InstanceVariables extends ConsumerWidget {
+  const InstanceVariables({
+    super.key,
+    required this.declared,
+    required this.own,
+    required this.onChanged,
+  });
+
+  /// The prefab's variables, and the instance's.
+  final Variables declared, own;
+  final void Function(Variables own) onChanged;
+
+  /// The names of [declared] that get a field.
+  static Set<String> shown(Variables declared, Variables own) => {
+    for (final MapEntry(key: name, value: variable) in declared.entries)
+      if (variable.exposed &&
+          !variable.isConditional &&
+          !(own[name]?.isConditional ?? false))
+        name,
+  };
+
+  ComponentOption _option(
+    String name,
+    Variable variable,
+    Map<String, String> entities,
+  ) {
+    final value = variable.value;
+    return switch (variable.type) {
+      VarType.number => ComponentOption(
+        name,
+        name,
+        OptionKind.number,
+        min: -1000000,
+        max: 1000000,
+        decimal: true,
+        defaultValue: value is num ? value : null,
+      ),
+      VarType.bool => ComponentOption(
+        name,
+        name,
+        OptionKind.toggle,
+        defaultValue: value == true,
+      ),
+      VarType.colour => ComponentOption(
+        name,
+        name,
+        OptionKind.colour,
+        defaultValue: value,
+      ),
+      VarType.entity => ComponentOption(
+        name,
+        name,
+        OptionKind.choice,
+        unset: 'None',
+        defaultValue: value,
+        choices: {
+          // Keeps a saved one that is not there now.
+          for (final saved in [value, own[name]?.value])
+            if (saved is String && saved.isNotEmpty) saved: saved,
+          ...entities,
+        },
+      ),
+      _ => ComponentOption(
+        name,
+        name,
+        OptionKind.template,
+        defaultValue: value?.toString(),
+      ),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final names = shown(declared, own);
+    if (names.isEmpty) return const SizedBox.shrink();
+    final entities = {
+      for (final entity
+          in ref.watch(entitiesProvider).value ?? const <Entity>[])
+        entity.id: entity.label,
+    };
+    Variables without(String name) => {...own}..remove(name);
+    final fields = optionFields(
+      options: [
+        for (final name in names) _option(name, declared[name]!, entities),
+      ],
+      values: {for (final name in names) name: ?own[name]?.value},
+      // A value put back to the prefab's is not stored.
+      onChanged: (next) => onChanged({
+        for (final MapEntry(key: name, value: variable) in own.entries)
+          if (!names.contains(name)) name: variable,
+        for (final name in names)
+          if (next[name] case final value?)
+            // Typed as declared, so an entity it holds is known as one.
+            name: Variable(
+              value,
+              type: declared[name]!.type,
+              access: declared[name]!.access,
+            ),
+      }),
+    );
+    return Section('Prefab variables', [
+      for (final (index, name) in names.indexed)
+        Row(
+          children: [
+            Expanded(child: fields[index]),
+            if (own.containsKey(name))
+              IconButton(
+                tooltip: 'Revert to prefab',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.undo, size: 18),
+                onPressed: () => onChanged(without(name)),
+              ),
+          ],
+        ),
     ]);
   }
 }

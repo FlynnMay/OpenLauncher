@@ -47,10 +47,13 @@ class _CatalogueState extends ConsumerState<Catalogue> {
 
   /// The offers, by heading.
   Map<String, List<_Offer>> _offers(LauncherConfig config) {
-    final layout = config.layout;
+    // New ids are free in what is being edited; a prefab holds no sidebar or
+    // new folder, nor itself.
+    final open = ref.watch(editedPrefabProvider);
+    final layout = ref.watch(editedLayoutProvider) ?? config.layout;
     final components = ref.watch(tvStateProvider).value?.components ?? const [];
     final prefabs = ref.watch(prefabsProvider);
-    final counts = placedCounts(layout);
+    final counts = placedCounts(config.layout);
     // Only an entity with a prefab can be placed.
     final all = [
       for (final entity
@@ -114,30 +117,32 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             picture: const SymbolArt(Icons.dashboard_outlined),
           ),
         ),
-        _Offer(
-          Dragged.sidebar(
-            label: 'Sidebar',
-            picture: const SymbolArt(Icons.view_sidebar_outlined),
-          ),
-        ),
-        _Offer(
-          Dragged(
-            item: Component.of(
-              folder.id,
-              prefab: folderPrefabId,
-              id: layout.itemIdFor(folder.title),
+        if (open == null) ...[
+          _Offer(
+            Dragged.sidebar(
+              label: 'Sidebar',
+              picture: const SymbolArt(Icons.view_sidebar_outlined),
             ),
-            folder: folder,
-            label: 'New folder',
-            picture: const SymbolArt(Icons.create_new_folder_outlined),
           ),
-        ),
+          _Offer(
+            Dragged(
+              item: Component.of(
+                folder.id,
+                prefab: folderPrefabId,
+                id: layout.itemIdFor(folder.title),
+              ),
+              folder: folder,
+              label: 'New folder',
+              picture: const SymbolArt(Icons.create_new_folder_outlined),
+            ),
+          ),
+        ],
       ],
       'System prefabs': entities(
         (entity) => !own.contains(entity.id) && alone(entity),
       ),
       'User prefabs': [
-        for (final pane in layout.docked)
+        for (final pane in config.layout.docked)
           if (pane.hovers && pane.id != Layout.menuId)
             _Offer(
               Dragged(
@@ -154,7 +159,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
         for (final prefab in config.prefabs)
           // One with a built-in's id is that built-in, edited.
-          if (!builtInPrefabs.any((builtIn) => builtIn.id == prefab.id))
+          if (!isBuiltIn(prefab.id) &&
+              (open == null || !holdsPrefab(prefab.id, open.id, prefabs)))
             _Offer(
               Dragged(
                 item: Component(
@@ -164,8 +170,9 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                   h: prefab.root.h,
                 ),
                 label: prefab.name,
-                picture: const SymbolArt(Icons.dashboard_customize_outlined),
+                picture: const SymbolArt(prefabIcon),
               ),
+              prefab: prefab,
             ),
         ...entities((entity) => own.contains(entity.id)),
       ],
@@ -185,7 +192,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     final query = _query.trim().toLowerCase();
     final config = ref.watch(configProvider).value;
     if (config == null) return const SizedBox.shrink();
-    final layout = config.layout;
+    final layout = ref.watch(editedLayoutProvider) ?? config.layout;
     final offers = _offers(config).map(
       (heading, offers) => MapEntry(heading, [
         for (final offer in offers)
@@ -236,6 +243,10 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                         for (final offer in offers)
                           _OfferTile(
                             offer,
+                            onOpen: switch (offer.prefab) {
+                              null => null,
+                              final prefab => () => openPrefab(ref, prefab.id),
+                            },
                             // A sidebar goes to an edge, not a pane.
                             onTap: () => offer.dragged.sidebar
                                 ? addBarSomewhere(context, ref)
@@ -272,9 +283,17 @@ class _CatalogueState extends ConsumerState<Catalogue> {
 }
 
 class _Offer {
-  const _Offer(this.dragged, {this.backed = false, this.count = 0});
+  const _Offer(
+    this.dragged, {
+    this.backed = false,
+    this.count = 0,
+    this.prefab,
+  });
 
   final Dragged dragged;
+
+  /// The user's prefab it is a bare instance of, which can be opened.
+  final Prefab? prefab;
 
   /// Whether the picture gets a card background.
   final bool backed;
@@ -284,10 +303,11 @@ class _Offer {
 }
 
 class _OfferTile extends StatelessWidget {
-  const _OfferTile(this.offer, {required this.onTap});
+  const _OfferTile(this.offer, {required this.onTap, this.onOpen});
 
   final _Offer offer;
   final VoidCallback onTap;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +325,20 @@ class _OfferTile extends StatelessWidget {
         },
         tooltip: offer.count == 0 ? label : '$label (on the TV)',
         onTap: onTap,
+        corner: onOpen == null
+            ? null
+            : IconButton.filledTonal(
+                tooltip: 'Open $label',
+                visualDensity: VisualDensity.compact,
+                iconSize: 14,
+                constraints: const BoxConstraints.tightFor(
+                  width: 24,
+                  height: 24,
+                ),
+                padding: EdgeInsets.zero,
+                onPressed: onOpen,
+                icon: const Icon(Icons.edit_outlined),
+              ),
       ),
     );
   }

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/component_registry.dart';
-import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/layer_stack.dart';
+import 'package:openlauncher/editor/stage/prefab_screen.dart';
 import 'package:openlauncher/editor/stage/resize_handles.dart';
 import 'package:openlauncher/editor/stage/snapping.dart';
 import 'package:openlauncher/editor/stage/stage_geometry.dart';
@@ -17,8 +17,9 @@ import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
-/// The TV's screen. While [editing], components are selectable and draggable
-/// and the screen is a drop target; otherwise it is the plain launcher.
+/// The TV's screen, or the open prefab on it. While [editing], components are
+/// selectable and draggable and the screen is a drop target; otherwise it is
+/// the plain launcher.
 class Stage extends ConsumerStatefulWidget {
   const Stage({super.key, required this.editing});
 
@@ -31,8 +32,12 @@ class Stage extends ConsumerStatefulWidget {
 class _StageState extends ConsumerState<Stage> {
   final _screen = GlobalKey();
 
-  /// Keys for each pane's grid and each nested pane's box.
+  /// Keys for each pane's grid, and for the box of each nested pane and of
+  /// each child of a row or column.
   final _grids = <String, GlobalKey>{}, _boxes = <String, GlobalKey>{};
+
+  /// What is being edited: each component's parent pane, by id.
+  var _parents = const <String, Component>{};
 
   /// Where the dragged thing would land.
   Rect? _marker;
@@ -54,23 +59,41 @@ class _StageState extends ConsumerState<Stage> {
   Widget _plainTile(Component item, Widget tile) => tile;
 
   Widget _editTile(Component item, Widget tile) {
-    Dragged dragged(String label, Widget picture) =>
-        Dragged(item: item, placed: true, label: label, picture: picture);
+    // A part of an instance is not a thing of its own.
+    final parent = _parents[item.id];
+    if (parent == null) return tile;
+    // A prefab's root stays where it is.
+    final fixed = item.id == ref.read(editedPrefabProvider)?.root.id;
+    Widget handle(String label, Widget picture, Widget child) => fixed
+        ? child
+        : DragHandle(
+            data: Dragged(
+              item: item,
+              placed: true,
+              label: label,
+              picture: picture,
+            ),
+            child: child,
+          );
+    // In a row or column its box is what a drop goes before or after.
+    Widget boxed(Widget child) => item.isPane || parent.mode.inLine
+        ? KeyedSubtree(
+            key: _boxes.putIfAbsent(item.id, GlobalKey.new),
+            child: child,
+          )
+        : child;
     // Absorbs the tile's own gestures so a tap or drag starts on it.
     final still = _Selectable(
       id: item.id,
       child: AbsorbPointer(child: tile),
     );
     if (item.isPane) {
-      return KeyedSubtree(
-        key: _boxes.putIfAbsent(item.id, GlobalKey.new),
-        child: DragHandle(
-          data: dragged(
-            item.title.isEmpty ? 'Pane' : item.title,
-            const SymbolArt(Icons.dashboard_outlined),
-          ),
+      return boxed(
+        handle(
+          item.title.isEmpty ? 'Pane' : item.title,
+          const SymbolArt(Icons.dashboard_outlined),
           // Outlined so a pane with no background can be seen and grabbed.
-          child: _Selectable(
+          _Selectable(
             id: item.id,
             shape: PaneBox.shapeOf(item),
             resting: Colors.white24,
@@ -80,24 +103,24 @@ class _StageState extends ConsumerState<Stage> {
       );
     }
     if (!item.isInstance) {
-      return DragHandle(
-        data: dragged(
+      return boxed(
+        handle(
           ComponentRegistry.named(item.kind)?.label ?? item.kind,
           const SymbolArt(Icons.widgets_outlined),
+          still,
         ),
-        child: still,
       );
     }
     final source = item.handed.firstOrNull ?? '';
     final entity = ref.read(entitiesProvider).value?.byId(source);
-    return DragHandle(
-      data: entity != null
-          ? dragged(entity.label, EntityArt(entity: entity, padding: 4))
-          : dragged(
+    return boxed(
+      entity != null
+          ? handle(entity.label, EntityArt(entity: entity, padding: 4), still)
+          : handle(
               source.isEmpty ? 'Prefab' : source,
               FolderArt(folder: source),
+              still,
             ),
-      child: still,
     );
   }
 
@@ -107,7 +130,7 @@ class _StageState extends ConsumerState<Stage> {
     Offset pointer,
     Dragged dragged,
   ) {
-    final layout = ref.read(configProvider).value?.layout;
+    final layout = ref.read(editedLayoutProvider);
     if (layout == null) return null;
     if (dragged.sidebar) {
       // A sidebar only goes to a free edge.
@@ -160,9 +183,12 @@ class _StageState extends ConsumerState<Stage> {
         }
       }
     }
-    final grid = _box(_grids[pane.id]), screen = _box(_screen);
-    if (grid == null || screen == null) return null;
-    if (refusal(layout, item, pane.id) != null) return null;
+    if (whyNot(ref, dragged, pane.id) != null) return null;
+    final screen = _box(_screen);
+    if (screen == null) return null;
+    if (pane.mode.inLine) return _inLine(pane, pointer, item, screen);
+    final grid = _box(_grids[pane.id]);
+    if (grid == null) return null;
 
     final metrics = PaneMetrics(pane, grid.size.width);
     final drop = dropAt(
@@ -187,10 +213,56 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
+  /// The drop for [item] at [pointer] in the row or column [pane]: before the
+  /// first child whose middle is past the pointer. The marker is a bar
+  /// between the two.
+  ({Drop? drop, String? bar, Rect marker})? _inLine(
+    Component pane,
+    Offset pointer,
+    Component item,
+    RenderBox screen,
+  ) {
+    final box = _box(_boxes[pane.id]);
+    if (box == null) return null;
+    Rect on(RenderBox box) => MatrixUtils.transformRect(
+      box.getTransformTo(screen),
+      Offset.zero & box.size,
+    );
+    final row = pane.mode == PaneMode.row;
+    final at = screen.globalToLocal(pointer);
+    final whole = on(box);
+    const thick = 4.0;
+    String? before;
+    // Where the bar goes along the line: the start, or after the last child.
+    var along = row ? whole.left : whole.top;
+    for (final child in pane.children) {
+      final rect = switch (child.id == item.id
+          ? null
+          : _box(_boxes[child.id])) {
+        null => null,
+        final box => on(box),
+      };
+      if (rect == null) continue;
+      if (row ? at.dx < rect.center.dx : at.dy < rect.center.dy) {
+        before = child.id;
+        along = ((row ? rect.left : rect.top) + along) / 2;
+        break;
+      }
+      along = row ? rect.right : rect.bottom;
+    }
+    return (
+      drop: Drop(pane.id, before: before),
+      bar: null,
+      marker: row
+          ? Rect.fromLTWH(along - thick / 2, whole.top, thick, whole.height)
+          : Rect.fromLTWH(whole.left, along - thick / 2, whole.width, thick),
+    );
+  }
+
   /// The single selected component, if its cells can be found: its rect and
   /// what resizing needs.
   ({Found found, Placement placed, PaneMetrics metrics, Rect rect})? _picked() {
-    final layout = ref.read(configProvider).value?.layout;
+    final layout = ref.read(editedLayoutProvider);
     final ids = ref.read(selectionProvider);
     if (layout == null || ids.length != 1) return null;
     final found = findItems(layout, ids).singleOrNull;
@@ -216,16 +288,19 @@ class _StageState extends ConsumerState<Stage> {
   /// The new size and position for [handle] dragged by [moved].
   void _resize(ResizeHandle handle, Offset moved) {
     final picked = _picked();
-    final layout = ref.read(configProvider).value?.layout;
+    final layout = ref.read(editedLayoutProvider);
     if (picked == null || layout == null) return;
     final (:found, :placed, :metrics, rect: _) = picked;
     final pane = found.parent;
+    final grid = _box(_grids[pane.id]), screen = _box(_screen);
+    if (grid == null || screen == null) return;
     final to = resizedTo(
       pane,
       placed,
       metrics,
       handle,
-      moved,
+      // In the pane's own pixels, which a prefab's are enlarged from.
+      moved / grid.getTransformTo(screen).getMaxScaleOnAxis(),
       stepIn(pane, snap: ref.read(snapProvider)),
     );
     final next = reshapeItem(
@@ -236,9 +311,7 @@ class _StageState extends ConsumerState<Stage> {
       w: to.w,
       h: to.h,
     );
-    final grid = _box(_grids[pane.id]), screen = _box(_screen);
     final after = findItems(next, {found.item.id}).single;
-    if (grid == null || screen == null) return;
     setState(() {
       _resized = next;
       // Computed from the resulting layout, as for a drop.
@@ -265,11 +338,18 @@ class _StageState extends ConsumerState<Stage> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.editing;
+    final layout = ref.watch(editedLayoutProvider);
+    final prefab = ref.watch(editedPrefabProvider) != null;
+    _parents = {
+      for (final pane in layout?.all ?? const <Component>[])
+        for (final child in pane.children) child.id: pane,
+    };
     // The frames stay mounted so toggling editing keeps the launcher's state.
     final screen = PaneFrame(
       wrap: _grid,
       child: TileFrame(
         wrap: editing ? _editTile : _plainTile,
+        still: editing,
         child: DragTarget<Dragged>(
           onWillAcceptWithDetails: (_) => editing,
           onMove: (details) =>
@@ -297,9 +377,9 @@ class _StageState extends ConsumerState<Stage> {
                 onTap: editing
                     ? ref.read(selectionProvider.notifier).clear
                     : null,
-                child: const TvScreen(),
+                child: prefab ? const PrefabScreen() : const TvScreen(),
               ),
-              if (editing)
+              if (editing && !prefab)
                 Positioned.fill(
                   child: LayerStack(navigator: TvScreen.navigator),
                 ),
@@ -338,8 +418,9 @@ class _StageState extends ConsumerState<Stage> {
                   ),
                 ),
               // While a sidebar is dragged, the edges that would take it.
-              if (ref.read(configProvider).value?.layout case final layout?
-                  when held.any((dragged) => dragged?.sidebar ?? false))
+              if (layout != null &&
+                  !prefab &&
+                  held.any((dragged) => dragged?.sidebar ?? false))
                 for (final id in freeEdges(layout))
                   Positioned.fromRect(
                     rect: barRect(layout, id, thickness: 8),

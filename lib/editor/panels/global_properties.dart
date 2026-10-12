@@ -56,12 +56,7 @@ class GlobalProperties extends ConsumerWidget {
           onPlace: (place) =>
               controller.change((c) => c.copyWith(place: () => place)),
         ),
-        PrefabsSettings(
-          prefabs: ref.watch(prefabsProvider),
-          own: config.prefabs,
-          onChanged: (prefabs) =>
-              controller.change((c) => c.copyWith(prefabs: prefabs)),
-        ),
+        const PrefabList(),
         Section('Quick actions', open: false, [
           const Padding(
             padding: EdgeInsets.only(bottom: 8),

@@ -11,6 +11,7 @@ class PictureTile extends StatelessWidget {
     this.badge,
     this.tooltip,
     this.onTap,
+    this.corner,
   });
 
   final String label;
@@ -21,6 +22,9 @@ class PictureTile extends StatelessWidget {
   final String? badge;
   final String? tooltip;
   final VoidCallback? onTap;
+
+  /// A small control over the picture's top left corner.
+  final Widget? corner;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +53,8 @@ class PictureTile extends StatelessWidget {
                     ),
                     child: picture,
                   ),
+                  if (corner case final corner?)
+                    Align(alignment: Alignment.topLeft, child: corner),
                   if (badge case final badge?)
                     Align(
                       alignment: Alignment.topRight,

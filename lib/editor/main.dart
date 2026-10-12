@@ -118,6 +118,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     ref.listen(selectionProvider.select((ids) => ids.isNotEmpty), (_, picked) {
       if (picked) setState(() => _under = _Side.settings);
     });
+    // A prefab deleted from under the editor closes.
+    ref.listen(editedPrefabProvider, (was, now) {
+      if (was != null && now == null) {
+        backPrefab(ref, ref.read(prefabTrailProvider).length - 1);
+      }
+    });
     final surface = Theme.of(context).colorScheme.surfaceContainerLow;
     return Scaffold(
       backgroundColor: const Color(0xFF101014),
@@ -168,7 +174,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             final picked = ref.watch(
               selectionProvider.select((ids) => ids.isNotEmpty),
             );
-            final screen = Padding(
+            final stage = Padding(
               padding: const EdgeInsets.all(12),
               child: Align(
                 alignment: Alignment.topCenter,
@@ -179,6 +185,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   ),
                 ),
               ),
+            );
+            // With the open prefab's bar over it.
+            final screen = Column(
+              children: [
+                const PrefabBar(),
+                Expanded(child: stage),
+              ],
             );
             Widget side(Widget child) => Material(color: surface, child: child);
             if (!_editing) return screen;
@@ -203,7 +216,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 // When narrow, the panels take turns under the screen.
                 : Column(
                     children: [
-                      screen,
+                      const PrefabBar(),
+                      stage,
                       Expanded(
                         child: side(
                           _sides(

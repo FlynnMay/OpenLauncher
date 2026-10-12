@@ -91,6 +91,7 @@ class Variable {
     this.value, {
     this.type = VarType.any,
     this.access = VarAccess.protected,
+    this.exposed = true,
     this.when,
     this.cases = const [],
     this.otherwise,
@@ -101,6 +102,9 @@ class Variable {
   final VarType type;
   final VarAccess access;
 
+  /// On a prefab's root: whether an instance shows it as a field.
+  final bool exposed;
+
   /// This variable with the type and access of [under], its prefab's
   /// declaration, when it sets neither.
   Variable over(Variable? under) =>
@@ -110,6 +114,7 @@ class Variable {
           value,
           type: under.type,
           access: under.access,
+          exposed: under.exposed,
           when: when,
           cases: cases,
           otherwise: otherwise,
@@ -132,6 +137,7 @@ class Variable {
       type: VarType.values.asNameMap()[json['type']] ?? VarType.any,
       access:
           VarAccess.values.asNameMap()[json['access']] ?? VarAccess.protected,
+      exposed: json['exposed'] != false,
       when: switch (json['when']) {
         final String looked => looked,
         _ => null,
@@ -145,7 +151,10 @@ class Variable {
   }
 
   Object? toJson() =>
-      !isConditional && access == VarAccess.protected && type == VarType.any
+      !isConditional &&
+          access == VarAccess.protected &&
+          type == VarType.any &&
+          exposed
       ? value
       : {
           if (isConditional) ...{
@@ -156,6 +165,7 @@ class Variable {
             'value': value,
           if (type != VarType.any) 'type': type.name,
           if (access != VarAccess.protected) 'access': access.name,
+          if (!exposed) 'exposed': false,
         };
 
   /// Its current value; [read] evaluates a template.
@@ -192,9 +202,11 @@ bool Function(Map<String, Object?> one) _valueOf(VarType type) =>
         one['expression'] != true;
 
 /// The editor's form is generated from this, over [variablesToForm]. An
-/// entity-typed value is one of [entities], id to label.
+/// entity-typed value is one of [entities], id to label. [exposable] adds
+/// the tick a prefab's own variables have.
 ComponentOption variableOptions({
   Map<String, String> entities = const {},
+  bool exposable = false,
 }) => ComponentOption(
   'vars',
   'Add variable',
@@ -219,6 +231,13 @@ ComponentOption variableOptions({
         for (final access in VarAccess.values) access.name: access.label,
       },
     ),
+    if (exposable)
+      const ComponentOption(
+        'exposed',
+        'Exposed',
+        OptionKind.toggle,
+        defaultValue: true,
+      ),
     const ComponentOption('conditional', 'Conditional', OptionKind.toggle),
     const ComponentOption(
       'expression',
@@ -302,6 +321,7 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
       'name': name,
       'type': variable.type.name,
       'access': variable.access.name,
+      if (!variable.exposed) 'exposed': false,
       if (variable.isConditional) ...{
         'conditional': true,
         'when': variable.when,
@@ -335,6 +355,7 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
       type: VarType.values.asNameMap()[one['type']] ?? VarType.any,
       access:
           VarAccess.values.asNameMap()[one['access']] ?? VarAccess.protected,
+      exposed: one['exposed'] != false,
       when: conditional ? '${one['when'] ?? ''}' : null,
       cases: [
         if (one['cases'] case final List<Object?> cases when conditional)

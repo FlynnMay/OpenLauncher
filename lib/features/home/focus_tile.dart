@@ -127,6 +127,7 @@ class FocusTile extends StatefulWidget {
     this.onFocus,
     this.autofocus = false,
     this.focusedScale = 1.08,
+    this.still = false,
   });
 
   final Widget Function(BuildContext context, bool focused) builder;
@@ -138,6 +139,10 @@ class FocusTile extends StatefulWidget {
   final void Function(bool focused)? onFocus;
   final bool autofocus;
   final double focusedScale;
+
+  /// Takes the focus but does nothing when pressed; the editor selects with
+  /// the press instead.
+  final bool still;
 
   static const duration = Duration(milliseconds: 150);
   static const holdTime = Duration(milliseconds: 500);
@@ -227,6 +232,7 @@ class _FocusTileState extends State<FocusTile> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (widget.still) return KeyEventResult.ignored;
     final onMenu = widget.onMenu;
     if (event.logicalKey == LogicalKeyboardKey.contextMenu && onMenu != null) {
       if (event is KeyDownEvent) onMenu(false);
@@ -254,13 +260,13 @@ class _FocusTileState extends State<FocusTile> {
 
   @override
   Widget build(BuildContext context) {
-    final onMenu = widget.onMenu;
+    final onMenu = widget.still ? null : widget.onMenu;
     return Focus(
       autofocus: widget.autofocus,
       onFocusChange: _onFocusChange,
       onKeyEvent: _onKey,
       child: GestureDetector(
-        onTap: widget.onSelect,
+        onTap: widget.still ? null : widget.onSelect,
         onLongPress: onMenu == null ? null : () => onMenu(false),
         onSecondaryTap: onMenu == null ? null : () => onMenu(false),
         child: AnimatedScale(

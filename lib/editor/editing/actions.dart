@@ -3,29 +3,63 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/dragging.dart';
 import 'package:openlauncher/editor/editing/layout_edit.dart';
+import 'package:openlauncher/editor/editing/prefab_actions.dart';
+import 'package:openlauncher/editor/editing/prefab_edit.dart';
+import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
 
-/// Changes the layout through the config controller, which updates the screen
-/// and sends it to the TV.
+/// Changes what is being edited, the layout or the open prefab, through the
+/// config controller, which updates the screen and sends it to the TV.
 Future<void> changeLayout(
   BuildContext context,
   WidgetRef ref,
   Layout Function(Layout layout) change,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
-  final layout = ref.read(configProvider).value?.layout;
+  final layout = ref.read(editedLayoutProvider);
   if (layout == null) return;
+  final prefab = ref.read(editedPrefabProvider);
   try {
-    await ref.read(configProvider.notifier).setLayout(change(layout));
+    if (prefab == null) {
+      await ref.read(configProvider.notifier).setLayout(change(layout));
+    } else if (await saveEdited(ref, prefab, change(layout))
+        case final reason?) {
+      messenger.showSnackBar(SnackBar(content: Text(reason)));
+    }
   } on Object catch (error) {
     messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
     // Reload from the TV.
     ref.invalidate(configProvider);
   }
+}
+
+/// Why [dragged] cannot go into pane [paneId] of what is being edited, or
+/// null.
+String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {
+  final layout = ref.read(editedLayoutProvider);
+  if (layout == null) return 'Nothing to add it to.';
+  final prefab = ref.read(editedPrefabProvider);
+  if (prefab != null) {
+    if (dragged.sidebar || dragged.folder != null) {
+      return 'A prefab cannot hold a sidebar or a new folder.';
+    }
+    if (paneId == prefabStageId && dragged.item.id != prefab.root.id) {
+      return 'Drop it inside the prefab.';
+    }
+    final prefabs = ref.read(prefabsProvider);
+    if (dragged.item.all.any(
+      (part) =>
+          part.isInstance && holdsPrefab(part.prefab!, prefab.id, prefabs),
+    )) {
+      return 'A prefab cannot contain itself.';
+    }
+  }
+  return refusal(layout, dragged.item, paneId);
 }
 
 /// Places what was dragged, or reports why it cannot go there. A new folder
@@ -36,9 +70,9 @@ Future<void> placeDragged(
   Dragged dragged,
   Drop drop,
 ) async {
-  final layout = ref.read(configProvider).value?.layout;
+  final layout = ref.read(editedLayoutProvider);
   if (layout == null) return;
-  if (refusal(layout, dragged.item, drop.pane) case final reason?) {
+  if (whyNot(ref, dragged, drop.pane) case final reason?) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
     return;
   }

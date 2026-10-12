@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -32,6 +33,21 @@ class SelectedProperties extends ConsumerWidget {
     void each(Component Function(Component item) how) =>
         change((layout) => changeItems(layout, ids, (item, _) => how(item)));
 
+    // In an open prefab: the prefab, the variant shown when its edits are
+    // overrides, and whether the selection is the prefab's root.
+    final prefab = ref.watch(editedPrefabProvider);
+    final shown = ref.watch(prefabModeProvider)?.variant;
+    final variant = prefab == null || prefab.isBase(shown)
+        ? null
+        : prefab.variants[prefab.variantNamed(shown)];
+    final isRoot = prefab != null && single?.id == prefab.root.id;
+    final prefabs = ref.watch(prefabsProvider);
+    final declared =
+        prefabs[single?.prefab]?.root.vars ?? const <String, Variable>{};
+    final fielded = single != null && single.isInstance
+        ? InstanceVariables.shown(declared, single.vars)
+        : const <String>{};
+
     final allPanes = items.every((item) => item.isPane);
     final folders = ref.watch(selectedFoldersProvider);
     final allFolders =
@@ -53,6 +69,25 @@ class SelectedProperties extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (single != null && variant != null)
+          Section('Variant overrides', [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'What "${variant.label}" changes here. Other edits made '
+                'now are added to it.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            OverrideList(
+              set: variant.overrides[single.id] ?? const {},
+              options: single.isPane
+                  ? paneRules
+                  : ComponentRegistry.named(single.kind)?.options ?? const [],
+              onReverted: (section, key) =>
+                  revertOverride(ref, single.id, section, key),
+            ),
+          ]),
         // Name and picture apply to auto-placed entities (apps, inputs) only.
         if (single != null &&
             single.isInstance &&
@@ -81,33 +116,79 @@ class SelectedProperties extends ConsumerWidget {
               ),
             ),
           InstanceSettings(
-            prefabs: ref.watch(prefabsProvider),
+            prefabs: prefabs,
             item: single,
             onChanged: (next) => each((_) => next),
+            onOpen: () => openPrefab(ref, single.prefab!, from: single),
+            onUnpack: () => changeLayout(
+              context,
+              ref,
+              (layout) => withUnpacked(layout, single.id, prefabs),
+            ),
+          ),
+          InstanceVariables(
+            declared: declared,
+            own: single.vars,
+            onChanged: (vars) => each((item) => item.copyWith(vars: vars)),
           ),
         ],
         if (single != null && !single.isPane)
           VariablesSettings(
-            variables: single.vars,
+            // An instance's own, besides those it has fields for.
+            variables: {
+              for (final MapEntry(key: name, :value) in single.vars.entries)
+                if (!fielded.contains(name)) name: value,
+            },
             note: single.isInstance
-                ? 'Overrides of the prefab\'s variables, which are '
-                      'under Prefabs.'
+                ? 'Its own, besides the prefab\'s. One named as a prefab '
+                      'variable overrides it.'
                 : null,
-            onChanged: (vars) => each((item) => item.copyWith(vars: vars)),
+            exposable: isRoot,
+            onChanged: (vars) => each(
+              (item) => item.copyWith(
+                vars: {
+                  for (final MapEntry(key: name, :value) in item.vars.entries)
+                    if (fielded.contains(name)) name: value,
+                  ...vars,
+                },
+              ),
+            ),
           ),
-        if (single != null && !single.isPane)
+        // A row or column with actions is a tile.
+        if (single != null &&
+            (!single.isPane || single.mode.inLine && !single.isDocked))
           TriggerSettings(
             set: single.on,
-            defaults: {...?ref.watch(prefabsProvider)[single.prefab]?.on},
+            defaults: {...?prefabs[single.prefab]?.on},
             // Its own variables over what the panes around it hand down.
             scope: {
               for (final pane in [?found.single.dock, found.single.parent])
                 for (final MapEntry(:key, :value) in pane.vars.entries)
                   if (value.access != VarAccess.private) key: value,
-              ...variablesOf(single, ref.watch(prefabsProvider)),
+              ...variablesOf(single, prefabs),
             },
             onChanged: (on) => each((item) => item.copyWith(on: on)),
           ),
+        // A prefab's part is hidden, not removed, where a variant lacks it.
+        if (single != null && prefab != null && !isRoot)
+          Section('Visibility', [
+            TickBox(
+              label: 'Visible',
+              value: !single.hidden,
+              onChanged: (visible) =>
+                  each((item) => item.copyWith(hidden: !visible)),
+            ),
+            if (found.single.parent.mode.inLine)
+              TickBox(
+                label: 'Keep space when hidden',
+                value: single.keep,
+                onChanged: (keep) => each(
+                  (item) => item.overridden({
+                    'transform': {'keep': keep},
+                  }),
+                ),
+              ),
+          ]),
         // A docked pane has no cells.
         if (!items.any((item) => item.isDocked))
           Section(
@@ -146,12 +227,15 @@ class SelectedProperties extends ConsumerWidget {
         if (allPanes)
           PaneSettings(
             title: 'Pane',
-            prefabs: ref.watch(prefabsProvider),
+            prefabs: prefabs,
             panes: items,
             onChanged: each,
+            dockable: prefab == null,
+            exposable: isRoot,
             children: [
-              // Not in a sidebar or folder.
+              // Not in a sidebar, folder or prefab.
               if (single != null &&
+                  prefab == null &&
                   found.single.dock == null &&
                   !single.isDocked)
                 TickBox(
@@ -206,7 +290,7 @@ class SelectedProperties extends ConsumerWidget {
         if (allFolders && single != null) ...[
           PaneSettings(
             title: 'Folder pane',
-            prefabs: ref.watch(prefabsProvider),
+            prefabs: prefabs,
             named: false,
             panes: [folders.values.single],
             onChanged: eachFolder,
@@ -225,14 +309,31 @@ class SelectedProperties extends ConsumerWidget {
             ),
           ),
         ],
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-          child: FilledButton.tonalIcon(
-            onPressed: () => removeSelected(context, ref),
-            icon: const Icon(Icons.delete_outline),
-            label: Text('Remove'),
+        if (!isRoot)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () => removeSelected(context, ref),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Remove'),
+                ),
+                // A pane or primitive on the screen can be saved for reuse.
+                if (single != null &&
+                    prefab == null &&
+                    !single.isInstance &&
+                    !single.all.any((part) => part.isDocked))
+                  OutlinedButton.icon(
+                    onPressed: () => createPrefab(context, ref, found.single),
+                    icon: const Icon(prefabIcon),
+                    label: const Text('Create prefab'),
+                  ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }

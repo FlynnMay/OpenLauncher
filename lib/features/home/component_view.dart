@@ -16,15 +16,24 @@ import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
-/// Wraps every component in a cell pane. Unused on the TV; the editor uses it
-/// to make them draggable.
+/// Wraps every component drawn. Unused on the TV; the editor uses it to make
+/// them selectable and draggable.
 class TileFrame extends InheritedWidget {
-  const TileFrame({super.key, required this.wrap, required super.child});
+  const TileFrame({
+    super.key,
+    required this.wrap,
+    this.still = false,
+    required super.child,
+  });
 
   final Widget Function(Component component, Widget tile) wrap;
 
+  /// Tiles do nothing when pressed.
+  final bool still;
+
   @override
-  bool updateShouldNotify(TileFrame oldWidget) => wrap != oldWidget.wrap;
+  bool updateShouldNotify(TileFrame oldWidget) =>
+      wrap != oldWidget.wrap || still != oldWidget.still;
 }
 
 /// The box style of the tile the widgets below belong to, for its focus
@@ -123,13 +132,12 @@ class ComponentView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tile = _tile(context, ref);
-    if (inLine) return tile;
     final frame = context.dependOnInheritedWidgetOfExactType<TileFrame>();
+    final tile = _tile(context, ref, still: frame?.still ?? false);
     return frame == null ? tile : frame.wrap(component, tile);
   }
 
-  Widget _tile(BuildContext context, WidgetRef ref) {
+  Widget _tile(BuildContext context, WidgetRef ref, {required bool still}) {
     final c = resolved(component, ref.watch(prefabsProvider));
     if (c.isPane && !c.mode.inLine) {
       return PaneBox(
@@ -191,6 +199,7 @@ class ComponentView extends ConsumerWidget {
       if (!acts && c.kind != ComponentRegistry.button.name) return styled;
       return FocusTile(
         autofocus: focus?.take() ?? false,
+        still: still,
         focusedScale: 1.03,
         onSelect: press,
         onMenu: hold,
@@ -250,6 +259,7 @@ class ComponentView extends ConsumerWidget {
         box,
         FocusTile(
           autofocus: focus?.take() ?? false,
+          still: still,
           onSelect: does.has(Trigger.press) ? press : () {},
           onMenu: hold,
           onFocus: onFocus,

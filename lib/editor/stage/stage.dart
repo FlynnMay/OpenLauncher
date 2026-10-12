@@ -1,5 +1,7 @@
 export 'layer_stack.dart';
 export 'layers.dart';
+export 'prefab_bar.dart';
+export 'prefab_screen.dart';
 export 'resize_handles.dart';
 export 'snapping.dart';
 export 'stage_geometry.dart';
