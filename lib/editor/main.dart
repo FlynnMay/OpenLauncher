@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
@@ -130,7 +131,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF101014),
       appBar: AppBar(
-        title: const Text('OpenLauncher'),
+        title: const Row(
+          spacing: 10,
+          children: [
+            AppMark(),
+            Flexible(child: Text('OpenLauncher')),
+          ],
+        ),
         actions: [
           if (_editing)
             IconButtonTheme(
