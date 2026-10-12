@@ -7,6 +7,7 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/dragging.dart';
+import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/editing/layout_edit.dart';
 import 'package:openlauncher/editor/editing/prefab_actions.dart';
 import 'package:openlauncher/editor/editing/prefab_edit.dart';
@@ -150,6 +151,22 @@ Future<void> removeDragged(
 Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
   final ids = ref.read(selectionProvider);
   if (ids.isEmpty) return;
-  ref.read(selectionProvider.notifier).clear();
+  // Still selected when the change is recorded, so undo selects them again.
   await changeLayout(context, ref, (layout) => ids.fold(layout, removeItem));
+  ref.read(selectionProvider.notifier).clear();
+}
+
+/// Undoes the last change, or redoes the last one undone.
+Future<void> stepHistory(
+  BuildContext context,
+  WidgetRef ref, {
+  required bool back,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final history = ref.read(historyProvider.notifier);
+  try {
+    await (back ? history.undo() : history.redo());
+  } on Object catch (error) {
+    messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
+  }
 }

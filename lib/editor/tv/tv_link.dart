@@ -7,6 +7,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
@@ -19,6 +20,7 @@ final List<Override> tvOverrides = [
     (ref) => TvConfigStore(
       ref.watch(tvApiProvider),
       ref.watch(tvStateProvider.future),
+      onChange: (before) => ref.read(historyProvider.notifier).record(before),
     ),
   ),
   entitiesProvider.overrideWith(
@@ -52,10 +54,13 @@ final List<Override> tvOverrides = [
 
 /// The TV's config. Saving sends what changed.
 class TvConfigStore implements ConfigStore {
-  TvConfigStore(this._api, this._state);
+  TvConfigStore(this._api, this._state, {this.onChange});
 
   final TvApi _api;
   final Future<TvState> _state;
+
+  /// Told the config a save is about to replace.
+  final void Function(LauncherConfig before)? onChange;
 
   /// What the TV has: last received or last sent.
   LauncherConfig? _known;
@@ -67,15 +72,16 @@ class TvConfigStore implements ConfigStore {
   Future<void> save(LauncherConfig config) async {
     final known = _known ?? await load();
     _known = config;
-    if (jsonEncode(config.layout) != jsonEncode(known.layout)) {
-      await _api.setLayout(config.layout);
-    }
+    final layout = jsonEncode(config.layout) != jsonEncode(known.layout);
     // Compared key by key.
     final was = known.open, now = config.open;
     final changed = {
       for (final key in LauncherConfig.openKeys)
         if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
     };
+    if (!layout && changed.isEmpty) return;
+    onChange?.call(known);
+    if (layout) await _api.setLayout(config.layout);
     if (changed.isNotEmpty) await _api.setConfig(changed);
   }
 }

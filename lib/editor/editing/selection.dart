@@ -42,6 +42,8 @@ class Selection extends Notifier<Set<String>> {
   void clear() {
     if (state.isNotEmpty) state = const {};
   }
+
+  void restore(Set<String> ids) => state = ids;
 }
 
 /// Multi-select without a modifier key, for touch.

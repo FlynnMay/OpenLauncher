@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/prefab_edit.dart';
 
 /// A prefab opened for editing in place of the layout: the variant shown,
@@ -74,6 +75,22 @@ class PrefabTrail extends Notifier<List<PrefabMode>> {
 
   /// Keeps the first [length] of the trail; 0 is back to the layout.
   void backTo(int length) => state = state.take(length).toList();
+
+  /// Puts [trail] back, with the previews of the prefab it ends at.
+  void restore(List<PrefabMode> trail) {
+    final runtime = ref.read(runtimeVarsProvider.notifier);
+    final prefabs = ref.read(prefabsProvider);
+    if (prefabs[state.lastOrNull?.id]?.root.id case final root?) {
+      runtime.clear(root);
+    }
+    state = trail;
+    final mode = trail.lastOrNull;
+    if (prefabs[mode?.id]?.root.id case final root?) {
+      for (final MapEntry(key: name, value: id) in mode!.previews.entries) {
+        runtime.set(root, name, id);
+      }
+    }
+  }
 }
 
 /// The prefab opened last, if any.

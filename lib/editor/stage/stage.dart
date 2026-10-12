@@ -1,3 +1,4 @@
+export 'history_buttons.dart';
 export 'layer_stack.dart';
 export 'layers.dart';
 export 'prefab_bar.dart';

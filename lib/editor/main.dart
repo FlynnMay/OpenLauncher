@@ -38,7 +38,7 @@ class EditorScreen extends ConsumerStatefulWidget {
 
 /// A key left to a text field while one has the focus.
 class _OutsideText extends SingleActivator {
-  const _OutsideText(super.trigger);
+  const _OutsideText(super.trigger, {super.control, super.shift, super.meta});
 
   @override
   bool accepts(KeyEvent event, HardwareKeyboard state) =>
@@ -144,7 +144,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [SnapButton(), LayersButton(), MediaButton()],
+                children: [
+                  HistoryButtons(),
+                  SnapButton(),
+                  LayersButton(),
+                  MediaButton(),
+                ],
               ),
             ),
           const SizedBox(width: 8),
@@ -179,6 +184,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           if (_editing) ...{
             const _OutsideText(LogicalKeyboardKey.delete): () =>
                 removeSelected(context, ref),
+            for (final (key, shift, back) in const [
+              (LogicalKeyboardKey.keyZ, false, true),
+              (LogicalKeyboardKey.keyZ, true, false),
+              (LogicalKeyboardKey.keyY, false, false),
+            ]) ...{
+              _OutsideText(key, control: true, shift: shift): () =>
+                  stepHistory(context, ref, back: back),
+              // Command on a Mac.
+              _OutsideText(key, meta: true, shift: shift): () =>
+                  stepHistory(context, ref, back: back),
+            },
             const SingleActivator(LogicalKeyboardKey.escape): ref
                 .read(selectionProvider.notifier)
                 .clear,
