@@ -118,7 +118,7 @@ void main() {
   testWidgets('Settings checks, then offers the release and installs it', (
     tester,
   ) async {
-    platform.homeButtonEnabled = false;
+    platform.access[Access.homeButton] = false;
     await start(tester, mode: UpdateMode.off);
     await tester.tap(find.text('Set as Home'));
     await tester.pumpAndSettle();

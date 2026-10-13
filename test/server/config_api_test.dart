@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
@@ -213,7 +214,7 @@ void main() {
     );
     expect(home['category'], 'layout');
     expect(page['config']['toasts'], const ToastOptions().toJson());
-    expect(page['notificationAccess'], isTrue);
+    expect(page['access'], {'homeButton': true, 'notifications': true});
   });
 
   test('an action sent by the page is done on the TV', () async {
@@ -240,42 +241,35 @@ void main() {
 
     await said(await act('info', on: 'app:a'));
     await said(await act('uninstall', on: 'app:b'));
-    expect(await said(await act('forceStop', on: 'app:a')), 'A was stopped.');
-    // What the TV cannot do itself, it shows the way to, and says so.
-    platform.canForceStop = false;
-    expect(
-      await said(await act('forceStop', on: 'app:a')),
-      startsWith('Choose "Force stop"'),
-    );
-    expect(platform.appActions, ['info a', 'uninstall b', 'stop a', 'info a']);
+    expect(platform.appActions, ['info a', 'uninstall b']);
     // Only apps have these.
     expect((await act('info', on: 'input:tv/HW1')).statusCode, 400);
 
     await said(await act('playPause', on: 'media'));
     expect(platform.mediaCommands, [MediaCommand.playPause]);
 
-    // How the Home button stands is part of the state.
-    platform.homeButtonEnabled = false;
-    container.invalidate(homeButtonEnabledProvider);
-    expect((await state())['homeButton'], {
-      'enabled': false,
-      'canManage': false,
+    // What the TV's settings allow is part of the state.
+    platform.access[Access.homeButton] = false;
+    container.invalidate(accessProvider);
+    expect((await state())['access'], {
+      'homeButton': false,
+      'notifications': true,
     });
     // The system's actions name it too; no owner is guessed.
-    expect((await act('setup')).statusCode, 400);
+    expect((await act('access')).statusCode, 400);
     expect((await act('playPause')).statusCode, 400);
+    // The TV shows the screen for it; which permission has to be said.
+    final change = {'access': 'homeButton'};
+    expect(await said(await act('access', on: 'system', more: change)), isNull);
+    expect(platform.accessChanged, [Access.homeButton]);
+    expect((await act('access', on: 'system')).statusCode, 502);
+    platform.noAccessScreen = true;
     expect(
-      await said(await act('setup', on: 'system')),
-      startsWith('All set\n'),
+      await said(await act('access', on: 'system', more: change)),
+      startsWith('This TV has no screen for it\n'),
     );
-    expect((await state())['homeButton'], {'enabled': true, 'canManage': true});
-    await said(await act('homeButton', on: 'system', more: {'enabled': false}));
-    expect((await state())['homeButton'], {
-      'enabled': false,
-      'canManage': true,
-    });
     await said(await act('tvSettings', on: 'system'));
-    expect(platform.settingsOpened, 1);
+    expect(platform.tvSettingsOpened, 1);
 
     // What is not the device's doing is done all the same: a variable set.
     await said(

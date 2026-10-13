@@ -36,6 +36,7 @@ class LauncherBridge(
     private val flutterApi = LauncherFlutterApi(messenger)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val iconDir = File(context.cacheDir, "icons")
+    private val access = SystemAccess(context)
 
     // Package broadcasts arrive in bursts, so queries can overlap; an older one
     // must not prune artwork a newer one just wrote.
@@ -70,6 +71,8 @@ class LauncherBridge(
         } else {
             context.registerReceiver(packageReceiver, filter)
         }
+        // The key of the ADB client that 0.1.0 carried.
+        scope.launch(Dispatchers.IO) { File(context.filesDir, "adb").deleteRecursively() }
     }
 
     /**
@@ -107,19 +110,13 @@ class LauncherBridge(
 
     override fun switchToInput(inputId: String) = inputs.switchTo(inputId)
 
-    override fun isHomeButtonEnabled() = HomeButtonService.isEnabled(context)
+    override fun hasAccess(access: Access) = this.access.has(access)
 
-    override fun openHomeButtonSettings() = HomeButtonService.openSettings(context)
+    override fun changeAccess(access: Access) = this.access.change(access)
 
-    override fun canManageHomeButton() = HomeButtonService.canManage(context)
+    override fun openTvSettings() = access.openTvSettings()
 
-    override fun setHomeButtonEnabled(enabled: Boolean) =
-        HomeButtonService.setEnabled(context, enabled)
-
-    override suspend fun runAutomaticSetup(): SetupResult =
-        withContext(Dispatchers.IO) { DeviceSetup(context).run() }
-
-    override suspend fun installUpdate(path: String): SetupResult =
+    override suspend fun installUpdate(path: String): String =
         withContext(Dispatchers.IO) { UpdateInstaller(context).run(path) }
 
     override fun openAppInfo(packageName: String) = context.startActivity(
@@ -132,21 +129,7 @@ class LauncherBridge(
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
 
-    override suspend fun forceStopApp(packageName: String): Boolean {
-        // The name goes into a shell command; take nothing that is not one.
-        if (!PACKAGE_NAME.matches(packageName)) return false
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                LocalAdb.use(context, LocalAdb.QUICK_TIMEOUT_MS) {
-                    it.shell("am force-stop $packageName").exitCode == 0
-                }
-            }.getOrDefault(false)
-        }
-    }
-
     private fun packageUri(packageName: String) = Uri.fromParts("package", packageName, null)
-
-    override fun isNotificationAccessEnabled() = NotificationService.isEnabled(context)
 
     override suspend fun getNowPlaying(): NowPlaying? =
         withContext(Dispatchers.IO) { media.current() }
@@ -214,7 +197,6 @@ class LauncherBridge(
         const val BANNER_HEIGHT = 360
         const val ICON_SIZE = 256
         const val HOME_BUTTON_CHECK_DELAY_MS = 300L
-        val PACKAGE_NAME = Regex("[A-Za-z0-9_.]+")
     }
 }
 

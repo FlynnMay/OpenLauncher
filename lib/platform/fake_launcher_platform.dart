@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Stand-in used off-device (desktop runs, widget tests).
@@ -62,50 +64,38 @@ class FakeLauncherPlatform implements LauncherPlatform {
 
   void notifyInputsChanged() => _inputsChanged.add(null);
 
-  bool homeButtonEnabled = true;
-  int settingsOpened = 0;
+  /// What the user has allowed, and what they were sent to change.
+  final access = {for (final access in Access.values) access: true};
+  final accessChanged = <Access>[];
+  int tvSettingsOpened = 0;
 
   @override
-  Future<bool> isHomeButtonEnabled() async => homeButtonEnabled;
+  Future<bool> hasAccess(Access access) async => this.access[access]!;
+
+  /// As on a TV whose settings have no screen for it.
+  bool noAccessScreen = false;
 
   @override
-  Future<void> openHomeButtonSettings() async => settingsOpened++;
-
-  bool canManage = false;
-  SetupOutcome setupOutcome = SetupOutcome.done;
-
-  @override
-  Future<bool> canManageHomeButton() async => canManage;
-
-  @override
-  Future<void> setHomeButtonEnabled(bool enabled) async =>
-      homeButtonEnabled = enabled;
-
-  @override
-  Future<SetupResult> runAutomaticSetup() async {
-    if (setupOutcome == SetupOutcome.done) {
-      canManage = true;
-      homeButtonEnabled = true;
-    }
-    return SetupResult(outcome: setupOutcome);
+  Future<void> changeAccess(Access access) async {
+    if (noAccessScreen) throw PlatformException(code: 'no-settings');
+    accessChanged.add(access);
   }
 
-  /// The APKs handed over to install, and what the device says of each.
+  @override
+  Future<void> openTvSettings() async => tvSettingsOpened++;
+
+  /// The APKs handed over to install, and why the device installs none.
   final installed = <String>[];
-  SetupResult installResult = SetupResult(
-    outcome: SetupOutcome.failed,
-    detail: 'There is no TV here.',
-  );
+  String installRefusal = 'There is no TV here.';
 
   @override
-  Future<SetupResult> installUpdate(String path) async {
+  Future<String> installUpdate(String path) async {
     installed.add(path);
-    return installResult;
+    return installRefusal;
   }
 
   /// What was done to apps, e.g. `uninstall fake.plex`.
   final appActions = <String>[];
-  bool canForceStop = true;
 
   @override
   Future<void> openAppInfo(String packageName) async =>
@@ -115,20 +105,10 @@ class FakeLauncherPlatform implements LauncherPlatform {
   Future<void> uninstallApp(String packageName) async =>
       appActions.add('uninstall $packageName');
 
-  @override
-  Future<bool> forceStopApp(String packageName) async {
-    if (canForceStop) appActions.add('stop $packageName');
-    return canForceStop;
-  }
-
-  bool notificationAccess = true;
   NowPlaying? playing;
   final mediaCommands = <MediaCommand>[];
   final _nowPlayingChanged = StreamController<void>.broadcast();
   final _notifications = StreamController<AppNotification>.broadcast();
-
-  @override
-  Future<bool> isNotificationAccessEnabled() async => notificationAccess;
 
   @override
   Future<NowPlaying?> nowPlaying() async => playing;

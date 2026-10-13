@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:openlauncher/core/config/app_version.dart';
 import 'package:openlauncher/core/config/migrations/save_json.dart';
+import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -11,7 +12,7 @@ export 'save_json.dart' show Device, Json;
 /// To change the saved format: add a [Migration] to the end of [migrations]
 /// with its rules in a new file, bump this, and have the models read and
 /// write only the new form. Never edit a shipped step.
-const saveVersion = 1;
+const saveVersion = 2;
 
 /// One in-place change to a save. Rules are JSON only; they never use the
 /// models.
@@ -42,7 +43,15 @@ class Migration {
 }
 
 /// Every migration, oldest first. Version 1 is the format of release 0.1.0.
-const migrations = <Migration>[];
+const migrations = <Migration>[
+  Migration(
+    from: 1,
+    to: 2,
+    since: '0.2.0',
+    what: 'Force stop and automatic setup removed',
+    rules: [withoutAdbActions],
+  ),
+];
 
 /// The version of [save], from it or its layout. A save with no version is
 /// treated as current.

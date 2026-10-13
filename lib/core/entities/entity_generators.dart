@@ -38,12 +38,6 @@ const appActions = {
     label: 'App info',
     icon: 'material:info',
   ),
-  'forceStop': EntityAction(
-    run: 'forceStopApp',
-    bound: {..._package, 'label': '{{self.label}}'},
-    label: 'Force stop',
-    icon: 'material:cancel',
-  ),
   'uninstall': EntityAction(
     run: 'uninstallApp',
     bound: _package,

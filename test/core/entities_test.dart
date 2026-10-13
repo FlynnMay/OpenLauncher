@@ -239,19 +239,13 @@ void main() {
         Future<String?> run(String name, [String? entity]) =>
             actions.run(Act(name, {'entity': ?entity}));
 
-        expect(await offered(app), [
-          'Open',
-          'App info',
-          'Force stop',
-          'Uninstall',
-          'Remove',
-        ]);
-        // An input is not an app: nothing to stop or uninstall.
+        expect(await offered(app), ['Open', 'App info', 'Uninstall', 'Remove']);
+        // An input is not an app: nothing to uninstall.
         expect(await offered(input), ['Open', 'Remove']);
 
         expect(await run('uninstall', app.id), isNull);
-        expect(await run('forceStop', app.id), contains('A'));
-        expect(platform.appActions, ['uninstall a', 'stop a']);
+        expect(await run('info', app.id), isNull);
+        expect(platform.appActions, ['uninstall a', 'info a']);
         // Declined: not an input's to do, no entity named, an entity that
         // is not there, an action nothing has.
         final improper = throwsA(isA<ImproperAct>());
@@ -261,16 +255,11 @@ void main() {
         expect(run('uninstall', 'app:gone'), improper);
         expect(run('teleport', app.id), improper);
         // Nor is an owner guessed for an action only one entity has.
-        expect(run('setup'), improper);
+        expect(run('tvSettings'), improper);
         expect(run('playPause'), improper);
         expect(actions.run(const Act('remove', {'what': 'app:a'})), improper);
         await pumpEventQueue();
         expect(platform.appActions, hasLength(2));
-
-        // Without ADB the TV's own screen is opened instead.
-        platform.canForceStop = false;
-        expect(await run('forceStop', app.id), contains('Force stop'));
-        expect(platform.appActions.last, 'info a');
 
         await run('open', app.id);
         expect(platform.launched.last, 'a');
@@ -408,14 +397,14 @@ void main() {
       final c = container(const []);
       final all = await c.read(entitiesProvider.future);
       final app = all.byId('app:a')!, input = all.byId('input:x')!;
-      expect(app.actions.keys, ['open', 'info', 'forceStop', 'uninstall']);
+      expect(app.actions.keys, ['open', 'info', 'uninstall']);
       expect(input.actions.keys, ['open']);
       // The same name, done as each defines it.
       expect(app.actions['open']!.run, 'launchApp');
       expect(input.actions['open']!.run, 'switchInput');
       // None belongs to nothing: the rest are the system's, the layers'...
       for (final MapEntry(key: action, value: owner) in const {
-        'setup': 'system',
+        'access': 'system',
         'newLayer': 'layers',
         'set': 'variables',
         // A layer's layout: there is one for each layer, with its id.

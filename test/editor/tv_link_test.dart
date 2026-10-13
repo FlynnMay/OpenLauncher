@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
@@ -165,7 +166,7 @@ void main() {
   test(
     'what the TV itself does is sent to it, the rest is done here',
     () async {
-      final tv = _Tv()..answers['forceStop'] = 'Alpha was stopped.';
+      final tv = _Tv()..answers['uninstall'] = 'Asked on the TV.';
       final container = ProviderContainer(
         overrides: [
           ...tvOverrides,
@@ -180,18 +181,18 @@ void main() {
 
       // The TV is sent the act as written, entity and all.
       expect(
-        await actions.run(const Act('forceStop', {'entity': 'app:a'})),
-        'Alpha was stopped.',
+        await actions.run(const Act('uninstall', {'entity': 'app:a'})),
+        'Asked on the TV.',
       );
       await actions.run(
-        const Act('homeButton', {'entity': 'system', 'enabled': false}),
+        const Act('access', {'entity': 'system', 'access': 'homeButton'}),
       );
       expect(tv.sent, [
-        '{do: forceStop, entity: app:a}',
-        '{do: homeButton, entity: system, enabled: false}',
+        '{do: uninstall, entity: app:a}',
+        '{do: access, entity: system, access: homeButton}',
       ]);
       // One that names no entity is declined here and never sent.
-      expect(actions.run(const Act('setup')), throwsA(isA<ImproperAct>()));
+      expect(actions.run(const Act('access')), throwsA(isA<ImproperAct>()));
 
       // Setting a variable is the page's own business.
       await actions.run(
@@ -206,7 +207,7 @@ void main() {
     },
   );
 
-  test('how the Home button stands is what the TV says', () async {
+  test('what the TV allows is what the TV says', () async {
     final container = ProviderContainer(
       overrides: [
         ...tvOverrides,
@@ -217,18 +218,24 @@ void main() {
               entities: const [_entity],
               config: LauncherConfig(layout: Layout.initial(['app:a'])),
               components: const [],
-              homeButton: false,
-              canManageHomeButton: true,
+              access: const {Access.homeButton: false},
             ),
           ),
         ),
       ],
     );
     addTearDown(container.dispose);
-    container
-      ..listen(homeButtonEnabledProvider, (_, _) {})
-      ..listen(canManageHomeButtonProvider, (_, _) {});
-    expect(await container.read(homeButtonEnabledProvider.future), isFalse);
-    expect(await container.read(canManageHomeButtonProvider.future), isTrue);
+    for (final access in Access.values) {
+      container.listen(accessProvider(access), (_, _) {});
+    }
+    expect(
+      await container.read(accessProvider(Access.homeButton).future),
+      isFalse,
+    );
+    // Allowed unless the TV says not.
+    expect(
+      await container.read(accessProvider(Access.notifications).future),
+      isTrue,
+    );
   });
 }

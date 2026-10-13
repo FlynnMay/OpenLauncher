@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/misc.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
@@ -35,12 +35,9 @@ final List<Override> tvOverrides = [
   actionRunnerProvider.overrideWith(
     (ref) => TvActionRunner(ref, ref.watch(tvApiProvider)),
   ),
-  homeButtonEnabledProvider.overrideWith(
-    (ref) async => (await ref.watch(tvStateProvider.future)).homeButton,
-  ),
-  canManageHomeButtonProvider.overrideWith(
-    (ref) async =>
-        (await ref.watch(tvStateProvider.future)).canManageHomeButton,
+  accessProvider.overrideWith(
+    (ref, access) async =>
+        (await ref.watch(tvStateProvider.future)).access[access] ?? true,
   ),
   updateStateProvider.overrideWith(
     (ref) => ref.watch(tvStateProvider).value?.update ?? const UpdateState(),

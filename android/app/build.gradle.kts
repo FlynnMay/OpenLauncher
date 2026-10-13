@@ -32,7 +32,6 @@ android {
         applicationId = "com.maypoint.openlauncher"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // The embedded ADB client (dadb) needs java.util.Base64, added in API 26.
         minSdk = 26
         targetSdk = flutter.targetSdkVersion
         // Both from the version in pubspec.yaml.
@@ -72,6 +71,4 @@ flutter {
 dependencies {
     // Required by the Pigeon-generated bridge (suspend functions).
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    // ADB client used by the one-press setup to talk to the TV's own adbd.
-    implementation("dev.mobile:dadb:2.0.0")
 }

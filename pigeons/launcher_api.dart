@@ -48,24 +48,13 @@ class TvInput {
   TvInputKind kind;
 }
 
-enum SetupOutcome {
-  done,
+/// What the user allows the launcher in the TV's own settings.
+enum Access {
+  /// The accessibility service that catches the Home button.
+  homeButton,
 
-  /// Nothing is listening for ADB on the TV: debugging is switched off.
-  adbUnavailable,
-
-  /// The "Allow USB debugging?" prompt was not accepted.
-  notAuthorised,
-  failed,
-}
-
-class SetupResult {
-  SetupResult({required this.outcome, this.detail});
-
-  SetupOutcome outcome;
-
-  /// Technical detail for [SetupOutcome.failed].
-  String? detail;
+  /// Other apps' notifications and media sessions (toasts, now playing).
+  notifications,
 }
 
 /// What an app is playing, as reported by its media session.
@@ -133,22 +122,13 @@ abstract class LauncherHostApi {
 
   void switchToInput(String inputId);
 
-  /// Whether the Home button service is switched on in the TV's settings.
-  bool isHomeButtonEnabled();
+  bool hasAccess(Access access);
 
-  /// Opens the settings screen where the Home button service is switched on.
-  void openHomeButtonSettings();
+  /// Opens the TV's screen where [access] is allowed or withdrawn. The Home
+  /// button is switched at once instead where the TV lets the app do that.
+  void changeAccess(Access access);
 
-  /// Whether the app may switch the Home button service on and off itself.
-  /// True once [runAutomaticSetup] has succeeded.
-  bool canManageHomeButton();
-
-  void setHomeButtonEnabled(bool enabled);
-
-  /// Grants this app what it needs through the TV's own ADB service, then
-  /// switches the Home button service on.
-  @async
-  SetupResult runAutomaticSetup();
+  void openTvSettings();
 
   /// Opens the TV's own details screen for an app.
   void openAppInfo(String packageName);
@@ -156,20 +136,11 @@ abstract class LauncherHostApi {
   /// Asks the TV to uninstall an app; the TV confirms with the user.
   void uninstallApp(String packageName);
 
-  /// Installs the downloaded APK at [path] over this app through the TV's ADB
-  /// service, then opens the launcher again. The install ends this process,
-  /// so an answer is only ever why it did not happen.
+  /// Has the TV install the downloaded APK at [path] over this app; the TV
+  /// may ask the user first. The install ends this process, so an answer is
+  /// only ever why it did not happen.
   @async
-  SetupResult installUpdate(String path);
-
-  /// Stops an app through the TV's ADB service. False when that is not
-  /// available, e.g. before [runAutomaticSetup] has been allowed.
-  @async
-  bool forceStopApp(String packageName);
-
-  /// Whether the app may see other apps' notifications and media sessions,
-  /// which [runAutomaticSetup] grants.
-  bool isNotificationAccessEnabled();
+  String installUpdate(String path);
 
   /// Null when nothing is playing or access has not been granted.
   @async
@@ -181,7 +152,8 @@ abstract class LauncherHostApi {
   List<WidgetProvider> listWidgetProviders();
 
   /// Makes sure the layout item [itemId] has a widget from [provider] and
-  /// returns the id to show it with, or null if the TV does not allow it.
+  /// returns the id to show it with, or null if the TV or the user does not
+  /// allow it. The TV may ask the user first.
   @async
   int? bindWidget(String itemId, String provider);
 

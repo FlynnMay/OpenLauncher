@@ -65,9 +65,7 @@ class AppWidgetView extends ConsumerWidget {
           ),
         ),
       AsyncLoading() => const SizedBox.shrink(),
-      _ => note(
-        'This widget cannot be shown.\nRun automatic setup in Settings.',
-      ),
+      _ => note('This widget cannot be shown.\nThe TV does not allow it.'),
     };
   }
 }

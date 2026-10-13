@@ -28,8 +28,8 @@ On the TV:
   set. The app card, the clock and the others are prefabs you can edit.
 - Actions on a press, a hold or on focus: open an app, switch input, control
   playback, show or hide a pane, set a variable.
-- A menu on holding OK, with Open, App info, Force stop, Uninstall and
-  Remove, which you can change.
+- A menu on holding OK, with Open, App info, Uninstall and Remove, which you
+  can change.
 - Styling for anything: fills and gradients, borders, corners, padding, text.
 - Icon packs. The Material Symbols set is built in.
 - Wallpaper as pictures or looping video, one or several in turn.
@@ -48,7 +48,6 @@ From a phone or computer:
 
 - A TV or box running Android 8.0 or later (API 26), 32- or 64-bit ARM.
 - A way to sideload an APK, such as ADB.
-- USB debugging turned on, for the one-step setup and for updates.
 
 ## Install
 
@@ -62,23 +61,47 @@ From a phone or computer:
    ```
 
 3. Open OpenLauncher from the TV's app list.
-4. Open **Settings** on its home screen and choose **Set up automatically**.
+4. Open **Settings** on its home screen and allow what you want under
+   **Permissions**.
 
-### Setup and the Home button
+### Permissions
+
+OpenLauncher asks for nothing by itself. Each permission is a row in
+**Settings → Permissions**: it says whether it is allowed, and pressing it
+opens the TV's own screen for it, where you turn OpenLauncher on.
+
+| Permission | What it is for | The TV's screen |
+|---|---|---|
+| Home button | The remote's Home button opens OpenLauncher. | Accessibility |
+| Notifications | Notifications from other apps, and what is playing. | Notification access |
 
 Google TV does not let you choose a different home app. OpenLauncher uses an
 accessibility service to catch the Home button and to replace the stock home
-screen when it appears.
+screen when it appears. To undo it, turn the service off on the same screen.
 
-**Set up automatically** needs USB debugging to be on in the TV's developer
-options. The TV asks you to allow a debugging connection: tick "Always
-allow". That connection is OpenLauncher talking to the TV's own ADB service
-to grant itself what it needs.
+Widgets from other apps need the TV's say too. Where the TV has a question
+for it, it is asked the first time a widget is placed.
 
-The same setup lets OpenLauncher show notifications and what is playing,
-show widgets from other apps, force stop apps, and install its own updates.
+#### When the TV has no screen for it
 
-To undo it, turn off **Home button opens OpenLauncher** in Settings.
+Some TVs leave these screens out, or do not list sideloaded apps on them.
+Each can be allowed from a computer instead, with USB debugging on:
+
+```bash
+# Home button: lets OpenLauncher switch its own service on and off. Then
+# press Home button in Settings.
+adb shell pm grant com.maypoint.openlauncher android.permission.WRITE_SECURE_SETTINGS
+
+# Notifications
+adb shell cmd notification allow_listener com.maypoint.openlauncher/com.maypoint.openlauncher.NotificationService
+
+# Widgets from other apps
+adb shell appwidget grantbind --package com.maypoint.openlauncher --user 0
+```
+
+On Android 13 and later, a TV may grey out these switches for an app
+installed from a file until you choose **Allow restricted settings** on the
+app's info screen. Installing with `adb install` avoids that.
 
 ## Updates
 
@@ -94,13 +117,17 @@ starts and once a day.
 The setting is in the editor, under **Updates**, where you can also check and
 install from the browser.
 
-Updates are installed through the TV's debugging service, so **Set up
-automatically** has to have been run. The download is checked against the
-size and hash the release states, and only a newer copy of OpenLauncher
-signed with the same key is installed. The launcher restarts when it is done.
+Updates are installed by the TV's own installer. Depending on the Android
+version it installs straight away or asks you first, and the first time it
+may ask you to allow OpenLauncher to install apps. The download is checked
+against the size and hash the release states, and only a newer copy of
+OpenLauncher signed with the same key is installed. The launcher opens again
+when it is done.
 
-Without setup, install a new release the way you installed the first one;
-`adb install -r` keeps your layout.
+Updating from 0.1.0, which installed through the TV's debugging service,
+works where its automatic setup had been run. Otherwise install the new
+release the way you installed the first one; `adb install -r` keeps your
+layout.
 
 ## Customising
 
@@ -121,16 +148,19 @@ In Use, the page behaves like the TV: tap, or use the arrow keys and Enter.
 ## Security
 
 **The editor has no login.** Anyone on your network can open it, change your
-layout, and open, force stop or uninstall apps on the TV through it. Use it
+layout, and open or uninstall apps on the TV through it. Use it
 on a network you trust.
 
 The page is only reachable while OpenLauncher is on screen.
 
 ## Known limitations
 
-- On TCL TVs the Home button service is not started at boot. Open
-  OpenLauncher once after a restart and it reconnects itself, or use an app
-  that launches it at startup.
+- Some TVs (TCL among them) do not start the Home button service at boot.
+  With the `WRITE_SECURE_SETTINGS` grant above, OpenLauncher reconnects it
+  when opened after a restart; without it, switch the service off and on in
+  the TV's settings.
+- An app cannot force stop another. **App info** in the menu opens the TV's
+  screen that can.
 - While the Home button is taken over, long-pressing Home does not open the
   Google TV dashboard.
 - The layout can only be edited from the editor, not on the TV.
@@ -208,7 +238,7 @@ lib/
 packs/         the built-in packs, as folders
 tool/          build scripts
 pigeons/       definition of the Dart <-> Kotlin bridge
-android/       Kotlin: apps, inputs, Home button service, setup, updates,
+android/       Kotlin: apps, inputs, Home button service, permissions, updates,
                notifications and media, app widgets
 test/          unit and widget tests
 ```

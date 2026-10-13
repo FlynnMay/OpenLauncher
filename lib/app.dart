@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/components.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/features/components/app_widget.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/notifications/toast_overlay.dart';
 import 'package:openlauncher/server/config_server.dart';
 
-/// Re-checks the Home button on resume; it can change in TV settings.
-final _homeButtonRecheckProvider = Provider<void>((ref) {
+/// Re-checks what the TV allows on resume; it changes in TV settings.
+final _accessRecheckProvider = Provider<void>((ref) {
   final listener = AppLifecycleListener(
-    onResume: () => ref.invalidate(homeButtonEnabledProvider),
+    onResume: () => ref.invalidate(accessProvider),
   );
   ref.onDispose(listener.dispose);
 });
@@ -23,7 +23,7 @@ class OpenLauncherApp extends ConsumerWidget {
     // Keeps the config web server running for as long as the app is.
     ref.watch(configServerProvider);
     ref.watch(widgetCleanupProvider);
-    ref.watch(_homeButtonRecheckProvider);
+    ref.watch(_accessRecheckProvider);
     ref.watch(updateScheduleProvider);
     return MaterialApp(
       title: 'OpenLauncher',

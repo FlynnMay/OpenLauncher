@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/components.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -265,7 +265,7 @@ class _Header extends ConsumerWidget {
       spacing: 8,
       children: [
         // Until Home opens this launcher.
-        if (ref.watch(homeButtonEnabledProvider).value == false)
+        if (ref.watch(accessProvider(Access.homeButton)).value == false)
           _HeaderButton(
             icon: Icons.home_outlined,
             label: 'Set as Home',

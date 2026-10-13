@@ -8,8 +8,8 @@ import android.service.notification.StatusBarNotification
 
 /**
  * Lets the launcher see notifications other apps post, and, because Android
- * ties the two together, what they are playing. Switched on by automatic
- * setup; does nothing until then.
+ * ties the two together, what they are playing. Does nothing until the user
+ * allows it in the TV's settings.
  */
 class NotificationService : NotificationListenerService() {
     override fun onListenerConnected() {

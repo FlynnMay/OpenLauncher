@@ -104,9 +104,126 @@ void main() {
       expect(pending(later, steps: steps).map((step) => step.since), ['0.3.0']);
     });
 
-    test('there is none yet: a current save is returned as it is', () {
-      expect(migrations, isEmpty);
+    test('a current save is returned as it is', () {
       expect(migrate(old), same(old));
+    });
+
+    test('ends at the current format, each starting where the last ended', () {
+      expect(migrations.first.from, 1);
+      expect(migrations.last.to, saveVersion);
+      for (final (index, step) in migrations.indexed.skip(1)) {
+        expect(step.from, migrations[index - 1].to);
+      }
+    });
+  });
+
+  test('1 to 2: force stop and automatic setup are taken out', () {
+    Map<String, Object?> button(String id, List<Map<String, Object?>> acts) => {
+      'id': id,
+      'kind': 'button',
+      'on': {'press': acts},
+    };
+    const source = '{{source.id}}';
+    final save = {
+      'v': 1,
+      'entities': [
+        {
+          'id': 'mine',
+          'actions': {
+            'forceStop': {'run': 'launchApp'},
+            'kill': {'run': 'forceStopApp'},
+          },
+        },
+      ],
+      'layout': {
+        'v': 1,
+        'layers': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'root',
+              'kind': 'pane',
+              'children': [
+                button('open', [
+                  {'do': 'open', 'entity': source},
+                ]),
+                button('stop', [
+                  {'do': 'forceStop', 'entity': source},
+                ]),
+                button('both', [
+                  {'do': 'forceStop', 'entity': 'app:a'},
+                  {'do': 'open', 'entity': 'app:a'},
+                ]),
+                button('setup', [
+                  {'do': 'setup', 'entity': 'system'},
+                ]),
+                button('home', [
+                  {'do': 'homeButton', 'entity': 'system', 'enabled': true},
+                ]),
+                // The user's own action of that name is left alone; one
+                // that ran what is gone goes.
+                button('own', [
+                  {'do': 'forceStop', 'entity': 'mine'},
+                ]),
+                button('kill', [
+                  {'do': 'kill', 'entity': 'mine'},
+                ]),
+                // Not a button: it stays, doing nothing on a press.
+                {
+                  'id': 'card',
+                  'prefab': 'app-card',
+                  'on': {
+                    'press': [
+                      {'do': 'forceStop', 'entity': source},
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      'prefabs': [
+        {
+          'id': 'p',
+          'name': 'P',
+          'root': {
+            'id': 'p',
+            'kind': 'pane',
+            'children': [
+              button('stop', [
+                {'do': 'forceStop', 'entity': source},
+              ]),
+            ],
+          },
+        },
+      ],
+    };
+    final next = migrate(save, steps: [migrations.first]);
+    expect(next['v'], 2);
+    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    expect(root['children'], [
+      button('open', [
+        {'do': 'open', 'entity': source},
+      ]),
+      button('both', [
+        {'do': 'open', 'entity': 'app:a'},
+      ]),
+      button('home', [
+        {'do': 'access', 'entity': 'system', 'access': 'homeButton'},
+      ]),
+      button('own', [
+        {'do': 'forceStop', 'entity': 'mine'},
+      ]),
+      {
+        'id': 'card',
+        'prefab': 'app-card',
+        'on': {'press': <Object?>[]},
+      },
+    ]);
+    expect((next['prefabs']! as List)[0]['root']['children'], isEmpty);
+    expect((next['entities']! as List)[0]['actions'], {
+      'forceStop': {'run': 'launchApp'},
     });
   });
 }

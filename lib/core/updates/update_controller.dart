@@ -70,18 +70,13 @@ class UpdateController extends Notifier<UpdateState> {
       return _failed('$error');
     }
     state = state.doing(UpdateStatus.installing, progress: 1);
-    final SetupResult result;
     try {
-      result = await ref.read(launcherPlatformProvider).installUpdate(path);
+      return _failed(
+        await ref.read(launcherPlatformProvider).installUpdate(path),
+      );
     } on Object catch (error) {
       return _failed('$error');
     }
-    return _failed(switch (result.outcome) {
-      SetupOutcome.adbUnavailable || SetupOutcome.notAuthorised =>
-        'Run "Set up automatically" in Settings first: updates are '
-            "installed through the TV's debugging service.",
-      _ => result.detail ?? 'The TV did not install it.',
-    });
   }
 
   static const _busy = 'Busy\nAn update is already being worked on.';

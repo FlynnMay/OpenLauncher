@@ -33,23 +33,6 @@ class AppOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'forceStopApp',
-      label: 'Force stop an app',
-      // `label` is the name used in the message.
-      args: const {..._package, 'label': []},
-      onDevice: true,
-      run: (run) async {
-        final package = _packageOf(run);
-        if (await _platform.forceStopApp(package)) {
-          return '${run.arg('label') ?? package} was stopped.';
-        }
-        // Fall back to the TV's app info screen.
-        await _platform.openAppInfo(package);
-        return 'Choose "Force stop" here. Run automatic setup in Settings '
-            'to stop apps straight from the menu.';
-      },
-    ),
-    Operation(
       name: 'uninstallApp',
       label: 'Uninstall an app',
       args: _package,

@@ -34,9 +34,7 @@ class TvState {
     required this.components,
     this.packs = const [],
     this.widgetProviders = const {},
-    this.notificationAccess = true,
-    this.homeButton = true,
-    this.canManageHomeButton = false,
+    this.access = const {},
     this.nowPlaying,
     this.update = const UpdateState(),
   });
@@ -53,11 +51,8 @@ class TvState {
   /// App widget ids with their labels.
   final Map<String, String> widgetProviders;
 
-  final bool notificationAccess;
-
-  final bool homeButton;
-
-  final bool canManageHomeButton;
+  /// What the TV's settings allow the launcher; allowed unless it says not.
+  final Map<Access, bool> access;
 
   final NowPlaying? nowPlaying;
 
@@ -161,14 +156,10 @@ class TvApi {
         for (final Map provider in providers)
           provider['id'] as String: '${provider['app']}: ${provider['label']}',
       },
-      notificationAccess: json['notificationAccess'] != false,
-      homeButton: switch (json['homeButton']) {
-        {'enabled': false} => false,
-        _ => true,
-      },
-      canManageHomeButton: switch (json['homeButton']) {
-        {'canManage': true} => true,
-        _ => false,
+      access: {
+        if (json['access'] case final Map<Object?, Object?> allowed)
+          for (final access in Access.values)
+            if (allowed[access.name] case final bool held) access: held,
       },
       nowPlaying: switch (json['nowPlaying']) {
         final Map playing => NowPlaying(

@@ -88,7 +88,6 @@ Component _actionButton(
 const defaultMenu = {
   'open': sourceEntity,
   'info': sourceEntity,
-  'forceStop': sourceEntity,
   'uninstall': sourceEntity,
   'remove': Layout.homeId,
 };

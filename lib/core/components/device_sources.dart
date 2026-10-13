@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// What is playing, or null. Needs notification access.
+/// What is playing, or null. Needs [Access.notifications].
 final nowPlayingProvider =
     AsyncNotifierProvider<NowPlayingNotifier, NowPlaying?>(
       NowPlayingNotifier.new,
@@ -24,11 +24,6 @@ class NowPlayingNotifier extends AsyncNotifier<NowPlaying?> {
   }
 }
 
-/// Whether the launcher may see notifications and media sessions.
-final notificationAccessProvider = FutureProvider<bool>(
-  (ref) => ref.watch(launcherPlatformProvider).isNotificationAccessEnabled(),
-);
-
 /// App widgets offered by installed apps.
 final widgetProvidersProvider = FutureProvider<List<WidgetProvider>>((ref) {
   final platform = ref.watch(launcherPlatformProvider);
@@ -37,13 +32,3 @@ final widgetProvidersProvider = FutureProvider<List<WidgetProvider>>((ref) {
   ref.onDispose(sub.cancel);
   return platform.listWidgetProviders();
 });
-
-/// Whether the remote's Home button opens this launcher.
-final homeButtonEnabledProvider = FutureProvider<bool>(
-  (ref) => ref.watch(launcherPlatformProvider).isHomeButtonEnabled(),
-);
-
-/// Whether the app can toggle the Home button itself (after setup).
-final canManageHomeButtonProvider = FutureProvider<bool>(
-  (ref) => ref.watch(launcherPlatformProvider).canManageHomeButton(),
-);

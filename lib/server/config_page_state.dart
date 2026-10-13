@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
@@ -63,10 +64,10 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
       for (final pack in await ref.watch(packsProvider.future)) pack.toJson(),
     ],
     'update': ref.watch(updateStateProvider).toJson(),
-    'notificationAccess': await ref.watch(notificationAccessProvider.future),
-    'homeButton': {
-      'enabled': await ref.watch(homeButtonEnabledProvider.future),
-      'canManage': await ref.watch(canManageHomeButtonProvider.future),
+    // What the user has allowed the launcher in the TV's settings.
+    'access': {
+      for (final access in Access.values)
+        access.name: await ref.watch(accessProvider(access).future),
     },
     'nowPlaying': playing == null
         ? null

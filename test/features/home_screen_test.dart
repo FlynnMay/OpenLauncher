@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -107,22 +108,22 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
       await tester.pump(FocusTile.holdTime);
       await tester.pumpAndSettle();
-      expect(find.text('Force stop'), findsOneWidget);
+      expect(find.text('App info'), findsOneWidget);
 
       // The button is still down: holding on and letting go choose nothing.
       await tester.sendKeyRepeatEvent(LogicalKeyboardKey.select);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
-      expect(find.text('Force stop'), findsOneWidget);
+      expect(find.text('App info'), findsOneWidget);
       expect(platform.launched, isEmpty);
 
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < 2; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       }
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       expect(platform.appActions, ['uninstall pkg.a']);
-      expect(find.text('Force stop'), findsNothing);
+      expect(find.text('App info'), findsNothing);
     });
 
     testWidgets('the quick actions take off what they were opened for', (
@@ -136,12 +137,12 @@ void main() {
       await tester.pumpAndSettle();
       // Removing is the layout's to do: the button names what the menu is
       // about, which the menu says in a variable of its own.
-      for (var i = 0; i < 4; i++) {
+      for (var i = 0; i < 3; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       }
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
-      expect(find.text('Force stop'), findsNothing);
+      expect(find.text('App info'), findsNothing);
       expect(find.text('Alpha'), findsNothing);
       expect(find.text('Beta'), findsWidgets);
     });
@@ -1046,7 +1047,7 @@ void main() {
     Future<void> openSettings(WidgetTester tester) async {
       platform = FakeLauncherPlatform([
         InstalledApp(packageName: 'pkg.a', label: 'Alpha', isBanner: false),
-      ], [])..homeButtonEnabled = false;
+      ], [])..access[Access.homeButton] = false;
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -1062,41 +1063,40 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('automatic setup turns the Home button on', (tester) async {
+    /// What the row for [access] says of it.
+    String standing(WidgetTester tester, Access access) {
+      final row = tester.widget<ListTile>(
+        find.widgetWithText(ListTile, access.label),
+      );
+      return (row.trailing! as Text).data!;
+    }
+
+    testWidgets('each permission is changed on the TV\'s own screen', (
+      tester,
+    ) async {
       await openSettings(tester);
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      expect(standing(tester, Access.homeButton), 'Not allowed');
+      expect(standing(tester, Access.notifications), 'Allowed');
 
-      await tester.tap(find.text('Set up automatically'));
+      await tester.tap(find.text(Access.homeButton.label));
+      await tester.tap(find.text(Access.notifications.label));
       await tester.pumpAndSettle();
-      expect(find.text('All set'), findsOneWidget);
-      await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
-
-      // Once set up, the switch works directly.
-      await tester.tap(find.byType(Switch));
-      await tester.pumpAndSettle();
-      expect(platform.homeButtonEnabled, isFalse);
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
-
-      // Back on the home screen the prompt is offered again.
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.text('Set as Home'), findsOneWidget);
+      expect(platform.accessChanged, Access.values);
+      // Nothing is claimed until the TV says so.
+      expect(standing(tester, Access.homeButton), 'Not allowed');
     });
 
-    testWidgets('explains what to do when debugging is off', (tester) async {
+    testWidgets('says so when the TV has no screen for a permission', (
+      tester,
+    ) async {
       await openSettings(tester);
-      platform.setupOutcome = SetupOutcome.adbUnavailable;
-
-      // Turning the switch on before setup runs setup.
-      await tester.tap(find.byType(Switch));
+      platform.noAccessScreen = true;
+      await tester.tap(find.text(Access.homeButton.label));
       await tester.pumpAndSettle();
-      expect(find.text('USB debugging is off'), findsOneWidget);
+      expect(find.text('This TV has no screen for it'), findsOneWidget);
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
-      expect(platform.homeButtonEnabled, isFalse);
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      expect(platform.accessChanged, isEmpty);
     });
 
     testWidgets('re-checks the Home button when the app resumes', (
@@ -1104,7 +1104,7 @@ void main() {
     ) async {
       await openSettings(tester);
       // The user switches the service on in the TV's own settings.
-      platform.homeButtonEnabled = true;
+      platform.access[Access.homeButton] = true;
       for (final state in const [
         AppLifecycleState.inactive,
         AppLifecycleState.hidden,
@@ -1116,7 +1116,7 @@ void main() {
         tester.binding.handleAppLifecycleStateChanged(state);
       }
       await tester.pumpAndSettle();
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      expect(standing(tester, Access.homeButton), 'Allowed');
     });
   });
 }

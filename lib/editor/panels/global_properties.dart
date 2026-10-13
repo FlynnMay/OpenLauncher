@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
@@ -7,7 +8,6 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
-import 'package:openlauncher/editor/tv/tv.dart';
 
 /// Launcher-wide settings, shown when nothing is selected.
 class GlobalProperties extends ConsumerWidget {
@@ -78,14 +78,7 @@ class GlobalProperties extends ConsumerWidget {
           ),
         ]),
         Section('Notifications', open: false, [
-          if (ref.watch(tvStateProvider).value?.notificationAccess == false)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Run "Set up automatically" in the TV\'s Settings to '
-                'receive notifications.',
-              ),
-            ),
+          const AccessNote(Access.notifications),
           ...optionFields(
             options: ToastOptions.options,
             values: config.toasts.toJson(),

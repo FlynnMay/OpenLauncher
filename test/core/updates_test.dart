@@ -251,9 +251,10 @@ void main() {
       expect(platform.installed, isEmpty);
     });
 
-    test('asks for setup when the TV will not let it install', () async {
-      platform.installResult = SetupResult(outcome: SetupOutcome.notAuthorised);
-      expect(await act('install'), contains('Set up automatically'));
+    test('says why the TV did not install it', () async {
+      platform.installRefusal = 'It was cancelled on the TV.';
+      expect(await act('install'), endsWith('It was cancelled on the TV.'));
+      expect(state().status, UpdateStatus.failed);
     });
 
     test('does not hand over a download that failed', () async {

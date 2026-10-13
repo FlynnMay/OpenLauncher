@@ -1,3 +1,4 @@
+export 'access_note.dart';
 export 'component_settings.dart';
 export 'dock_settings.dart';
 export 'pane_settings.dart';

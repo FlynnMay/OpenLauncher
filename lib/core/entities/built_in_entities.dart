@@ -86,18 +86,13 @@ const builtInEntities = [
     category: 'system',
     label: 'System',
     actions: {
-      'setup': EntityAction(
-        run: 'runSetup',
-        label: 'Set up automatically',
-        icon: 'material:settings',
-      ),
-      'homeButton': EntityAction(
-        run: 'setHomeButton',
+      'access': EntityAction(
+        run: 'changeAccess',
         args: {
-          'enabled': ['true', 'false'],
+          'access': ['homeButton', 'notifications'],
         },
-        label: 'Switch the Home button',
-        icon: 'material:home',
+        label: 'Change a permission',
+        icon: 'material:lock',
       ),
       'tvSettings': EntityAction(
         run: 'openTvSettings',

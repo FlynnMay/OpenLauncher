@@ -36,7 +36,12 @@ class HomeButtonService : AccessibilityService() {
 
         // At boot the stock home screen is usually up before this service is,
         // so its arrival is never seen. Take over straight away instead.
-        if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) showLauncher()
+        // An update ends the launcher; it is put back where it was.
+        if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS ||
+            UpdateInstaller.justUpdated(this)
+        ) {
+            showLauncher()
+        }
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -85,7 +90,7 @@ class HomeButtonService : AccessibilityService() {
          * a retry was made.
          */
         suspend fun reconnectIfStuck(context: Context): Boolean {
-            if (connected || !isEnabled(context) || !canManage(context)) return false
+            if (connected || !isEnabled(context) || !canSwitch(context)) return false
             setEnabled(context, false)
             delay(RETRY_SETTLE_MS)
             setEnabled(context, true)
@@ -109,16 +114,19 @@ class HomeButtonService : AccessibilityService() {
             return enabled.split(':').any { ComponentName.unflattenFromString(it) == me }
         }
 
-        /** Whether this app may change the setting itself (granted over ADB). */
-        fun canManage(context: Context) =
+        /**
+         * Whether this app may change the setting itself. No TV offers that
+         * permission; its owner can grant it from a computer.
+         */
+        fun canSwitch(context: Context) =
             context.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) ==
                 PackageManager.PERMISSION_GRANTED
 
-        /** Switches the service on or off, leaving other accessibility services alone. */
+        /**
+         * Switches the service on or off, leaving other accessibility
+         * services alone. Needs [canSwitch].
+         */
         fun setEnabled(context: Context, enabled: Boolean) {
-            if (!canManage(context)) {
-                throw FlutterError("needs-setup", "Run automatic setup first")
-            }
             val resolver = context.contentResolver
             val me = ComponentName(context, HomeButtonService::class.java)
             val others = Settings.Secure
@@ -135,22 +143,6 @@ class HomeButtonService : AccessibilityService() {
             if (enabled) {
                 Settings.Secure.putInt(resolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
             }
-        }
-
-        /**
-         * Opens the screen where the service is switched on. Some TVs stub out
-         * the accessibility settings intent, so fall back to the main settings.
-         */
-        fun openSettings(context: Context) {
-            val pm = context.packageManager
-            val intent = listOf(Settings.ACTION_ACCESSIBILITY_SETTINGS, Settings.ACTION_SETTINGS)
-                .map { Intent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                .firstOrNull { candidate ->
-                    val target = pm.resolveActivity(candidate, 0)?.activityInfo?.packageName
-                    target != null && !target.endsWith(".frameworkpackagestubs")
-                }
-                ?: throw FlutterError("no-settings", "This device has no settings screen to open")
-            context.startActivity(intent)
         }
     }
 }

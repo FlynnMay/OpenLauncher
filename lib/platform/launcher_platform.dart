@@ -8,12 +8,11 @@ import 'package:openlauncher/platform/launcher_api.g.dart';
 export 'fake_launcher_platform.dart';
 export 'launcher_api.g.dart'
     show
+        Access,
         AppNotification,
         InstalledApp,
         MediaCommand,
         NowPlaying,
-        SetupOutcome,
-        SetupResult,
         TvInput,
         TvInputKind,
         WidgetProvider;
@@ -32,32 +31,23 @@ abstract class LauncherPlatform {
   /// Fires when an input is added, removed or renamed.
   Stream<void> get inputsChanged;
 
-  /// Whether the remote's Home button opens this launcher.
-  Future<bool> isHomeButtonEnabled();
-  Future<void> openHomeButtonSettings();
+  /// Whether the user has allowed [access] in the TV's settings.
+  Future<bool> hasAccess(Access access);
 
-  /// True once [runAutomaticSetup] has succeeded.
-  Future<bool> canManageHomeButton();
-  Future<void> setHomeButtonEnabled(bool enabled);
+  /// Opens the TV's screen where [access] is allowed or withdrawn. Throws
+  /// if the TV has none.
+  Future<void> changeAccess(Access access);
 
-  /// Grants the app's permissions through the TV's ADB service and enables
-  /// the Home button. The TV asks the user to allow it.
-  Future<SetupResult> runAutomaticSetup();
+  Future<void> openTvSettings();
 
-  /// Installs the APK at [path] over the launcher, which restarts it. Only
-  /// returns if it could not: [SetupResult.detail] says why.
-  Future<SetupResult> installUpdate(String path);
+  /// Has the TV install the APK at [path] over the launcher, which restarts
+  /// it. Only returns if it was not installed, with why.
+  Future<String> installUpdate(String path);
 
   Future<void> openAppInfo(String packageName);
 
   /// The device confirms with the user.
   Future<void> uninstallApp(String packageName);
-
-  /// False if the device refused.
-  Future<bool> forceStopApp(String packageName);
-
-  /// Granted by [runAutomaticSetup].
-  Future<bool> isNotificationAccessEnabled();
 
   Future<NowPlaying?> nowPlaying();
   Future<void> sendMediaCommand(MediaCommand command);
@@ -69,7 +59,8 @@ abstract class LauncherPlatform {
 
   Future<List<WidgetProvider>> listWidgetProviders();
 
-  /// The native widget id for a component, or null if refused.
+  /// The native widget id for a component, or null if refused. The device
+  /// may ask the user first.
   Future<int?> bindWidget(String itemId, String provider);
   Future<void> pruneWidgets(List<String> itemIds);
 }
@@ -119,23 +110,16 @@ class AndroidLauncherPlatform implements LauncherPlatform, LauncherFlutterApi {
   void onInputsChanged() => _inputsChanged.add(null);
 
   @override
-  Future<bool> isHomeButtonEnabled() => _host.isHomeButtonEnabled();
+  Future<bool> hasAccess(Access access) => _host.hasAccess(access);
 
   @override
-  Future<void> openHomeButtonSettings() => _host.openHomeButtonSettings();
+  Future<void> changeAccess(Access access) => _host.changeAccess(access);
 
   @override
-  Future<bool> canManageHomeButton() => _host.canManageHomeButton();
+  Future<void> openTvSettings() => _host.openTvSettings();
 
   @override
-  Future<void> setHomeButtonEnabled(bool enabled) =>
-      _host.setHomeButtonEnabled(enabled);
-
-  @override
-  Future<SetupResult> runAutomaticSetup() => _host.runAutomaticSetup();
-
-  @override
-  Future<SetupResult> installUpdate(String path) => _host.installUpdate(path);
+  Future<String> installUpdate(String path) => _host.installUpdate(path);
 
   @override
   Future<void> openAppInfo(String packageName) =>
@@ -144,14 +128,6 @@ class AndroidLauncherPlatform implements LauncherPlatform, LauncherFlutterApi {
   @override
   Future<void> uninstallApp(String packageName) =>
       _host.uninstallApp(packageName);
-
-  @override
-  Future<bool> forceStopApp(String packageName) =>
-      _host.forceStopApp(packageName);
-
-  @override
-  Future<bool> isNotificationAccessEnabled() =>
-      _host.isNotificationAccessEnabled();
 
   @override
   Future<NowPlaying?> nowPlaying() => _host.getNowPlaying();
