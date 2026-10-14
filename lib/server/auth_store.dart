@@ -48,14 +48,13 @@ class TrustedDevice {
   };
 
   static TrustedDevice? fromJson(Object? json) {
-    if (json
-        case {
-          'id': final String id,
-          'tokenHash': final String tokenHash,
-          'label': final String label,
-          'added': final String added,
-          'lastSeen': final String lastSeen,
-        }) {
+    if (json case {
+      'id': final String id,
+      'tokenHash': final String tokenHash,
+      'label': final String label,
+      'added': final String added,
+      'lastSeen': final String lastSeen,
+    }) {
       final addedAt = DateTime.tryParse(added);
       final seenAt = DateTime.tryParse(lastSeen);
       if (addedAt == null || seenAt == null) return null;
@@ -79,12 +78,16 @@ abstract interface class AuthStore {
 
 final authStoreProvider = Provider<AuthStore>((ref) => FileAuthStore());
 
-/// `auth.json` in the app support dir, written atomically.
+/// `auth.json` in the app support dir, written atomically, one save at a time.
 class FileAuthStore implements AuthStore {
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File(p.join(dir.path, 'auth.json'));
-  }
+  /// [dir] is overridden in tests.
+  FileAuthStore({Future<Directory> Function()? dir})
+    : _dir = dir ?? getApplicationSupportDirectory;
+
+  final Future<Directory> Function() _dir;
+  Future<void> _writing = Future.value();
+
+  Future<File> _file() async => File(p.join((await _dir()).path, 'auth.json'));
 
   @override
   Future<List<TrustedDevice>> load() async {
@@ -102,14 +105,21 @@ class FileAuthStore implements AuthStore {
     }
   }
 
+  /// Encoded now, so saves land in call order with the list as it was.
   @override
-  Future<void> save(List<TrustedDevice> devices) async {
+  Future<void> save(List<TrustedDevice> devices) {
+    final text = jsonEncode({
+      'devices': [for (final d in devices) d.toJson()],
+    });
+    final write = _writing.then((_) => _write(text));
+    _writing = write.catchError((Object _) {});
+    return write;
+  }
+
+  Future<void> _write(String text) async {
     final file = await _file();
     final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(
-      jsonEncode({'devices': [for (final d in devices) d.toJson()]}),
-      flush: true,
-    );
+    await tmp.writeAsString(text, flush: true);
     await tmp.rename(file.path);
   }
 }

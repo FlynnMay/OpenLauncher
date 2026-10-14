@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -112,6 +113,11 @@ class Authenticator {
 
   static const _json = {'content-type': 'application/json; charset=utf-8'};
 
+  static const _maxLabelLength = 60;
+
+  /// Read before pairing, so anyone on the network can send it.
+  static const _maxPairBody = 4096;
+
   List<TrustedDevice>? _devices;
   Future<void>? _loading;
   Set<String>? _hosts;
@@ -164,6 +170,10 @@ class Authenticator {
     String code,
     String label,
   ) async {
+    // Checked first, so a long name does not use up the code.
+    if (label.trim().length > _maxLabelLength) {
+      throw const FormatException('That name is too long');
+    }
     await _ensureLoaded();
     final attempt = pairing.take(code);
     if (attempt != PairAttempt.paired) throw PairRefused(attempt);
@@ -177,7 +187,12 @@ class Authenticator {
       lastSeen: now,
     );
     _devices!.add(device);
-    await _store.save(_devices!);
+    try {
+      await _store.save(_devices!);
+    } on Object {
+      _devices!.remove(device);
+      rethrow;
+    }
     return (token: token, device: device);
   }
 
@@ -185,12 +200,15 @@ class Authenticator {
   Future<void> revoke(String id) async {
     await _ensureLoaded();
     _devices!.removeWhere((device) => device.id == id);
-    await _store.save(_devices!);
+    // Before saving, so a failed save still cuts the device off until reboot.
     _revoked.add(id);
+    await _store.save(_devices!);
   }
 
   Future<Response> _pair(Request request) async {
-    final body = jsonDecode(await request.readAsString());
+    final text = await _readCapped(request, _maxPairBody);
+    if (text == null) return _refuse(413, 'Too large.');
+    final body = jsonDecode(text);
     if (body is! Map) throw const FormatException('Expected a JSON object');
     final ({String token, TrustedDevice device}) paired;
     try {
@@ -219,6 +237,17 @@ class Authenticator {
             'Max-Age=${_cookieAge.inSeconds}',
       },
     );
+  }
+
+  /// Null past [max] bytes, without reading the rest.
+  static Future<String?> _readCapped(Request request, int max) async {
+    if ((request.contentLength ?? 0) > max) return null;
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in request.read()) {
+      bytes.add(chunk);
+      if (bytes.length > max) return null;
+    }
+    return utf8.decode(bytes.takeBytes());
   }
 
   Future<Response> _revoke(Request request) async {
@@ -282,8 +311,10 @@ class Authenticator {
     if (request.headers[writeHeader] == null) return false;
     final origin = request.headers['origin'];
     if (origin == null) return true;
+    final host = _hostOf(request);
+    if (host == null) return false;
     try {
-      return Uri.parse(origin).origin == request.requestedUri.origin;
+      return Uri.parse(origin).origin == host.origin;
     } on Object {
       // "null" and other origins without a scheme.
       return false;
@@ -303,10 +334,27 @@ class Authenticator {
   static const _clearCookie =
       '$cookie=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';
 
+  /// From the raw `Host` header: `requestedUri` prefers `X-Forwarded-Host`,
+  /// which a page can set.
+  static Uri? _hostOf(Request request) {
+    final header = request.headers['host'];
+    if (header == null) return null;
+    final uri = Uri.tryParse('http://$header');
+    if (uri == null ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.path.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      return null;
+    }
+    return uri;
+  }
+
   Future<bool> _hostAllowed(Request request) async {
-    // From the Host header, so a name rebound to the TV's address is refused.
-    final host = request.requestedUri.host;
-    if (host.isEmpty) return false;
+    // So a name rebound to the TV's address is refused.
+    final host = _hostOf(request)?.host;
+    if (host == null) return false;
     if ((_hosts ??= await _ownHosts()).contains(host)) return true;
     // An address may have changed since the list was built; refresh once.
     return (_hosts = await _ownHosts()).contains(host);

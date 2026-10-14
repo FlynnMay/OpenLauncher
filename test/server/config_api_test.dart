@@ -110,6 +110,7 @@ void main() {
           method,
           Uri.parse('http://localhost$path'),
           headers: {
+            'host': 'localhost',
             'cookie': '${Authenticator.cookie}=$token',
             Authenticator.writeHeader: 'test',
             if (body is Map) 'content-type': 'application/json',
@@ -894,7 +895,11 @@ void main() {
         Request(
           'GET',
           Uri.parse('http://localhost/api/media/$id'),
-          headers: {'range': value, 'cookie': '${Authenticator.cookie}=$token'},
+          headers: {
+            'host': 'localhost',
+            'range': value,
+            'cookie': '${Authenticator.cookie}=$token',
+          },
         ),
       );
       Future<List<int>> bytes(Response r) => r.read().expand((b) => b).toList();
@@ -1069,6 +1074,20 @@ void main() {
     expect(state['entities'], hasLength(13));
   });
 
+  test('a forwarded host does not pass the host check', () async {
+    final server = (await container.read(configServerProvider.future))!;
+    final client = HttpClient();
+    addTearDown(client.close);
+    final request = await client.get('127.0.0.1', server.port, '/api/state');
+    request.headers
+      ..host = 'attacker.example'
+      ..set('x-forwarded-host', 'localhost')
+      ..set('cookie', '${Authenticator.cookie}=$token');
+    final response = await request.close();
+    await response.drain<void>();
+    expect(response.statusCode, 403);
+  });
+
   group('pairing', () {
     final session = '${Authenticator.cookie}=';
 
@@ -1083,7 +1102,7 @@ void main() {
       Request(
         method,
         Uri.parse('http://$host$path'),
-        headers: headers,
+        headers: {'host': host, ...headers},
         body: body,
       ),
     );
@@ -1179,6 +1198,28 @@ void main() {
         body: jsonEncode({'names': <String, String>{}}),
       );
       expect(response.statusCode, 200);
+    });
+
+    test('a large pairing request is refused unread', () async {
+      final response = await raw(
+        'POST',
+        '/api/pair',
+        headers: {Authenticator.writeHeader: 'test'},
+        body: Stream.value(List.filled(64 * 1024, 32)),
+      );
+      expect(response.statusCode, 413);
+    });
+
+    test('a long name is refused without using up the code', () async {
+      final code = container.read(authProvider).pairing.value!;
+      final long = await raw(
+        'POST',
+        '/api/pair',
+        headers: {Authenticator.writeHeader: 'test'},
+        body: jsonEncode({'code': code, 'label': 'x' * 61}),
+      );
+      expect(long.statusCode, 400);
+      expect((await pair(code)).statusCode, 200);
     });
 
     test('the wrong code is refused', () async {
