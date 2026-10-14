@@ -55,19 +55,16 @@ class _Pairing extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final auth = ref.watch(authProvider);
+    final pairing = ref.watch(pairingProvider);
     return ValueListenableBuilder(
-      valueListenable: auth.codeListenable,
+      valueListenable: pairing.listenable,
       builder: (context, code, _) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             color: Colors.white,
             padding: const EdgeInsets.all(8),
-            child: QrImageView(
-              data: auth.pairingUri(url).toString(),
-              size: 180,
-            ),
+            child: QrImageView(data: pairing.link(url).toString(), size: 180),
           ),
           const SizedBox(height: 16),
           Text('$url', style: theme.textTheme.titleMedium),

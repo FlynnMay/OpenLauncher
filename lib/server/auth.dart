@@ -7,98 +7,146 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/server/auth_store.dart';
-import 'package:openlauncher/server/editor_files.dart';
 import 'package:shelf/shelf.dart';
 
 final authProvider = Provider<Authenticator>(
   (ref) => Authenticator(ref.watch(authStoreProvider)),
 );
 
-/// Why a request was turned down, as an HTTP status.
-class AuthRefused implements Exception {
-  const AuthRefused(this.status, this.message);
+/// The code the TV shows for pairing.
+final pairingProvider = Provider<PairingCode>(
+  (ref) => ref.watch(authProvider).pairing,
+);
 
-  final int status;
-  final String message;
-}
-
-/// Guards the web API: a browser pairs with the TV using the 6-digit code the
-/// TV shows (by typing it, or by scanning the QR, which carries it), and is
-/// then given a token it sends on every later request. The token is a long
-/// random string kept only as its hash, so the stored list cannot be
-/// replayed. Requests whose `Host` is not the TV's own address are refused,
-/// which stops a remote site reaching the API by DNS rebinding.
-class Authenticator {
-  Authenticator(this._store) {
+/// The 6-digit code a browser trades for a session. Good for one pairing;
+/// rotated after it and after too many wrong tries.
+class PairingCode {
+  PairingCode() {
     _rotate();
   }
 
-  final AuthStore _store;
-  final _random = Random.secure();
-  final _code = ValueNotifier<String>('000000');
-
-  /// After this many wrong tries the code is rotated.
   static const _maxFails = 5;
 
-  /// A device's last-seen time is only rewritten this far apart, to spare a
-  /// disk write on every request.
-  static const _touchEvery = Duration(minutes: 5);
-
+  final _random = Random.secure();
+  final _code = ValueNotifier<String>('000000');
   int _fails = 0;
-  List<TrustedDevice>? _devices;
-  Future<void>? _loading;
 
-  /// The pairing code the TV shows; changes on each pair and after too many
-  /// wrong tries.
-  String get code => _code.value;
+  String get value => _code.value;
 
   /// For a widget that shows the code live.
-  ValueListenable<String> get codeListenable => _code;
+  ValueListenable<String> get listenable => _code;
+
+  /// [base] with the code in the fragment, which browsers do not send to the
+  /// server, so it stays out of logs.
+  Uri link(Uri base) => base.replace(fragment: 'pair=${_code.value}');
+
+  /// Whether [code] is the current one; either way a match rotates it.
+  bool take(String code) {
+    if (!_same(code.trim(), _code.value)) {
+      if (++_fails >= _maxFails) _rotate();
+      return false;
+    }
+    _rotate();
+    return true;
+  }
 
   void _rotate() {
     _code.value = _random.nextInt(1000000).toString().padLeft(6, '0');
     _fails = 0;
   }
+}
 
-  Future<void> _ensureLoaded() => _loading ??= _load();
+/// Guards the web API with two middlewares: [hostCheck] for every request
+/// and [sessions] for the API.
+///
+/// A browser pairs by posting the TV's code to `api/pair` and is given a
+/// session cookie (`HttpOnly`, `SameSite=Strict`), kept on the TV only as its
+/// hash. Writes must also carry [writeHeader] and, if the browser sends one,
+/// an `Origin` that is the TV, so no other site can make them.
+class Authenticator {
+  Authenticator(this._store);
 
-  Future<void> _load() async => _devices = [...await _store.load()];
+  final AuthStore _store;
+  final pairing = PairingCode();
+  final _random = Random.secure();
+  final _revoked = StreamController<String>.broadcast();
 
-  /// [base] with the code in the fragment, which browsers do not send to the
-  /// server, so it stays out of logs.
-  Uri pairingUri(Uri base) => base.replace(fragment: 'pair=${_code.value}');
+  static const cookie = 'openlauncher_session';
 
-  /// Lets a request through (null) or blocks it. The editor's own files and
-  /// `POST /api/pair` need no token; everything else does.
-  Future<Response?> guard(Request request) async {
-    if (!await _hostAllowed(request)) {
-      return _refuse(403, 'This address is not the TV.');
-    }
-    final path = request.url.path;
-    if (EditorFiles.owns(path)) return null;
-    if (request.method == 'POST' && path == 'api/pair') return null;
-    final token =
-        _bearer(request) ?? request.url.queryParameters['t'];
-    if (token == null || !await _verify(token)) {
-      return _refuse(401, 'This device is not paired with the TV.');
-    }
-    return null;
+  /// A header another site's page cannot add without the TV agreeing to it
+  /// first (a CORS preflight, which the TV never answers).
+  static const writeHeader = 'x-requested-with';
+
+  /// Browsers cap cookies at 400 days.
+  static const _cookieAge = Duration(days: 400);
+
+  /// A device's last-seen time is only rewritten this far apart, to spare a
+  /// disk write on every request.
+  static const _touchEvery = Duration(minutes: 5);
+
+  static const _json = {'content-type': 'application/json; charset=utf-8'};
+
+  List<TrustedDevice>? _devices;
+  Future<void>? _loading;
+  Set<String>? _hosts;
+
+  /// Refuses a request whose `Host` is not one of the TV's addresses, which
+  /// stops a remote site reaching the TV by DNS rebinding.
+  Middleware get hostCheck =>
+      (inner) =>
+          (request) async => await _hostAllowed(request)
+          ? inner(request)
+          : _refuse(403, 'This address is not the TV.');
+
+  /// Pairs, lists and revokes devices, and lets through only requests with a
+  /// trusted session. A revoked device's open event streams are closed.
+  Middleware get sessions =>
+      (inner) => (request) async {
+        if (!_safe(request.method) && !_fromEditor(request)) {
+          return _refuse(403, 'Changes must come from the editor.');
+        }
+        final route = (request.method, request.url.path);
+        try {
+          if (route == ('POST', 'api/pair')) return await _pair(request);
+          final device = await _deviceOf(request);
+          if (device == null) {
+            return _refuse(
+              401,
+              'This device is not paired with the TV.',
+              cookie: _clearCookie,
+            );
+          }
+          return switch (route) {
+            ('GET', 'api/devices') => Response.ok(
+              jsonEncode({'devices': await devices()}),
+              headers: _json,
+            ),
+            ('DELETE', 'api/devices') => await _revoke(request),
+            _ => _closedOnRevoke(await inner(request), device.id),
+          };
+        } on FormatException catch (e) {
+          return _refuse(400, e.message);
+        }
+      };
+
+  /// The trusted devices, newest first, without their token hashes.
+  Future<List<Map<String, Object?>>> devices() async {
+    await _ensureLoaded();
+    return [for (final device in _devices!.reversed) device.forEditor()];
   }
 
-  /// Checks [code] and, if it matches, trusts a new device called [label] and
-  /// returns its `token` and `device`. The code is rotated whether or not it
-  /// matched, so it is good for one pairing only.
-  Future<Map<String, Object?>> pair(String code, String label) async {
+  /// Trusts a new device called [label] if [code] is the pairing code, and
+  /// returns its session token, or null if the code is wrong.
+  Future<({String token, TrustedDevice device})?> pair(
+    String code,
+    String label,
+  ) async {
     await _ensureLoaded();
-    if (!_sameCode(code.trim(), _code.value)) {
-      _fails++;
-      if (_fails >= _maxFails) _rotate();
-      throw const AuthRefused(401, 'That code is not right. Check the TV.');
-    }
-    final token = _token();
+    if (!pairing.take(code)) return null;
+    final token = _bytes(32);
     final now = DateTime.now();
     final device = TrustedDevice(
-      id: _id(),
+      id: _bytes(9),
       tokenHash: _hash(token),
       label: label.trim().isEmpty ? 'A device' : label.trim(),
       added: now,
@@ -106,39 +154,120 @@ class Authenticator {
     );
     _devices!.add(device);
     await _store.save(_devices!);
-    _rotate();
-    return {'token': token, 'device': device.forEditor()};
+    return (token: token, device: device);
   }
 
-  /// The trusted devices, newest first, without their token hashes.
-  Future<List<Map<String, Object?>>> devices() async {
-    await _ensureLoaded();
-    return [
-      for (final device in _devices!.reversed) device.forEditor(),
-    ];
-  }
-
-  /// Stops trusting device [id].
+  /// Stops trusting device [id] and closes its open streams.
   Future<void> revoke(String id) async {
     await _ensureLoaded();
     _devices!.removeWhere((device) => device.id == id);
     await _store.save(_devices!);
+    _revoked.add(id);
   }
 
-  Future<bool> _verify(String token) async {
+  Future<Response> _pair(Request request) async {
+    final body = jsonDecode(await request.readAsString());
+    if (body is! Map) throw const FormatException('Expected a JSON object');
+    final paired = await pair(
+      '${body['code'] ?? ''}',
+      '${body['label'] ?? ''}',
+    );
+    if (paired == null) {
+      return _refuse(403, 'That code is not right. Check the TV.');
+    }
+    return Response.ok(
+      jsonEncode({'device': paired.device.forEditor()}),
+      headers: {
+        ..._json,
+        'set-cookie':
+            '$cookie=${paired.token}; Path=/; HttpOnly; SameSite=Strict; '
+            'Max-Age=${_cookieAge.inSeconds}',
+      },
+    );
+  }
+
+  Future<Response> _revoke(Request request) async {
+    final id = request.url.queryParameters['id'];
+    if (id == null) throw const FormatException('"id" must name a device');
+    await revoke(id);
+    return Response.ok('{}', headers: _json);
+  }
+
+  Future<TrustedDevice?> _deviceOf(Request request) async {
+    final token = _cookieOf(request);
+    if (token == null) return null;
     await _ensureLoaded();
     final hash = _hash(token);
-    final at = _devices!.indexWhere((d) => _sameCode(d.tokenHash, hash));
-    if (at < 0) return false;
+    final at = _devices!.indexWhere((d) => _same(d.tokenHash, hash));
+    if (at < 0) return null;
     final now = DateTime.now();
     if (now.difference(_devices![at].lastSeen) > _touchEvery) {
       _devices![at] = _devices![at].seenAt(now);
       unawaited(_store.save(_devices!).catchError((Object _) {}));
     }
-    return true;
+    return _devices![at];
   }
 
-  Set<String>? _hosts;
+  /// An event stream ends when its device is revoked; other responses are
+  /// short and left alone.
+  Response _closedOnRevoke(Response response, String id) {
+    if (!(response.mimeType?.startsWith('text/event-stream') ?? false)) {
+      return response;
+    }
+    final body = response.read();
+    StreamSubscription<List<int>>? reading;
+    StreamSubscription<String>? watching;
+    late final StreamController<List<int>> out;
+    Future<void> stop() async {
+      await watching?.cancel();
+      await reading?.cancel();
+      await out.close();
+    }
+
+    out = StreamController<List<int>>(
+      onListen: () {
+        watching = _revoked.stream.where((r) => r == id).listen((_) => stop());
+        reading = body.listen(out.add, onError: out.addError, onDone: stop);
+      },
+      onCancel: () async {
+        await watching?.cancel();
+        await reading?.cancel();
+      },
+    );
+    return response.change(body: out.stream);
+  }
+
+  Future<void> _ensureLoaded() => _loading ??= _load();
+
+  Future<void> _load() async => _devices = [...await _store.load()];
+
+  static bool _safe(String method) =>
+      method == 'GET' || method == 'HEAD' || method == 'OPTIONS';
+
+  static bool _fromEditor(Request request) {
+    if (request.headers[writeHeader] == null) return false;
+    final origin = request.headers['origin'];
+    if (origin == null) return true;
+    try {
+      return Uri.parse(origin).origin == request.requestedUri.origin;
+    } on Object {
+      // "null" and other origins without a scheme.
+      return false;
+    }
+  }
+
+  static String? _cookieOf(Request request) {
+    for (final pair in (request.headers['cookie'] ?? '').split(';')) {
+      final at = pair.indexOf('=');
+      if (at > 0 && pair.substring(0, at).trim() == cookie) {
+        return pair.substring(at + 1).trim();
+      }
+    }
+    return null;
+  }
+
+  static const _clearCookie =
+      '$cookie=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';
 
   Future<bool> _hostAllowed(Request request) async {
     // Built from the Host header by the server, so this still refuses a name
@@ -164,35 +293,27 @@ class Authenticator {
     return hosts;
   }
 
-  Response _refuse(int status, String message) =>
-      Response(status, body: jsonEncode({'error': message}), headers: const {
-        'content-type': 'application/json; charset=utf-8',
-      });
-
-  static String? _bearer(Request request) {
-    final header = request.headers['authorization'];
-    if (header == null) return null;
-    const prefix = 'Bearer ';
-    return header.startsWith(prefix) ? header.substring(prefix.length) : null;
-  }
+  static Response _refuse(int status, String message, {String? cookie}) =>
+      Response(
+        status,
+        body: jsonEncode({'error': message}),
+        headers: {..._json, 'set-cookie': ?cookie},
+      );
 
   static String _hash(String token) =>
       sha256.convert(utf8.encode(token)).toString();
 
-  String _token() => _bytes(32);
-  String _id() => _bytes(9);
-
   String _bytes(int count) => base64Url
       .encode(List<int>.generate(count, (_) => _random.nextInt(256)))
       .replaceAll('=', '');
+}
 
-  /// Compares two equal-purpose strings without leaking how far they match.
-  static bool _sameCode(String a, String b) {
-    if (a.length != b.length) return false;
-    var diff = 0;
-    for (var i = 0; i < a.length; i++) {
-      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
-    }
-    return diff == 0;
+/// Compares two strings without leaking how far they match.
+bool _same(String a, String b) {
+  if (a.length != b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) {
+    diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
   }
+  return diff == 0;
 }

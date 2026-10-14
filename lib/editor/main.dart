@@ -10,20 +10,12 @@ import 'package:openlauncher/editor/tv/tv.dart';
 // The web editor: the launcher itself running in the browser against the TV's
 // data (tv_link.dart), plus editing tools. Built by tool/build_editor.sh.
 
-void main() {
-  // Read before anything can rewrite the URL: a QR scan opens the page with
-  // the pairing code in the fragment (#pair=123456).
-  final code = Uri.splitQueryString(Uri.base.fragment)['pair'];
-  runApp(
-    ProviderScope(
-      overrides: [
-        ...tvOverrides,
-        initialPairCodeProvider.overrideWithValue(code),
-      ],
-      child: const EditorApp(),
-    ),
-  );
-}
+void main() => runApp(
+  ProviderScope(
+    overrides: [...tvOverrides, ...authOverrides()],
+    child: const EditorApp(),
+  ),
+);
 
 class EditorApp extends StatelessWidget {
   const EditorApp({super.key});

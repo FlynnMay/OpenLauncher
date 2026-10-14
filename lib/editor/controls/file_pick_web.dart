@@ -13,11 +13,17 @@ class PickedFile {
   String get name => _file.name;
 
   /// Uploads the file with [method] to [uri].
-  Future<({int status, String body})> send(String method, Uri uri) async {
+  Future<({int status, String body})> send(
+    String method,
+    Uri uri, {
+    Map<String, String> headers = const {},
+  }) async {
+    final sent = web.Headers();
+    headers.forEach((name, value) => sent.append(name, value));
     final response = await web.window
         .fetch(
           uri.toString().toJS,
-          web.RequestInit(method: method, body: _file),
+          web.RequestInit(method: method, headers: sent, body: _file),
         )
         .toDart;
     return (

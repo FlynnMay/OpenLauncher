@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
 
-/// Shows the editor while this browser has a token, and the pairing screen
-/// otherwise. [TvApi] drops the token when the TV refuses it.
+/// Shows the editor, or the pairing screen once the TV has refused this
+/// browser.
 class AuthGate extends ConsumerWidget {
   const AuthGate({required this.child, super.key});
 
@@ -13,7 +13,7 @@ class AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      ref.watch(authTokenProvider) == null ? const PairScreen() : child;
+      ref.watch(pairingNeededProvider) ? const PairScreen() : child;
 }
 
 /// Takes the 6-digit code shown on the TV — typed, or read from the QR link
@@ -46,12 +46,10 @@ class _PairScreenState extends ConsumerState<PairScreen> {
       _error = null;
     });
     try {
-      final token = await ref
-          .read(tvApiProvider)
-          .pair(code, _name.text.trim());
+      await ref.read(tvApiProvider).pair(code, _name.text.trim());
       if (!mounted) return;
-      ref.read(authTokenProvider.notifier).set(token);
-      // Reconnect now that requests carry the token.
+      ref.read(pairingNeededProvider.notifier).paired();
+      // Reconnect now that the browser has the session cookie.
       ref.invalidate(tvStateProvider);
     } on Object catch (e) {
       if (mounted) setState(() => _error = '$e');

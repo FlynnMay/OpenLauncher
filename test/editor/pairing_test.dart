@@ -6,22 +6,24 @@ import 'package:http/testing.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
 void main() {
-  testWidgets('a token the TV refuses brings back the pairing screen', (
+  testWidgets('a session the TV refuses brings up the pairing screen', (
     tester,
   ) async {
+    final sent = <http.BaseRequest>[];
     final container = ProviderContainer(
       overrides: [
         tvApiProvider.overrideWith(
           (ref) => TvApi(
-            client: MockClient((_) async => http.Response('', 401)),
-            token: () => ref.read(authTokenProvider),
-            unpaired: () => ref.read(authTokenProvider.notifier).set(null),
+            client: MockClient((request) async {
+              sent.add(request);
+              return http.Response('', 401);
+            }),
+            onRefused: () => ref.read(pairingNeededProvider.notifier).refused(),
           ),
         ),
       ],
     );
     addTearDown(container.dispose);
-    container.read(authTokenProvider.notifier).set('revoked');
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -43,7 +45,20 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byType(PairScreen), findsOneWidget);
-    expect(container.read(authTokenProvider), isNull);
     expect(container.read(tvStateProvider).error, isA<NeedsPairing>());
+    // Not retried: only pairing can fix it.
+    expect(sent, hasLength(1));
+    expect(
+      sent.single.headers,
+      containsPair('x-requested-with', 'openlauncher'),
+    );
+  });
+
+  test('a QR link with a code starts on the pairing screen', () {
+    final container = ProviderContainer(
+      overrides: [initialPairCodeProvider.overrideWithValue('123456')],
+    );
+    addTearDown(container.dispose);
+    expect(container.read(pairingNeededProvider), isTrue);
   });
 }

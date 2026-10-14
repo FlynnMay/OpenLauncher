@@ -95,7 +95,7 @@ void main() {
     api = container.listen(configApiProvider, (_, _) {}).read();
     // Pair a device so the tests can reach the API, as a browser would.
     final auth = container.read(authProvider);
-    token = (await auth.pair(auth.code, 'test'))['token']! as String;
+    token = (await auth.pair(auth.pairing.value, 'test'))!.token;
     addTearDown(() async {
       container.dispose();
       await tmp.delete(recursive: true);
@@ -109,7 +109,8 @@ void main() {
           method,
           Uri.parse('http://localhost$path'),
           headers: {
-            'authorization': 'Bearer $token',
+            'cookie': '${Authenticator.cookie}=$token',
+            Authenticator.writeHeader: 'test',
             if (body is Map) 'content-type': 'application/json',
           },
           body: body is Map ? jsonEncode(body) : body,
@@ -892,7 +893,7 @@ void main() {
         Request(
           'GET',
           Uri.parse('http://localhost/api/media/$id'),
-          headers: {'range': value, 'authorization': 'Bearer $token'},
+          headers: {'range': value, 'cookie': '${Authenticator.cookie}=$token'},
         ),
       );
       Future<List<int>> bytes(Response r) => r.read().expand((b) => b).toList();
@@ -1057,7 +1058,7 @@ void main() {
     final client = HttpClient();
     addTearDown(client.close);
     final request = await client.get('127.0.0.1', server.port, '/api/state');
-    request.headers.set('authorization', 'Bearer $token');
+    request.headers.set('cookie', '${Authenticator.cookie}=$token');
     final response = await request.close();
     expect(response.statusCode, 200);
     final state = jsonDecode(await response.transform(utf8.decoder).join());
@@ -1068,7 +1069,9 @@ void main() {
   });
 
   group('pairing', () {
-    // A request without the shared [call]'s token or host.
+    final session = '${Authenticator.cookie}=';
+
+    // A request without the shared [call]'s session or host.
     Future<Response> raw(
       String method,
       String path, {
@@ -1084,37 +1087,49 @@ void main() {
       ),
     );
 
-    test('the API refuses a request with no token', () async {
-      expect((await raw('GET', '/api/state')).statusCode, 401);
-      expect(
-        (await raw(
+    Future<Response> pair(String code) => raw(
+      'POST',
+      '/api/pair',
+      headers: {
+        Authenticator.writeHeader: 'test',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({'code': code, 'label': 'phone'}),
+    );
+
+    test(
+      'the API refuses a request with no session, and clears a bad one',
+      () async {
+        expect((await raw('GET', '/api/state')).statusCode, 401);
+        final bad = await raw(
           'GET',
           '/api/state',
-          headers: {'authorization': 'Bearer not-a-real-token'},
-        )).statusCode,
-        401,
-      );
-    });
+          headers: {'cookie': '${session}not-a-real-token'},
+        );
+        expect(bad.statusCode, 401);
+        expect(bad.headers['set-cookie'], contains('Max-Age=0'));
+      },
+    );
 
     test('the API refuses a request to another host', () async {
       final response = await raw(
         'GET',
         '/api/state',
         host: 'attacker.example',
-        headers: {'authorization': 'Bearer $token'},
+        headers: {'cookie': '$session$token'},
       );
       expect(response.statusCode, 403);
     });
 
-    test('a GET may carry the token as a query, for image loads', () async {
+    test('a token in the query is not accepted', () async {
       final response = await raw(
         'GET',
         '/api/state?t=${Uri.encodeQueryComponent(token)}',
       );
-      expect(response.statusCode, 200);
+      expect(response.statusCode, 401);
     });
 
-    test('the editor page itself loads without a token', () async {
+    test('the editor page itself loads without a session', () async {
       // Not served in tests (no bundle), but the guard must let it through
       // rather than answer 401/403.
       final status = (await raw('GET', '/')).statusCode;
@@ -1122,58 +1137,96 @@ void main() {
       expect(status, isNot(403));
     });
 
-    test('a JSON route refuses another content type', () async {
+    test('a write without the editor header is refused', () async {
       final response = await raw(
         'PUT',
         '/api/config',
         headers: {
-          'authorization': 'Bearer $token',
-          'content-type': 'text/plain',
+          'cookie': '$session$token',
+          'content-type': 'application/json',
         },
         body: jsonEncode({'names': <String, String>{}}),
       );
-      expect(response.statusCode, 400);
+      expect(response.statusCode, 403);
+    });
+
+    test('a write from another origin is refused', () async {
+      final response = await raw(
+        'PUT',
+        '/api/config',
+        headers: {
+          'cookie': '$session$token',
+          Authenticator.writeHeader: 'test',
+          'origin': 'http://attacker.example',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({'names': <String, String>{}}),
+      );
+      expect(response.statusCode, 403);
+    });
+
+    test('a write from the TV\'s own page is let through', () async {
+      final response = await raw(
+        'PUT',
+        '/api/config',
+        headers: {
+          'cookie': '$session$token',
+          Authenticator.writeHeader: 'test',
+          'origin': 'http://localhost',
+          'content-type': 'application/json',
+        },
+        body: jsonEncode({'names': <String, String>{}}),
+      );
+      expect(response.statusCode, 200);
     });
 
     test('the wrong code is refused', () async {
-      final response = await raw(
-        'POST',
-        '/api/pair',
-        headers: {'content-type': 'application/json'},
-        body: jsonEncode({'code': 'nope', 'label': 'phone'}),
-      );
-      expect(response.statusCode, 401);
+      expect((await pair('nope')).statusCode, 403);
     });
 
-    test('the right code pairs a usable device', () async {
-      final code = container.read(authProvider).code;
-      final paired = await raw(
-        'POST',
-        '/api/pair',
-        headers: {'content-type': 'application/json'},
-        body: jsonEncode({'code': code, 'label': 'phone'}),
-      );
+    test('the right code sets a usable session cookie', () async {
+      final paired = await pair(container.read(authProvider).pairing.value);
       expect(paired.statusCode, 200);
-      final fresh =
-          jsonDecode(await paired.readAsString())['token'] as String;
+      final cookie = paired.headers['set-cookie']!;
+      expect(cookie, contains('HttpOnly'));
+      expect(cookie, contains('SameSite=Strict'));
+      // The token is in the cookie only, out of reach of the page's scripts.
+      expect(await paired.readAsString(), isNot(contains('token')));
       final used = await raw(
         'GET',
         '/api/state',
-        headers: {'authorization': 'Bearer $fresh'},
+        headers: {'cookie': cookie.split(';').first},
       );
       expect(used.statusCode, 200);
     });
 
     test('a device can be listed and revoked', () async {
-      final listed = jsonDecode(
-        await (await call('GET', '/api/devices')).readAsString(),
-      )['devices'] as List;
+      final listed =
+          jsonDecode(
+                await (await call('GET', '/api/devices')).readAsString(),
+              )['devices']
+              as List;
       expect(listed, hasLength(1));
       expect(listed.first['label'], 'test');
 
       await call('DELETE', '/api/devices?id=${listed.first['id']}');
-      // The token that was revoked no longer works.
+      // The session that was revoked no longer works.
       expect((await call('GET', '/api/state')).statusCode, 401);
+    });
+
+    test('revoking a device ends its open event stream', () async {
+      final events = await call('GET', '/api/events');
+      expect(events.statusCode, 200);
+      var ended = false;
+      final reading = events.read().listen(null, onDone: () => ended = true);
+      addTearDown(reading.cancel);
+      await pumpEventQueue();
+      expect(ended, isFalse);
+
+      final id = (await container.read(authProvider).devices()).first['id'];
+      await container.read(authProvider).revoke(id! as String);
+      await pumpEventQueue();
+      expect(ended, isTrue);
     });
   });
 }
