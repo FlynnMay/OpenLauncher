@@ -46,33 +46,49 @@ class RemoteConfigDialog extends ConsumerWidget {
   }
 }
 
-/// The QR, address and live pairing code.
-class _Pairing extends ConsumerWidget {
+/// The QR, address and live pairing code. Pairing is open only while this
+/// is on screen.
+class _Pairing extends ConsumerStatefulWidget {
   const _Pairing({required this.url});
 
   final Uri url;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Pairing> createState() => _PairingState();
+}
+
+class _PairingState extends ConsumerState<_Pairing> {
+  late final PairingCode _pairing = ref.read(pairingProvider)..open();
+
+  @override
+  void dispose() {
+    _pairing.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pairing = ref.watch(pairingProvider);
     return ValueListenableBuilder(
-      valueListenable: pairing.listenable,
+      valueListenable: _pairing.listenable,
       builder: (context, code, _) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             color: Colors.white,
             padding: const EdgeInsets.all(8),
-            child: QrImageView(data: pairing.link(url).toString(), size: 180),
+            child: QrImageView(
+              data: _pairing.link(widget.url).toString(),
+              size: 180,
+            ),
           ),
           const SizedBox(height: 16),
-          Text('$url', style: theme.textTheme.titleMedium),
+          Text('${widget.url}', style: theme.textTheme.titleMedium),
           const SizedBox(height: 12),
           Text('Pairing code', style: theme.textTheme.bodySmall),
           Text(
             // Shown in two groups of three, easier to read.
-            '${code.substring(0, 3)} ${code.substring(3)}',
+            code == null ? '' : '${code.substring(0, 3)} ${code.substring(3)}',
             style: theme.textTheme.headlineMedium?.copyWith(letterSpacing: 4),
           ),
           const SizedBox(height: 8),

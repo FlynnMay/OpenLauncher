@@ -18,36 +18,75 @@ final pairingProvider = Provider<PairingCode>(
   (ref) => ref.watch(authProvider).pairing,
 );
 
-/// The 6-digit code a browser trades for a session. Good for one pairing;
-/// rotated after it and after too many wrong tries.
+/// What became of a pairing attempt.
+enum PairAttempt { paired, wrong, closed, locked }
+
+/// A pairing attempt that did not pair, and why.
+class PairRefused implements Exception {
+  const PairRefused(this.why);
+
+  final PairAttempt why;
+}
+
+/// The 6-digit code a browser trades for a session. It exists only while the
+/// TV shows it ([open] to [close]), is good for one pairing, and too many
+/// wrong tries lock pairing for a while, doubling each time.
 class PairingCode {
-  PairingCode() {
-    _rotate();
-  }
+  PairingCode({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
   static const _maxFails = 5;
+  static const _firstLock = Duration(seconds: 30);
+  static const _longestLock = Duration(minutes: 15);
 
+  final DateTime Function() _clock;
   final _random = Random.secure();
-  final _code = ValueNotifier<String>('000000');
+  final _code = ValueNotifier<String?>(null);
   int _fails = 0;
+  int _locks = 0;
+  DateTime? _lockedUntil;
 
-  String get value => _code.value;
+  /// The code on show, or null while pairing is closed.
+  String? get value => _code.value;
 
   /// For a widget that shows the code live.
-  ValueListenable<String> get listenable => _code;
+  ValueListenable<String?> get listenable => _code;
+
+  /// How long pairing stays locked; zero when it is not.
+  Duration get lockedFor {
+    final until = _lockedUntil;
+    if (until == null) return Duration.zero;
+    final left = until.difference(_clock());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  /// Opens pairing with a fresh code, for as long as the TV shows it.
+  void open() => _rotate();
+
+  void close() => _code.value = null;
 
   /// [base] with the code in the fragment, which browsers do not send to the
   /// server, so it stays out of logs.
   Uri link(Uri base) => base.replace(fragment: 'pair=${_code.value}');
 
-  /// Whether [code] is the current one; either way a match rotates it.
-  bool take(String code) {
-    if (!_same(code.trim(), _code.value)) {
-      if (++_fails >= _maxFails) _rotate();
-      return false;
+  /// Checks [code]; a match rotates it so it pairs only once.
+  PairAttempt take(String code) {
+    final current = _code.value;
+    if (current == null) return PairAttempt.closed;
+    if (lockedFor > Duration.zero) return PairAttempt.locked;
+    if (!_same(code.trim(), current)) {
+      if (++_fails >= _maxFails) _lock();
+      return PairAttempt.wrong;
     }
+    _locks = 0;
     _rotate();
-    return true;
+    return PairAttempt.paired;
+  }
+
+  void _lock() {
+    final lock = _firstLock * (1 << _locks.clamp(0, 10));
+    _lockedUntil = _clock().add(lock > _longestLock ? _longestLock : lock);
+    _locks++;
+    _rotate();
   }
 
   void _rotate() {
@@ -64,10 +103,11 @@ class PairingCode {
 /// hash. Writes must also carry [writeHeader] and, if the browser sends one,
 /// an `Origin` that is the TV, so no other site can make them.
 class Authenticator {
-  Authenticator(this._store);
+  Authenticator(this._store, {DateTime Function()? clock})
+    : pairing = PairingCode(clock: clock);
 
   final AuthStore _store;
-  final pairing = PairingCode();
+  final PairingCode pairing;
   final _random = Random.secure();
   final _revoked = StreamController<String>.broadcast();
 
@@ -136,13 +176,14 @@ class Authenticator {
   }
 
   /// Trusts a new device called [label] if [code] is the pairing code, and
-  /// returns its session token, or null if the code is wrong.
-  Future<({String token, TrustedDevice device})?> pair(
+  /// returns its session token; throws [PairRefused] otherwise.
+  Future<({String token, TrustedDevice device})> pair(
     String code,
     String label,
   ) async {
     await _ensureLoaded();
-    if (!pairing.take(code)) return null;
+    final attempt = pairing.take(code);
+    if (attempt != PairAttempt.paired) throw PairRefused(attempt);
     final token = _bytes(32);
     final now = DateTime.now();
     final device = TrustedDevice(
@@ -168,12 +209,23 @@ class Authenticator {
   Future<Response> _pair(Request request) async {
     final body = jsonDecode(await request.readAsString());
     if (body is! Map) throw const FormatException('Expected a JSON object');
-    final paired = await pair(
-      '${body['code'] ?? ''}',
-      '${body['label'] ?? ''}',
-    );
-    if (paired == null) {
-      return _refuse(403, 'That code is not right. Check the TV.');
+    final ({String token, TrustedDevice device}) paired;
+    try {
+      paired = await pair('${body['code'] ?? ''}', '${body['label'] ?? ''}');
+    } on PairRefused catch (e) {
+      final wait = pairing.lockedFor.inSeconds + 1;
+      return switch (e.why) {
+        PairAttempt.locked => _refuse(
+          429,
+          'Too many wrong codes. Try again in $wait seconds.',
+          retryAfter: wait,
+        ),
+        PairAttempt.closed => _refuse(
+          403,
+          'Pairing is closed. On the TV, open "Customise from your phone".',
+        ),
+        _ => _refuse(403, 'That code is not right. Check the TV.'),
+      };
     }
     return Response.ok(
       jsonEncode({'device': paired.device.forEditor()}),
@@ -293,12 +345,20 @@ class Authenticator {
     return hosts;
   }
 
-  static Response _refuse(int status, String message, {String? cookie}) =>
-      Response(
-        status,
-        body: jsonEncode({'error': message}),
-        headers: {..._json, 'set-cookie': ?cookie},
-      );
+  static Response _refuse(
+    int status,
+    String message, {
+    String? cookie,
+    int? retryAfter,
+  }) => Response(
+    status,
+    body: jsonEncode({'error': message}),
+    headers: {
+      ..._json,
+      'set-cookie': ?cookie,
+      if (retryAfter != null) 'retry-after': '$retryAfter',
+    },
+  );
 
   static String _hash(String token) =>
       sha256.convert(utf8.encode(token)).toString();

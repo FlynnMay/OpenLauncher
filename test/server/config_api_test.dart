@@ -95,7 +95,8 @@ void main() {
     api = container.listen(configApiProvider, (_, _) {}).read();
     // Pair a device so the tests can reach the API, as a browser would.
     final auth = container.read(authProvider);
-    token = (await auth.pair(auth.pairing.value, 'test'))!.token;
+    auth.pairing.open();
+    token = (await auth.pair(auth.pairing.value!, 'test')).token;
     addTearDown(() async {
       container.dispose();
       await tmp.delete(recursive: true);
@@ -1184,8 +1185,27 @@ void main() {
       expect((await pair('nope')).statusCode, 403);
     });
 
+    test('pairing is refused while the TV is not showing a code', () async {
+      final pairing = container.read(authProvider).pairing;
+      final code = pairing.value!;
+      pairing.close();
+      final response = await pair(code);
+      expect(response.statusCode, 403);
+      expect(await response.readAsString(), contains('closed'));
+    });
+
+    test('too many wrong codes lock pairing, even for the right one', () async {
+      final pairing = container.read(authProvider).pairing;
+      for (var i = 0; i < 5; i++) {
+        expect((await pair('nope')).statusCode, 403);
+      }
+      final locked = await pair(pairing.value!);
+      expect(locked.statusCode, 429);
+      expect(int.parse(locked.headers['retry-after']!), greaterThan(0));
+    });
+
     test('the right code sets a usable session cookie', () async {
-      final paired = await pair(container.read(authProvider).pairing.value);
+      final paired = await pair(container.read(authProvider).pairing.value!);
       expect(paired.statusCode, 200);
       final cookie = paired.headers['set-cookie']!;
       expect(cookie, contains('HttpOnly'));
