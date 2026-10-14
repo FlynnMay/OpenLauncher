@@ -12,6 +12,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// A primitive component as the catalogue offers it.
@@ -60,18 +61,46 @@ class TvState {
   final UpdateState update;
 }
 
-final tvApiProvider = Provider<TvApi>((ref) => TvApi());
+final tvApiProvider = Provider<TvApi>(
+  (ref) => TvApi(
+    token: () => ref.read(authTokenProvider),
+    unpaired: () => ref.read(authTokenProvider.notifier).set(null),
+  ),
+);
 
 /// The TV's state, updated on every change.
 final tvStateProvider = StreamProvider<TvState>(
   (ref) => ref.watch(tvApiProvider).states(),
+  // Retrying cannot fix a refused token; pairing can.
+  retry: (count, error) => error is NeedsPairing
+      ? null
+      : ProviderContainer.defaultRetry(count, error),
 );
 
 /// The TV's HTTP API, at this page's origin.
 class TvApi {
-  TvApi({http.Client? client}) : _client = client ?? http.Client();
+  TvApi({
+    http.Client? client,
+    String? Function()? token,
+    this._unpaired,
+  }) : _client = client ?? http.Client(),
+       _token = token ?? _noToken;
 
   final http.Client _client;
+
+  /// The paired session token, read fresh each request.
+  final String? Function() _token;
+
+  static String? _noToken() => null;
+
+  /// Called when the TV refuses the token, so a stale one is dropped.
+  final void Function()? _unpaired;
+
+  Never _needsPairing() {
+    _unpaired?.call();
+    throw const NeedsPairing();
+  }
+
   final _base = Uri.base;
 
   /// Line art by URL; the URL changes with the drawing.
@@ -79,7 +108,22 @@ class TvApi {
 
   Uri _at(String path) => _base.resolve(path);
 
-  String _mediaUrl(String id) => _at('/api/media/$id').toString();
+  /// The token as a header, for the API calls the editor makes itself.
+  Map<String, String> get _auth {
+    final token = _token();
+    return token == null ? const {} : {'authorization': 'Bearer $token'};
+  }
+
+  /// The token as a query, for URLs a browser loads on its own (an `<img>`
+  /// cannot carry a header).
+  String _tokened(String url) {
+    final token = _token();
+    if (token == null) return url;
+    final sep = url.contains('?') ? '&' : '?';
+    return '$url${sep}t=${Uri.encodeQueryComponent(token)}';
+  }
+
+  String _mediaUrl(String id) => _tokened(_at('/api/media/$id').toString());
 
   static String _mediaId(String url) => Uri.parse(url).pathSegments.last;
 
@@ -90,8 +134,9 @@ class TvApi {
     while (true) {
       try {
         final response = await _client.send(
-          http.Request('GET', _at('/api/events')),
+          http.Request('GET', _at('/api/events'))..headers.addAll(_auth),
         );
+        if (response.statusCode == 401) _needsPairing();
         if (response.statusCode != 200) {
           throw Exception('The TV answered ${response.statusCode}');
         }
@@ -103,6 +148,8 @@ class TvApi {
           yield await _state(jsonDecode(line.substring(6)) as Map);
           reached = true;
         }
+      } on NeedsPairing {
+        rethrow;
       } on Object {
         if (!reached) rethrow;
       }
@@ -168,7 +215,7 @@ class TvApi {
           title: playing['title'] as String?,
           artist: playing['artist'] as String?,
           artPath: switch (playing['art']) {
-            final String art => _at(art).toString(),
+            final String art => _tokened(_at(art).toString()),
             _ => null,
           },
           playing: playing['playing'] == true,
@@ -188,9 +235,9 @@ class TvApi {
       Entity.icon: entity.data[Entity.shape] == Entity.lineArt
           ? await _drawings.putIfAbsent(
               icon,
-              () async => (await _client.get(_at(icon))).body,
+              () async => (await _client.get(_at(icon), headers: _auth)).body,
             )
-          : _at(icon).toString(),
+          : _tokened(_at(icon).toString()),
     });
   }
 
@@ -207,15 +254,48 @@ class TvApi {
   }
 
   Future<Object?> _ask(String method, String path, [Object? body]) async {
-    final request = http.Request(method, _at(path));
-    if (body != null) request.body = jsonEncode(body);
+    final request = http.Request(method, _at(path))..headers.addAll(_auth);
+    if (body != null) {
+      request.headers['content-type'] = 'application/json; charset=utf-8';
+      request.body = jsonEncode(body);
+    }
+    final response = await http.Response.fromStream(
+      await _client.send(request),
+    );
+    final text = utf8.decode(response.bodyBytes);
+    if (response.statusCode == 401) _needsPairing();
+    if (response.statusCode != 200) throw _refused(response.statusCode, text);
+    return jsonDecode(text);
+  }
+
+  /// Pairs this browser with the TV using the 6-digit [code]; returns the
+  /// session token. The body carries [label] to name the device in the TV's
+  /// trusted list.
+  Future<String> pair(String code, String label) async {
+    // Posted without the auth header, as there is none yet.
+    final request = http.Request('POST', _at('/api/pair'))
+      ..headers['content-type'] = 'application/json; charset=utf-8'
+      ..body = jsonEncode({'code': code, 'label': label});
     final response = await http.Response.fromStream(
       await _client.send(request),
     );
     final text = utf8.decode(response.bodyBytes);
     if (response.statusCode != 200) throw _refused(response.statusCode, text);
-    return jsonDecode(text);
+    return (jsonDecode(text) as Map)['token'] as String;
   }
+
+  /// The devices trusted by the TV.
+  Future<List<Map<String, Object?>>> devices() async {
+    final reply = await _ask('GET', '/api/devices') as Map;
+    return [
+      for (final device in reply['devices'] as List)
+        (device as Map).cast<String, Object?>(),
+    ];
+  }
+
+  /// Stops the TV trusting device [id].
+  Future<void> revoke(String id) =>
+      _ask('DELETE', '/api/devices${_id(id)}');
 
   static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
 
@@ -240,7 +320,13 @@ class TvApi {
   Future<String> upload(PickedFile file, {bool wallpaper = false}) async {
     final reply = await file.send(
       'POST',
-      _at('/api/media?as=${wallpaper ? 'wallpaper' : 'picture'}'),
+      Uri.parse(
+        _tokened(
+          _at(
+            '/api/media?as=${wallpaper ? 'wallpaper' : 'picture'}',
+          ).toString(),
+        ),
+      ),
     );
     if (reply.status != 200) throw _refused(reply.status, reply.body);
     return _mediaUrl((jsonDecode(reply.body) as Map)['id'] as String);
@@ -266,13 +352,19 @@ class TvApi {
 
   /// A file of [pack] on the TV; null if it has none at [path].
   Future<Uint8List?> packFile(Pack pack, String path) async {
-    final reply = await _client.get(_at('/api/packs/${pack.id}/$path'));
+    final reply = await _client.get(
+      _at('/api/packs/${pack.id}/$path'),
+      headers: _auth,
+    );
     return reply.statusCode == 200 ? reply.bodyBytes : null;
   }
 
   /// Installs the pack in [file] (a `.zip`) and returns its id.
   Future<String> installPack(PickedFile file) async {
-    final reply = await file.send('POST', _at('/api/packs'));
+    final reply = await file.send(
+      'POST',
+      Uri.parse(_tokened(_at('/api/packs').toString())),
+    );
     if (reply.status != 200) throw _refused(reply.status, reply.body);
     return (jsonDecode(reply.body) as Map)['id'] as String;
   }

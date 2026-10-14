@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/server/auth.dart';
 import 'package:openlauncher/server/config_server.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -9,7 +10,8 @@ final _configUrlProvider = FutureProvider.autoDispose<Uri?>((ref) async {
   return server?.url();
 });
 
-/// Shows the editor's address and QR code.
+/// Shows the editor's address, the pairing code and a QR code that carries
+/// the code so a scan pairs on its own.
 class RemoteConfigDialog extends ConsumerWidget {
   const RemoteConfigDialog({super.key});
 
@@ -18,30 +20,11 @@ class RemoteConfigDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final url = ref.watch(_configUrlProvider);
     return AlertDialog(
       title: const Text('Customise from your phone'),
       content: switch (url) {
-        AsyncData(value: final url?) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(8),
-              child: QrImageView(data: url.toString(), size: 180),
-            ),
-            const SizedBox(height: 16),
-            Text('$url', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              'Scan the code or type the address on a device\n'
-              'connected to the same network.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
+        AsyncData(value: final url?) => _Pairing(url: url),
         AsyncData() => const Text(
           'The config page is unavailable. Check that the TV is connected '
           'to your network.',
@@ -59,6 +42,51 @@ class RemoteConfigDialog extends ConsumerWidget {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+/// The QR, address and live pairing code.
+class _Pairing extends ConsumerWidget {
+  const _Pairing({required this.url});
+
+  final Uri url;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final auth = ref.watch(authProvider);
+    return ValueListenableBuilder(
+      valueListenable: auth.codeListenable,
+      builder: (context, code, _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(8),
+            child: QrImageView(
+              data: auth.pairingUri(url).toString(),
+              size: 180,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('$url', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Text('Pairing code', style: theme.textTheme.bodySmall),
+          Text(
+            // Shown in two groups of three, easier to read.
+            '${code.substring(0, 3)} ${code.substring(3)}',
+            style: theme.textTheme.headlineMedium?.copyWith(letterSpacing: 4),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'On a device on the same network, scan the code or go to the\n'
+            'address and enter the pairing code.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
     );
   }
 }

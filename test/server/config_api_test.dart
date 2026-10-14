@@ -15,6 +15,8 @@ import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher/server/auth.dart';
+import 'package:openlauncher/server/auth_store.dart';
 import 'package:openlauncher/server/config_api.dart';
 import 'package:openlauncher/server/config_server.dart';
 import 'package:openlauncher/server/media_store.dart';
@@ -40,6 +42,7 @@ void main() {
   late Directory tmp;
   late ProviderContainer container;
   late ConfigApi api;
+  late String token;
   final fetched = <Uri>[];
 
   setUp(() async {
@@ -48,6 +51,7 @@ void main() {
     container = ProviderContainer(
       overrides: [
         configStoreProvider.overrideWithValue(store),
+        authStoreProvider.overrideWithValue(MemoryAuthStore()),
         launcherPlatformProvider.overrideWithValue(
           FakeLauncherPlatform(
             [
@@ -89,17 +93,25 @@ void main() {
     );
     // Listened to, as it is in the app, so it keeps following state changes.
     api = container.listen(configApiProvider, (_, _) {}).read();
+    // Pair a device so the tests can reach the API, as a browser would.
+    final auth = container.read(authProvider);
+    token = (await auth.pair(auth.code, 'test'))['token']! as String;
     addTearDown(() async {
       container.dispose();
       await tmp.delete(recursive: true);
     });
   });
 
+  // localhost is one of the TV's own addresses, so the host check passes.
   Future<Response> call(String method, String path, {Object? body}) =>
       api.handle(
         Request(
           method,
-          Uri.parse('http://tv$path'),
+          Uri.parse('http://localhost$path'),
+          headers: {
+            'authorization': 'Bearer $token',
+            if (body is Map) 'content-type': 'application/json',
+          },
           body: body is Map ? jsonEncode(body) : body,
         ),
       );
@@ -879,8 +891,8 @@ void main() {
       Future<Response> range(String value) => api.handle(
         Request(
           'GET',
-          Uri.parse('http://tv/api/media/$id'),
-          headers: {'range': value},
+          Uri.parse('http://localhost/api/media/$id'),
+          headers: {'range': value, 'authorization': 'Bearer $token'},
         ),
       );
       Future<List<int>> bytes(Response r) => r.read().expand((b) => b).toList();
@@ -1045,6 +1057,7 @@ void main() {
     final client = HttpClient();
     addTearDown(client.close);
     final request = await client.get('127.0.0.1', server.port, '/api/state');
+    request.headers.set('authorization', 'Bearer $token');
     final response = await request.close();
     expect(response.statusCode, 200);
     final state = jsonDecode(await response.transform(utf8.decoder).join());
@@ -1052,5 +1065,115 @@ void main() {
     // of: the clock, the weather, the place, the media player, the system,
     // the layers, the variables and the layout.
     expect(state['entities'], hasLength(13));
+  });
+
+  group('pairing', () {
+    // A request without the shared [call]'s token or host.
+    Future<Response> raw(
+      String method,
+      String path, {
+      String host = 'localhost',
+      Map<String, String> headers = const {},
+      Object? body,
+    }) => api.handle(
+      Request(
+        method,
+        Uri.parse('http://$host$path'),
+        headers: headers,
+        body: body,
+      ),
+    );
+
+    test('the API refuses a request with no token', () async {
+      expect((await raw('GET', '/api/state')).statusCode, 401);
+      expect(
+        (await raw(
+          'GET',
+          '/api/state',
+          headers: {'authorization': 'Bearer not-a-real-token'},
+        )).statusCode,
+        401,
+      );
+    });
+
+    test('the API refuses a request to another host', () async {
+      final response = await raw(
+        'GET',
+        '/api/state',
+        host: 'attacker.example',
+        headers: {'authorization': 'Bearer $token'},
+      );
+      expect(response.statusCode, 403);
+    });
+
+    test('a GET may carry the token as a query, for image loads', () async {
+      final response = await raw(
+        'GET',
+        '/api/state?t=${Uri.encodeQueryComponent(token)}',
+      );
+      expect(response.statusCode, 200);
+    });
+
+    test('the editor page itself loads without a token', () async {
+      // Not served in tests (no bundle), but the guard must let it through
+      // rather than answer 401/403.
+      final status = (await raw('GET', '/')).statusCode;
+      expect(status, isNot(401));
+      expect(status, isNot(403));
+    });
+
+    test('a JSON route refuses another content type', () async {
+      final response = await raw(
+        'PUT',
+        '/api/config',
+        headers: {
+          'authorization': 'Bearer $token',
+          'content-type': 'text/plain',
+        },
+        body: jsonEncode({'names': <String, String>{}}),
+      );
+      expect(response.statusCode, 400);
+    });
+
+    test('the wrong code is refused', () async {
+      final response = await raw(
+        'POST',
+        '/api/pair',
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'code': 'nope', 'label': 'phone'}),
+      );
+      expect(response.statusCode, 401);
+    });
+
+    test('the right code pairs a usable device', () async {
+      final code = container.read(authProvider).code;
+      final paired = await raw(
+        'POST',
+        '/api/pair',
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'code': code, 'label': 'phone'}),
+      );
+      expect(paired.statusCode, 200);
+      final fresh =
+          jsonDecode(await paired.readAsString())['token'] as String;
+      final used = await raw(
+        'GET',
+        '/api/state',
+        headers: {'authorization': 'Bearer $fresh'},
+      );
+      expect(used.statusCode, 200);
+    });
+
+    test('a device can be listed and revoked', () async {
+      final listed = jsonDecode(
+        await (await call('GET', '/api/devices')).readAsString(),
+      )['devices'] as List;
+      expect(listed, hasLength(1));
+      expect(listed.first['label'], 'test');
+
+      await call('DELETE', '/api/devices?id=${listed.first['id']}');
+      // The token that was revoked no longer works.
+      expect((await call('GET', '/api/state')).statusCode, 401);
+    });
   });
 }

@@ -1,5 +1,6 @@
 export 'access_note.dart';
 export 'component_settings.dart';
+export 'devices_settings.dart';
 export 'dock_settings.dart';
 export 'pane_settings.dart';
 export 'picture_settings.dart';

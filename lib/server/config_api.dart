@@ -10,6 +10,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/server/auth.dart';
 import 'package:openlauncher/server/config_page_state.dart';
 import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/media_store.dart';
@@ -52,9 +53,13 @@ class ConfigApi {
 
   Future<Response> handle(Request request) async {
     try {
+      final blocked = await _ref.read(authProvider).guard(request);
+      if (blocked != null) return blocked;
       return await _route(request);
     } on FormatException catch (e) {
       return _error(400, e.message);
+    } on AuthRefused catch (e) {
+      return _error(e.status, e.message);
     } on MediaRefused catch (e) {
       return _error(e.status, e.message);
     } on PackRefused catch (e) {
@@ -85,6 +90,9 @@ class ConfigApi {
         headers: _json,
       ),
       ('GET', 'api/events') => _events(),
+      ('POST', 'api/pair') => _pair(await _body(request)),
+      ('GET', 'api/devices') => _devices(),
+      ('DELETE', 'api/devices') => _revoke(id),
       ('PUT', 'api/layout') => _setLayout(await _body(request)),
       ('PUT', 'api/config') => _setConfig(await _body(request)),
       ('GET', 'api/feed') => _feedValue(id),
@@ -132,9 +140,35 @@ class ConfigApi {
       Response(status, body: jsonEncode({'error': message}), headers: _json);
 
   Future<Map<String, Object?>> _body(Request request) async {
+    // A browser can only send another site's content type without a preflight
+    // check, so requiring JSON keeps a hostile page from reaching these.
+    final type = request.headers['content-type'] ?? '';
+    if (!type.toLowerCase().contains('application/json')) {
+      throw const FormatException('Expected application/json');
+    }
     final decoded = jsonDecode(await request.readAsString());
     if (decoded is Map<String, Object?>) return decoded;
     throw const FormatException('Expected a JSON object');
+  }
+
+  /// Trusts a new device if the body's `code` matches the TV's, and answers
+  /// its `token`.
+  Future<Response> _pair(Map<String, Object?> body) async {
+    final result = await _ref
+        .read(authProvider)
+        .pair('${body['code'] ?? ''}', '${body['label'] ?? ''}');
+    return Response.ok(jsonEncode(result), headers: _json);
+  }
+
+  Future<Response> _devices() async => Response.ok(
+    jsonEncode({'devices': await _ref.read(authProvider).devices()}),
+    headers: _json,
+  );
+
+  Future<Response> _revoke(String? id) async {
+    if (id == null) throw const FormatException('"id" must name a device');
+    await _ref.read(authProvider).revoke(id);
+    return _ok();
   }
 
   /// Runs [action] if [id] is an existing entity.
