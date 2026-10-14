@@ -12,6 +12,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// A primitive component as the catalogue offers it.
@@ -60,18 +61,28 @@ class TvState {
   final UpdateState update;
 }
 
-final tvApiProvider = Provider<TvApi>((ref) => TvApi());
+final tvApiProvider = Provider<TvApi>(
+  (ref) => TvApi(
+    onRefused: () => ref.read(pairingNeededProvider.notifier).refused(),
+  ),
+);
 
 /// The TV's state, updated on every change.
 final tvStateProvider = StreamProvider<TvState>(
   (ref) => ref.watch(tvApiProvider).states(),
+  // Retrying cannot fix a refused session; pairing can.
+  retry: (count, error) => error is NeedsPairing
+      ? null
+      : ProviderContainer.defaultRetry(count, error),
 );
 
 /// The TV's HTTP API, at this page's origin.
 class TvApi {
-  TvApi({http.Client? client}) : _client = client ?? http.Client();
+  TvApi({http.Client? client, void Function()? onRefused})
+    : _client = SessionClient(client ?? http.Client(), onRefused: onRefused);
 
-  final http.Client _client;
+  final SessionClient _client;
+
   final _base = Uri.base;
 
   /// Line art by URL; the URL changes with the drawing.
@@ -103,6 +114,8 @@ class TvApi {
           yield await _state(jsonDecode(line.substring(6)) as Map);
           reached = true;
         }
+      } on NeedsPairing {
+        rethrow;
       } on Object {
         if (!reached) rethrow;
       }
@@ -208,7 +221,10 @@ class TvApi {
 
   Future<Object?> _ask(String method, String path, [Object? body]) async {
     final request = http.Request(method, _at(path));
-    if (body != null) request.body = jsonEncode(body);
+    if (body != null) {
+      request.headers['content-type'] = 'application/json; charset=utf-8';
+      request.body = jsonEncode(body);
+    }
     final response = await http.Response.fromStream(
       await _client.send(request),
     );
@@ -216,6 +232,20 @@ class TvApi {
     if (response.statusCode != 200) throw _refused(response.statusCode, text);
     return jsonDecode(text);
   }
+
+  /// The TV answers with a session cookie.
+  Future<void> pair(String code, String label) =>
+      _ask('POST', '/api/pair', {'code': code, 'label': label});
+
+  Future<List<Map<String, Object?>>> devices() async {
+    final reply = await _ask('GET', '/api/devices') as Map;
+    return [
+      for (final device in reply['devices'] as List)
+        (device as Map).cast<String, Object?>(),
+    ];
+  }
+
+  Future<void> revoke(String id) => _ask('DELETE', '/api/devices${_id(id)}');
 
   static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
 
@@ -238,12 +268,11 @@ class TvApi {
   /// Uploads [file] and returns its URL; nothing points at it until the
   /// config does.
   Future<String> upload(PickedFile file, {bool wallpaper = false}) async {
-    final reply = await file.send(
-      'POST',
-      _at('/api/media?as=${wallpaper ? 'wallpaper' : 'picture'}'),
+    final reply = await _sendFile(
+      file,
+      '/api/media?as=${wallpaper ? 'wallpaper' : 'picture'}',
     );
-    if (reply.status != 200) throw _refused(reply.status, reply.body);
-    return _mediaUrl((jsonDecode(reply.body) as Map)['id'] as String);
+    return _mediaUrl(reply['id'] as String);
   }
 
   /// Every uploaded file, newest first.
@@ -272,9 +301,20 @@ class TvApi {
 
   /// Installs the pack in [file] (a `.zip`) and returns its id.
   Future<String> installPack(PickedFile file) async {
-    final reply = await file.send('POST', _at('/api/packs'));
+    final reply = await _sendFile(file, '/api/packs');
+    return reply['id'] as String;
+  }
+
+  /// Streamed by the browser from disk, so not through [_client].
+  Future<Map<Object?, Object?>> _sendFile(PickedFile file, String path) async {
+    final reply = await file.send(
+      'POST',
+      _at(path),
+      headers: SessionClient.headers,
+    );
+    _client.check(reply.status);
     if (reply.status != 200) throw _refused(reply.status, reply.body);
-    return (jsonDecode(reply.body) as Map)['id'] as String;
+    return jsonDecode(reply.body) as Map;
   }
 
   /// Removes a pack nothing uses.

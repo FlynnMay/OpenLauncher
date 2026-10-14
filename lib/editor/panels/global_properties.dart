@@ -86,6 +86,7 @@ class GlobalProperties extends ConsumerWidget {
           ),
         ]),
         const UpdateSettings(),
+        const DevicesSettings(),
       ],
     );
   }

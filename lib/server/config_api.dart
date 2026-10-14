@@ -10,6 +10,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/server/auth.dart';
 import 'package:openlauncher/server/config_page_state.dart';
 import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/media_store.dart';
@@ -50,7 +51,24 @@ class ConfigApi {
 
   void _dispose() => _states.close();
 
-  Future<Response> handle(Request request) async {
+  Future<Response> handle(Request request) async => _handler(request);
+
+  late final Handler _handler = () {
+    final auth = _ref.read(authProvider);
+    final api = const Pipeline()
+        .addMiddleware(auth.sessions)
+        .addHandler(_serve);
+    return const Pipeline()
+        .addMiddleware(auth.hostCheck)
+        .addHandler(
+          (request) =>
+              request.method == 'GET' && EditorFiles.owns(request.url.path)
+              ? EditorFiles.serve(request)
+              : api(request),
+        );
+  }();
+
+  Future<Response> _serve(Request request) async {
     try {
       return await _route(request);
     } on FormatException catch (e) {
@@ -65,9 +83,6 @@ class ConfigApi {
   Future<Response> _route(Request request) async {
     final id = request.url.queryParameters['id'];
     final path = request.url.path;
-    if (request.method == 'GET' && EditorFiles.owns(path)) {
-      return EditorFiles.serve(request);
-    }
     if (request.method == 'GET' && path.startsWith(_media)) {
       final file = await _ref
           .read(mediaStoreProvider)

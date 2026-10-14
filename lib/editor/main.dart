@@ -10,8 +10,12 @@ import 'package:openlauncher/editor/tv/tv.dart';
 // The web editor: the launcher itself running in the browser against the TV's
 // data (tv_link.dart), plus editing tools. Built by tool/build_editor.sh.
 
-void main() =>
-    runApp(ProviderScope(overrides: tvOverrides, child: const EditorApp()));
+void main() => runApp(
+  ProviderScope(
+    overrides: [...tvOverrides, ...authOverrides()],
+    child: const EditorApp(),
+  ),
+);
 
 class EditorApp extends StatelessWidget {
   const EditorApp({super.key});
@@ -23,7 +27,7 @@ class EditorApp extends StatelessWidget {
     theme: ThemeData(
       colorScheme: .fromSeed(seedColor: Colors.indigo, brightness: .dark),
     ),
-    home: const EditorScreen(),
+    home: const AuthGate(child: EditorScreen()),
   );
 }
 
