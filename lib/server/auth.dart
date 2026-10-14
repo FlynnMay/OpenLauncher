@@ -13,24 +13,20 @@ final authProvider = Provider<Authenticator>(
   (ref) => Authenticator(ref.watch(authStoreProvider)),
 );
 
-/// The code the TV shows for pairing.
 final pairingProvider = Provider<PairingCode>(
   (ref) => ref.watch(authProvider).pairing,
 );
 
-/// What became of a pairing attempt.
 enum PairAttempt { paired, wrong, closed, locked }
 
-/// A pairing attempt that did not pair, and why.
 class PairRefused implements Exception {
   const PairRefused(this.why);
 
   final PairAttempt why;
 }
 
-/// The 6-digit code a browser trades for a session. It exists only while the
-/// TV shows it ([open] to [close]), is good for one pairing, and too many
-/// wrong tries lock pairing for a while, doubling each time.
+/// Exists only between [open] and [close]; 5 wrong tries lock pairing,
+/// doubling each time.
 class PairingCode {
   PairingCode({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
@@ -45,13 +41,11 @@ class PairingCode {
   int _locks = 0;
   DateTime? _lockedUntil;
 
-  /// The code on show, or null while pairing is closed.
+  /// Null while pairing is closed.
   String? get value => _code.value;
 
-  /// For a widget that shows the code live.
   ValueListenable<String?> get listenable => _code;
 
-  /// How long pairing stays locked; zero when it is not.
   Duration get lockedFor {
     final until = _lockedUntil;
     if (until == null) return Duration.zero;
@@ -59,16 +53,14 @@ class PairingCode {
     return left.isNegative ? Duration.zero : left;
   }
 
-  /// Opens pairing with a fresh code, for as long as the TV shows it.
   void open() => _rotate();
 
   void close() => _code.value = null;
 
-  /// [base] with the code in the fragment, which browsers do not send to the
-  /// server, so it stays out of logs.
+  /// In the fragment, which browsers never send, so it stays out of logs.
   Uri link(Uri base) => base.replace(fragment: 'pair=${_code.value}');
 
-  /// Checks [code]; a match rotates it so it pairs only once.
+  /// A match rotates the code, so it pairs once.
   PairAttempt take(String code) {
     final current = _code.value;
     if (current == null) return PairAttempt.closed;
@@ -95,13 +87,8 @@ class PairingCode {
   }
 }
 
-/// Guards the web API with two middlewares: [hostCheck] for every request
-/// and [sessions] for the API.
-///
-/// A browser pairs by posting the TV's code to `api/pair` and is given a
-/// session cookie (`HttpOnly`, `SameSite=Strict`), kept on the TV only as its
-/// hash. Writes must also carry [writeHeader] and, if the browser sends one,
-/// an `Origin` that is the TV, so no other site can make them.
+/// Cookie sessions for the web API: [hostCheck] on every request, [sessions]
+/// on the API.
 class Authenticator {
   Authenticator(this._store, {DateTime Function()? clock})
     : pairing = PairingCode(clock: clock);
@@ -113,15 +100,14 @@ class Authenticator {
 
   static const cookie = 'openlauncher_session';
 
-  /// A header another site's page cannot add without the TV agreeing to it
-  /// first (a CORS preflight, which the TV never answers).
+  /// Required on writes: another site cannot send it without a CORS
+  /// preflight, which the TV never answers.
   static const writeHeader = 'x-requested-with';
 
   /// Browsers cap cookies at 400 days.
   static const _cookieAge = Duration(days: 400);
 
-  /// A device's last-seen time is only rewritten this far apart, to spare a
-  /// disk write on every request.
+  /// Throttles last-seen disk writes.
   static const _touchEvery = Duration(minutes: 5);
 
   static const _json = {'content-type': 'application/json; charset=utf-8'};
@@ -130,16 +116,14 @@ class Authenticator {
   Future<void>? _loading;
   Set<String>? _hosts;
 
-  /// Refuses a request whose `Host` is not one of the TV's addresses, which
-  /// stops a remote site reaching the TV by DNS rebinding.
+  /// Refuses a `Host` that is not the TV's own, against DNS rebinding.
   Middleware get hostCheck =>
       (inner) =>
           (request) async => await _hostAllowed(request)
           ? inner(request)
           : _refuse(403, 'This address is not the TV.');
 
-  /// Pairs, lists and revokes devices, and lets through only requests with a
-  /// trusted session. A revoked device's open event streams are closed.
+  /// Owns `api/pair` and `api/devices`; everything else needs a session.
   Middleware get sessions =>
       (inner) => (request) async {
         if (!_safe(request.method) && !_fromEditor(request)) {
@@ -169,14 +153,13 @@ class Authenticator {
         }
       };
 
-  /// The trusted devices, newest first, without their token hashes.
+  /// Newest first, without token hashes.
   Future<List<Map<String, Object?>>> devices() async {
     await _ensureLoaded();
     return [for (final device in _devices!.reversed) device.forEditor()];
   }
 
-  /// Trusts a new device called [label] if [code] is the pairing code, and
-  /// returns its session token; throws [PairRefused] otherwise.
+  /// Throws [PairRefused] unless [code] is the pairing code.
   Future<({String token, TrustedDevice device})> pair(
     String code,
     String label,
@@ -198,7 +181,7 @@ class Authenticator {
     return (token: token, device: device);
   }
 
-  /// Stops trusting device [id] and closes its open streams.
+  /// Also ends the device's open event streams.
   Future<void> revoke(String id) async {
     await _ensureLoaded();
     _devices!.removeWhere((device) => device.id == id);
@@ -260,8 +243,7 @@ class Authenticator {
     return _devices![at];
   }
 
-  /// An event stream ends when its device is revoked; other responses are
-  /// short and left alone.
+  /// Only event streams; other responses are short.
   Response _closedOnRevoke(Response response, String id) {
     if (!(response.mimeType?.startsWith('text/event-stream') ?? false)) {
       return response;
@@ -322,8 +304,7 @@ class Authenticator {
       '$cookie=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';
 
   Future<bool> _hostAllowed(Request request) async {
-    // Built from the Host header by the server, so this still refuses a name
-    // a remote site rebinds to the TV's address.
+    // From the Host header, so a name rebound to the TV's address is refused.
     final host = request.requestedUri.host;
     if (host.isEmpty) return false;
     if ((_hosts ??= await _ownHosts()).contains(host)) return true;
@@ -368,7 +349,7 @@ class Authenticator {
       .replaceAll('=', '');
 }
 
-/// Compares two strings without leaking how far they match.
+/// Constant-time compare.
 bool _same(String a, String b) {
   if (a.length != b.length) return false;
   var diff = 0;

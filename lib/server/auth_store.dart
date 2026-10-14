@@ -6,8 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-/// A browser that has paired with the TV. The session token is kept only as
-/// its SHA-256 hash, so a leak of the file cannot be replayed.
+/// A paired browser; only its token's hash is stored.
 @immutable
 class TrustedDevice {
   const TrustedDevice({
@@ -40,7 +39,7 @@ class TrustedDevice {
     'lastSeen': lastSeen.toIso8601String(),
   };
 
-  /// What the editor is shown: everything but the hash.
+  /// Without the hash.
   Map<String, Object?> forEditor() => {
     'id': id,
     'label': label,
@@ -72,8 +71,7 @@ class TrustedDevice {
   }
 }
 
-/// Where the trusted-device list is kept. Never served and never part of the
-/// editor-readable config.
+/// Never served, and not part of the config.
 abstract interface class AuthStore {
   Future<List<TrustedDevice>> load();
   Future<void> save(List<TrustedDevice> devices);
@@ -116,7 +114,7 @@ class FileAuthStore implements AuthStore {
   }
 }
 
-/// Keeps the list in memory only. Used in tests.
+/// For tests.
 class MemoryAuthStore implements AuthStore {
   List<TrustedDevice> _devices = const [];
 

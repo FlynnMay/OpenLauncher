@@ -233,12 +233,10 @@ class TvApi {
     return jsonDecode(text);
   }
 
-  /// Pairs this browser with the TV using the 6-digit [code]; the TV answers
-  /// with a session cookie. [label] names the device in its trusted list.
+  /// The TV answers with a session cookie.
   Future<void> pair(String code, String label) =>
       _ask('POST', '/api/pair', {'code': code, 'label': label});
 
-  /// The devices trusted by the TV.
   Future<List<Map<String, Object?>>> devices() async {
     final reply = await _ask('GET', '/api/devices') as Map;
     return [
@@ -247,7 +245,6 @@ class TvApi {
     ];
   }
 
-  /// Stops the TV trusting device [id].
   Future<void> revoke(String id) => _ask('DELETE', '/api/devices${_id(id)}');
 
   static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
@@ -308,7 +305,7 @@ class TvApi {
     return reply['id'] as String;
   }
 
-  /// Uploads [file] to [path], straight from the browser.
+  /// Streamed by the browser from disk, so not through [_client].
   Future<Map<Object?, Object?>> _sendFile(PickedFile file, String path) async {
     final reply = await file.send(
       'POST',

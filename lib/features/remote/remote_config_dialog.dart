@@ -10,8 +10,6 @@ final _configUrlProvider = FutureProvider.autoDispose<Uri?>((ref) async {
   return server?.url();
 });
 
-/// Shows the editor's address, the pairing code and a QR code that carries
-/// the code so a scan pairs on its own.
 class RemoteConfigDialog extends ConsumerWidget {
   const RemoteConfigDialog({super.key});
 
@@ -46,8 +44,7 @@ class RemoteConfigDialog extends ConsumerWidget {
   }
 }
 
-/// The QR, address and live pairing code. Pairing is open only while this
-/// is on screen.
+/// Pairing is open only while this is on screen.
 class _Pairing extends ConsumerStatefulWidget {
   const _Pairing({required this.url});
 
@@ -87,7 +84,6 @@ class _PairingState extends ConsumerState<_Pairing> {
           const SizedBox(height: 12),
           Text('Pairing code', style: theme.textTheme.bodySmall),
           Text(
-            // Shown in two groups of three, easier to read.
             code == null ? '' : '${code.substring(0, 3)} ${code.substring(3)}',
             style: theme.textTheme.headlineMedium?.copyWith(letterSpacing: 4),
           ),

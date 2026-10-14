@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
-/// The browsers the TV trusts, with a way to remove them. Removing one makes
-/// that browser pair again.
 final _devicesProvider = FutureProvider.autoDispose<List<_Device>>((ref) async {
   final raw = await ref.watch(tvApiProvider).devices();
   return [

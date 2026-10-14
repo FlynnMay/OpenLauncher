@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
 
-/// Shows the editor, or the pairing screen once the TV has refused this
-/// browser.
 class AuthGate extends ConsumerWidget {
   const AuthGate({required this.child, super.key});
 
@@ -16,8 +14,6 @@ class AuthGate extends ConsumerWidget {
       ref.watch(pairingNeededProvider) ? const PairScreen() : child;
 }
 
-/// Takes the 6-digit code shown on the TV — typed, or read from the QR link
-/// that opened the page — and pairs this browser.
 class PairScreen extends ConsumerStatefulWidget {
   const PairScreen({super.key});
 
@@ -49,7 +45,7 @@ class _PairScreenState extends ConsumerState<PairScreen> {
       await ref.read(tvApiProvider).pair(code, _name.text.trim());
       if (!mounted) return;
       ref.read(pairingNeededProvider.notifier).paired();
-      // Reconnect now that the browser has the session cookie.
+      // Reconnect with the new cookie.
       ref.invalidate(tvStateProvider);
     } on Object catch (e) {
       if (mounted) setState(() => _error = '$e');

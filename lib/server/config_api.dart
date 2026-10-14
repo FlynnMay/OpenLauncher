@@ -51,8 +51,6 @@ class ConfigApi {
 
   void _dispose() => _states.close();
 
-  /// Every request: the TV's own address only, then the editor's files, or
-  /// the API behind its sessions.
   Future<Response> handle(Request request) async => _handler(request);
 
   late final Handler _handler = () {
