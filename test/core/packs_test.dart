@@ -188,7 +188,7 @@ void main() {
               'mdi-pack/README.md': 'hello',
               'mdi-pack/../../escaped.json': '{}',
               'mdi-pack/fonts/../../../escaped.ttf': fontBytes,
-              'mdi-pack/prefabs/later.json': '{}',
+              'mdi-pack/scripts/later.js': 'run()',
             }),
           ),
         );

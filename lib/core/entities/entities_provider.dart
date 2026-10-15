@@ -59,14 +59,18 @@ class TvInputsNotifier extends _DeviceListNotifier<TvInput> {
 /// The entity registry: every entity there is, with the user's names and
 /// pictures applied, sorted by category then label.
 final entitiesProvider = FutureProvider<List<Entity>>((ref) async {
-  final config = await ref.watch(configProvider.future);
+  // Every watch before any wait: none may follow a rebuild.
+  final config = ref.watch(configProvider.future);
+  final made = Future.wait([
+    for (final generate in entityGenerators) generate(ref),
+  ]);
   final known = <String>{};
   return arrangeEntities([
-    for (final generate in entityGenerators)
-      for (final entity in await generate(ref))
+    for (final entities in await made)
+      for (final entity in entities)
         // The first with an id is the one.
         if (known.add(entity.id)) entity,
-  ], config);
+  ], await config);
 });
 
 /// The categories listed first, whatever order entities are made in.

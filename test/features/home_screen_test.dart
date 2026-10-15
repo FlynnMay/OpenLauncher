@@ -18,6 +18,8 @@ import 'package:openlauncher/features/home/pane_scrollbar.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
+import '../support/packs.dart';
+
 void main() {
   testWidgets('shows app entities and launches with the D-pad', (tester) async {
     final platform = FakeLauncherPlatform([
@@ -27,6 +29,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(platform),
           configServerProvider.overrideWith((ref) => null),
@@ -63,6 +66,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...packOverrides,
             configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
             launcherPlatformProvider.overrideWithValue(platform),
             configServerProvider.overrideWith((ref) => null),
@@ -1051,6 +1055,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...packOverrides,
             configStoreProvider.overrideWithValue(MemoryConfigStore()),
             launcherPlatformProvider.overrideWithValue(platform),
             configServerProvider.overrideWith((ref) => null),

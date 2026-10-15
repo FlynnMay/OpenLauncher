@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
@@ -289,9 +288,8 @@ class PictureComponent extends ConsumerWidget {
       borderRadius: styleShape(look, 6),
       child: Padding(
         padding: EdgeInsets.all(pad),
-        // SVG markup rather than a path.
-        child: source.startsWith('<')
-            ? SvgPicture.string(source, fit: BoxFit.contain)
+        child: source.startsWith('<') || !kIsWeb && source.endsWith('.svg')
+            ? svgPicture(source)
             : Image(
                 image: source.startsWith(RegExp('https?://'))
                     ? NetworkImage(source)

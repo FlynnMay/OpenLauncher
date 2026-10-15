@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
-/// `fonts/` and icon sets in `icons/`.
+/// `fonts/`, icon sets in `icons/`, pictures in `images/`, and JSON in
+/// `entities/`, `sources/`, `generators/` and `prefabs/`.
 @immutable
 class Pack {
   const Pack({
@@ -14,7 +15,7 @@ class Pack {
     this.licence = '',
     this.builtIn = false,
     this.bytes = 0,
-    this.iconSets = const [],
+    this.files = const [],
   });
 
   static final _id = RegExp(r'^[a-z0-9][a-z0-9_-]{0,39}$');
@@ -30,8 +31,18 @@ class Pack {
   /// Its size once unpacked.
   final int bytes;
 
+  /// What it holds besides `pack.json`, by path.
+  final List<String> files;
+
+  /// The names of the files in [folder], without extensions.
+  List<String> named(String folder) => [
+    for (final path in files)
+      if (path.startsWith('$folder/'))
+        path.substring(folder.length + 1, path.lastIndexOf('.')),
+  ];
+
   /// Ids of its icon sets: the files in `icons/`.
-  final List<String> iconSets;
+  List<String> get iconSets => named('icons');
 
   /// From `pack.json`, or as the editor is sent it.
   static Pack? fromJson(Object? json) {
@@ -52,10 +63,10 @@ class Pack {
           final num bytes => bytes.toInt(),
           _ => 0,
         },
-        iconSets: [
-          if (json['icons'] case final List<Object?> sets)
-            for (final set in sets)
-              if (validId(set)) set as String,
+        files: [
+          if (json['files'] case final List<Object?> files)
+            for (final file in files)
+              if (file is String) file,
         ],
       );
     }
@@ -70,10 +81,10 @@ class Pack {
     'licence': licence,
     'builtIn': builtIn,
     'bytes': bytes,
-    'icons': iconSets,
+    'files': files,
   };
 
-  Pack copyWith({bool? builtIn, int? bytes, List<String>? iconSets}) => Pack(
+  Pack copyWith({bool? builtIn, int? bytes, List<String>? files}) => Pack(
     id: id,
     name: name,
     version: version,
@@ -81,7 +92,7 @@ class Pack {
     licence: licence,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,
-    iconSets: iconSets ?? this.iconSets,
+    files: files ?? this.files,
   );
 
   /// How many times [saved] (a config as JSON) names an icon of this pack.
@@ -105,7 +116,7 @@ class Pack {
       other.licence == licence &&
       other.builtIn == builtIn &&
       other.bytes == bytes &&
-      listEquals(other.iconSets, iconSets);
+      listEquals(other.files, files);
 
   @override
   int get hashCode => Object.hash(id, version, bytes);

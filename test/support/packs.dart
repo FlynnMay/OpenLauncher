@@ -24,12 +24,18 @@ const materialPack = Pack(
   licence: 'Apache-2.0',
   builtIn: true,
   bytes: 2 << 20,
-  iconSets: ['material'],
+  files: ['fonts/material-symbols-outlined.ttf', 'icons/material.json'],
 );
 
-/// The Material pack installed, without touching the disk or the engine.
+/// The packs in `packs/` installed, read from there rather than through the
+/// pack store, and no font loaded.
 final List<Override> packOverrides = [
   packsProvider.overrideWith((ref) async => const [materialPack]),
+  // Read at once: real file reads never finish under a widget test's clock.
+  packReaderProvider.overrideWithValue((pack, path) async {
+    final file = File('packs/${pack.id}/$path');
+    return file.existsSync() ? file.readAsBytesSync() : null;
+  }),
   iconSetProvider.overrideWith(
     (ref, id) async => id == 'material' ? materialSet : null,
   ),

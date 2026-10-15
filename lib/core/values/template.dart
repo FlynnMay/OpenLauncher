@@ -58,7 +58,31 @@ class Template {
     for (final part in _parts)
       part is _Expr ? valueText(part.value(lookup)) : part,
   ].join();
+
+  /// Fills the slots that read only [roots] and leaves the rest as written;
+  /// a lone slot keeps its value's type.
+  Object? fill(Set<String> roots, Object? Function(String root) lookup) {
+    bool known(_Expr expr) => roots.containsAll(expr.roots);
+    if (_parts case [final _Expr only] when known(only)) {
+      return only.value(lookup);
+    }
+    return [
+      for (final part in _parts)
+        switch (part) {
+          final _Expr expr when known(expr) => valueText(expr.value(lookup)),
+          final _Expr expr => '{{${expr.source}}}',
+          _ => part,
+        },
+    ].join();
+  }
 }
+
+/// Whether a condition holds: not null, false, 0 or empty.
+bool isTruthy(Object? value) => switch (value) {
+  null || false || 0 || '' || 'false' => false,
+  final Map<Object?, Object?> parts => isTruthy(parts['text']),
+  _ => true,
+};
 
 /// A value as text: whole numbers without `.0`, a map by its `text`.
 String valueText(Object? value) => switch (value) {
@@ -86,7 +110,7 @@ Map<String, Object?> valuePaths(String root, Object? value) => switch (value) {
 
 /// One `{{...}}`: a value, a comparison, or a ternary.
 class _Expr {
-  const _Expr(this.left, [this.op, this.right, this.yes, this.no]);
+  const _Expr(this.source, this.left, [this.op, this.right, this.yes, this.no]);
 
   factory _Expr.parse(String source) {
     var condition = source;
@@ -106,6 +130,7 @@ class _Expr {
       final at = _outside(condition, op);
       if (at == -1) continue;
       return _Expr(
+        source,
         _Slot.parse(condition.substring(0, at)),
         op.trim(),
         _Slot.parse(condition.substring(at + op.length)),
@@ -113,9 +138,11 @@ class _Expr {
         no,
       );
     }
-    return _Expr(_Slot.parse(condition), null, null, yes, no);
+    return _Expr(source, _Slot.parse(condition), null, null, yes, no);
   }
 
+  /// As written between the braces.
+  final String source;
   final _Slot left;
   final String? op;
   final _Slot? right, yes, no;
@@ -141,12 +168,6 @@ class _Expr {
       if (slot.literal == null && slot.path.isNotEmpty) '${slot.path.first}',
   ];
 
-  static bool _truthy(Object? value) => switch (value) {
-    null || false || 0 || '' || 'false' => false,
-    final Map<Object?, Object?> parts => _truthy(parts['text']),
-    _ => true,
-  };
-
   bool _holds(Object? a, Object? b) {
     final x = _Slot._number(a), y = _Slot._number(b);
     final order = x != null && y != null
@@ -166,7 +187,7 @@ class _Expr {
     final first = left.value(lookup);
     if (op == null && yes == null) return first;
     final holds = op == null
-        ? _truthy(first)
+        ? isTruthy(first)
         : _holds(first, right!.value(lookup));
     if (yes == null) return holds;
     return (holds ? yes : no)!.value(lookup);

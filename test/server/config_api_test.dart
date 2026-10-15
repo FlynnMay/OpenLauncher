@@ -992,7 +992,7 @@ void main() {
         'licence': '',
         'builtIn': true,
         'bytes': isPositive,
-        'icons': ['core'],
+        'files': ['fonts/core.ttf', 'icons/core.json'],
       },
     ]);
 

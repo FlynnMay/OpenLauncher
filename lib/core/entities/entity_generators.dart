@@ -6,6 +6,7 @@ import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/entity_action.dart';
 import 'package:openlauncher/core/entities/input_artwork.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/sources/pack_entities.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Makes entities at runtime; re-run when what it watches changes.
@@ -14,10 +15,12 @@ typedef EntityGenerator = Future<List<Entity>> Function(Ref ref);
 /// Everything that makes up the entity list, in the order categories are
 /// listed. A new source of entities is one entry here.
 final List<EntityGenerator> entityGenerators = [
+  (ref) => ref.watch(packEntitiesProvider(true).future),
   inputEntities,
   appEntities,
   (ref) async => builtInEntities,
   layoutEntities,
+  (ref) => ref.watch(packEntitiesProvider(false).future),
   // The user's own: the only ones that are saved.
   (ref) => ref.watch(configProvider.selectAsync((config) => config.entities)),
 ];

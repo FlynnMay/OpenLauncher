@@ -22,7 +22,7 @@ const _mdi = Pack(
   version: '7',
   author: 'Someone',
   bytes: 3 << 20,
-  iconSets: ['mdi'],
+  files: ['fonts/mdi.ttf', 'icons/mdi.json'],
 );
 
 final _mdiSet = IconSet.fromJson('mdi', {

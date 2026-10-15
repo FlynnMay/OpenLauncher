@@ -35,7 +35,7 @@ class EntityArt extends StatelessWidget {
     );
     final path = entity.data[Entity.icon];
     if (path is! String) return fallback;
-    if (isBare(entity)) return SvgPicture.string(path, fit: BoxFit.contain);
+    if (isBare(entity)) return svgPicture(path);
     final wide = entity.data[Entity.shape] == Entity.banner;
     final image = Image(
       image: pictureAt(path),

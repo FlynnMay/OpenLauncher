@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
-import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/style/style.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
@@ -105,10 +104,15 @@ class Prefab {
     return copyWith(root: walk(root));
   }
 
+  static final _id = RegExp(r'^([a-z0-9][a-z0-9_-]*:)?[a-z0-9]+(-[a-z0-9]+)*$');
+
+  /// A slug, or a pack's: `<pack>:<slug>`.
+  static bool validId(String id) => _id.hasMatch(id);
+
   static Prefab? fromJson(Object? json) {
     if (json
         case {'id': final String id, 'root': final Map<Object?, Object?> root}
-        when id.isNotEmpty && id == slugOf(id, '')) {
+        when validId(id)) {
       try {
         return Prefab(
           id: id,
