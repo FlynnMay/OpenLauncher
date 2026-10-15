@@ -416,6 +416,14 @@ void main() {
         );
         expect(operation.onDevice, operation.name.startsWith('os://'));
       }
+      expect(Operation.areaOf('os://apps/launch'), 'os://apps');
+      final registry = c.read(operationsRegistryProvider);
+      expect(registry.areas, containsAll(['os://apps', 'launcher://layers']));
+      expect(registry.inArea('launcher://layers').map((one) => one.name), [
+        'launcher://layers/new',
+        'launcher://layers/raise',
+        'launcher://layers/close',
+      ]);
     });
 
     test('an act may call an address itself', () async {

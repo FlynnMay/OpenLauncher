@@ -30,6 +30,15 @@ class OperationsRegistry {
   Operation? operator [](String name) => _byName[name];
 
   Iterable<Operation> get all => _byName.values;
+
+  /// The areas there are, in the order their operations were added.
+  Iterable<String> get areas => {for (final operation in all) operation.area};
+
+  /// What is at [area], e.g. `launcher://layers`.
+  List<Operation> inArea(String area) => [
+    for (final operation in all)
+      if (operation.area == area) operation,
+  ];
 }
 
 /// The managers the registry is built from. A new group of operations is one

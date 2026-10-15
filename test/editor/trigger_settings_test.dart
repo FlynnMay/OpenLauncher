@@ -220,31 +220,63 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an act that calls an address shows what is there', (
+  testWidgets('an area of the launcher or the TV, then what is there', (
     tester,
   ) async {
     await show(
       tester,
       set: const {
-        Trigger.press: [
-          Act('launcher://layers/new', {'blur': 8}),
-          Act('os://nothing/here'),
-        ],
+        Trigger.press: [Act('os://nothing/here')],
       },
     );
-    expect(find.text('Create a new layer'), findsOneWidget);
-    expect(find.text('launcher://layers/new'), findsOneWidget);
     expect(
       find.text('There is nothing at "os://nothing/here".'),
       findsOneWidget,
     );
-    // What it is told, as the operation lets it be.
-    expect(find.text('blur'), findsOneWidget);
+    await tester.tap(find.byTooltip('Remove action'));
+    await tester.pumpAndSettle();
+    expect(on, isEmpty);
 
-    await tester.tap(find.byTooltip('Remove action').last);
+    await choose(tester, find.text('Add trigger'), 'On press');
+    await tester.tap(find.byType(SearchBox));
+    await tester.pumpAndSettle();
+    expect(find.text('Launcher'), findsOneWidget);
+    expect(find.text('Device'), findsOneWidget);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(SearchBox),
+        matching: find.byType(TextField),
+      ),
+      'layers',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('launcher://layers').last);
+    await tester.pumpAndSettle();
+    // The area's first operation, then any of the others there.
+    expect(on[Trigger.press], [const Act('launcher://layers/new')]);
+    await choose(
+      tester,
+      find.text('Create a new layer'),
+      'Move a component to the top layer',
+    );
+    expect(on[Trigger.press], [const Act('launcher://layers/raise')]);
+    expect(find.text('of (component ID)'), findsOneWidget);
+
+    // Aimed at an entity, it is that entity's action again.
+    await tester.tap(find.byType(SearchBox));
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(SearchBox),
+        matching: find.byType(TextField),
+      ),
+      'Media',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Media Player').last);
     await tester.pumpAndSettle();
     expect(on[Trigger.press], [
-      const Act('launcher://layers/new', {'blur': 8}),
+      const Act('playPause', {'entity': 'media'}),
     ]);
+    expect(tester.takeException(), isNull);
   });
 }

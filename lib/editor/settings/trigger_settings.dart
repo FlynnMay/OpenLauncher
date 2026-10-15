@@ -8,7 +8,7 @@ import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 
 /// Action chains per trigger. An act is an entity and one of that entity's
-/// actions; chains equal to [defaults] are not stored.
+/// actions, or an address; chains equal to [defaults] are not stored.
 class TriggerSettings extends ConsumerStatefulWidget {
   const TriggerSettings({
     super.key,
@@ -87,11 +87,14 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       'Custom': where((entity) => entity.category == userCategory),
       'Inputs': where((entity) => entity.category == inputCategory),
       'Apps': where((entity) => entity.category == appCategory),
+      'Launcher': _areas(Operation.launcher),
+      'Device': _areas(Operation.device),
     };
     for (final trigger in widget.triggers) {
       for (final act in _acts(trigger)) {
         final target = act.arg(entityArg);
-        if (target == null ||
+        if (act.isAddress ||
+            target == null ||
             groups.values.any((choices) => choices.containsKey(target))) {
           continue;
         }
@@ -100,6 +103,36 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       }
     }
     return groups;
+  }
+
+  /// The areas of addresses starting [scheme], shown as written.
+  Map<String, String> _areas(String scheme) => {
+    for (final area in ref.watch(operationsRegistryProvider).areas)
+      if (area.startsWith(scheme)) area: area,
+  };
+
+  /// [from] aimed at [target], an entity or an area: the same action or
+  /// operation where it has one, else its first. Null if it has none.
+  Act? _aimed(String target, Act? from, List<Entity> entities) {
+    if (target.contains('://')) {
+      final there = ref.read(operationsRegistryProvider).inArea(target);
+      if (there.isEmpty) return null;
+      final operation =
+          there.where((one) => one.name == from?.name).firstOrNull ??
+          there.first;
+      return Act(operation.name, {
+        for (final MapEntry(:key, :value) in from?.args.entries ?? const [])
+          if (operation.args.containsKey(key)) key: value,
+      });
+    }
+    final offered = actionsOf(_entityOf(target), entities);
+    if (offered.isEmpty) return null;
+    final name = offered.containsKey(from?.name)
+        ? from!.name
+        : offered.keys.first;
+    return from == null || from.isAddress
+        ? Act(name, {entityArg: target})
+        : retargeted(from, target, name, offered[name]);
   }
 
   Widget _remove(String tooltip, VoidCallback onPressed) => IconButton(
@@ -165,7 +198,8 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
     ),
   );
 
-  /// One saved act: its entity, that entity's action, and the arguments.
+  /// One saved act: its entity and that entity's action, or an area and the
+  /// operation there; then its arguments.
   Widget _row(
     Trigger trigger,
     int index,
@@ -178,10 +212,24 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       for (final (i, one) in acts.indexed)
         if (i != index) one else ?next,
     ]);
-    if (act.isAddress) return _address(act, put);
-    final target = act.arg(entityArg);
-    final actions = actionsOf(_entityOf(target), entities);
-    final action = actions[act.name];
+    final registry = ref.watch(operationsRegistryProvider);
+    final target = act.isAddress
+        ? Operation.areaOf(act.name)
+        : act.arg(entityArg);
+    final actions = act.isAddress
+        ? const <String, EntityAction>{}
+        : actionsOf(_entityOf(target), entities);
+    // What the second box offers, and what the chosen one is told.
+    final offered = act.isAddress
+        ? {for (final one in registry.inArea(target!)) one.name: one.label}
+        : {
+            for (final MapEntry(key: name, value: action) in actions.entries)
+              name: action.label.isEmpty ? name : action.label,
+          };
+    final args = act.isAddress
+        ? registry[act.name]?.args
+        : actions[act.name]?.args;
+    final theme = Theme.of(context);
     return _act([
       _pair(
         SearchBox(
@@ -189,81 +237,49 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
           groups: targets,
           hint: 'Entity',
           onChanged: (next) {
-            final offered = actionsOf(_entityOf(next), entities);
-            if (offered.isEmpty) return;
-            // Keeps the action where the new entity has it too.
-            final name = offered.containsKey(act.name)
-                ? act.name
-                : offered.keys.first;
-            put(retargeted(act, next, name, offered[name]));
+            if (_aimed(next, act, entities) case final aimed?) put(aimed);
           },
         ),
         ChoiceBox<String>(
           value: act.name,
           hint: 'Action',
           choices: {
-            // Keeps a saved action the entity does not define.
-            if (action == null) act.name: act.name,
-            for (final MapEntry(key: name, value: action) in actions.entries)
-              name: action.label.isEmpty ? name : action.label,
+            // Keeps a saved one that is not there.
+            if (args == null) act.name: act.name,
+            ...offered,
           },
-          onChanged: (name) =>
-              put(retargeted(act, target ?? '', name, actions[name])),
+          onChanged: (name) => put(
+            act.isAddress
+                ? Act(name, {
+                    for (final MapEntry(:key, :value) in act.args.entries)
+                      if (registry[name]?.args.containsKey(key) ?? false)
+                        key: value,
+                  })
+                : retargeted(act, target ?? '', name, actions[name]),
+          ),
         ),
         () => put(null),
       ),
-      if (action == null)
+      if (args == null)
         Text(
-          'This entity has no action "${act.name}".',
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(color: Theme.of(context).colorScheme.error),
-        )
-      else if (action.args.isNotEmpty) ...[
-        const SizedBox(height: 8),
-        ...optionFields(
-          options: argOptions(action.args),
-          values: {
-            for (final MapEntry(:key, :value) in act.args.entries)
-              if (key != entityArg) key: value,
-          },
-          onChanged: (args) => put(Act(act.name, {entityArg: target, ...args})),
-        ),
-      ],
-    ]);
-  }
-
-  /// An act that calls an address: what is there, and what it is told.
-  Widget _address(Act act, void Function(Act? next) put) {
-    final operation = ref.watch(operationsRegistryProvider)[act.name];
-    final theme = Theme.of(context);
-    return _act([
-      Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(operation?.label ?? act.name),
-                Text(act.name, style: theme.textTheme.bodySmall),
-              ],
-            ),
-          ),
-          _remove('Remove action', () => put(null)),
-        ],
-      ),
-      if (operation == null)
-        Text(
-          'There is nothing at "${act.name}".',
+          act.isAddress
+              ? 'There is nothing at "${act.name}".'
+              : 'This entity has no action "${act.name}".',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.error,
           ),
         )
-      else if (operation.args.isNotEmpty) ...[
+      else if (args.isNotEmpty) ...[
         const SizedBox(height: 8),
         ...optionFields(
-          options: argOptions(operation.args),
-          values: act.args,
-          onChanged: (args) => put(Act(act.name, args)),
+          options: argOptions(args),
+          values: {
+            for (final MapEntry(:key, :value) in act.args.entries)
+              if (key != entityArg) key: value,
+          },
+          onChanged: (told) => put(
+            Act(act.name, {if (!act.isAddress) entityArg: target, ...told}),
+          ),
         ),
       ],
     ]);
@@ -282,13 +298,10 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
         groups: targets,
         hint: 'Entity',
         onChanged: (target) {
-          final offered = actionsOf(_entityOf(target), entities);
-          if (offered.isEmpty) return;
+          final aimed = _aimed(target, null, entities);
+          if (aimed == null) return;
           setState(() => _drafts.remove(trigger));
-          _change(trigger, [
-            ..._acts(trigger),
-            Act(offered.keys.first, {entityArg: target}),
-          ]);
+          _change(trigger, [..._acts(trigger), aimed]);
         },
       ),
       const ChoiceBox<String>(
