@@ -28,13 +28,15 @@ class _Tv extends TvApi {
 }
 
 const _entities = [
-  Entity(id: 'app:a', category: appCategory, label: 'Alpha'),
-  Entity(id: 'app:b', category: appCategory, label: 'Beta'),
+  Entity(id: 'system:app/a', category: appCategory, label: 'Alpha'),
+  Entity(id: 'system:app/b', category: appCategory, label: 'Beta'),
 ];
 
 TvState _state() => TvState(
   entities: _entities,
-  config: LauncherConfig(layout: Layout.initial(['app:a', 'app:b'])),
+  config: LauncherConfig(
+    layout: Layout.initial(['system:app/a', 'system:app/b']),
+  ),
   components: const [],
 );
 
@@ -66,16 +68,16 @@ void main() {
 
     test('a change is undone and redone, with what was selected', () async {
       final card = config().layout.items
-          .firstWhere((item) => item.handed.contains('app:a'))
+          .firstWhere((item) => item.handed.contains('system:app/a'))
           .id;
       container.read(selectionProvider.notifier).tap(card, adding: false);
-      await controller().setLayout(config().layout.without({'app:a'}));
+      await controller().setLayout(config().layout.without({'system:app/a'}));
       container.read(selectionProvider.notifier).clear();
-      expect(placed('app:a'), isFalse);
+      expect(placed('system:app/a'), isFalse);
       expect(moments().past, hasLength(1));
 
       await history().undo();
-      expect(placed('app:a'), isTrue);
+      expect(placed('system:app/a'), isTrue);
       expect(container.read(selectionProvider), {card});
       expect(moments().past, isEmpty);
       expect(moments().future, hasLength(1));
@@ -83,7 +85,7 @@ void main() {
       expect(tv.sent, ['layout', 'layout']);
 
       await history().redo();
-      expect(placed('app:a'), isFalse);
+      expect(placed('system:app/a'), isFalse);
       expect(container.read(selectionProvider), isEmpty);
       expect(moments().past, hasLength(1));
       expect(moments().future, isEmpty);
@@ -94,12 +96,12 @@ void main() {
     });
 
     test('a new change drops what could be redone', () async {
-      await controller().setLayout(config().layout.without({'app:a'}));
+      await controller().setLayout(config().layout.without({'system:app/a'}));
       await history().undo();
-      await controller().setLayout(config().layout.without({'app:b'}));
+      await controller().setLayout(config().layout.without({'system:app/b'}));
       expect(moments().future, isEmpty);
       await history().undo();
-      expect(placed('app:a') && placed('app:b'), isTrue);
+      expect(placed('system:app/a') && placed('system:app/b'), isTrue);
     });
 
     test('a save that changes nothing is not a step', () async {
@@ -109,9 +111,12 @@ void main() {
     });
 
     test('names, pictures and wallpapers are steps like any other', () async {
-      await controller().setName('app:a', 'Films');
+      await controller().setName('system:app/a', 'Films');
       await controller().setWallpapers(['http://tv/api/media/w-1.png']);
-      await controller().setIconOverride('app:a', 'http://tv/api/media/p.png');
+      await controller().setIconOverride(
+        'system:app/a',
+        'http://tv/api/media/p.png',
+      );
       expect(moments().past, hasLength(3));
 
       // Undoing past an upload only stops pointing at its file.
@@ -133,12 +138,12 @@ void main() {
     });
 
     test('the open prefab is part of the step', () async {
-      await controller().setName('app:a', 'Films');
-      container.read(prefabTrailProvider.notifier).open('app-card');
+      await controller().setName('system:app/a', 'Films');
+      container.read(prefabTrailProvider.notifier).open('system:app-card');
       await history().undo();
       expect(container.read(prefabTrailProvider), isEmpty);
       await history().redo();
-      expect(container.read(prefabTrailProvider).single.id, 'app-card');
+      expect(container.read(prefabTrailProvider).single.id, 'system:app-card');
     });
 
     test('only the newest steps are kept', () async {
@@ -150,7 +155,7 @@ void main() {
     });
 
     test('a step the TV refuses starts the history again', () async {
-      await controller().setLayout(config().layout.without({'app:a'}));
+      await controller().setLayout(config().layout.without({'system:app/a'}));
       tv.refuses = true;
       await expectLater(history().undo(), throwsException);
       expect(moments().past, isEmpty);
@@ -193,7 +198,7 @@ void main() {
         .value!
         .layout
         .items
-        .any((item) => item.handed.contains('app:a'));
+        .any((item) => item.handed.contains('system:app/a'));
     IconButton button(String tooltip) => tester.widget(
       find.widgetWithIcon(IconButton, switch (tooltip) {
         'undo' => Icons.undo,

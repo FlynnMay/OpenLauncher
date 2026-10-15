@@ -13,7 +13,7 @@ Component entity(
 }) => Component(
   id: id,
   prefab: cardPrefabId,
-  vars: {'source': Variable('app:$id', type: VarType.entity)},
+  vars: {'source': Variable('system:app/$id', type: VarType.entity)},
   w: w,
   h: h,
   x: x,
@@ -150,8 +150,13 @@ void main() {
     });
 
     test('an entity that is placed is no longer removed', () {
-      final layout = home(Component.pane(id: 'p'), removed: {'app:n', 'app:z'});
-      expect(dropItem(layout, entity('n'), const Drop('p')).removed, {'app:z'});
+      final layout = home(
+        Component.pane(id: 'p'),
+        removed: {'system:app/n', 'system:app/z'},
+      );
+      expect(dropItem(layout, entity('n'), const Drop('p')).removed, {
+        'system:app/z',
+      });
     });
 
     test('a new folder brings its pane with it, docked on the home layer', () {
@@ -239,7 +244,7 @@ void main() {
             const Component(
               id: 'again',
               prefab: cardPrefabId,
-              vars: {'source': Variable('app:a', type: VarType.entity)},
+              vars: {'source': Variable('system:app/a', type: VarType.entity)},
             ),
           ],
         ),
@@ -247,7 +252,7 @@ void main() {
       final once = removeItem(layout, 'a');
       expect(ids(once, 'p'), ['again']);
       expect(once.removed, isEmpty);
-      expect(removeItem(once, 'again').removed, {'app:a'});
+      expect(removeItem(once, 'again').removed, {'system:app/a'});
     });
 
     test('a pane goes with everything in it', () {
@@ -262,7 +267,7 @@ void main() {
       );
       final removed = removeItem(layout, 'inner');
       expect(ids(removed, 'p'), ['a']);
-      expect(removed.removed, {'app:b', 'app:c'});
+      expect(removed.removed, {'system:app/b', 'system:app/c'});
     });
   });
 
@@ -408,7 +413,9 @@ void main() {
               const Component(
                 id: 'a2',
                 prefab: cardPrefabId,
-                vars: {'source': Variable('app:a', type: VarType.entity)},
+                vars: {
+                  'source': Variable('system:app/a', type: VarType.entity),
+                },
               ),
             ],
           ),
@@ -419,7 +426,7 @@ void main() {
     expect(deleted.pane('f'), isNull);
     expect(ids(deleted, 'p'), ['a']);
     // Only what is now nowhere counts as removed.
-    expect(deleted.removed, {'app:b'});
+    expect(deleted.removed, {'system:app/b'});
     expect(removeItem(layout, 'nothing').toJson(), layout.toJson());
   });
 
@@ -432,13 +439,13 @@ void main() {
           const Component(
             id: 'again',
             prefab: cardPrefabId,
-            vars: {'source': Variable('app:a', type: VarType.entity)},
+            vars: {'source': Variable('system:app/a', type: VarType.entity)},
           ),
-          const Component(id: 'w', kind: 'clock'),
+          const Component(id: 'w', kind: 'system:clock'),
         ],
       ),
     );
-    expect(placedCounts(layout), {'app:a': 2});
+    expect(placedCounts(layout), {'system:app/a': 2});
   });
 
   group('sidebars from the catalogue', () {

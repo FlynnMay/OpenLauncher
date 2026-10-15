@@ -202,11 +202,104 @@ void main() {
       },
       {
         'run': 'launcher://layout/remove',
-        'with': {'layer': 'home', 'what': 'app:a'},
+        'with': {'layer': 'home', 'what': 'system:app/a'},
       },
-      {'do': 'access', 'entity': 'device', 'access': 'homeButton'},
+      {'do': 'access', 'entity': 'system:device', 'access': 'homeButton'},
       {'do': 'open', 'entity': '{{source.id}}'},
     ]);
+  });
+
+  test('2 to 3: what the launcher ships is named by the System pack', () {
+    final next = migrate(
+      {
+        'v': 2,
+        'names': {'app:a.b': 'Movies', 'mine': 'Mine'},
+        'iconOverrides': {'input:hw1': 'p.png', 'folder:games': 'g.png'},
+        'iconSources': {'app:a.b': 'input:hw1'},
+        'entities': [
+          {'id': 'mine', 'prefab': 'clock'},
+        ],
+        'prefabs': [
+          {
+            'id': 'weather',
+            'name': 'My weather',
+            'root': {
+              'id': 'w',
+              'kind': 'pane',
+              'vars': {
+                'source': {'value': 'weather', 'type': 'entity'},
+              },
+            },
+          },
+        ],
+        'layout': {
+          'v': 2,
+          'removed': ['app:gone', 'mine'],
+          'layers': [
+            {
+              'id': 'home',
+              'root': {
+                'id': 'root',
+                'kind': 'pane',
+                'options': {
+                  'prefabRules': {
+                    'app-card': {'variant': 'row'},
+                    'mine': {'variant': 'x'},
+                  },
+                },
+                'children': [
+                  {
+                    'id': 'settings',
+                    'prefab': 'app-card',
+                    'vars': {
+                      'source': {
+                        'value': 'launcher:settings',
+                        'type': 'entity',
+                      },
+                    },
+                  },
+                  {
+                    'id': 'note',
+                    'kind': 'text',
+                    'options': {
+                      'text':
+                          "{{clock.time}} {{media.playing ? 'clock' : mine.x}}",
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      steps: [migrations[1]],
+    );
+    expect(next['names'], {'system:app/a.b': 'Movies', 'mine': 'Mine'});
+    expect(next['iconOverrides'], {
+      'system:input/hw1': 'p.png',
+      'folder:games': 'g.png',
+    });
+    expect(next['iconSources'], {'system:app/a.b': 'system:input/hw1'});
+    expect((next['entities']! as List).single['prefab'], 'system:clock');
+    final prefab = (next['prefabs']! as List).single as Map;
+    // Their edit of the launcher's weather is still that weather, edited.
+    expect(prefab['id'], 'system:weather');
+    expect(prefab['root']['vars']['source']['value'], 'system:weather');
+    final layout = next['layout']! as Map;
+    expect(layout['removed'], ['system:app/gone', 'mine']);
+    final root = layout['layers'][0]['root'] as Map;
+    expect(root['options']['prefabRules'], {
+      'system:app-card': {'variant': 'row'},
+      'mine': {'variant': 'x'},
+    });
+    final [card, note] = root['children'] as List;
+    expect(card['prefab'], 'system:app-card');
+    expect(card['vars']['source']['value'], 'system:settings');
+    // Quoted text and the user's own are left as they are.
+    expect(
+      note['options']['text'],
+      "{{system:clock.time}} {{system:media.playing ? 'clock' : mine.x}}",
+    );
   });
 
   test('1 to 2: force stop and automatic setup are taken out', () {

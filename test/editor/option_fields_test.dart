@@ -126,10 +126,13 @@ void main() {
   test('variables go to their form and back as they were', () {
     final variables = {
       'count': const Variable(5),
-      'shown': const Variable('{{media.title}}', access: VarAccess.public),
+      'shown': const Variable(
+        '{{system:media.title}}',
+        access: VarAccess.public,
+      ),
       'icon': const Variable(
         null,
-        when: '{{weather.sky}}',
+        when: '{{system:weather.sky}}',
         cases: [VarCase(VarTest.equals, 'rain', 'umbrella')],
         otherwise: 'sun',
       ),

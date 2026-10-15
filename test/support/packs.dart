@@ -42,23 +42,19 @@ final systemPack = Pack(
   ]..sort(),
 );
 
-/// The System pack's prefabs, by file name: the app card first.
-final systemPrefabs = [
-  for (final file
-      in Directory('packs/system/prefabs').listSync().whereType<File>().toList()
-        ..sort((a, b) => a.path.compareTo(b.path)))
-    Prefab.fromJson(jsonDecode(file.readAsStringSync()))!,
-];
+/// The System pack's prefabs as the launcher reads them, by file name: the
+/// app card first.
+List<Prefab> get systemPrefabs => _systemContents.prefabs;
+
+final _systemContents = PackContents.parse(systemPack, {
+  for (final path in systemPack.files.where(PackContents.reads))
+    path: File('packs/system/$path').readAsStringSync(),
+});
 
 /// What the System pack holds, for the editor's tests, whose packs come
 /// from a stand-in TV.
 final systemContents = packContentsProvider.overrideWith(
-  (ref) async => [
-    PackContents.parse(systemPack, {
-      for (final path in systemPack.files.where(PackContents.reads))
-        path: File('packs/system/$path').readAsStringSync(),
-    }),
-  ],
+  (ref) async => [_systemContents],
 );
 
 /// The packs in `packs/` installed, read from there rather than through the

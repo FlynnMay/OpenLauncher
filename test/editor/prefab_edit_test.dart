@@ -245,7 +245,7 @@ void main() {
           })
           .copyWith(
             children: [
-              Component.of('app:a', id: 'a', prefab: 'tile', w: 2),
+              Component.of('system:app/a', id: 'a', prefab: 'tile', w: 2),
               const Component(
                 id: 'b',
                 prefab: 'tile',
@@ -272,7 +272,7 @@ void main() {
       (a.isInstance, a.isPane, a.mode, a.w),
       (false, true, PaneMode.column, 2),
     );
-    expect(a.handed, ['app:a']);
+    expect(a.handed, ['system:app/a']);
     expect(a.vars['tint']!.value, '#ff0000ff');
     // The pane's rule is baked in, and ids stay unique.
     expect(a.children.single.id, 'a-label-2');
@@ -340,7 +340,7 @@ void main() {
     final back = variablesFromForm(form);
     expect((back['a']!.exposed, back['b']!.exposed), (false, true));
     // The launcher's own computed ones are kept off instances.
-    final weather = prefabs['weather']!.root.vars;
+    final weather = prefabs['system:weather']!.root.vars;
     expect(
       {for (final entry in weather.entries) entry.key: entry.value.exposed},
       {'source': true, 'icon': false, 'summary': false},

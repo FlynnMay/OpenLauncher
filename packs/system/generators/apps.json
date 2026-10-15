@@ -1,7 +1,7 @@
 {
   "from": "apps",
   "entity": {
-    "id": "app:{{row.package}}",
+    "id": "app/{{row.package}}",
     "category": "app",
     "label": "{{row.label}}",
     "prefab": "app-card",

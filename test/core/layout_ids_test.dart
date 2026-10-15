@@ -22,7 +22,7 @@ void main() {
           root: Component.pane(
             id: 'home/root',
             children: [
-              _entity('youtube', 'app:yt'),
+              _entity('youtube', 'system:app/yt'),
               Component.pane(id: 'pane'),
               folderPane('games', title: 'Games'),
             ],
@@ -55,10 +55,14 @@ void main() {
 
   test('entities placed nowhere are named after what they are', () {
     final shown = Layout.initial().withEntities(
-      ['app:io.gh.reisxd.tizentube.cobalt', 'input:x/HW15', 'input:x/HW16'],
+      [
+        'system:app/io.gh.reisxd.tizentube.cobalt',
+        'system:input/x/HW15',
+        'system:input/x/HW16',
+      ],
       names: {
-        'app:io.gh.reisxd.tizentube.cobalt': 'YouTube',
-        'input:x/HW15': 'HDMI 1',
+        'system:app/io.gh.reisxd.tizentube.cobalt': 'YouTube',
+        'system:input/x/HW15': 'HDMI 1',
       },
     );
     expect(shown.items.where((i) => i.isInstance).map((i) => i.id), [

@@ -18,8 +18,12 @@ Component _item(
     ? Component.of(ref ?? id, id: id, w: w, h: h, x: x, y: y)
     : Component(id: id, kind: kind, w: w, h: h, x: x, y: y);
 
-Entity _entity(String name) =>
-    Entity(id: 'app:$name', category: appCategory, label: name, placed: true);
+Entity _entity(String name) => Entity(
+  id: 'system:app/$name',
+  category: appCategory,
+  label: name,
+  placed: true,
+);
 
 Layer _home(Component root) => Layer(id: 'home', root: root);
 
@@ -242,12 +246,12 @@ void main() {
         'global',
         mode: PaneMode.free,
         children: [
-          _item('loose', ref: 'app:a'),
+          _item('loose', ref: 'system:app/a'),
           pane(
             'outer',
             children: [
-              _item('in-outer', ref: 'app:b'),
-              pane('inner', children: [_item('in-inner', ref: 'app:c')]),
+              _item('in-outer', ref: 'system:app/b'),
+              pane('inner', children: [_item('in-inner', ref: 'system:app/c')]),
             ],
           ).sized(3, 2.5, x: 0.5, y: 1),
         ],
@@ -255,9 +259,9 @@ void main() {
       expect(root.panes.map((p) => p.id), ['global', 'outer', 'inner']);
       // An entity can sit in the global pane, outside every other.
       expect(root.contents.map((i) => i.handed.firstOrNull), [
-        'app:a',
-        'app:b',
-        'app:c',
+        'system:app/a',
+        'system:app/b',
+        'system:app/c',
       ]);
 
       final layout = Layout(inbox: 'inner', layers: [_home(root)]).normalised();
@@ -268,20 +272,25 @@ void main() {
       expect(Layout.fromJson(json).normalised().toJson(), json);
 
       // New entities turn up in the inbox, however deep it is.
-      final shown = layout.withEntities(['app:a', 'app:b', 'app:c', 'app:new']);
+      final shown = layout.withEntities([
+        'system:app/a',
+        'system:app/b',
+        'system:app/c',
+        'system:app/new',
+      ]);
       final inner = shown.pane('inner')!;
       expect(inner.children.map((i) => i.handed.firstOrNull), [
-        'app:c',
-        'app:new',
+        'system:app/c',
+        'system:app/new',
       ]);
       // Removing an entity takes it out of every pane.
       expect(
         shown
-            .without({'app:b', 'app:c'})
+            .without({'system:app/b', 'system:app/c'})
             .items
             .where((i) => i.isInstance)
             .map((i) => i.handed.firstOrNull),
-        ['app:a', 'app:new'],
+        ['system:app/a', 'system:app/new'],
       );
     });
 
@@ -289,7 +298,7 @@ void main() {
       Component nest(int depth) => pane(
         'p$depth',
         children: [
-          _item('entity$depth', ref: 'app:$depth'),
+          _item('entity$depth', ref: 'system:app/$depth'),
           if (depth < 6) nest(depth + 1),
         ],
       );
@@ -304,7 +313,7 @@ void main() {
               children: [
                 _item('a', w: 3),
                 // Something with a folder's id gives way to the folder.
-                _item('games', ref: 'app:x'),
+                _item('games', ref: 'system:app/x'),
                 pane('in-rail', children: [_item('b')]),
                 // A folder: docked, so off the cells of the pane it is in.
                 folderPane('games', title: 'Games')
@@ -357,7 +366,7 @@ void main() {
       // A docked pane starts the count again.
       expect(games.panes, hasLength(Component.maxDepth));
       expect(nested.contents.map((i) => i.handed.firstOrNull), [
-        for (var depth = 2; depth <= 6; depth++) 'app:$depth',
+        for (var depth = 2; depth <= 6; depth++) 'system:app/$depth',
       ]);
       final ids = layout.all.map((c) => c.id).toList();
       expect(ids.toSet(), hasLength(ids.length));
@@ -414,14 +423,14 @@ void main() {
 
   group('a new layout', () {
     test('a new home screen is one pane as tall as the screen', () {
-      final layout = Layout.initial(['app:b', 'app:gone'])
-          .withEntities(['app:a', 'app:b']);
+      final layout = Layout.initial(['system:app/b', 'system:app/gone'])
+          .withEntities(['system:app/a', 'system:app/b']);
       // The quick actions come after it.
       final [item, menu] = layout.home.root.children;
       expect(menu.id, Layout.menuId);
       expect(item.children.map((i) => i.handed.firstOrNull), [
-        'app:b',
-        'app:a',
+        'system:app/b',
+        'system:app/a',
       ]);
       expect(layout.inbox, item.id);
       // From under the top margin to the bottom one, on a 540-high screen.
@@ -454,7 +463,7 @@ void main() {
     expect((panes[2].spacingX, panes[2].spacingY), (0, 0));
     final json = layout.toJson();
     expect(Layout.fromJson(json).toJson(), json);
-    expect(layout.withEntities(['app:x']).home.root.spacing, 4);
+    expect(layout.withEntities(['system:app/x']).home.root.spacing, 4);
   });
 
   test('a pane keeps the padding it is given, within reason', () {
@@ -492,19 +501,19 @@ void main() {
         iconOverrides: {'folder:games': '/games.png'},
         layout: Layout(
           inbox: 'main',
-          removed: const {'app:c'},
+          removed: const {'system:app/c'},
           layers: [
             _home(
               Component.pane(
                 id: 'global',
                 children: [
                   Component.of('games', id: 'folder', prefab: folderPrefabId),
-                  _item('clock', kind: 'clock'),
+                  _item('system:clock', kind: 'system:clock'),
                   Component.pane(id: 'main'),
                   folderPane(
                     'games',
                     title: 'Games',
-                  ).copyWith(children: [_item('app:b')]),
+                  ).copyWith(children: [_item('system:app/b')]),
                 ],
               ),
             ),
@@ -516,11 +525,11 @@ void main() {
 
       // Handed a folder, not an entity.
       expect(config.layout.folderOf(folder), 'games');
-      expect(clock.kind, 'clock');
+      expect(clock.kind, 'system:clock');
       // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.
-      expect(pane.children.single.handed.firstOrNull, 'app:a');
-      expect(games.children.single.handed.firstOrNull, 'app:b');
+      expect(pane.children.single.handed.firstOrNull, 'system:app/a');
+      expect(games.children.single.handed.firstOrNull, 'system:app/b');
       // The folder and the quick actions are docked: on the layer, off its
       // cells.
       expect(view.docked.map((p) => p.id), ['games', Layout.menuId]);
@@ -540,8 +549,8 @@ void main() {
               Component.pane(
                 id: 'global',
                 children: [
-                  _item('one', ref: 'app:a'),
-                  _item('two', ref: 'app:a'),
+                  _item('one', ref: 'system:app/a'),
+                  _item('two', ref: 'system:app/a'),
                 ],
               ),
             ),
@@ -553,10 +562,10 @@ void main() {
         config,
       ).home.root.children.where((e) => e.isInstance);
       expect(entries.map((e) => e.handed.firstOrNull), [
-        'app:a',
-        'app:a',
-        'app:b',
-        'app:c',
+        'system:app/a',
+        'system:app/a',
+        'system:app/b',
+        'system:app/c',
       ]);
     });
   });
@@ -661,7 +670,7 @@ void main() {
         prefabRules: rules,
         children: [
           _item('a', w: 3, h: 2),
-          _item('clock', kind: 'clock', w: 4),
+          _item('system:clock', kind: 'system:clock', w: 4),
           Component.pane(id: 'inner', w: 5),
         ],
       );
@@ -704,7 +713,7 @@ void main() {
 
     test('what is drawn is what the pane decides', () {
       final view = resolveLayout(
-        const [Entity(id: 'app:a', category: appCategory, label: 'A')],
+        const [Entity(id: 'system:app/a', category: appCategory, label: 'A')],
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
@@ -715,7 +724,7 @@ void main() {
                   prefabRules: const {
                     cardPrefabId: {'variant': 'row'},
                   },
-                  children: [_item('a', ref: 'app:a')],
+                  children: [_item('a', ref: 'system:app/a')],
                 ),
               ),
             ],
@@ -729,8 +738,8 @@ void main() {
   group('LauncherConfig', () {
     test('survives a JSON round trip', () {
       final config = LauncherConfig(
-        layout: Layout.initial(['app:a']).without({'app:b'}),
-        iconOverrides: {'app:a': '/x.png'},
+        layout: Layout.initial(['system:app/a']).without({'system:app/b'}),
+        iconOverrides: {'system:app/a': '/x.png'},
         wallpapers: ['/w.mp4', '/x.png'],
         wallpaperEvery: 30,
         toasts: const ToastOptions(
@@ -741,7 +750,7 @@ void main() {
       );
       final copy = LauncherConfig.fromJson(config.toJson());
       expect(copy.toJson(), config.toJson());
-      expect(copy.layout.removed, {'app:b'});
+      expect(copy.layout.removed, {'system:app/b'});
       expect(copy.copyWith(iconOverrides: {}).wallpaper, '/w.mp4');
       expect(copy.wallpaperEvery, 30);
       expect(copy.copyWith(wallpapers: const []).wallpaper, isNull);

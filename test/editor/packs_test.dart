@@ -136,10 +136,13 @@ void main() {
     expect(values, isEmpty);
 
     // A template is typed; it names no one icon to show.
-    await tester.enterText(find.byType(TextField).first, '{{weather.sky}}');
+    await tester.enterText(
+      find.byType(TextField).first,
+      '{{system:weather.sky}}',
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-    expect(values, {'icon': '{{weather.sky}}'});
+    expect(values, {'icon': '{{system:weather.sky}}'});
     expect(find.byIcon(Icons.interests_outlined), findsOneWidget);
   });
 
@@ -150,7 +153,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final tv = _Tv();
-    final home = Layout.initial(['app:a']);
+    final home = Layout.initial(['system:app/a']);
     final using = home.withPane(
       home.home.root.id,
       (pane) => pane.copyWith(
@@ -186,7 +189,11 @@ void main() {
                 (ref) => Stream.value(
                   TvState(
                     entities: const [
-                      Entity(id: 'app:a', category: appCategory, label: 'A'),
+                      Entity(
+                        id: 'system:app/a',
+                        category: appCategory,
+                        label: 'A',
+                      ),
                     ],
                     config: LauncherConfig(layout: layout),
                     components: const [],
@@ -212,7 +219,7 @@ void main() {
     );
     expect(
       find.text(
-        'Version 7  ·  Someone  ·  2 icons  ·  3.0 MB  ·  In use: 1 icon',
+        'Version 7  ·  Someone  ·  2 icons  ·  3.0 MB  ·  In use in 1 place',
       ),
       findsOneWidget,
     );

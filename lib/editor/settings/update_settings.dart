@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
@@ -16,12 +17,12 @@ class UpdateSettings extends ConsumerStatefulWidget {
 }
 
 class _UpdateSettingsState extends ConsumerState<UpdateSettings> with Busy {
-  /// Has the updates entity do [action] and shows what it says.
-  Future<void> _do(String action) => whileBusy(() async {
+  /// Calls `launcher://updates/<verb>` and shows what it says.
+  Future<void> _do(String verb) => whileBusy(() async {
     final messenger = ScaffoldMessenger.of(context);
     final said = await ref
         .read(actionRunnerProvider)
-        .run(Act(action, const {entityArg: 'updates'}));
+        .run(Act('${Operation.launcher}updates/$verb'));
     if (said == null) return;
     messenger.showSnackBar(
       SnackBar(content: Text(said.replaceAll('\n', ': '))),

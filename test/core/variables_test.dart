@@ -21,29 +21,35 @@ String _render(String source, Map<String, Object?> values) =>
 void main() {
   group('templates', () {
     const values = <String, Object?>{
-      'media': {'playing': true, 'title': 'Song', 'artist': null},
-      'weather': {'temperature': 31.5, 'sky': 'rain'},
+      'system:media': {'playing': true, 'title': 'Song', 'artist': null},
+      'system:weather': {'temperature': 31.5, 'sky': 'rain'},
     };
 
     test('compare two values', () {
-      expect(_render('{{weather.temperature > 30}}', values), 'true');
-      expect(_render('{{weather.temperature <= 30}}', values), 'false');
-      expect(_render("{{weather.sky == 'rain'}}", values), 'true');
-      expect(_render("{{weather.sky != 'rain'}}", values), 'false');
+      expect(_render('{{system:weather.temperature > 30}}', values), 'true');
+      expect(_render('{{system:weather.temperature <= 30}}', values), 'false');
+      expect(_render("{{system:weather.sky == 'rain'}}", values), 'true');
+      expect(_render("{{system:weather.sky != 'rain'}}", values), 'false');
     });
 
     test('say one of two things by which way that falls', () {
       expect(
-        _render("{{media.playing == true ? 'pause' : 'play'}}", values),
+        _render("{{system:media.playing == true ? 'pause' : 'play'}}", values),
         'pause',
       );
       expect(
-        _render("{{weather.temperature > 35 ? 'Hot' : 'Fine: ok'}}", values),
+        _render(
+          "{{system:weather.temperature > 35 ? 'Hot' : 'Fine: ok'}}",
+          values,
+        ),
         'Fine: ok',
       );
       // Either side may be another value, and a value alone is asked of.
       expect(
-        _render("{{media.artist ? media.artist : media.title}}", values),
+        _render(
+          "{{system:media.artist ? system:media.artist : system:media.title}}",
+          values,
+        ),
         'Song',
       );
       // What only looks like one is left to what it is.
@@ -69,7 +75,7 @@ void main() {
     test('can be told by what something else is', () {
       const icon = Variable(
         null,
-        when: '{{weather.condition}}',
+        when: '{{system:weather.condition}}',
         cases: [
           VarCase(VarTest.equals, 'Rainy', '/icons/rain.png'),
           VarCase(VarTest.contains, 'cloud', '/icons/cloud.png'),
@@ -78,7 +84,7 @@ void main() {
         otherwise: '/icons/sun.png',
       );
       Object? when(Object? condition) => told(icon, {
-        'weather': {'condition': condition},
+        'system:weather': {'condition': condition},
         'hot': '/icons/hot.png',
       });
       expect(when('Rainy'), '/icons/rain.png');
@@ -89,7 +95,7 @@ void main() {
     });
 
     test('is written short where there is nothing more to say', () {
-      expect(const Variable('app:a').toJson(), 'app:a');
+      expect(const Variable('system:app/a').toJson(), 'system:app/a');
       expect(const Variable(3, access: VarAccess.public).toJson(), {
         'value': 3,
         'access': 'public',
@@ -140,12 +146,12 @@ void main() {
           'handed': Variable('h'),
           'open': Variable('o', access: VarAccess.public),
           'app': Variable(
-            'app:a',
+            'system:app/a',
             type: VarType.entity,
             access: VarAccess.public,
           ),
           // Text that happens to be an id is only text.
-          'said': Variable('app:a'),
+          'said': Variable('system:app/a'),
         },
       );
       final c = container(layout([item]));
@@ -166,8 +172,8 @@ void main() {
       // One that holds an entity stands for it; it is the variable that
       // says so, not what it happens to be set to.
       expect((scope.own['app']! as Map)['label'], 'Alpha');
-      expect(scope.own['said'], 'app:a');
-      expect(item.handed, ['app:a']);
+      expect(scope.own['said'], 'system:app/a');
+      expect(item.handed, ['system:app/a']);
       // By its id, anything reads what is public and no more.
       String reads(String template) =>
           valueText(readTemplate(c.read, template, const {}));
@@ -235,8 +241,11 @@ void main() {
           expect(own.vars.keys, contains('source'), reason: own.id);
         }
       }
-      expect(prefab('weather').vars['icon']!.isConditional, isTrue);
-      expect(prefab('now-playing').vars['stateIcon']!.isConditional, isTrue);
+      expect(prefab('system:weather').vars['icon']!.isConditional, isTrue);
+      expect(
+        prefab('system:now-playing').vars['stateIcon']!.isConditional,
+        isTrue,
+      );
       // And each can be saved, changed and read back as it was.
       for (final own in systemPrefabs) {
         expect(Prefab.fromJson(own.toJson())!.toJson(), own.toJson());
@@ -252,7 +261,11 @@ void main() {
           artist: 'Band',
           playing: true,
         );
-      final item = Component.of('media', id: 'np', prefab: 'now-playing');
+      final item = Component.of(
+        'system:media',
+        id: 'np',
+        prefab: 'system:now-playing',
+      );
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -270,7 +283,7 @@ void main() {
                     builder: (context, ref, _) => switch (ref
                         .watch(entitiesProvider)
                         .value
-                        ?.where((entity) => entity.id == 'media')
+                        ?.where((entity) => entity.id == 'system:media')
                         .firstOrNull) {
                       null => const SizedBox(),
                       _ => ComponentView(component: item),
@@ -315,12 +328,12 @@ void main() {
                   'kept': Variable('x'),
                 },
                 children: [
-                  Component.of('app:a', id: 'a'),
+                  Component.of('system:app/a', id: 'a'),
                   // Docked: in the pane's tree, not among what it counts.
                   folderPane(
                     'games',
                     title: 'Games',
-                  ).copyWith(children: [Component.of('app:a', id: 'g')]),
+                  ).copyWith(children: [Component.of('system:app/a', id: 'g')]),
                 ],
               ),
             ),
@@ -390,7 +403,7 @@ void main() {
                     title: 'Games',
                     columns: 1,
                     rules: const {'dock': Component.inline, 'rowHeight': 60},
-                    children: [Component.of('app:a', id: 'g')],
+                    children: [Component.of('system:app/a', id: 'g')],
                   ),
                 ],
               ),

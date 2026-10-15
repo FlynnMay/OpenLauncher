@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/components/component_registry.dart';
+import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
@@ -535,8 +536,8 @@ class Component {
   /// A readable id for an instance of [entityId]: the package slug for an
   /// app, else from the device [name].
   static String autoId(String entityId, [String? name]) =>
-      entityId.startsWith('app:')
-      ? packageSlug(entityId.substring(4))
+      entityId.startsWith(Entity.appId(''))
+      ? packageSlug(entityId.substring(Entity.appId('').length))
       : slugOf(name ?? '', slugOf(entityId.split(RegExp('[:/.]')).last));
 
   /// A null [w] or [h] keeps the current one.
@@ -677,5 +678,5 @@ class Component {
 }
 
 /// The built-in card prefabs.
-const cardPrefabId = 'app-card';
-const folderPrefabId = 'folder-card';
+const cardPrefabId = 'system:app-card';
+const folderPrefabId = 'system:folder-card';

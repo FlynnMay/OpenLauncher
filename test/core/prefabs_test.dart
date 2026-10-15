@@ -14,7 +14,7 @@ void main() {
   const plain = Component(
     id: 'a',
     prefab: cardPrefabId,
-    vars: {'source': Variable('app:a', type: VarType.entity)},
+    vars: {'source': Variable('system:app/a', type: VarType.entity)},
   );
 
   /// The component [id] of [instance] as it is drawn.
@@ -48,7 +48,7 @@ void main() {
     expect(part(plain, 'name').options['text'], '{{source.label}}');
     expect(drawn.all.every((part) => !part.hidden), isTrue);
     // Its variables and triggers are the prefab's, with its own over them.
-    expect(drawn.handed.firstOrNull, 'app:a');
+    expect(drawn.handed.firstOrNull, 'system:app/a');
     // Each act names who does it: the entity it was handed, the variables.
     expect(drawn.on, {
       Trigger.press: [
@@ -170,7 +170,11 @@ void main() {
 
   test('a prefab can be made of panes, and of other prefabs', () {
     // The weather keeps its lines in a pane of their own.
-    final weather = Component.of('weather', id: 'w', prefab: 'weather');
+    final weather = Component.of(
+      'system:weather',
+      id: 'w',
+      prefab: 'system:weather',
+    );
     final drawn = resolved(weather, prefabs);
     expect(drawn.children.map((part) => (part.id, part.isPane)), [
       ('w/icon', false),
@@ -191,7 +195,7 @@ void main() {
         },
       ),
     );
-    final loud = Component.of('app:a', id: 'l', prefab: 'loud-card');
+    final loud = Component.of('system:app/a', id: 'l', prefab: 'loud-card');
     final all = {...prefabs, own.id: own};
     expect(resolved(loud, all).on.keys, contains(Trigger.press));
     expect(resolved(loud, all).children.last.style['fontSize'], 40);
@@ -221,19 +225,25 @@ void main() {
           (template) => read(template, source),
         );
     expect(
-      told('weather', 'summary', {
+      told('system:weather', 'summary', {
         'description': 'Sunny',
         'high': 24.6,
         'low': 9,
       }),
       'Sunny  ·  25° / 9°',
     );
-    expect(told('weather', 'summary', {'description': 'Sunny'}), 'Sunny');
     expect(
-      told('now-playing', 'summary', {'artist': 'Band', 'app': 'Player'}),
+      told('system:weather', 'summary', {'description': 'Sunny'}),
+      'Sunny',
+    );
+    expect(
+      told('system:now-playing', 'summary', {
+        'artist': 'Band',
+        'app': 'Player',
+      }),
       'Band · Player',
     );
-    expect(told('now-playing', 'summary', {'app': 'Player'}), 'Player');
+    expect(told('system:now-playing', 'summary', {'app': 'Player'}), 'Player');
   });
 
   test("the user's prefabs are settings like any other", () {

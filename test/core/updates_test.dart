@@ -188,7 +188,7 @@ void main() {
     UpdateState state() => container.read(updateStateProvider);
     Future<String?> act(String action) => container
         .read(actionRunnerProvider)
-        .run(Act(action, const {entityArg: 'updates'}));
+        .run(Act(action, const {entityArg: 'system:updates'}));
 
     test('is told of a later release when it checks', () async {
       expect(
@@ -269,11 +269,14 @@ void main() {
     test('has its standing read like any entity', () async {
       await act('check');
       await container.read(entitiesProvider.future);
-      final sub = container.listen(entityDataProvider('updates'), (_, _) {});
+      final sub = container.listen(
+        entityDataProvider('system:updates'),
+        (_, _) {},
+      );
       // Its values come through its source, a moment later.
       await pumpEventQueue();
       expect(sub.read(), {
-        'id': 'updates',
+        'id': 'system:updates',
         'label': 'Updates',
         'category': 'updates',
         'text': appVersion,

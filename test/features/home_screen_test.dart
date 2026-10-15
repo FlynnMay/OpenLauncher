@@ -102,7 +102,7 @@ void main() {
     Component entity(String package) => Component(
       id: 'i-$package',
       prefab: cardPrefabId,
-      vars: {'source': Variable('app:$package', type: VarType.entity)},
+      vars: {'source': Variable('system:app/$package', type: VarType.entity)},
     );
 
     testWidgets('holding OK offers quick actions instead of opening', (
@@ -198,11 +198,11 @@ void main() {
       }
 
       // Neither can be done to the clock: the menu is not shown.
-      await openFor('clock');
+      await openFor('system:clock');
       expect(find.text('Start it'), findsNothing);
 
       // An app has nothing to play.
-      await openFor('app:pkg.a');
+      await openFor('system:app/pkg.a');
       expect(find.text('Start it'), findsOneWidget);
       expect(find.text('Play it'), findsNothing);
 
@@ -237,9 +237,9 @@ void main() {
                         y: 0,
                       ),
                       Component.of(
-                        'clock',
-                        id: 'clock',
-                        prefab: 'clock',
+                        'system:clock',
+                        id: 'system:clock',
+                        prefab: 'system:clock',
                         w: 2,
                         x: 2,
                         y: 1,
@@ -303,7 +303,10 @@ void main() {
                       id: 'a',
                       prefab: cardPrefabId,
                       vars: {
-                        'source': Variable('app:pkg.a', type: VarType.entity),
+                        'source': Variable(
+                          'system:app/pkg.a',
+                          type: VarType.entity,
+                        ),
                       },
                       style: {'background': '#b71c1c'},
                     ),
@@ -366,7 +369,10 @@ void main() {
                       id: 'a',
                       prefab: cardPrefabId,
                       vars: {
-                        'source': Variable('app:pkg.a', type: VarType.entity),
+                        'source': Variable(
+                          'system:app/pkg.a',
+                          type: VarType.entity,
+                        ),
                       },
                       overrides: {
                         'name': {'hidden': true},
@@ -423,7 +429,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'plain',
-            removed: const {'app:pkg.c', 'launcher:settings'},
+            removed: const {'system:app/pkg.c', 'system:settings'},
             layers: [
               home([
                 pane('plain', 'pkg.a', const {}),
@@ -478,7 +484,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'short',
-            removed: const {'app:pkg.c', 'launcher:settings'},
+            removed: const {'system:app/pkg.c', 'system:settings'},
             layers: [
               Layer(
                 id: Layout.homeId,
@@ -546,7 +552,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'p',
-            removed: const {'launcher:settings'},
+            removed: const {'system:settings'},
             layers: [
               home([
                 Component.pane(
@@ -709,7 +715,7 @@ void main() {
           LauncherConfig(
             layout: Layout(
               inbox: 'p',
-              removed: const {'launcher:settings'},
+              removed: const {'system:settings'},
               layers: [
                 home([
                   Component.pane(
@@ -817,7 +823,7 @@ void main() {
         options: {'text': id},
         on: {
           Trigger.press: const [
-            Act('open', {'entity': 'app:pkg.a'}),
+            Act('open', {'entity': 'system:app/pkg.a'}),
           ],
         },
       );
@@ -827,10 +833,10 @@ void main() {
           layout: Layout(
             inbox: 'global',
             removed: const {
-              'app:pkg.a',
-              'app:pkg.b',
-              'app:pkg.c',
-              'launcher:settings',
+              'system:app/pkg.a',
+              'system:app/pkg.b',
+              'system:app/pkg.c',
+              'system:settings',
             },
             layers: [
               Layer(

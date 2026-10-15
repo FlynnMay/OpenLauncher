@@ -25,7 +25,7 @@ class _Tv extends TvApi {
 }
 
 const _alpha = Entity(
-  id: 'app:a',
+  id: 'system:app/a',
   category: appCategory,
   label: 'Alpha',
   prefab: cardPrefabId,
@@ -47,9 +47,11 @@ void main() {
           tvStateProvider.overrideWith(
             (ref) => Stream.value(
               TvState(
+                packs: [systemPack],
                 entities: const [_alpha],
                 config:
-                    config ?? LauncherConfig(layout: Layout.initial(['app:a'])),
+                    config ??
+                    LauncherConfig(layout: Layout.initial(['system:app/a'])),
                 components: const [
                   (type: 'text', label: 'Text', w: 2, h: 1, options: {}),
                 ],
@@ -97,8 +99,14 @@ void main() {
 
     // From the list in the launcher's settings.
     await press(tester, find.text('Prefabs'));
-    expect(find.text('1 instance · built-in'), findsOneWidget);
-    await press(tester, find.byTooltip('Open App card'));
+    expect(find.text('1 instance · System'), findsOneWidget);
+    await press(
+      tester,
+      find.descendant(
+        of: find.byType(PrefabList),
+        matching: find.byTooltip('Open App card'),
+      ),
+    );
     expect(find.byType(PrefabScreen), findsOneWidget);
     expect(find.byType(TvScreen), findsNothing);
     expect(
@@ -206,11 +214,13 @@ void main() {
     await tester.enterText(find.byType(TextField).last, 'Shelf');
     await press(tester, find.widgetWithText(FilledButton, 'Add'));
     expect(config().prefabs.single.id, 'shelf');
-    expect(config().prefabs.single.root.children.single.handed, ['app:a']);
+    expect(config().prefabs.single.root.children.single.handed, [
+      'system:app/a',
+    ]);
     final instance = config().layout.all.singleWhere((item) => item.isInstance);
     expect((instance.id, instance.prefab), ('main', 'shelf'));
     // What it holds is not put back on the screen beside it.
-    expect(config().layout.removed, {'app:a'});
+    expect(config().layout.removed, {'system:app/a'});
 
     // In the list it is marked as an instance and says of what; which
     // prefab that is cannot be swapped from its settings.
@@ -249,7 +259,7 @@ void main() {
     expect(ref.read(prefabModeProvider), isNull);
     expect(config().prefabs, isEmpty);
     final back = config().layout.pane('main')!;
-    expect(back.children.single.handed, ['app:a']);
+    expect(back.children.single.handed, ['system:app/a']);
     expect(config().layout.removed, isEmpty);
     expect(tester.takeException(), isNull);
   });
@@ -260,7 +270,7 @@ void main() {
     final ref = await pump(
       tester,
       config: LauncherConfig(
-        layout: Layout.initial(['app:a']),
+        layout: Layout.initial(['system:app/a']),
         prefabs: [
           Prefab(
             id: 'inner',

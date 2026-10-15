@@ -4,6 +4,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
@@ -69,6 +70,32 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       }
     }
     bool alone(Entity entity) => sizes[entity.category] == 1;
+    // A pack's ids start with its own; the user's have none.
+    String? packOf(String id) => switch (id.indexOf(':')) {
+      -1 => null,
+      final at => id.substring(0, at),
+    };
+    final packNames = {
+      for (final pack in ref.watch(packsProvider).value ?? const <Pack>[])
+        pack.id: pack.name,
+    };
+    // An edit of a pack's prefab is that prefab, under its pack.
+    _Offer? prefabOffer(Prefab prefab) =>
+        open != null && holdsPrefab(prefab.id, open.id, prefabs)
+        ? null
+        : _Offer(
+            Dragged(
+              item: Component(
+                id: layout.itemIdFor(prefab.name),
+                prefab: prefab.id,
+                w: prefab.root.w,
+                h: prefab.root.h,
+              ),
+              label: prefab.name,
+              picture: const SymbolArt(prefabIcon),
+            ),
+            prefab: prefab,
+          );
     // Named and given its final id when placed.
     final folder = folderPane(
       layout.paneIdFor('Folder', 'folder'),
@@ -138,9 +165,22 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           ),
         ],
       ],
-      'System prefabs': entities(
-        (entity) => !own.contains(entity.id) && alone(entity),
-      ),
+      // Each pack's: its prefabs, and its entities there is one of.
+      for (final pack in {
+        for (final prefab in prefabs.values) ?packOf(prefab.id),
+        for (final entity in all)
+          if (!own.contains(entity.id) && alone(entity)) ?packOf(entity.id),
+      })
+        '${packNames[pack] ?? pack} prefabs': [
+          ...entities(
+            (entity) =>
+                !own.contains(entity.id) &&
+                alone(entity) &&
+                packOf(entity.id) == pack,
+          ),
+          for (final prefab in prefabs.values)
+            if (packOf(prefab.id) == pack) ?prefabOffer(prefab),
+        ],
       'User prefabs': [
         for (final pane in config.layout.docked)
           if (pane.hovers && pane.id != Layout.menuId)
@@ -157,23 +197,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                 picture: const SymbolArt(Icons.folder_outlined),
               ),
             ),
-        for (final prefab in config.prefabs)
-          // One with a built-in's id is that built-in, edited.
-          if (!isBuiltIn(ref, prefab.id) &&
-              (open == null || !holdsPrefab(prefab.id, open.id, prefabs)))
-            _Offer(
-              Dragged(
-                item: Component(
-                  id: layout.itemIdFor(prefab.name),
-                  prefab: prefab.id,
-                  w: prefab.root.w,
-                  h: prefab.root.h,
-                ),
-                label: prefab.name,
-                picture: const SymbolArt(prefabIcon),
-              ),
-              prefab: prefab,
-            ),
+        for (final prefab in prefabs.values)
+          if (packOf(prefab.id) == null) ?prefabOffer(prefab),
         ...entities((entity) => own.contains(entity.id)),
       ],
       for (final category in {
