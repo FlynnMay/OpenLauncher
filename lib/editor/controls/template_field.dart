@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/values/values.dart';
 
 /// A template text field with a value picker and a live preview. Committed on
@@ -93,18 +94,21 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
     final own = ref.watch(
       configProvider.select((config) => config.value?.entities ?? const []),
     );
-    // Watched so a user value's current fields can be offered.
+    final fed = [
+      for (final entity
+          in ref.watch(entitiesProvider).value ?? const <Entity>[])
+        if (entity.feed != null && own.byId(entity.id) == null) entity,
+    ];
+    // Watched so each value's current fields can be offered.
     final values = {
-      for (final value in builtInValues)
-        value.label: [
-          value.root,
-          for (final part in value.parts) '${value.root}.$part',
-        ],
-      for (final entity in own)
-        entity.label: valuePaths(
+      for (final entity in [...fed, ...own])
+        entity.label: [
           entity.id,
-          ref.watch(valueProvider(entity.id)),
-        ).keys.take(_mostParts).toList(),
+          ...valuePaths(
+            entity.id,
+            ref.watch(valueProvider(entity.id)),
+          ).keys.where((path) => path != entity.id).take(_mostParts),
+        ],
     };
     final reads = widget.value.contains('{{')
         ? ref.watch(templateProvider(widget.value))

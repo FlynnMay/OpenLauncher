@@ -204,8 +204,7 @@ void main() {
         fireImmediately: true,
       );
       addTearDown(held.close);
-      const flip = Act('set', {
-        'entity': 'variables',
+      const flip = Act('launcher://variables/set', {
         'var': 'on',
         'value': '{{lamp.on == true ? false : true}}',
       });
@@ -216,8 +215,7 @@ void main() {
       await pumpEventQueue();
       // Set on another by naming it.
       await actions.run(
-        const Act('set', {
-          'entity': 'variables',
+        const Act('launcher://variables/set', {
           'var': 'on',
           'value': true,
           'of': 'lamp',
@@ -354,8 +352,7 @@ void main() {
       await c
           .read(actionRunnerProvider)
           .run(
-            const Act('set', {
-              'entity': 'variables',
+            const Act('launcher://variables/set', {
               'var': 'open',
               'value': true,
               'of': 'games',

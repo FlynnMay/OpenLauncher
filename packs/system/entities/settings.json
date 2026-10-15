@@ -1,0 +1,18 @@
+{
+  "id": "launcher:settings",
+  "category": "launcher",
+  "label": "Settings",
+  "data": {
+    "icon": "pack:system/images/settings.svg",
+    "shape": "line"
+  },
+  "actions": {
+    "open": {
+      "run": "launcher://settings/open",
+      "label": "Open",
+      "icon": "material:play_arrow"
+    }
+  },
+  "prefab": "app-card",
+  "placed": true
+}

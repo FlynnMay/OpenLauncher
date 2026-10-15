@@ -23,18 +23,20 @@
       ],
       "hold": [
         {
-          "do": "set",
-          "entity": "variables",
-          "of": "quick-actions",
-          "var": "source",
-          "value": "{{source.id}}"
+          "run": "launcher://variables/set",
+          "with": {
+            "of": "quick-actions",
+            "var": "source",
+            "value": "{{source.id}}"
+          }
         },
         {
-          "do": "set",
-          "entity": "variables",
-          "of": "quick-actions",
-          "var": "open",
-          "value": true
+          "run": "launcher://variables/set",
+          "with": {
+            "of": "quick-actions",
+            "var": "open",
+            "value": true
+          }
         }
       ]
     },

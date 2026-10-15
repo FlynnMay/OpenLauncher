@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
@@ -169,9 +168,8 @@ void main() {
                     OptionKind.list,
                     blank: const {'do': 'set'},
                     // What an act may add is what the action lets it.
-                    fields: (act) => argOptions(
-                      actionsOf('variables', builtInEntities)['set']!.args,
-                    ),
+                    fields: (act) =>
+                        argOptions(const {'var': [], 'value': [], 'of': []}),
                   ),
                   records: acts,
                   onChanged: (next) => setState(() => acts = next),

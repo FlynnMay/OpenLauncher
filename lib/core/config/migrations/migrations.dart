@@ -56,8 +56,8 @@ const migrations = <Migration>[
     from: 2,
     to: 3,
     since: '0.2.0',
-    what: 'Operations named by address',
-    rules: [operationsByAddress],
+    what: 'Operations named by address; feeds are sources',
+    rules: [operationsByAddress, feedsAsSources],
   ),
 ];
 

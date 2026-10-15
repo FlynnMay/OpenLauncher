@@ -267,10 +267,13 @@ void main() {
         await run('open', app.id);
         expect(platform.launched.last, 'a');
 
-        // Taking it off the screen is the layout's to do, told what.
-        // The layout that does it is the home layer's.
+        // Taking it off the screen is the launcher's to do, told what and
+        // from which layer.
         await actions.run(
-          const Act('remove', {'entity': 'home', 'what': 'app:a'}),
+          const Act('launcher://layout/remove', {
+            'layer': 'home',
+            'what': 'app:a',
+          }),
         );
         expect(await ids(), ['input:tv/HW15', 'app:b']);
         expect(
@@ -281,7 +284,10 @@ void main() {
         // as.
         expect(
           await actions.run(
-            const Act('add', {'entity': 'home', 'what': 'app:a'}),
+            const Act('launcher://layout/add', {
+              'layer': 'home',
+              'what': 'app:a',
+            }),
           ),
           contains('A'),
         );
@@ -293,7 +299,11 @@ void main() {
         expect(added.handed, ['app:a']);
         expect(
           await actions.run(
-            const Act('add', {'entity': 'home', 'what': 'app:b', 'to': 'no'}),
+            const Act('launcher://layout/add', {
+              'layer': 'home',
+              'what': 'app:b',
+              'to': 'no',
+            }),
           ),
           contains('no'),
         );
@@ -315,14 +325,12 @@ void main() {
           const Act('open', {'entity': '{{source.id}}'}),
         ],
         Trigger.hold: [
-          const Act('set', {
-            'entity': 'variables',
+          const Act('launcher://variables/set', {
             'of': 'quick-actions',
             'var': 'source',
             'value': '{{source.id}}',
           }),
-          const Act('set', {
-            'entity': 'variables',
+          const Act('launcher://variables/set', {
             'of': 'quick-actions',
             'var': 'open',
             'value': true,
@@ -385,26 +393,27 @@ void main() {
       // The same name, done as each defines it.
       expect(app.actions['open']!.run, 'os://apps/launch');
       expect(input.actions['open']!.run, 'os://inputs/switch');
-      // None belongs to nothing: the rest are the system's, the layers'...
+      // None belongs to nothing: the rest are the device's, the media
+      // player's...
       for (final MapEntry(key: action, value: owner) in const {
-        'access': 'system',
-        'newLayer': 'layers',
-        'set': 'variables',
-        // A layer's layout: there is one for each layer, with its id.
-        'add': Layout.homeId,
-        'remove': Layout.homeId,
+        'access': 'device',
+        'tvSettings': 'device',
+        'playPause': 'media',
+        'check': 'updates',
       }.entries) {
         expect(all.byId(owner)!.actions, contains(action), reason: action);
         expect(app.actions, isNot(contains(action)), reason: action);
       }
-      // Whatever an entity names to run is there to be run, and nothing is
-      // there that no entity runs.
+      // Whatever an entity names to run is there to be run. What no entity
+      // runs is called by its address.
       final operations = c.read(operationsRegistryProvider);
-      final run = {
-        for (final entity in all)
-          for (final action in entity.actions.values) action.run,
-      };
-      expect(run, {for (final operation in operations.all) operation.name});
+      expect(
+        {for (final operation in operations.all) operation.name},
+        containsAll({
+          for (final entity in all)
+            for (final action in entity.actions.values) action.run,
+        }),
+      );
     });
 
     test('every operation is at an address on the TV or the launcher', () {
@@ -561,7 +570,7 @@ void main() {
         label: 'Desk',
         name: 'Desk lamp',
         data: {'room': 'study'},
-        feed: Feed(httpFeed, {'url': 'http://ha/desk', 'every': 30}),
+        feed: Feed.inline({'url': 'http://ha/desk', 'every': 30}),
         prefab: cardPrefabId,
         placed: true,
         actions: {
@@ -710,19 +719,16 @@ void main() {
     test('the launcher has its own, which are not put on the screen', () async {
       final c = container();
       final all = await c.read(entitiesProvider.future);
+      // The System pack's, the rest in the order its files are.
       expect(all.map((entity) => entity.id), [
         'app:a',
         'launcher:settings',
         'clock',
-        'weather',
+        'device',
         'location',
         'media',
-        'system',
         'updates',
-        'layers',
-        'variables',
-        // The home layer's layout.
-        'home',
+        'weather',
       ]);
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);

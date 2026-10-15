@@ -1,0 +1,33 @@
+{
+  "id": "media",
+  "category": "media",
+  "label": "Media Player",
+  "feed": "os://media",
+  "actions": {
+    "playPause": {
+      "run": "os://media/command",
+      "with": {
+        "command": "playPause"
+      },
+      "label": "Play or pause",
+      "icon": "material:pause_circle"
+    },
+    "next": {
+      "run": "os://media/command",
+      "with": {
+        "command": "next"
+      },
+      "label": "Next",
+      "icon": "material:skip_next"
+    },
+    "previous": {
+      "run": "os://media/command",
+      "with": {
+        "command": "previous"
+      },
+      "label": "Previous",
+      "icon": "material:skip_previous"
+    }
+  },
+  "prefab": "now-playing"
+}

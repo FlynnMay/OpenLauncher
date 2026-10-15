@@ -1,5 +1,4 @@
 import 'package:openlauncher/core/components/component_option.dart';
-import 'package:openlauncher/core/entities/built_in_entities.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/entity_action.dart';
 import 'package:openlauncher/core/entities/http_feed.dart';
@@ -8,6 +7,9 @@ import 'package:openlauncher/core/operations/operation.dart';
 
 /// The most entities a user can make.
 const maxUserEntities = 24;
+
+/// Ids an entity the user makes may not take: names templates read.
+const reservedIds = {'source', 'self'};
 
 /// The user's own entities from a save. Skips what cannot be read, duplicate
 /// ids, ids that are not plain slugs and [reservedIds].
@@ -22,9 +24,10 @@ List<Entity> userEntitiesFromJson(Object? json) {
   ];
 }
 
-const _text = 'text';
+// Form values of `kind`.
+const _text = 'text', _web = 'http';
 
-String _kind(Map<String, Object?> one) => '${one['kind'] ?? httpFeed}';
+String _kind(Map<String, Object?> one) => '${one['kind'] ?? _web}';
 
 // A bound argument's key in an action's form row.
 const _with = 'with:';
@@ -47,13 +50,12 @@ ComponentOption userEntityOptions(
       'kind',
       'Source',
       OptionKind.choice,
-      defaultValue: httpFeed,
+      defaultValue: _web,
       choices: {
-        httpFeed: 'URL (JSON)',
+        _web: 'URL (JSON)',
         _text: 'Static text',
         // A feed written by hand is kept.
-        if (!const {httpFeed, _text}.contains(_kind(one)))
-          _kind(one): _kind(one),
+        if (!const {_web, _text}.contains(_kind(one))) _kind(one): _kind(one),
       },
     ),
     ComponentOption(
@@ -66,7 +68,7 @@ ComponentOption userEntityOptions(
       'url',
       'URL',
       OptionKind.text,
-      when: (one) => _kind(one) == httpFeed,
+      when: (one) => _kind(one) == _web,
     ),
     // Polled by the TV while something shows it.
     ComponentOption(
@@ -77,7 +79,7 @@ ComponentOption userEntityOptions(
       min: HttpFeed.minEvery,
       max: 3600,
       step: 10,
-      when: (one) => _kind(one) == httpFeed,
+      when: (one) => _kind(one) == _web,
     ),
     ComponentOption(
       'actions',
@@ -125,10 +127,14 @@ ComponentOption userEntityOptions(
 Map<String, Object?> userEntityToForm(Entity entity) => {
   'id': entity.id,
   'name': entity.label,
-  'kind': entity.feed?.from ?? _text,
-  if (entity.feed?.from == httpFeed) ...{
-    'url': entity.feed!.options['url'],
-    'every': entity.feed!.options['every'],
+  'kind': switch (entity.feed) {
+    null => _text,
+    Feed(:final inline?) when inline['url'] is String => _web,
+    final feed => '${feed.toJson()}',
+  },
+  if (entity.feed?.inline case final inline? when inline['url'] is String) ...{
+    'url': inline['url'],
+    'every': inline['every'],
   },
   if (entity.feed == null) 'text': entity.data[_text],
   'actions': [
@@ -199,7 +205,7 @@ Entity userEntityFromForm(
     },
     feed: switch (kind) {
       _text => null,
-      httpFeed => Feed(httpFeed, {
+      _web => Feed.inline({
         'url': '${one['url'] ?? ''}',
         'every': switch (one['every']) {
           final num every => every.toInt().clamp(

@@ -13,6 +13,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import '../support/packs.dart';
 import '../support/updates.dart';
 
 void main() {
@@ -175,6 +176,7 @@ void main() {
       platform = FakeLauncherPlatform(const [], const []);
       container = ProviderContainer(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           updateSourceProvider.overrideWithValue(source),
           launcherPlatformProvider.overrideWithValue(platform),
@@ -268,6 +270,8 @@ void main() {
       await act('check');
       await container.read(entitiesProvider.future);
       final sub = container.listen(entityDataProvider('updates'), (_, _) {});
+      // Its values come through its source, a moment later.
+      await pumpEventQueue();
       expect(sub.read(), {
         'id': 'updates',
         'label': 'Updates',

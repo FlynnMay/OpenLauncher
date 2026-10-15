@@ -97,15 +97,9 @@ void main() {
     ]);
 
     // Aimed at another entity, it takes that one's first action.
-    await choose(tester, find.byType(SearchBox), 'Variables');
+    await choose(tester, find.byType(SearchBox), 'Updates');
     expect(on[Trigger.press], [
-      const Act('set', {'entity': 'variables'}),
-    ]);
-    await tester.enterText(find.widgetWithText(TextField, 'var'), 'open');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-    expect(on[Trigger.press], [
-      const Act('set', {'entity': 'variables', 'var': 'open'}),
+      const Act('check', {'entity': 'updates'}),
     ]);
 
     await tester.tap(find.byTooltip('Remove action'));
@@ -241,7 +235,7 @@ void main() {
     await tester.tap(find.byType(SearchBox));
     await tester.pumpAndSettle();
     expect(find.text('Launcher'), findsOneWidget);
-    expect(find.text('Device'), findsOneWidget);
+    expect(find.text('TV'), findsOneWidget);
     await tester.enterText(
       find.descendant(
         of: find.byType(SearchBox),

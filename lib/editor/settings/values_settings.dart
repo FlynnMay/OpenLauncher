@@ -59,8 +59,10 @@ class ValuesSettings extends ConsumerWidget {
           'Use a value in any text field as {{name}}; it updates live.',
         ),
       ),
-      for (final value in builtInValues)
-        reading(value.root, ref.watch(valueProvider(value.root))),
+      for (final entity
+          in ref.watch(entitiesProvider).value ?? const <Entity>[])
+        if (entity.feed != null && entities.byId(entity.id) == null)
+          reading(entity.id, ref.watch(valueProvider(entity.id))),
       const SizedBox(height: 12),
       PlaceSearch(
         said: switch (place) {
@@ -106,8 +108,8 @@ class ValuesSettings extends ConsumerWidget {
         after: (one) {
           final id = '${one['id']}';
           final entity = entities.byId(id)!;
-          final url = '${entity.feed?.options['url'] ?? ''}';
-          final asked = entity.feed?.from == httpFeed;
+          final url = '${entity.feed?.inline?['url'] ?? ''}';
+          final asked = entity.feed?.inline != null;
           final address = HttpFeed.addressOf(url);
           return [
             if (asked && url.isNotEmpty && address == null)

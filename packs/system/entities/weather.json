@@ -1,0 +1,7 @@
+{
+  "id": "weather",
+  "category": "weather",
+  "label": "Weather",
+  "feed": "launcher://weather",
+  "prefab": "weather"
+}

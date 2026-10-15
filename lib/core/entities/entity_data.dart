@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
 import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/entities/feeds.dart';
+import 'package:openlauncher/core/sources/source_rows.dart';
 
 /// What `{{<id>...}}` reads for an entity: its label, id, category and
 /// [Entity.data], with what its feed reads on top. Null if unknown.
@@ -13,9 +13,9 @@ final entityDataProvider = Provider.autoDispose.family<Object?, String>((
     entitiesProvider.select((entities) => entities.value?.byId(id)),
   );
   if (entity == null) return null;
-  final own = switch (entity.feed) {
+  final own = switch (entity.feed?.at(entity.id)) {
     null => null,
-    final feed => feeds[feed.from]?.call(ref, entity, feed),
+    final at => ref.watch(sourceValueProvider(at)).value,
   };
   return switch (own) {
     null => {

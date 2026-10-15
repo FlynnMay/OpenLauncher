@@ -17,11 +17,12 @@
     "on": {
       "press": [
         {
-          "do": "set",
-          "entity": "variables",
-          "var": "open",
-          "value": true,
-          "of": "{{source.id}}"
+          "run": "launcher://variables/set",
+          "with": {
+            "var": "open",
+            "value": true,
+            "of": "{{source.id}}"
+          }
         }
       ]
     },

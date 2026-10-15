@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/entities/http_feed.dart';
 import 'package:openlauncher/core/values/template.dart';
 
-/// Where rows come from, from a pack's `sources/<name>.json`:
-/// `{url, every, watch, rows}`. `url` is `http(s)://...` or `os://<query>`.
+/// Where values come from, from a pack's `sources/<name>.json` or written in
+/// place as an entity's feed: `{url, every, watch, rows}`. `url` is
+/// `http(s)://...`, `os://<area>` (the TV) or `launcher://<area>`.
 @immutable
 class Source {
   const Source(this.url, {this.every, this.watch = false, this.rows = ''});
@@ -13,20 +14,25 @@ class Source {
   /// Seconds between reads; null reads once, or on change if [watch].
   final int? every;
 
-  /// Read again when the source says it changed (`os://` only).
+  /// Read again when the source says it changed (not the web's).
   final bool watch;
 
   /// Path to the list in the answer, e.g. `result.items`; empty for the
   /// answer itself.
   final String rows;
 
-  bool get onDevice => url.isScheme('os');
+  /// Whether the launcher answers it rather than the web.
+  bool get answeredHere => url.isScheme('os') || url.isScheme('launcher');
+
+  /// The address up to its area, e.g. `os://apps`: what answers it here.
+  String get endpoint => '${url.scheme}://${url.host}';
 
   static Source? fromJson(Object? json) {
     if (json case {'url': final String text}) {
       final url = Uri.tryParse(text.trim());
       if (url == null ||
-          !(url.isScheme('os') && url.host.isNotEmpty ||
+          !((url.isScheme('os') || url.isScheme('launcher')) &&
+                  url.host.isNotEmpty ||
               HttpFeed.addressOf(text) != null)) {
         return null;
       }

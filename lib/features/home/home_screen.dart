@@ -38,6 +38,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = ref.watch(layoutViewProvider);
+    final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final above = ref.watch(layersProvider);
     final keys = ref.watch(_dockKeysProvider);
     // Hides everything on [layer], which closes it.
@@ -163,7 +164,7 @@ class HomeScreen extends ConsumerWidget {
                             top: _padding.top,
                             right: _padding.right,
                             child: _Header(
-                              settingsPlaced: _hasSettings(layout),
+                              settingsPlaced: _hasSettings(layout, entities),
                             ),
                           ),
                       ];
@@ -209,15 +210,23 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Whether the Settings card is placed anywhere.
   static Widget _scrolling(Component root, Widget child) => PaneScrollbars.over(
     root,
     root.style,
     root.scrollsDown ? SingleChildScrollView(child: child) : child,
   );
 
-  static bool _hasSettings(Layout layout) =>
-      layout.items.any((item) => item.handed.contains(settingsEntity.id));
+  /// Whether something placed opens the settings.
+  static bool _hasSettings(Layout layout, List<Entity> entities) {
+    final opening = {
+      for (final entity in entities)
+        if (entity.actions.values.any((action) => action.run == _settings))
+          entity.id,
+    };
+    return layout.items.any((item) => item.handed.any(opening.contains));
+  }
+
+  static const _settings = 'launcher://settings/open';
 }
 
 /// Traps the focus and takes it on appearing.

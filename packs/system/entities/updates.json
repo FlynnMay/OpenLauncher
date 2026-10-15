@@ -1,0 +1,18 @@
+{
+  "id": "updates",
+  "category": "updates",
+  "label": "Updates",
+  "feed": "launcher://updates",
+  "actions": {
+    "check": {
+      "run": "launcher://updates/check",
+      "label": "Check for updates",
+      "icon": "material:refresh"
+    },
+    "install": {
+      "run": "launcher://updates/install",
+      "label": "Install update",
+      "icon": "material:download"
+    }
+  }
+}
