@@ -317,6 +317,8 @@ final List<Prefab> builtInPrefabs = [
             'fit': "{{source.shape == 'banner' ? 'cover' : 'contain'}}",
             'pad': "{{source.shape == 'icon' ? 14 : 0}}",
             'alt': '{{source.label}}',
+            // An input's number.
+            'badge': '{{source.number}}',
             'frame': true,
             'bare': "{{source.shape == 'line'}}",
           },

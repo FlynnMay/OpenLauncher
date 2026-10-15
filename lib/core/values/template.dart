@@ -11,6 +11,7 @@ import 'package:openlauncher/core/values/date_format.dart';
 /// - `times:1.8`, `plus:32` — sums
 /// - `upper`, `lower`
 /// - `format:h:mm a` — a time, written as `formatDateTime` does
+/// - `match:(\d+)$` — the first group a pattern finds, else all it finds
 ///
 /// Two values can be compared, with spaces around `==`, `!=`, `>`, `<`,
 /// `>=` or `<=`, and one of two things said by which way that falls:
@@ -265,6 +266,17 @@ class _Slot {
     _ => null,
   };
 
+  /// Nothing when [pattern] finds nothing or is not one.
+  static String? _match(String pattern, String text) {
+    try {
+      final found = RegExp(pattern).firstMatch(text);
+      if (found == null) return null;
+      return found.groupCount > 0 ? found[1] : found[0];
+    } on FormatException {
+      return null;
+    }
+  }
+
   Object? value(Object? Function(String root) lookup) {
     if (literal != null) return literal;
     if (path.isEmpty) return null;
@@ -294,6 +306,7 @@ class _Slot {
           null => value,
           final time => formatDateTime(time, argument),
         },
+        'match' => _match(argument, valueText(value)),
         // Unknown pipe, or wrong type: unchanged.
         _ => value,
       };

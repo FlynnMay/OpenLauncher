@@ -1,7 +1,5 @@
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/components/component_registry.dart';
-import 'package:openlauncher/core/entities/entity_action.dart';
-import 'package:openlauncher/core/entities/entity_generators.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 
@@ -62,21 +60,18 @@ Component folderPane(String id, {String title = ''}) => Component.pane(
   on: folderTriggers(),
 );
 
-/// A button that has [entity] do its action called [name], labelled as
-/// [action] is.
+/// A button that has [entity] do its action called [name].
 Component _actionButton(
   String id,
-  String name,
-  EntityAction action, {
+  String name, {
   required String entity,
+  required String label,
+  required String icon,
   Map<String, Object?> args = const {},
 }) => Component(
   id: id,
   kind: ComponentRegistry.button.name,
-  options: {
-    'label': action.label.isEmpty ? name : action.label,
-    'icon': action.icon,
-  },
+  options: {'label': label, 'icon': icon},
   on: {
     Trigger.press: [
       Act(name, {entityArg: entity, ...args}),
@@ -84,44 +79,50 @@ Component _actionButton(
   },
 );
 
-/// The default quick actions in order, each with the entity that does it.
+/// The default quick actions in order: the entity that does each, and its
+/// button.
 const defaultMenu = {
-  'open': sourceEntity,
-  'info': sourceEntity,
-  'uninstall': sourceEntity,
-  'remove': Layout.homeId,
+  'open': (entity: sourceEntity, label: 'Open', icon: 'material:play_arrow'),
+  'info': (entity: sourceEntity, label: 'App info', icon: 'material:info'),
+  'uninstall': (
+    entity: sourceEntity,
+    label: 'Uninstall',
+    icon: 'material:delete',
+  ),
+  'remove': (
+    entity: Layout.homeId,
+    label: 'Remove',
+    icon: 'material:do_not_disturb_on',
+  ),
 };
 
 /// The default quick-actions pane: a small folder titled after what it was
 /// opened for.
-Component defaultMenuPane() {
-  // Labelled as an app and the home layout have them.
-  final known = {...appActions, ...layoutEntity(Layout.homeId).actions};
-  return Component.pane(
-    id: Layout.menuId,
-    title: '{{source.label}}',
-    columns: 1,
-    rules: const {
-      'dock': 'center',
-      'width': 432,
-      'opening': 'instant',
-      'rowHeight': 40,
-      'spacing': 4,
-    },
-    style: folderStyle,
-    on: folderTriggers(),
-    // Set to the entity the menu was opened for.
-    vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
-    children: [
-      for (final MapEntry(key: name, value: entity) in defaultMenu.entries)
-        if (known[name] case final action?)
-          _actionButton(
-            '${Layout.menuId}-${name.toLowerCase()}',
-            name,
-            action,
-            entity: entity,
-            args: {if (name == 'remove') 'what': sourceEntity},
-          ),
-    ],
-  );
-}
+Component defaultMenuPane() => Component.pane(
+  id: Layout.menuId,
+  title: '{{source.label}}',
+  columns: 1,
+  rules: const {
+    'dock': 'center',
+    'width': 432,
+    'opening': 'instant',
+    'rowHeight': 40,
+    'spacing': 4,
+  },
+  style: folderStyle,
+  on: folderTriggers(),
+  // Set to the entity the menu was opened for.
+  vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
+  children: [
+    for (final MapEntry(key: name, value: (:entity, :label, :icon))
+        in defaultMenu.entries)
+      _actionButton(
+        '${Layout.menuId}-$name',
+        name,
+        entity: entity,
+        label: label,
+        icon: icon,
+        args: {if (name == 'remove') 'what': sourceEntity},
+      ),
+  ],
+);

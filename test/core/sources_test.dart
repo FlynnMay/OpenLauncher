@@ -4,12 +4,15 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/sources/sources.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
@@ -67,6 +70,115 @@ void main() {
       );
       expect(Template.parse('{{row.none}}').fill({'row'}, row), isNull);
     });
+
+    test('finds a part of a value', () {
+      String said(String template) =>
+          Template.parse(template).render((_) => 'HDMI 12');
+      expect(said(r'{{x | match:(\d+)\s*$}}'), '12');
+      expect(said('{{x | match:HD}}'), 'HD');
+      expect(said('{{x | match:nothing}}'), '');
+      expect(said('{{x | match:(}}'), '');
+    });
+  });
+
+  group('the System pack', () {
+    late FakeLauncherPlatform platform;
+
+    ProviderContainer container() {
+      platform = FakeLauncherPlatform(
+        [
+          InstalledApp(
+            packageName: 'a.b',
+            label: 'AB',
+            iconPath: '/a.png',
+            isBanner: true,
+          ),
+          InstalledApp(
+            packageName: 'c.d',
+            label: 'CD',
+            iconPath: '/c.png',
+            isBanner: false,
+          ),
+          InstalledApp(packageName: 'e.f', label: 'EF', isBanner: false),
+        ],
+        [
+          TvInput(id: 'hw2', label: 'HDMI 2', kind: TvInputKind.hdmi),
+          TvInput(id: 'tuner', label: 'TV', kind: TvInputKind.tuner),
+        ],
+      );
+      final container = ProviderContainer(
+        overrides: [
+          ...packOverrides,
+          configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          launcherPlatformProvider.overrideWithValue(platform),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('makes the apps, as the launcher always has', () async {
+      final entities = await container().read(entitiesProvider.future);
+      final app = entities.byId('app:a.b')!;
+      expect(app.category, appCategory);
+      expect(app.label, 'AB');
+      expect(app.prefab, cardPrefabId);
+      expect(app.placed, isTrue);
+      expect(app.data, {
+        'package': 'a.b',
+        Entity.icon: '/a.png',
+        Entity.shape: Entity.banner,
+      });
+      expect(app.actions.keys, ['open', 'info', 'uninstall']);
+      expect(
+        app.actions['open'],
+        isA<EntityAction>()
+            .having((action) => action.run, 'run', 'launchApp')
+            .having((action) => action.bound, 'bound', {
+              'package': '{{self.package}}',
+            }),
+      );
+      expect(entities.byId('app:c.d')!.data[Entity.shape], 'icon');
+      expect(entities.byId('app:e.f')!.data.containsKey(Entity.icon), isFalse);
+    });
+
+    test('makes the inputs, numbered, with a picture of each kind', () async {
+      final c = container();
+      final entities = await c.read(entitiesProvider.future);
+      final hdmi = entities.byId('input:hw2')!;
+      expect(hdmi.category, inputCategory);
+      expect(hdmi.data['input'], 'hw2');
+      expect(hdmi.data['number'], '2');
+      expect(hdmi.data[Entity.shape], Entity.lineArt);
+      expect(
+        File(hdmi.data[Entity.icon]! as String).readAsStringSync(),
+        File('packs/system/images/input-hdmi.svg').readAsStringSync(),
+      );
+      final tuner = entities.byId('input:tuner')!;
+      expect(tuner.data.containsKey('number'), isFalse);
+      expect(tuner.data[Entity.icon], endsWith('input-tuner.svg'));
+
+      await c
+          .read(actionRunnerProvider)
+          .run(const Act('open', {entityArg: 'input:hw2'}));
+      expect(platform.launched, ['hw2']);
+    });
+
+    test('has a picture for every kind of input', () {
+      for (final kind in TvInputKind.values) {
+        expect(
+          File('packs/system/images/input-${kind.name}.svg').existsSync(),
+          isTrue,
+          reason: kind.name,
+        );
+      }
+    });
+  });
+
+  test('a badge widens for its text, which is never markup', () {
+    expect(badgeSvg('2'), contains('width="26.0"'));
+    expect(badgeSvg('12'), contains('width="36.0"'));
+    expect(badgeSvg('<b>'), contains('&lt;b&gt;</text>'));
   });
 
   group('a source', () {

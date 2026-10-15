@@ -37,6 +37,11 @@ bool isPackPicture(Object? value) =>
     value.startsWith(_picture) &&
     value.contains('/images/', _picture.length);
 
+/// The file a `pack:` picture is; null if none. Overridden in tests.
+final packPictureProvider = Provider<Future<String?> Function(String picture)>(
+  (ref) => ref.watch(packStoreProvider).pictureAt,
+);
+
 /// Why a pack was turned down, as an HTTP status.
 class PackRefused implements Exception {
   const PackRefused(this.status, this.message);

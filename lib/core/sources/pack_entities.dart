@@ -17,7 +17,7 @@ final packEntitiesProvider = FutureProvider.family<List<Entity>, bool>((
     return const [];
   }
   if (!ref.mounted) return const [];
-  final store = ref.watch(packStoreProvider);
+  final picture = ref.watch(packPictureProvider);
   final ours = packs.where((contents) => contents.pack.builtIn == builtIn);
   // Every source watched before any is waited for.
   final rows = {
@@ -36,7 +36,7 @@ final packEntitiesProvider = FutureProvider.family<List<Entity>, bool>((
         ...generator.entitiesFrom(await rows['${pack.id}/$name']!),
     ]) {
       if (!builtIn && !entity.id.startsWith('${pack.id}:')) continue;
-      made.add(await _pictured(entity, store));
+      made.add(await _pictured(entity, picture));
     }
   }
   return made;
@@ -51,14 +51,15 @@ Future<List<Object?>> _rows(Ref ref, SourceAt at) async {
   }
 }
 
-Future<Entity> _pictured(Entity entity, PackStore store) async {
+Future<Entity> _pictured(
+  Entity entity,
+  Future<String?> Function(String) picture,
+) async {
   if (!entity.data.values.any(isPackPicture)) return entity;
   return entity.copyWith(
     data: {
       for (final MapEntry(:key, :value) in entity.data.entries)
-        key: isPackPicture(value)
-            ? await store.pictureAt(value as String)
-            : value,
+        key: isPackPicture(value) ? await picture(value as String) : value,
     }..removeWhere((_, value) => value == null),
   );
 }

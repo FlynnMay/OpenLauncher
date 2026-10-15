@@ -9,5 +9,4 @@ export 'entity_data.dart';
 export 'entity_generators.dart';
 export 'feeds.dart';
 export 'http_feed.dart';
-export 'input_artwork.dart';
 export 'user_entities.dart';

@@ -1,0 +1,35 @@
+{
+  "from": "apps",
+  "entity": {
+    "id": "app:{{row.package}}",
+    "category": "app",
+    "label": "{{row.label}}",
+    "prefab": "app-card",
+    "placed": true,
+    "data": {
+      "package": "{{row.package}}",
+      "icon": "{{row.icon}}",
+      "shape": "{{row.banner ? 'banner' : 'icon'}}"
+    },
+    "actions": {
+      "open": {
+        "run": "launchApp",
+        "with": { "package": "{{self.package}}" },
+        "label": "Open",
+        "icon": "material:play_arrow"
+      },
+      "info": {
+        "run": "openAppInfo",
+        "with": { "package": "{{self.package}}" },
+        "label": "App info",
+        "icon": "material:info"
+      },
+      "uninstall": {
+        "run": "uninstallApp",
+        "with": { "package": "{{self.package}}" },
+        "label": "Uninstall",
+        "icon": "material:delete"
+      }
+    }
+  }
+}

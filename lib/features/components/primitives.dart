@@ -252,8 +252,8 @@ class FolderPicture extends ConsumerWidget {
 ///
 /// Options: `source` (a template: a web address, a file, or a drawing as
 /// SVG), `fit` (`cover`, or `contain` to show all of it), `pad` (room
-/// left around it), `alt` (what to say when there is none). Look: `radius`
-/// (of its corners).
+/// left around it), `alt` (what to say when there is none), `badge` (text
+/// in a pill over its lower right). Look: `radius` (of its corners).
 class PictureComponent extends ConsumerWidget {
   const PictureComponent({super.key, required this.options});
 
@@ -284,21 +284,28 @@ class PictureComponent extends ConsumerWidget {
             ),
     );
     if (source.isEmpty) return none;
+    final badge = _read(context, ref, options['badge']).trim();
+    final picture = source.startsWith('<') || !kIsWeb && source.endsWith('.svg')
+        ? svgPicture(source)
+        : Image(
+            image: source.startsWith(RegExp('https?://'))
+                ? NetworkImage(source)
+                : pictureAt(source),
+            fit: fit,
+            width: double.infinity,
+            height: double.infinity,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => none,
+          );
     return ClipRRect(
       borderRadius: styleShape(look, 6),
       child: Padding(
         padding: EdgeInsets.all(pad),
-        child: source.startsWith('<') || !kIsWeb && source.endsWith('.svg')
-            ? svgPicture(source)
-            : Image(
-                image: source.startsWith(RegExp('https?://'))
-                    ? NetworkImage(source)
-                    : pictureAt(source),
-                fit: fit,
-                width: double.infinity,
-                height: double.infinity,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) => none,
+        child: badge.isEmpty
+            ? picture
+            : Stack(
+                fit: StackFit.expand,
+                children: [picture, svgPicture(badgeSvg(badge))],
               ),
       ),
     );

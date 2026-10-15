@@ -38,7 +38,18 @@ const _entity = Entity(
   category: appCategory,
   label: 'Alpha',
   data: {'package': 'a'},
-  actions: appActions,
+  actions: {
+    'open': EntityAction(
+      run: 'launchApp',
+      bound: {'package': '{{self.package}}'},
+      label: 'Open',
+    ),
+    'uninstall': EntityAction(
+      run: 'uninstallApp',
+      bound: {'package': '{{self.package}}'},
+      label: 'Uninstall',
+    ),
+  },
 );
 
 TvState _state() => TvState(

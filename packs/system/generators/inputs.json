@@ -1,0 +1,24 @@
+{
+  "from": "inputs",
+  "entity": {
+    "id": "input:{{row.id}}",
+    "category": "input",
+    "label": "{{row.label}}",
+    "prefab": "app-card",
+    "placed": true,
+    "data": {
+      "input": "{{row.id}}",
+      "icon": "pack:system/images/input-{{row.kind}}.svg",
+      "shape": "line",
+      "number": "{{row.label | match:(\\d+)\\s*$}}"
+    },
+    "actions": {
+      "open": {
+        "run": "switchInput",
+        "with": { "input": "{{self.input}}" },
+        "label": "Open",
+        "icon": "material:play_arrow"
+      }
+    }
+  }
+}
