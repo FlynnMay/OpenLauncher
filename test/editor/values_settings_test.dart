@@ -61,7 +61,7 @@ void main() {
     await name('Add action', 'open');
     // The first operation there is, with nothing bound: the act says it all.
     expect(entities.single.actions, const {
-      'open': EntityAction(run: 'launchApp', args: {'package': []}),
+      'open': EntityAction(run: 'os://apps/launch', args: {'package': []}),
     });
     await tester.enterText(
       find.widgetWithText(TextField, 'package'),
@@ -70,7 +70,10 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(entities.single.actions, const {
-      'open': EntityAction(run: 'launchApp', bound: {'package': 'com.plexapp'}),
+      'open': EntityAction(
+        run: 'os://apps/launch',
+        bound: {'package': 'com.plexapp'},
+      ),
     });
 
     // Timers of what it reads end with it.

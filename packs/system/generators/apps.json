@@ -13,19 +13,19 @@
     },
     "actions": {
       "open": {
-        "run": "launchApp",
+        "run": "os://apps/launch",
         "with": { "package": "{{self.package}}" },
         "label": "Open",
         "icon": "material:play_arrow"
       },
       "info": {
-        "run": "openAppInfo",
+        "run": "os://apps/info",
         "with": { "package": "{{self.package}}" },
         "label": "App info",
         "icon": "material:info"
       },
       "uninstall": {
-        "run": "uninstallApp",
+        "run": "os://apps/uninstall",
         "with": { "package": "{{self.package}}" },
         "label": "Uninstall",
         "icon": "material:delete"

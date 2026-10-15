@@ -170,7 +170,7 @@ void main() {
                     blank: const {'do': 'set'},
                     // What an act may add is what the action lets it.
                     fields: (act) => argOptions(
-                      actionsOf('variables', builtInEntities)['set']!,
+                      actionsOf('variables', builtInEntities)['set']!.args,
                     ),
                   ),
                   records: acts,

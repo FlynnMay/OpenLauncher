@@ -175,7 +175,7 @@ void main() {
       // What it defines: the operation each action runs, and with what.
       'actions': {
         'open': {
-          'run': 'switchInput',
+          'run': 'os://inputs/switch',
           'with': {'input': '{{self.input}}'},
           'label': 'Open',
           'icon': 'material:play_arrow',

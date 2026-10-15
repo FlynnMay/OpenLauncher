@@ -22,14 +22,20 @@ const entityArg = 'entity';
 /// [entityArg] for the entity a tile's `source` variable holds.
 const sourceEntity = '{{source.id}}';
 
-/// One saved action: the name of an action, the [entityArg] that defines and
-/// does it, and its other arguments.
+/// One saved action: either an entity's action by name, with the
+/// [entityArg] that defines and does it and its other arguments
+/// (`{"do": "open", "entity": "..."}`), or an address called directly with
+/// what it is told (`{"run": "launcher://layers/new", "with": {...}}`).
 @immutable
 class Act {
   const Act(this.name, [this.args = const {}]);
 
+  /// An action's name, or an address.
   final String name;
   final Map<String, Object?> args;
+
+  /// Whether it calls an address rather than an entity's action.
+  bool get isAddress => name.contains('://');
 
   /// The argument [key], if it is a string.
   String? arg(String key) => switch (args[key]) {
@@ -38,6 +44,16 @@ class Act {
   };
 
   static Act? fromJson(Object? json) => switch (json) {
+    {'run': final String address} when address.contains('://') => Act(
+      address,
+      switch (json['with']) {
+        final Map<Object?, Object?> told => {
+          for (final MapEntry(:key, :value) in told.entries)
+            if (key is String) key: value,
+        },
+        _ => const {},
+      },
+    ),
     {'do': final String name} => Act(name, {
       for (final MapEntry(:key, :value) in (json as Map).entries)
         if (key is String && key != 'do') key: value,
@@ -45,7 +61,9 @@ class Act {
     _ => null,
   };
 
-  Map<String, Object?> toJson() => {'do': name, ...args};
+  Map<String, Object?> toJson() => isAddress
+      ? {'run': name, if (args.isNotEmpty) 'with': args}
+      : {'do': name, ...args};
 
   @override
   bool operator ==(Object other) =>

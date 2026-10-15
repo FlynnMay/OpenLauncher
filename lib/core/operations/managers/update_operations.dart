@@ -14,15 +14,13 @@ class UpdateOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'checkForUpdate',
+      name: 'launcher://updates/check',
       label: 'Check for an update of the launcher',
-      onDevice: true,
       run: (run) => _updates.check(),
     ),
     Operation(
-      name: 'installUpdate',
+      name: 'launcher://updates/install',
       label: 'Install the latest update of the launcher',
-      onDevice: true,
       run: (run) => _updates.install(),
     ),
   ];

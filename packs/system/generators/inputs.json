@@ -14,7 +14,7 @@
     },
     "actions": {
       "open": {
-        "run": "switchInput",
+        "run": "os://inputs/switch",
         "with": { "input": "{{self.input}}" },
         "label": "Open",
         "icon": "material:play_arrow"

@@ -117,6 +117,58 @@ void main() {
     });
   });
 
+  test('2 to 3: operations are named by address', () {
+    final next = migrate(
+      {
+        'v': 2,
+        'entities': [
+          {
+            'id': 'mine',
+            'actions': {
+              'go': {
+                'run': 'launchApp',
+                'with': {'package': 'a'},
+              },
+              'dim': {'run': 'setVariable'},
+              'odd': {'run': 'somethingElse'},
+            },
+          },
+        ],
+        'layout': {
+          'v': 2,
+          'layers': [
+            {
+              'id': 'home',
+              'root': {
+                'id': 'root',
+                'kind': 'pane',
+                'on': {
+                  'press': [
+                    {'do': 'newLayer', 'entity': 'layers'},
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      },
+      steps: [migrations[1]],
+    );
+    expect(next['v'], 3);
+    expect((next['entities']! as List).single['actions'], {
+      'go': {
+        'run': 'os://apps/launch',
+        'with': {'package': 'a'},
+      },
+      'dim': {'run': 'launcher://variables/set'},
+      'odd': {'run': 'somethingElse'},
+    });
+    // An entity's action is named as before; only what it runs moved.
+    expect((next['layout']! as Map)['layers'][0]['root']['on']['press'], [
+      {'do': 'newLayer', 'entity': 'layers'},
+    ]);
+  });
+
   test('1 to 2: force stop and automatic setup are taken out', () {
     Map<String, Object?> button(String id, List<Map<String, Object?>> acts) => {
       'id': id,

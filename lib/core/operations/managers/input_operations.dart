@@ -11,10 +11,9 @@ class InputOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'switchInput',
+      name: 'os://inputs/switch',
       label: 'Switch to a TV input',
       args: const {'input': []},
-      onDevice: true,
       run: (run) async {
         final input = run.arg('input');
         if (input == null) throw const FormatException('No input was given');

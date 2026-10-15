@@ -219,4 +219,32 @@ void main() {
     expect(variables.keys, ['count', 'on', 'title']);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('an act that calls an address shows what is there', (
+    tester,
+  ) async {
+    await show(
+      tester,
+      set: const {
+        Trigger.press: [
+          Act('launcher://layers/new', {'blur': 8}),
+          Act('os://nothing/here'),
+        ],
+      },
+    );
+    expect(find.text('Create a new layer'), findsOneWidget);
+    expect(find.text('launcher://layers/new'), findsOneWidget);
+    expect(
+      find.text('There is nothing at "os://nothing/here".'),
+      findsOneWidget,
+    );
+    // What it is told, as the operation lets it be.
+    expect(find.text('blur'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Remove action').last);
+    await tester.pumpAndSettle();
+    expect(on[Trigger.press], [
+      const Act('launcher://layers/new', {'blur': 8}),
+    ]);
+  });
 }

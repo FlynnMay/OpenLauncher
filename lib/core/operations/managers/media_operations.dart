@@ -11,12 +11,11 @@ class MediaOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'mediaCommand',
+      name: 'os://media/command',
       label: 'Tell the media player',
       args: {
         'command': [for (final command in MediaCommand.values) command.name],
       },
-      onDevice: true,
       run: (run) async {
         final command = MediaCommand.values.asNameMap()[run.arg('command')];
         if (command == null) {

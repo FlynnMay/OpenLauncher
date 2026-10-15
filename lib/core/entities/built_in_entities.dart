@@ -21,7 +21,7 @@ const settingsEntity = Entity(
   },
   actions: {
     'open': EntityAction(
-      run: 'openSettings',
+      run: 'launcher://settings/open',
       label: 'Open',
       icon: 'material:play_arrow',
     ),
@@ -62,19 +62,19 @@ const builtInEntities = [
     feed: Feed('media'),
     actions: {
       'playPause': EntityAction(
-        run: 'mediaCommand',
+        run: 'os://media/command',
         bound: {'command': 'playPause'},
         label: 'Play or pause',
         icon: 'material:pause_circle',
       ),
       'next': EntityAction(
-        run: 'mediaCommand',
+        run: 'os://media/command',
         bound: {'command': 'next'},
         label: 'Next',
         icon: 'material:skip_next',
       ),
       'previous': EntityAction(
-        run: 'mediaCommand',
+        run: 'os://media/command',
         bound: {'command': 'previous'},
         label: 'Previous',
         icon: 'material:skip_previous',
@@ -87,7 +87,7 @@ const builtInEntities = [
     label: 'System',
     actions: {
       'access': EntityAction(
-        run: 'changeAccess',
+        run: 'os://access/change',
         args: {
           'access': ['homeButton', 'notifications'],
         },
@@ -95,7 +95,7 @@ const builtInEntities = [
         icon: 'material:lock',
       ),
       'tvSettings': EntityAction(
-        run: 'openTvSettings',
+        run: 'os://settings/open',
         label: 'TV settings',
         icon: 'material:tv',
       ),
@@ -108,12 +108,12 @@ const builtInEntities = [
     feed: Feed('updates'),
     actions: {
       'check': EntityAction(
-        run: 'checkForUpdate',
+        run: 'launcher://updates/check',
         label: 'Check for updates',
         icon: 'material:refresh',
       ),
       'install': EntityAction(
-        run: 'installUpdate',
+        run: 'launcher://updates/install',
         label: 'Install update',
         icon: 'material:download',
       ),
@@ -126,7 +126,7 @@ const builtInEntities = [
     feed: Feed('layers'),
     actions: {
       'newLayer': EntityAction(
-        run: 'newLayer',
+        run: 'launcher://layers/new',
         args: {
           'blur': [],
           'dim': [],
@@ -136,19 +136,19 @@ const builtInEntities = [
         icon: 'material:apps',
       ),
       'toLayer': EntityAction(
-        run: 'toLayer',
+        run: 'launcher://layers/raise',
         args: _of,
         label: 'Move to the top layer',
         icon: 'material:apps',
       ),
       'closeLayer': EntityAction(
-        run: 'closeLayer',
+        run: 'launcher://layers/close',
         args: _of,
         label: 'Remove its layer',
         icon: 'material:close',
       ),
       'close': EntityAction(
-        run: 'closePopup',
+        run: 'launcher://popups/close',
         label: 'Close the popup',
         icon: 'material:close',
       ),
@@ -160,7 +160,7 @@ const builtInEntities = [
     label: 'Variables',
     actions: {
       'set': EntityAction(
-        run: 'setVariable',
+        run: 'launcher://variables/set',
         args: {'var': [], 'value': [], ..._of},
         label: 'Set a variable',
         icon: 'material:star',

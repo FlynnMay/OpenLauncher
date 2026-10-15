@@ -17,7 +17,7 @@ class LayerOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'newLayer',
+      name: 'launcher://layers/new',
       label: 'Create a new layer',
       args: const {
         'blur': [],
@@ -34,7 +34,7 @@ class LayerOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'toLayer',
+      name: 'launcher://layers/raise',
       label: 'Move a component to the top layer',
       args: _of,
       run: (run) async {
@@ -45,7 +45,7 @@ class LayerOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'closeLayer',
+      name: 'launcher://layers/close',
       label: "Remove a component's layer",
       args: _of,
       run: (run) async {
@@ -54,7 +54,7 @@ class LayerOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'closePopup',
+      name: 'launcher://popups/close',
       label: 'Close the popup it fired in',
       run: (run) async {
         run.screen?.close();
