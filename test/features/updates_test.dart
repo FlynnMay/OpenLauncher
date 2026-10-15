@@ -10,6 +10,7 @@ import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
+import '../support/packs.dart';
 import '../support/updates.dart';
 
 void main() {
@@ -30,6 +31,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
           configServerProvider.overrideWith((ref) => null),
@@ -157,6 +159,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
           updateSourceProvider.overrideWithValue(source),

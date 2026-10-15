@@ -66,7 +66,10 @@ void main() {
         ),
         packsDirProvider.overrideWith((ref) => Directory('${tmp.path}/packs')),
         bundledPacksProvider.overrideWithValue(
-          BundledPacks({'core': packZip('core')}),
+          BundledPacks({
+            'core': packZip('core'),
+            'system': folderZip('system'),
+          }),
         ),
         updateSourceProvider.overrideWithValue(
           FakeUpdateSource(release(later)),
@@ -183,16 +186,21 @@ void main() {
       'label': 'HDMI 1',
       'name': 'HDMI 1',
       // What there is to read of it, its picture as where to fetch it.
-      'data': {'input': 'tv/HW1', 'icon': isA<String>(), 'shape': 'line'},
+      'data': {
+        'input': 'tv/HW1',
+        'icon': isA<String>(),
+        'shape': 'line',
+        'number': '1',
+      },
     });
 
-    // Inputs get built-in line art, served to the page as SVG.
+    // Inputs get the System pack's line art, served to the page as SVG.
     final icon = (await entities()).first['data']['icon'] as String;
     final response = await call('GET', icon);
     expect(response.headers['content-type'], 'image/svg+xml');
     expect(
       await response.readAsString(),
-      inputArtworkSvg(TvInputKind.hdmi, 'HDMI 1'),
+      File('packs/system/images/input-hdmi.svg').readAsStringSync(),
     );
     expect((await entities()).last['data']['icon'], isNull);
   });
@@ -983,18 +991,17 @@ void main() {
     Future<List<Object?>> packs() async => [
       for (final Map pack in (await state())['packs']) pack['id'],
     ];
-    expect((await state())['packs'], [
-      {
-        'id': 'core',
-        'name': 'Pack core',
-        'version': '1',
-        'author': '',
-        'licence': '',
-        'builtIn': true,
-        'bytes': isPositive,
-        'icons': ['core'],
-      },
-    ]);
+    expect(await packs(), ['core', 'system']);
+    expect((await state())['packs'].first, {
+      'id': 'core',
+      'name': 'Pack core',
+      'version': '1',
+      'author': '',
+      'licence': '',
+      'builtIn': true,
+      'bytes': isPositive,
+      'files': ['fonts/core.ttf', 'icons/core.json'],
+    });
 
     // A pack's files are read by the editor from the TV.
     var response = await call('GET', '/api/packs/core/icons/core.json');
@@ -1015,7 +1022,7 @@ void main() {
     response = await call('POST', '/api/packs', body: packZip('mdi'));
     expect(response.statusCode, 200);
     expect(jsonDecode(await response.readAsString()), {'id': 'mdi'});
-    expect(await packs(), ['core', 'mdi']);
+    expect(await packs(), ['core', 'system', 'mdi']);
 
     response = await call('POST', '/api/packs', body: [1, 2, 3]);
     expect(response.statusCode, 415);
@@ -1026,8 +1033,9 @@ void main() {
     expect((await call('DELETE', '/api/packs')).statusCode, 400);
     expect((await call('DELETE', '/api/packs?id=none')).statusCode, 404);
     expect((await call('DELETE', '/api/packs?id=core')).statusCode, 409);
+    expect((await call('DELETE', '/api/packs?id=system')).statusCode, 409);
     expect((await call('DELETE', '/api/packs?id=mdi')).statusCode, 200);
-    expect(await packs(), ['core']);
+    expect(await packs(), ['core', 'system']);
   });
 
   test('event stream sends the state now and after each change', () async {

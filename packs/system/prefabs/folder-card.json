@@ -1,0 +1,89 @@
+{
+  "id": "folder-card",
+  "name": "Folder card",
+  "root": {
+    "id": "root",
+    "kind": "pane",
+    "options": {
+      "mode": "column",
+      "gap": 6
+    },
+    "vars": {
+      "source": {
+        "value": null,
+        "type": "entity"
+      }
+    },
+    "on": {
+      "press": [
+        {
+          "do": "set",
+          "entity": "variables",
+          "var": "open",
+          "value": true,
+          "of": "{{source.id}}"
+        }
+      ]
+    },
+    "children": [
+      {
+        "id": "picture",
+        "kind": "folder",
+        "transform": {
+          "flex": 1
+        },
+        "options": {
+          "folder": "{{source.id}}",
+          "frame": true,
+          "bare": "{{source.bare}}"
+        }
+      },
+      {
+        "id": "name",
+        "kind": "text",
+        "transform": {
+          "keep": true
+        },
+        "options": {
+          "text": "{{source.label}}",
+          "overflow": "ellipsis"
+        },
+        "style": {
+          "fontSize": 12,
+          "fontWeight": "medium"
+        }
+      }
+    ]
+  },
+  "variants": {
+    "stacked": {
+      "label": "Name under the picture"
+    },
+    "row": {
+      "label": "Name beside the picture",
+      "overrides": {
+        "root": {
+          "options": {
+            "mode": "row",
+            "gap": 12
+          }
+        },
+        "picture": {
+          "transform": {
+            "flex": 0,
+            "aspect": 1.7777777777777777
+          }
+        },
+        "name": {
+          "transform": {
+            "flex": 1,
+            "keep": false
+          },
+          "style": {
+            "textAlign": "left"
+          }
+        }
+      }
+    }
+  }
+}

@@ -61,12 +61,13 @@ void main() {
   group('the Material pack', () {
     test('has every icon the launcher itself names', () {
       final named = <String>{
-        for (final file in Directory('lib').listSync(recursive: true))
-          if (file is File && file.path.endsWith('.dart'))
-            for (final match in RegExp(
-              "'material:([a-z0-9_]+)'",
-            ).allMatches(file.readAsStringSync()))
-              match[1]!,
+        for (final folder in ['lib', 'packs/system'])
+          for (final file in Directory(folder).listSync(recursive: true))
+            if (file is File && RegExp(r'\.(dart|json)$').hasMatch(file.path))
+              for (final match in RegExp(
+                '[\'"]material:([a-z0-9_]+)[\'"]',
+              ).allMatches(file.readAsStringSync()))
+                match[1]!,
       };
       expect(named, isNotEmpty);
       expect(named.difference(materialSet.icons.keys.toSet()), isEmpty);
@@ -188,7 +189,7 @@ void main() {
               'mdi-pack/README.md': 'hello',
               'mdi-pack/../../escaped.json': '{}',
               'mdi-pack/fonts/../../../escaped.ttf': fontBytes,
-              'mdi-pack/prefabs/later.json': '{}',
+              'mdi-pack/scripts/later.js': 'run()',
             }),
           ),
         );

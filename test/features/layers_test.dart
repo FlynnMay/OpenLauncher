@@ -11,6 +11,8 @@ import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import '../support/packs.dart';
+
 void main() {
   test('layers are made, moved to and taken away', () {
     final c = ProviderContainer();
@@ -48,6 +50,7 @@ void main() {
         ProviderScope(
           key: UniqueKey(),
           overrides: [
+            ...packOverrides,
             launcherPlatformProvider.overrideWithValue(
               FakeLauncherPlatform([
                 InstalledApp(packageName: 'a', label: 'Alpha', isBanner: true),
@@ -151,6 +154,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           launcherPlatformProvider.overrideWithValue(platform),
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(

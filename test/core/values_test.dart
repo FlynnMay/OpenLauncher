@@ -13,6 +13,8 @@ import 'package:openlauncher/features/components/primitives.dart';
 import 'package:openlauncher/features/home/styled_box.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import '../support/packs.dart';
+
 String _render(String source, Map<String, Object?> values) =>
     Template.parse(source).render((root) => values[root]);
 
@@ -171,7 +173,10 @@ void main() {
     test('are kept in the config', () async {
       final store = MemoryConfigStore();
       final container = ProviderContainer(
-        overrides: [configStoreProvider.overrideWithValue(store)],
+        overrides: [
+          ...packOverrides,
+          configStoreProvider.overrideWithValue(store),
+        ],
       );
       addTearDown(container.dispose);
       final config = container.read(configProvider.notifier);
@@ -275,6 +280,7 @@ void main() {
       asked = [];
       final container = ProviderContainer(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
           launcherPlatformProvider.overrideWithValue(platform),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4, 9)),
@@ -396,6 +402,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
           ),
@@ -498,7 +505,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [configStoreProvider.overrideWithValue(MemoryConfigStore())],
+        overrides: [
+          ...packOverrides,
+          configStoreProvider.overrideWithValue(MemoryConfigStore()),
+        ],
         child: MaterialApp(
           home: Builder(
             builder: (context) => StyleScope.under(

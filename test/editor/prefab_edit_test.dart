@@ -6,9 +6,11 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 
+import '../support/packs.dart';
+
 void main() {
-  final card = builtInPrefabs.first;
-  final prefabs = {for (final prefab in builtInPrefabs) prefab.id: prefab};
+  final card = systemPrefabs.first;
+  final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
   const text = Component(id: 'badge', kind: 'text', options: {'text': 'New'});
 
   /// [prefab] after [change] to it as a layout, shown as [variant].
@@ -101,7 +103,7 @@ void main() {
 
   test('the difference between two trees is overrides that make one of '
       'the other', () {
-    for (final prefab in builtInPrefabs) {
+    for (final prefab in systemPrefabs) {
       for (final variant in prefab.variants.keys) {
         final as = prefab.rootAs(variant);
         final between = overridesBetween(prefab.root, as)!;

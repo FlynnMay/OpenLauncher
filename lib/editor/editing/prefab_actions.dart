@@ -14,8 +14,9 @@ import 'package:openlauncher/editor/editing/selection.dart';
 /// Marks a prefab or an instance of one wherever it is shown.
 const prefabIcon = Icons.view_in_ar_outlined;
 
-bool isBuiltIn(String prefabId) =>
-    builtInPrefabs.any((prefab) => prefab.id == prefabId);
+/// Whether a pack ships [prefabId]; the user's of that id is it, edited.
+bool isBuiltIn(WidgetRef ref, String prefabId) =>
+    ref.read(shippedPrefabsProvider).containsKey(prefabId);
 
 const _shared =
     'Variants share the prefab\'s structure, variables and actions. Switch '
@@ -214,7 +215,7 @@ Future<void> deletePrefab(
   final config = ref.read(configProvider).value;
   if (config == null) return;
   final controller = ref.read(configProvider.notifier);
-  if (isBuiltIn(prefab.id)) {
+  if (isBuiltIn(ref, prefab.id)) {
     if (!await confirm(
       context,
       'Reset "${prefab.name}"?',

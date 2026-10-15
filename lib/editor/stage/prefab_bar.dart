@@ -30,7 +30,7 @@ class PrefabBar extends ConsumerWidget {
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final folders = ref.watch(configProvider).value?.layout.docked ?? const [];
     final modified =
-        isBuiltIn(prefab.id) &&
+        isBuiltIn(ref, prefab.id) &&
         (ref
                 .watch(configProvider)
                 .value

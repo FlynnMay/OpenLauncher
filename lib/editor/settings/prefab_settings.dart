@@ -258,7 +258,7 @@ class PrefabList extends ConsumerWidget {
           subtitle: Text(
             [
               _used(ref, prefab),
-              if (isBuiltIn(prefab.id))
+              if (isBuiltIn(ref, prefab.id))
                 _edited(ref, prefab) ? 'built-in, modified' : 'built-in',
             ].join(' · '),
           ),
@@ -296,7 +296,7 @@ class _PrefabMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final builtIn = isBuiltIn(prefab.id);
+    final builtIn = isBuiltIn(ref, prefab.id);
     return PopupMenuButton<void Function()>(
       tooltip: 'More',
       iconSize: 18,
@@ -328,7 +328,7 @@ class PrefabDetails extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final builtIn = isBuiltIn(prefab.id);
+    final builtIn = isBuiltIn(ref, prefab.id);
     return Section('Prefab', [
       CommitField(
         label: 'Name',

@@ -287,8 +287,10 @@ class ConfigApi {
   Future<Response> _icon(Request request, String id) async {
     final entity = (await _ref.read(entitiesProvider.future)).byId(id);
     final path = entity?.data[Entity.icon] as String?;
-    // Line art is SVG markup, not a file.
-    if (path != null && entity?.data[Entity.shape] == Entity.lineArt) {
+    // Line art may be SVG markup rather than a file.
+    if (path != null &&
+        path.startsWith('<') &&
+        entity?.data[Entity.shape] == Entity.lineArt) {
       return Response.ok(
         path,
         headers: {..._forGood, 'content-type': 'image/svg+xml'},

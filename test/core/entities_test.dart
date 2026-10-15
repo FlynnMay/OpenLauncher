@@ -11,6 +11,8 @@ import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import '../support/packs.dart';
+
 Entity _entity(String name, {String? icon}) => Entity(
   id: 'app:$name',
   category: appCategory,
@@ -119,6 +121,7 @@ void main() {
       ], []);
       container = ProviderContainer(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
         ],
@@ -305,7 +308,7 @@ void main() {
       );
       // What an instance does is its prefab's to say, unless it says.
       Triggers does(Component item) =>
-          resolved(item, {cardPrefabId: builtInPrefabs.first}).on;
+          resolved(item, {cardPrefabId: systemPrefabs.first}).on;
       expect(entity.on, isEmpty);
       expect(does(entity), {
         Trigger.press: [
@@ -353,31 +356,11 @@ void main() {
     });
   });
 
-  group('inputArtworkSvg', () {
-    test('badges the port number from the label', () {
-      final svg = inputArtworkSvg(TvInputKind.hdmi, 'HDMI 2');
-      expect(svg, startsWith('<svg '));
-      expect(svg, contains('>2</text>'));
-      // Two digits widen the circle into a pill.
-      expect(
-        inputArtworkSvg(TvInputKind.hdmi, 'HDMI 12'),
-        contains('width="36.0"'),
-      );
-    });
-
-    test('no badge without a number, and a picture per kind', () {
-      final pictures = {
-        for (final kind in TvInputKind.values) inputArtworkSvg(kind, 'TV'),
-      };
-      expect(pictures, hasLength(TvInputKind.values.length));
-      expect(pictures.any((svg) => svg.contains('<text')), isFalse);
-    });
-  });
-
   group('what an entity can do', () {
     ProviderContainer container(List<Entity> own) {
       final container = ProviderContainer(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(LauncherConfig(entities: own)),
           ),
@@ -482,6 +465,7 @@ void main() {
       final platform = FakeLauncherPlatform(const [], const []);
       final c = ProviderContainer(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
@@ -587,6 +571,7 @@ void main() {
       final platform = FakeLauncherPlatform(const [], const []);
       final c = ProviderContainer(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
@@ -657,6 +642,7 @@ void main() {
       ], const []);
       final container = ProviderContainer(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(platform),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4, 9)),

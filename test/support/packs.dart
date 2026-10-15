@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
@@ -24,12 +25,54 @@ const materialPack = Pack(
   licence: 'Apache-2.0',
   builtIn: true,
   bytes: 2 << 20,
-  iconSets: ['material'],
+  files: ['fonts/material-symbols-outlined.ttf', 'icons/material.json'],
 );
 
-/// The Material pack installed, without touching the disk or the engine.
+/// The launcher's own System pack as it is in `packs/system`.
+final systemPack = Pack(
+  id: 'system',
+  name: 'System',
+  version: '1',
+  builtIn: true,
+  files: [
+    for (final file in Directory('packs/system').listSync(recursive: true))
+      if (file is File && !file.path.endsWith('pack.json'))
+        file.path.substring('packs/system/'.length),
+  ]..sort(),
+);
+
+/// The System pack's prefabs, by file name: the app card first.
+final systemPrefabs = [
+  for (final file
+      in Directory('packs/system/prefabs').listSync().whereType<File>().toList()
+        ..sort((a, b) => a.path.compareTo(b.path)))
+    Prefab.fromJson(jsonDecode(file.readAsStringSync()))!,
+];
+
+/// What the System pack holds, for the editor's tests, whose packs come
+/// from a stand-in TV.
+final systemContents = packContentsProvider.overrideWith(
+  (ref) async => [
+    PackContents.parse(systemPack, {
+      for (final path in systemPack.files.where(PackContents.reads))
+        path: File('packs/system/$path').readAsStringSync(),
+    }),
+  ],
+);
+
+/// The packs in `packs/` installed, read from there rather than through the
+/// pack store, and no font loaded.
 final List<Override> packOverrides = [
-  packsProvider.overrideWith((ref) async => const [materialPack]),
+  packsProvider.overrideWith((ref) async => [materialPack, systemPack]),
+  // Read at once: real file reads never finish under a widget test's clock.
+  packReaderProvider.overrideWithValue((pack, path) async {
+    final file = File('packs/${pack.id}/$path');
+    return file.existsSync() ? file.readAsBytesSync() : null;
+  }),
+  packPictureProvider.overrideWithValue((picture) async {
+    final file = File(picture.replaceFirst('pack:', 'packs/'));
+    return file.existsSync() ? file.absolute.path : null;
+  }),
   iconSetProvider.overrideWith(
     (ref, id) async => id == 'material' ? materialSet : null,
   ),
@@ -74,6 +117,13 @@ Uint8List packZip(
         name: [code, 0, 'light bulb'],
     },
   }),
+});
+
+/// A zip of the pack in `packs/<id>`, as `tool/build_packs.dart` makes it.
+Uint8List folderZip(String id) => zipOf({
+  for (final file in Directory('packs/$id').listSync(recursive: true))
+    if (file is File)
+      file.path.substring('packs/$id/'.length): file.readAsBytesSync(),
 });
 
 /// The app's assets holding [zips] as built-in packs, by id.

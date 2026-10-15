@@ -1,0 +1,122 @@
+{
+  "id": "weather",
+  "name": "Weather",
+  "root": {
+    "id": "root",
+    "kind": "pane",
+    "transform": {
+      "w": 2
+    },
+    "options": {
+      "mode": "row",
+      "fit": true,
+      "gap": 14
+    },
+    "vars": {
+      "source": {
+        "value": "weather",
+        "type": "entity"
+      },
+      "icon": {
+        "when": "{{source.sky}}",
+        "cases": [
+          {
+            "equals": "clear",
+            "then": "material:sunny"
+          },
+          {
+            "equals": "partlyCloudy",
+            "then": "material:partly_cloudy_day"
+          },
+          {
+            "equals": "cloudy",
+            "then": "material:cloud"
+          },
+          {
+            "equals": "fog",
+            "then": "material:foggy"
+          },
+          {
+            "equals": "snow",
+            "then": "material:weather_snowy"
+          },
+          {
+            "equals": "storm",
+            "then": "material:thunderstorm"
+          }
+        ],
+        "else": "material:rainy",
+        "exposed": false
+      },
+      "summary": {
+        "when": "{{source.high}}",
+        "cases": [
+          {
+            "equals": "",
+            "then": "{{source.description}}"
+          }
+        ],
+        "else": "{{source.description}}  ·  {{source.high | round}}° / {{source.low | round}}°",
+        "exposed": false
+      }
+    },
+    "children": [
+      {
+        "id": "icon",
+        "kind": "icon",
+        "options": {
+          "icon": "{{icon}}",
+          "size": 46
+        }
+      },
+      {
+        "id": "lines",
+        "kind": "pane",
+        "options": {
+          "mode": "column",
+          "fit": true,
+          "align": "start"
+        },
+        "children": [
+          {
+            "id": "temperature",
+            "kind": "text",
+            "options": {
+              "text": "{{source | default:Choose a place in the editor}}"
+            },
+            "style": {
+              "fontSize": 38
+            }
+          },
+          {
+            "id": "summary",
+            "kind": "text",
+            "options": {
+              "text": "{{summary}}"
+            },
+            "style": {
+              "fontSize": 14,
+              "color": "#ffffffb3"
+            }
+          },
+          {
+            "id": "place",
+            "kind": "text",
+            "options": {
+              "text": "{{source.place}}"
+            },
+            "style": {
+              "fontSize": 14,
+              "color": "#ffffff8a"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "variants": {
+    "row": {
+      "label": "Beside its picture"
+    }
+  }
+}

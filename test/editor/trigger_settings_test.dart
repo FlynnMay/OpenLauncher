@@ -8,6 +8,8 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import '../support/packs.dart';
+
 void main() {
   late Triggers on;
 
@@ -24,6 +26,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform([
@@ -160,6 +163,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),

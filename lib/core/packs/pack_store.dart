@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/icon_set.dart';
 import 'package:openlauncher/core/packs/pack.dart';
+import 'package:openlauncher/core/packs/pack_contents.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -27,6 +28,19 @@ final packStoreProvider = Provider<PackStore>((ref) {
   ref.onDispose(store.dispose);
   return store;
 });
+
+const _picture = 'pack:';
+
+/// Whether [value] names a pack's picture: `pack:<id>/images/<name>`.
+bool isPackPicture(Object? value) =>
+    value is String &&
+    value.startsWith(_picture) &&
+    value.contains('/images/', _picture.length);
+
+/// The file a `pack:` picture is; null if none. Overridden in tests.
+final packPictureProvider = Provider<Future<String?> Function(String picture)>(
+  (ref) => ref.watch(packStoreProvider).pictureAt,
+);
 
 /// Why a pack was turned down, as an HTTP status.
 class PackRefused implements Exception {
@@ -56,7 +70,9 @@ class PackStore with ChangeNotifier {
 
   /// The only files a pack is read for; anything else in a zip is left.
   static final _kept = RegExp(
-    r'^(pack\.json|fonts/[A-Za-z0-9._-]+\.(ttf|otf)|icons/[a-z0-9][a-z0-9_-]*\.json)$',
+    r'^(pack\.json|fonts/[A-Za-z0-9._-]+\.(ttf|otf)'
+    r'|(icons|entities|sources|generators|prefabs)/[a-z0-9][a-z0-9_-]*\.json'
+    r'|images/[a-z0-9][a-z0-9_-]*\.(svg|png|webp))$',
   );
 
   final Ref _ref;
@@ -101,19 +117,19 @@ class PackStore with ChangeNotifier {
     }
     if (pack == null || pack.id != p.basename(folder.path)) return null;
     var bytes = 0;
-    final sets = <String>[];
+    final files = <String>[];
     await for (final entry in folder.list(recursive: true)) {
       if (entry is! File) continue;
       bytes += await entry.length();
       final path = p.posix.joinAll(
         p.split(p.relative(entry.path, from: folder.path)),
       );
-      if (path.startsWith('icons/')) sets.add(p.basenameWithoutExtension(path));
+      if (path != _manifest && _kept.hasMatch(path)) files.add(path);
     }
     return pack.copyWith(
       builtIn: builtIn.contains(pack.id),
       bytes: bytes,
-      iconSets: sets..sort(),
+      files: files..sort(),
     );
   }
 
@@ -141,6 +157,16 @@ class PackStore with ChangeNotifier {
     if (!Pack.validId(id) || !_kept.hasMatch(path)) return null;
     final file = File(p.joinAll([(await _dir()).path, id, ...path.split('/')]));
     return await file.exists() ? file.path : null;
+  }
+
+  /// The file a `pack:<id>/images/<name>` picture is; null if none.
+  Future<String?> pictureAt(String picture) async {
+    if (!isPackPicture(picture)) return null;
+    final at = picture.indexOf('/');
+    return pathOf(
+      picture.substring(_picture.length, at),
+      picture.substring(at + 1),
+    );
   }
 
   Future<Uint8List?> read(Pack pack, String path) async =>
@@ -243,6 +269,15 @@ class PackStore with ChangeNotifier {
       if (others.contains(id)) {
         throw PackRefused(409, 'Another pack already has icons called "$id"');
       }
+    }
+    try {
+      PackContents.parse(pack.copyWith(builtIn: stamp != null), {
+        for (final MapEntry(key: path, value: content) in files.entries)
+          if (PackContents.reads(path))
+            path: utf8.decode(content, allowMalformed: true),
+      });
+    } on FormatException catch (error) {
+      throw PackRefused(400, error.message);
     }
 
     final dir = await _dir();

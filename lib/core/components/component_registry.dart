@@ -66,6 +66,7 @@ enum ComponentRegistry {
     picture => const [
       ComponentOption('source', 'Source (URL or value)', OptionKind.template),
       ComponentOption('alt', 'Alt text', OptionKind.template),
+      ComponentOption('badge', 'Badge', OptionKind.template),
       ComponentOption(
         'fit',
         'Fit',
