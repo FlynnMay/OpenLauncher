@@ -101,7 +101,7 @@ void main() {
     auth.pairing.open();
     token = (await auth.pair(auth.pairing.value!, 'test')).token;
     addTearDown(() async {
-      container.dispose();
+      await closePacks(container);
       await tmp.delete(recursive: true);
     });
   });
@@ -230,12 +230,11 @@ void main() {
         .firstWhere((pane) => pane['id'] == Layout.menuId);
     expect(menu['options']['dock'], 'center');
     expect(menu['children'], hasLength(defaultMenu.length));
-    // And the home layer's layout is an entity that can be told to add and
-    // remove.
-    final home = (page['entities'] as List).firstWhere(
-      (entity) => entity['id'] == Layout.homeId,
+    // The layout is the launcher's, called by address, not an entity.
+    expect(
+      (page['entities'] as List).map((entity) => entity['id']),
+      isNot(contains(Layout.homeId)),
     );
-    expect(home['category'], 'layout');
     expect(page['config']['toasts'], const ToastOptions().toJson());
     expect(page['access'], {'homeButton': true, 'notifications': true});
   });
@@ -278,28 +277,31 @@ void main() {
       'homeButton': false,
       'notifications': true,
     });
-    // The system's actions name it too; no owner is guessed.
+    // The device's actions name it too; no owner is guessed.
     expect((await act('access')).statusCode, 400);
     expect((await act('playPause')).statusCode, 400);
     // The TV shows the screen for it; which permission has to be said.
     final change = {'access': 'homeButton'};
-    expect(await said(await act('access', on: 'system', more: change)), isNull);
+    expect(await said(await act('access', on: 'device', more: change)), isNull);
     expect(platform.accessChanged, [Access.homeButton]);
-    expect((await act('access', on: 'system')).statusCode, 502);
+    expect((await act('access', on: 'device')).statusCode, 502);
     platform.noAccessScreen = true;
     expect(
-      await said(await act('access', on: 'system', more: change)),
+      await said(await act('access', on: 'device', more: change)),
       startsWith('This TV has no screen for it\n'),
     );
-    await said(await act('tvSettings', on: 'system'));
+    await said(await act('tvSettings', on: 'device'));
     expect(platform.tvSettingsOpened, 1);
 
     // What is not the device's doing is done all the same: a variable set.
     await said(
-      await act(
-        'set',
-        on: 'variables',
-        more: {'of': 'lamp', 'var': 'on', 'value': true},
+      await call(
+        'POST',
+        '/api/act',
+        body: {
+          'run': 'launcher://variables/set',
+          'with': {'of': 'lamp', 'var': 'on', 'value': true},
+        },
       ),
     );
     expect(
@@ -307,7 +309,7 @@ void main() {
       400,
     );
 
-    expect((await act('dance', on: 'system')).statusCode, 400);
+    expect((await act('dance', on: 'device')).statusCode, 400);
     expect((await call('POST', '/api/act', body: {})).statusCode, 400);
   });
 
@@ -588,7 +590,7 @@ void main() {
             {
               'id': 'lamp',
               'label': 'Lamp',
-              'feed': {'from': 'http', 'url': 'http://ha/x'},
+              'feed': {'url': 'http://ha/x'},
             },
             {
               'id': 'motto',
@@ -614,7 +616,7 @@ void main() {
         'id': 'lamp',
         'category': 'value',
         'label': 'Lamp',
-        'feed': {'from': 'http', 'url': 'http://ha/x'},
+        'feed': {'url': 'http://ha/x'},
       });
       // They are entities like the rest.
       expect([
@@ -652,7 +654,7 @@ void main() {
         '/api/config',
         body: {
           'entities': [
-            {'id': 'clock'},
+            {'id': 'self'},
             {'id': 'a'},
             {'id': 'a'},
           ],
@@ -1077,9 +1079,9 @@ void main() {
     expect(response.statusCode, 200);
     final state = jsonDecode(await response.transform(utf8.decoder).join());
     // An input, two apps, the launcher's settings, and those there is one
-    // of: the clock, the weather, the place, the media player, the system,
-    // the layers, the variables and the layout.
-    expect(state['entities'], hasLength(13));
+    // of: the clock, the weather, the place, the media player, the device
+    // and updates.
+    expect(state['entities'], hasLength(10));
   });
 
   test('a forwarded host does not pass the host check', () async {

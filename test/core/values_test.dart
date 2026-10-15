@@ -29,7 +29,7 @@ Entity _asked(String id, String url, {int every = 60, String? name}) => Entity(
   id: id,
   category: userCategory,
   label: name ?? id,
-  feed: Feed(httpFeed, {'url': url, 'every': every}),
+  feed: Feed.inline({'url': url, 'every': every}),
 );
 
 void main() {
@@ -151,23 +151,23 @@ void main() {
           ...saved,
           saved.first, // The same id again.
           {'id': 'Not An Id'},
-          {'id': 'clock'},
+          {'id': 'source'},
           {'name': 'No id'},
           'nonsense',
           {
             'id': 'fast',
-            'feed': {'from': 'http', 'url': 'http://x.test', 'every': 1},
+            'feed': {'url': 'http://x.test', 'every': 1},
           },
-        ]).map((entity) => (entity.id, HttpFeed.of(entity)?.every)),
+        ]).map((entity) => (entity.id, entity.feed?.source?.every)),
         [('lounge', 30), ('motto', null), ('fast', HttpFeed.minEvery)],
       );
     });
 
     test('only web addresses are asked', () {
-      expect(HttpFeed.of(_asked('a', 'https://x.test/y')), isNotNull);
-      expect(HttpFeed.of(_asked('a', 'file:///etc/passwd')), isNull);
-      expect(HttpFeed.of(_asked('a', 'x.test')), isNull);
-      expect(HttpFeed.of(_fixed('a', 'https://x.test/y')), isNull);
+      expect(_asked('a', 'https://x.test/y').feed?.source, isNotNull);
+      expect(_asked('a', 'file:///etc/passwd').feed?.source, isNull);
+      expect(_asked('a', 'x.test').feed?.source, isNull);
+      expect(_fixed('a', 'https://x.test/y').feed, isNull);
     });
 
     test('are kept in the config', () async {
@@ -189,10 +189,10 @@ void main() {
             'id': 'motto',
             'data': {'text': 'Hi'},
           },
-          // Not a name of its own: the launcher's.
+          // Not a name of its own: one templates read.
           {
-            'id': 'weather',
-            'feed': {'from': 'http', 'url': 'http://x.test'},
+            'id': 'self',
+            'feed': {'url': 'http://x.test'},
           },
         ],
         'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
@@ -273,7 +273,7 @@ void main() {
           bound: {'command': 'next'},
         ),
       });
-      expect(HttpFeed.of(bound)?.every, 60);
+      expect(bound.feed?.source?.every, 60);
       expect(bound.data, {'colour': 'orange'});
     });
   });

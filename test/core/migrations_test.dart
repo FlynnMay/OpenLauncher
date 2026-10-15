@@ -117,7 +117,7 @@ void main() {
     });
   });
 
-  test('2 to 3: operations are named by address', () {
+  test('2 to 3: operations and machinery by address, feeds as sources', () {
     final next = migrate(
       {
         'v': 2,
@@ -132,6 +132,11 @@ void main() {
               'dim': {'run': 'setVariable'},
               'odd': {'run': 'somethingElse'},
             },
+            'feed': {'from': 'http', 'url': 'http://ha/x', 'every': 30},
+          },
+          {
+            'id': 'now',
+            'feed': {'from': 'clock'},
           },
         ],
         'layout': {
@@ -143,8 +148,24 @@ void main() {
                 'id': 'root',
                 'kind': 'pane',
                 'on': {
+                  'reveal': [
+                    {'do': 'newLayer', 'entity': 'layers', 'dim': 0.5},
+                    {'do': 'toLayer', 'entity': 'layers'},
+                  ],
                   'press': [
-                    {'do': 'newLayer', 'entity': 'layers'},
+                    {
+                      'do': 'set',
+                      'entity': 'variables',
+                      'var': 'open',
+                      'value': true,
+                    },
+                    {'do': 'remove', 'entity': 'home', 'what': 'app:a'},
+                    {
+                      'do': 'access',
+                      'entity': 'system',
+                      'access': 'homeButton',
+                    },
+                    {'do': 'open', 'entity': '{{source.id}}'},
                   ],
                 },
               },
@@ -155,7 +176,8 @@ void main() {
       steps: [migrations[1]],
     );
     expect(next['v'], 3);
-    expect((next['entities']! as List).single['actions'], {
+    final [mine, now] = next['entities']! as List;
+    expect(mine['actions'], {
       'go': {
         'run': 'os://apps/launch',
         'with': {'package': 'a'},
@@ -163,9 +185,27 @@ void main() {
       'dim': {'run': 'launcher://variables/set'},
       'odd': {'run': 'somethingElse'},
     });
-    // An entity's action is named as before; only what it runs moved.
-    expect((next['layout']! as Map)['layers'][0]['root']['on']['press'], [
-      {'do': 'newLayer', 'entity': 'layers'},
+    expect(mine['feed'], {'url': 'http://ha/x', 'every': 30});
+    expect(now['feed'], 'launcher://clock');
+    final on = (next['layout']! as Map)['layers'][0]['root']['on'];
+    expect(on['reveal'], [
+      {
+        'run': 'launcher://layers/new',
+        'with': {'dim': 0.5},
+      },
+      {'run': 'launcher://layers/raise'},
+    ]);
+    expect(on['press'], [
+      {
+        'run': 'launcher://variables/set',
+        'with': {'var': 'open', 'value': true},
+      },
+      {
+        'run': 'launcher://layout/remove',
+        'with': {'layer': 'home', 'what': 'app:a'},
+      },
+      {'do': 'access', 'entity': 'device', 'access': 'homeButton'},
+      {'do': 'open', 'entity': '{{source.id}}'},
     ]);
   });
 

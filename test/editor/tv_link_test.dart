@@ -57,8 +57,14 @@ const _entity = Entity(
 TvState _state() => TvState(
   entities: [
     _entity,
-    builtInEntities.byId('system')!,
-    builtInEntities.byId('variables')!,
+    const Entity(
+      id: 'device',
+      category: 'device',
+      label: 'Device',
+      actions: {
+        'access': EntityAction(run: 'os://access/change', args: {'access': []}),
+      },
+    ),
   ],
   config: LauncherConfig(layout: Layout.initial(['app:a'])),
   components: const [],
@@ -202,11 +208,11 @@ void main() {
         'Asked on the TV.',
       );
       await actions.run(
-        const Act('access', {'entity': 'system', 'access': 'homeButton'}),
+        const Act('access', {'entity': 'device', 'access': 'homeButton'}),
       );
       expect(tv.sent, [
         '{do: uninstall, entity: app:a}',
-        '{do: access, entity: system, access: homeButton}',
+        '{do: access, entity: device, access: homeButton}',
       ]);
       // So is an address the TV answers, and the TV's own updater.
       await actions.run(const Act('os://apps/launch', {'package': 'a'}));
@@ -219,15 +225,7 @@ void main() {
       // One that names no entity is declined here and never sent.
       expect(actions.run(const Act('access')), throwsA(isA<ImproperAct>()));
 
-      // Setting a variable is the page's own business, however it is asked.
-      await actions.run(
-        const Act('set', {
-          'entity': 'variables',
-          'of': 'x',
-          'var': 'on',
-          'value': 1,
-        }),
-      );
+      // Setting a variable is the page's own business.
       await actions.run(
         const Act('launcher://variables/set', {
           'of': 'x',

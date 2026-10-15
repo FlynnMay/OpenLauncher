@@ -9,7 +9,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
-import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/core/sources/sources.dart';
 import 'package:openlauncher/server/auth.dart';
 import 'package:openlauncher/server/config_page_state.dart';
 import 'package:openlauncher/server/editor_files.dart';
@@ -194,10 +194,13 @@ class ConfigApi {
   /// page cannot make cross-site requests.
   Future<Response> _feedValue(String? id) async {
     final entity = (await _ref.read(entitiesProvider.future)).byId(id);
-    final feed = entity == null ? null : HttpFeed.of(entity);
-    if (feed == null) return _error(404, 'No such feed');
+    final at = entity?.feed?.at(entity.id);
+    // Only the web's: the editor reads the rest itself.
+    if (at == null || at.source.answeredHere) {
+      return _error(404, 'No such feed');
+    }
     // Reuse the value if the TV already shows it; otherwise wait for one.
-    final provider = feedValueProvider(feed);
+    final provider = sourceValueProvider(at);
     final held = _ref.listen(provider, (_, _) {});
     try {
       final value = await _ref.read(provider.future);

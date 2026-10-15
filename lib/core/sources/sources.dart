@@ -3,7 +3,7 @@
 library;
 
 export 'generator.dart';
-export 'os_sources.dart';
 export 'pack_entities.dart';
 export 'source.dart';
+export 'source_endpoints.dart';
 export 'source_rows.dart';

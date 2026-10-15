@@ -1,23 +1,38 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/entities/entity_action.dart';
-import 'package:openlauncher/core/entities/http_feed.dart';
+import 'package:openlauncher/core/entities/entities_provider.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
 
-/// Reads an entity's live values, re-run when what it watches changes. A map
-/// is laid over the entity's data, with `text` as the whole-value form;
-/// anything else is the value itself.
-typedef FeedRead = Object? Function(Ref ref, Entity entity, Feed feed);
+/// Answers a source at an address the launcher itself answers: plain values
+/// and rows, pictures as file paths. [watch] reads it again when what it
+/// reads changes; the live ones always do.
+typedef SourceEndpoint = FutureOr<Object?> Function(Ref ref, bool watch);
 
-/// Where live values can come from, by the name a [Feed] says. A new one is
-/// one entry here.
-final Map<String, FeedRead> feeds = {
-  'clock': (ref, entity, feed) {
+/// What `os://<area>` (the TV) and `launcher://<area>` (the launcher) answer
+/// as sources. A new one is one entry here; none is ever asked over the
+/// network.
+final Map<String, SourceEndpoint> sourceEndpoints = {
+  'os://apps': (ref, watch) async => [
+    for (final app in await _read(ref, installedAppsProvider.future, watch))
+      {
+        'package': app.packageName,
+        'label': app.label,
+        'icon': app.iconPath,
+        'banner': app.isBanner,
+      },
+  ],
+  'os://inputs': (ref, watch) async => [
+    for (final input in await _read(ref, tvInputsProvider.future, watch))
+      {'id': input.id, 'label': input.label, 'kind': input.kind.name},
+  ],
+  'launcher://clock': (ref, watch) {
     final now = ref.watch(tickProvider(true));
     final time = formatDateTime(now, 'HH:mm');
     return {
@@ -37,7 +52,7 @@ final Map<String, FeedRead> feeds = {
       'epoch': now.millisecondsSinceEpoch,
     };
   },
-  'weather': (ref, entity, feed) {
+  'launcher://weather': (ref, watch) {
     final place = _place(ref);
     final weather = place == null
         ? null
@@ -61,7 +76,7 @@ final Map<String, FeedRead> feeds = {
       'place': place!.name,
     };
   },
-  'location': (ref, entity, feed) {
+  'launcher://location': (ref, watch) {
     final place = _place(ref);
     if (place == null) return const {'text': null};
     return {
@@ -71,7 +86,7 @@ final Map<String, FeedRead> feeds = {
       'longitude': place.longitude,
     };
   },
-  'media': (ref, entity, feed) {
+  'os://media': (ref, watch) {
     final playing = ref.watch(nowPlayingProvider).value;
     if (playing == null) {
       return const {'text': null, 'playing': false};
@@ -85,7 +100,7 @@ final Map<String, FeedRead> feeds = {
       'art': playing.artPath,
     };
   },
-  'updates': (ref, entity, feed) {
+  'launcher://updates': (ref, watch) {
     final update = ref.watch(updateStateProvider);
     return {
       'text': update.current,
@@ -99,7 +114,7 @@ final Map<String, FeedRead> feeds = {
     };
   },
   // The saved layers and those made since.
-  'layers': (ref, entity, feed) => {
+  'launcher://layers': (ref, watch) => {
     'count':
         ref.watch(layersProvider).length +
         ref.watch(
@@ -108,13 +123,10 @@ final Map<String, FeedRead> feeds = {
           ),
         ),
   },
-  // A web address, asked again every so many seconds; its answer is the
-  // value.
-  httpFeed: (ref, entity, feed) => switch (HttpFeed.of(entity)) {
-    null => null,
-    final asked => ref.watch(feedValueProvider(asked)).value,
-  },
 };
+
+T _read<T>(Ref ref, ProviderListenable<T> provider, bool watch) =>
+    watch ? ref.watch(provider) : ref.read(provider);
 
 Place? _place(Ref ref) =>
     ref.watch(configProvider.select((config) => config.value?.place));

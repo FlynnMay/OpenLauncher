@@ -1,0 +1,6 @@
+{
+  "id": "location",
+  "category": "location",
+  "label": "Location",
+  "feed": "launcher://location"
+}

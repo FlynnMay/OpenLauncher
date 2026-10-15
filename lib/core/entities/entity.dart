@@ -73,6 +73,7 @@ class Entity {
   Entity copyWith({
     String? label,
     Map<String, Object?>? data,
+    Feed? feed,
     Map<String, EntityAction>? actions,
   }) => Entity(
     id: id,
@@ -80,7 +81,7 @@ class Entity {
     label: label ?? this.label,
     name: name,
     data: data ?? this.data,
-    feed: feed,
+    feed: feed ?? this.feed,
     actions: actions ?? this.actions,
     prefab: prefab,
     placed: placed,

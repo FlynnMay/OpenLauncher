@@ -14,7 +14,7 @@ class AccessNote extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     final said = await ref
         .read(actionRunnerProvider)
-        .run(Act('access', {entityArg: 'system', 'access': access.name}));
+        .run(Act('os://access/change', {'access': access.name}));
     messenger.showSnackBar(
       SnackBar(
         content: Text(

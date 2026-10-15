@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/sources/source.dart';
+import 'package:openlauncher/core/sources/source_rows.dart';
 
 /// An action an entity defines: the operation it runs and the arguments it
 /// binds from the entity's own values.
@@ -84,29 +86,58 @@ class EntityAction {
   int get hashCode => Object.hash(run, label, icon);
 }
 
-/// Where an entity's live values come from: a `feeds` name and what that
-/// feed is told, e.g. `{from: http, url: ..., every: 60}`.
+/// Where an entity's live values come from: one source, written as an
+/// address (`launcher://clock`), the name of a source in the same pack
+/// (`states`), or in place (`{url: ..., every: 60}`).
 @immutable
 class Feed {
-  const Feed(this.from, [this.options = const {}]);
+  const Feed(String this.name, {this.inline, this.shared}) : assert(name != '');
 
-  final String from;
-  final Map<String, Object?> options;
+  const Feed.inline(Map<String, Object?> this.inline)
+    : name = null,
+      shared = null;
+
+  /// An address, or a pack source's name.
+  final String? name;
+
+  /// A source written in place, kept as written so a half typed one is not
+  /// lost; or the pack source [name] names, once found.
+  final Map<String, Object?>? inline;
+
+  /// What a pack source's fetch is known by, once found: `<pack>:<name>`.
+  final String? shared;
+
+  bool get isAddress => name?.contains('://') ?? false;
+
+  /// The source, if it can be read: an address, or one written in place.
+  Source? get source => isAddress
+      ? Source(Uri.parse(name!), watch: true)
+      : Source.fromJson(inline);
+
+  /// The source and what its fetch is known by, for an entity called [id].
+  SourceAt? at(String id) => switch (source) {
+    null => null,
+    final source => (id: isAddress ? name! : shared ?? id, source: source),
+  };
 
   static Feed? fromJson(Object? json) => switch (json) {
-    {'from': final String from} => Feed(from, {
-      for (final MapEntry(:key, :value) in (json as Map).entries)
-        if (key is String && key != 'from') key: value,
+    final String name when name.trim().isNotEmpty => Feed(name.trim()),
+    final Map<Object?, Object?> inline => Feed.inline({
+      for (final MapEntry(:key, :value) in inline.entries)
+        if (key is String) key: value,
     }),
     _ => null,
   };
 
-  Map<String, Object?> toJson() => {'from': from, ...options};
+  Object? toJson() => name ?? inline;
 
   @override
   bool operator ==(Object other) =>
-      other is Feed && other.from == from && mapEquals(other.options, options);
+      other is Feed &&
+      other.name == name &&
+      other.shared == shared &&
+      mapEquals(other.inline, inline);
 
   @override
-  int get hashCode => Object.hash(from, Object.hashAllUnordered(options.keys));
+  int get hashCode => Object.hash(name, shared);
 }

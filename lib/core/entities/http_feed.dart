@@ -1,10 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/entities/entity.dart';
 
-/// The feed that asks a web address.
-const httpFeed = 'http';
-
-/// The `http` feed of one entity: what is asked, and how often.
+/// One web source's fetch: what is asked, how often, and what it is known
+/// by.
 @immutable
 class HttpFeed {
   const HttpFeed(this.id, this.address, this.every);
@@ -12,7 +9,7 @@ class HttpFeed {
   /// Bounds of the polling interval, in seconds.
   static const minEvery = 10, maxEvery = 24 * 60 * 60;
 
-  /// The entity it is for.
+  /// A pack's source as `<pack>:<name>`, else the entity it feeds.
   final String id;
   final Uri address;
 
@@ -22,23 +19,14 @@ class HttpFeed {
   /// The http(s) address [url] is, or null.
   static Uri? addressOf(Object? url) => switch (url) {
     final String url => switch (Uri.tryParse(url.trim())) {
-      final uri? when uri.isScheme('http') || uri.isScheme('https') => uri,
+      final uri?
+          when (uri.isScheme('http') || uri.isScheme('https')) &&
+              uri.host.isNotEmpty =>
+        uri,
       _ => null,
     },
     _ => null,
   };
-
-  /// Null unless [entity] has an `http` feed with a web address.
-  static HttpFeed? of(Entity entity) {
-    final feed = entity.feed;
-    if (feed == null || feed.from != httpFeed) return null;
-    final address = addressOf(feed.options['url']);
-    if (address == null) return null;
-    return HttpFeed(entity.id, address, switch (feed.options['every']) {
-      final num every => every.toInt().clamp(minEvery, maxEvery),
-      _ => 60,
-    });
-  }
 
   @override
   bool operator ==(Object other) =>

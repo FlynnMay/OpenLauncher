@@ -184,7 +184,7 @@ void main() {
   group('a source', () {
     test('is http(s) or os, polled or watched', () {
       final apps = Source.fromJson({'url': 'os://apps', 'watch': true})!;
-      expect(apps.onDevice, isTrue);
+      expect(apps.answeredHere, isTrue);
       expect(apps.watch, isTrue);
       expect(apps.every, isNull);
       expect(
@@ -211,6 +211,54 @@ void main() {
       expect(Source(Uri.parse('os://x')).rowsOf({'one': 1}), [
         {'one': 1},
       ]);
+    });
+  });
+
+  group('a feed', () {
+    test('is an address, a source of its pack by name, or one in place', () {
+      final address = Feed.fromJson('launcher://clock')!;
+      expect(address.isAddress, isTrue);
+      expect(address.at('clock'), (
+        id: 'launcher://clock',
+        source: Source(Uri.parse('launcher://clock'), watch: true),
+      ));
+      final named = Feed.fromJson('states')!;
+      expect((named.isAddress, named.at('lounge')), (false, null));
+      final inline = Feed.fromJson({'url': 'https://x.test/a', 'every': 30})!;
+      expect(inline.at('lounge')?.id, 'lounge');
+      expect(inline.at('lounge')?.source.every, 30);
+      // Kept as written, even before it can be read.
+      final typing = Feed.fromJson({'url': 'https://'})!;
+      expect(typing.source, isNull);
+      expect(typing.toJson(), {'url': 'https://'});
+      for (final feed in [address, named, inline]) {
+        expect(Feed.fromJson(feed.toJson()), feed);
+      }
+      expect(Feed.fromJson(''), isNull);
+      expect(Feed.fromJson(4), isNull);
+    });
+
+    test("the launcher's own answer at their addresses", () async {
+      final c = ProviderContainer(
+        overrides: [
+          configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4)),
+        ],
+      );
+      addTearDown(c.dispose);
+      final at = Feed('launcher://clock').at('clock')!;
+      final held = c.listen(sourceValueProvider(at), (_, _) {});
+      addTearDown(held.close);
+      expect(
+        await c.read(sourceValueProvider(at).future),
+        containsPair('time', '15:04'),
+      );
+      expect(
+        () => c.read(
+          sourceValueProvider(Feed('launcher://nothing').at('x')!).future,
+        ),
+        throwsA(isA<UnsupportedError>()),
+      );
     });
   });
 
@@ -278,7 +326,7 @@ void main() {
           bundledPacksProvider.overrideWithValue(BundledPacks(bundled)),
         ],
       );
-      addTearDown(container.dispose);
+      addTearDown(() => closePacks(container));
       return container;
     }
 
@@ -348,6 +396,36 @@ void main() {
       platform.notifyAppsChanged();
       await pumpEventQueue();
       expect((await c.read(entitiesProvider.future)).byId('tv:c.d'), isNotNull);
+    });
+
+    test('an entity is fed by a source of its pack, sharing it', () async {
+      final c = container(const {});
+      final store = c.read(packStoreProvider);
+      expect(
+        (await refused(
+          store,
+          _pack('ha', {
+            'entities/x.json': {'id': 'ha:x', 'feed': 'nowhere'},
+          }),
+        )).message,
+        contains('not in sources/'),
+      );
+      await store.install(
+        Stream.value(
+          _pack('ha', {
+            'sources/time.json': {'url': 'launcher://clock'},
+            'entities/lounge.json': {'id': 'ha:lounge', 'feed': 'time'},
+          }),
+        ),
+      );
+      final lounge = (await c.read(entitiesProvider.future)).byId('ha:lounge')!;
+      expect(lounge.feed?.at(lounge.id)?.id, 'ha:time');
+      final held = c.listen(entityDataProvider('ha:lounge'), (_, _) {});
+      addTearDown(held.close);
+      await pumpEventQueue();
+      expect(held.read(), containsPair('time', isA<String>()));
+      // Sent and saved as it was written.
+      expect(lounge.toJson()['feed'], 'time');
     });
 
     test("another pack's ids start with its own", () async {

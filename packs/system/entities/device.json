@@ -1,0 +1,23 @@
+{
+  "id": "device",
+  "category": "device",
+  "label": "Device",
+  "actions": {
+    "access": {
+      "run": "os://access/change",
+      "args": {
+        "access": [
+          "homeButton",
+          "notifications"
+        ]
+      },
+      "label": "Change a permission",
+      "icon": "material:lock"
+    },
+    "tvSettings": {
+      "run": "os://settings/open",
+      "label": "TV settings",
+      "icon": "material:tv"
+    }
+  }
+}

@@ -104,7 +104,7 @@ void main() {
           bundledPacksProvider.overrideWithValue(BundledPacks(bundled)),
         ],
       );
-      addTearDown(container.dispose);
+      addTearDown(() => closePacks(container));
       return container;
     }
 

@@ -92,6 +92,20 @@ class PackContents {
           prefabs.add(prefab);
       }
     }
+    for (final entity in [
+      ...entities,
+      for (final generator in generators.values)
+        ?Entity.fromJson(generator.entity),
+    ]) {
+      if (entity.feed case final feed?
+          when !feed.isAddress && feed.name != null) {
+        if (!sources.containsKey(feed.name)) {
+          throw FormatException(
+            '"${entity.id}" is fed by "${feed.name}", which is not in sources/',
+          );
+        }
+      }
+    }
     for (final MapEntry(key: name, value: generator) in generators.entries) {
       if (!sources.containsKey(generator.from)) {
         throw FormatException(

@@ -19,7 +19,7 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     Access access,
   ) async {
-    final said = await _do(ref, 'access', {'access': access.name});
+    final said = await _do(ref, 'os://access/change', {'access': access.name});
     if (!context.mounted || said == null) return;
     // First line is the heading.
     final (title, message) = switch (said.indexOf('\n')) {
@@ -47,7 +47,7 @@ class SettingsScreen extends ConsumerWidget {
     final update = ref.read(updateStateProvider);
     if (update.busy) return;
     if (!update.available) {
-      await _do(ref, 'check', const {}, 'updates');
+      await _do(ref, 'launcher://updates/check');
       return;
     }
     final install = await showDialog<bool>(
@@ -75,20 +75,17 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
     // The tile says how it goes, and why if it fails.
-    if (install == true) await _do(ref, 'install', const {}, 'updates');
+    if (install == true) await _do(ref, 'launcher://updates/install');
   }
 
-  /// Has [entity] do [action]; returns its message or the error.
+  /// Calls [address]; returns its message or the error.
   static Future<String?> _do(
     WidgetRef ref,
-    String action, [
+    String address, [
     Map<String, Object?> args = const {},
-    String entity = 'system',
   ]) async {
     try {
-      return await ref
-          .read(actionRunnerProvider)
-          .run(Act(action, {entityArg: entity, ...args}));
+      return await ref.read(actionRunnerProvider).run(Act(address, args));
     } on Object catch (error) {
       return 'It could not be done\n$error';
     }
@@ -160,7 +157,7 @@ class SettingsScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: const Text('TV settings'),
-                  onTap: () => _do(ref, 'tvSettings'),
+                  onTap: () => _do(ref, 'os://settings/open'),
                 ),
               ],
             ),

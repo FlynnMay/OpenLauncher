@@ -56,7 +56,7 @@ void main() {
     // Its id comes from its name; until told otherwise it asks an address.
     expect(entities.single.id, 'plex-shortcut');
     expect(entities.single.label, 'Plex Shortcut');
-    expect(entities.single.feed?.from, httpFeed);
+    expect(entities.single.feed?.inline, containsPair('every', 60));
 
     await name('Add action', 'open');
     // The first operation there is, with nothing bound: the act says it all.

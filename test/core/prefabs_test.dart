@@ -55,14 +55,12 @@ void main() {
         const Act('open', {'entity': '{{source.id}}'}),
       ],
       Trigger.hold: [
-        const Act('set', {
-          'entity': 'variables',
+        const Act('launcher://variables/set', {
           'of': 'quick-actions',
           'var': 'source',
           'value': '{{source.id}}',
         }),
-        const Act('set', {
-          'entity': 'variables',
+        const Act('launcher://variables/set', {
           'of': 'quick-actions',
           'var': 'open',
           'value': true,
@@ -161,8 +159,7 @@ void main() {
     // What it does is set the `open` of whatever it was handed: said in
     // the prefab, against its `source`, like anything else.
     expect(resolved(folder, prefabs).on[Trigger.press], [
-      const Act('set', {
-        'entity': 'variables',
+      const Act('launcher://variables/set', {
         'var': 'open',
         'value': true,
         'of': '{{source.id}}',

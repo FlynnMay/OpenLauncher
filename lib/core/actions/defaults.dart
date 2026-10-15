@@ -6,17 +6,19 @@ import 'package:openlauncher/core/variables/variable.dart';
 // What a new sidebar, folder or quick-actions menu is made with. All of it is
 // ordinary data on the pane; nothing here is implied for a pane without it.
 
-const _layers = {entityArg: 'layers'};
+const _new = 'launcher://layers/new',
+    _raise = Act('launcher://layers/raise'),
+    _close = Act('launcher://layers/close');
 
 Act _open(bool open) =>
-    Act('set', {entityArg: 'variables', 'var': 'open', 'value': open});
+    Act('launcher://variables/set', {'var': 'open', 'value': open});
 
 /// A sidebar's chains: open while it has the focus, on a layer of its own.
 Triggers barTriggers() => {
   Trigger.focus: [_open(true)],
   Trigger.blur: [_open(false)],
-  Trigger.reveal: const [Act('newLayer', _layers), Act('toLayer', _layers)],
-  Trigger.hide: const [Act('closeLayer', _layers)],
+  Trigger.reveal: const [Act(_new), _raise],
+  Trigger.hide: const [_close],
 };
 
 /// A hovering folder's chains: a layer that dims what is below and takes the
@@ -25,10 +27,10 @@ Triggers folderTriggers({bool inPlace = false}) => inPlace
     ? const {}
     : const {
         Trigger.reveal: [
-          Act('newLayer', {..._layers, 'dim': 0.54, 'modal': true}),
-          Act('toLayer', _layers),
+          Act(_new, {'dim': 0.54, 'modal': true}),
+          _raise,
         ],
-        Trigger.hide: [Act('closeLayer', _layers)],
+        Trigger.hide: [_close],
       };
 
 /// The look of a new folder.
@@ -60,37 +62,43 @@ Component folderPane(String id, {String title = ''}) => Component.pane(
   on: folderTriggers(),
 );
 
-/// A button that has [entity] do its action called [name].
+/// A button that does [act].
 Component _actionButton(
   String id,
-  String name, {
-  required String entity,
+  Act act, {
   required String label,
   required String icon,
-  Map<String, Object?> args = const {},
 }) => Component(
   id: id,
   kind: ComponentRegistry.button.name,
   options: {'label': label, 'icon': icon},
   on: {
-    Trigger.press: [
-      Act(name, {entityArg: entity, ...args}),
-    ],
+    Trigger.press: [act],
   },
 );
 
-/// The default quick actions in order: the entity that does each, and its
-/// button.
+/// The default quick actions in order: what each does, and its button.
 const defaultMenu = {
-  'open': (entity: sourceEntity, label: 'Open', icon: 'material:play_arrow'),
-  'info': (entity: sourceEntity, label: 'App info', icon: 'material:info'),
+  'open': (
+    act: Act('open', {entityArg: sourceEntity}),
+    label: 'Open',
+    icon: 'material:play_arrow',
+  ),
+  'info': (
+    act: Act('info', {entityArg: sourceEntity}),
+    label: 'App info',
+    icon: 'material:info',
+  ),
   'uninstall': (
-    entity: sourceEntity,
+    act: Act('uninstall', {entityArg: sourceEntity}),
     label: 'Uninstall',
     icon: 'material:delete',
   ),
   'remove': (
-    entity: Layout.homeId,
+    act: Act('launcher://layout/remove', {
+      'layer': Layout.homeId,
+      'what': sourceEntity,
+    }),
     label: 'Remove',
     icon: 'material:do_not_disturb_on',
   ),
@@ -114,15 +122,8 @@ Component defaultMenuPane() => Component.pane(
   // Set to the entity the menu was opened for.
   vars: const {Component.sourceVar: Variable(null, type: VarType.entity)},
   children: [
-    for (final MapEntry(key: name, value: (:entity, :label, :icon))
+    for (final MapEntry(key: name, value: (:act, :label, :icon))
         in defaultMenu.entries)
-      _actionButton(
-        '${Layout.menuId}-$name',
-        name,
-        entity: entity,
-        label: label,
-        icon: icon,
-        args: {if (name == 'remove') 'what': sourceEntity},
-      ),
+      _actionButton('${Layout.menuId}-$name', act, label: label, icon: icon),
   ],
 );

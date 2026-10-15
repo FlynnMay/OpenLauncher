@@ -1,0 +1,7 @@
+{
+  "id": "clock",
+  "category": "clock",
+  "label": "Clock",
+  "feed": "launcher://clock",
+  "prefab": "clock"
+}

@@ -88,7 +88,7 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       'Inputs': where((entity) => entity.category == inputCategory),
       'Apps': where((entity) => entity.category == appCategory),
       'Launcher': _areas(Operation.launcher),
-      'Device': _areas(Operation.device),
+      'TV': _areas(Operation.device),
     };
     for (final trigger in widget.triggers) {
       for (final act in _acts(trigger)) {

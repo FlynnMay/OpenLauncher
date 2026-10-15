@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entity.dart';
+import 'package:openlauncher/core/entities/entity_action.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
 import 'package:openlauncher/core/packs/pack_store.dart';
+import 'package:openlauncher/core/sources/source.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
 
 /// The entities of the built-in packs (true) or the others: each pack's
@@ -29,18 +31,34 @@ final packEntitiesProvider = FutureProvider.family<List<Entity>, bool>((
         )),
   };
   final made = <Entity>[];
-  for (final PackContents(:pack, :entities, :generators) in ours) {
+  for (final PackContents(:pack, :entities, :sources, :generators) in ours) {
     for (final entity in [
       ...entities,
       for (final MapEntry(key: name, value: generator) in generators.entries)
         ...generator.entitiesFrom(await rows['${pack.id}/$name']!),
     ]) {
       if (!builtIn && !entity.id.startsWith('${pack.id}:')) continue;
-      made.add(await _pictured(entity, picture));
+      made.add(await _pictured(_fed(entity, pack.id, sources), picture));
     }
   }
   return made;
 });
+
+/// [entity] with the pack source its feed names found, sharing its fetch.
+Entity _fed(Entity entity, String pack, Map<String, Source> sources) {
+  final feed = entity.feed;
+  if (feed == null || feed.isAddress || feed.name == null) return entity;
+  return switch (sources[feed.name]) {
+    null => entity,
+    final source => entity.copyWith(
+      feed: Feed(
+        feed.name!,
+        inline: source.toJson(),
+        shared: '$pack:${feed.name}',
+      ),
+    ),
+  };
+}
 
 /// Nothing while a source cannot be read.
 Future<List<Object?>> _rows(Ref ref, SourceAt at) async {
