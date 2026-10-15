@@ -32,14 +32,14 @@ Entity layoutEntity(String layer) => Entity(
   actions: const {
     // `what` is an entity id; `to` a pane on the layer, else the inbox.
     'add': EntityAction(
-      run: 'addItem',
+      run: 'launcher://layout/add',
       bound: _layer,
       args: {'what': [], 'to': []},
       label: 'Add',
       icon: 'material:add_circle',
     ),
     'remove': EntityAction(
-      run: 'removeItem',
+      run: 'launcher://layout/remove',
       bound: _layer,
       args: {'what': []},
       label: 'Remove',

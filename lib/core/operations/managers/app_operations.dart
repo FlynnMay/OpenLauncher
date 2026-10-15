@@ -13,30 +13,27 @@ class AppOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'launchApp',
+      name: 'os://apps/launch',
       label: 'Open an app',
       args: _package,
-      onDevice: true,
       run: (run) async {
         await _platform.launchApp(_packageOf(run));
         return null;
       },
     ),
     Operation(
-      name: 'openAppInfo',
+      name: 'os://apps/info',
       label: "Open an app's info screen",
       args: _package,
-      onDevice: true,
       run: (run) async {
         await _platform.openAppInfo(_packageOf(run));
         return null;
       },
     ),
     Operation(
-      name: 'uninstallApp',
+      name: 'os://apps/uninstall',
       label: 'Uninstall an app',
       args: _package,
-      onDevice: true,
       run: (run) async {
         await _platform.uninstallApp(_packageOf(run));
         return null;

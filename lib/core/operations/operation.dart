@@ -15,7 +15,8 @@ class OperationRun {
     this.component,
   });
 
-  /// What the entity's action bound and what the act passed.
+  /// What the entity's action bound and what the act passed, or what an
+  /// act that calls the address says.
   final Map<String, Object?> args;
   final ActionScreen? screen;
   final bool held;
@@ -44,16 +45,19 @@ class OperationRun {
   };
 }
 
-/// One thing code can do. An entity's action runs it by [name].
+/// One thing the launcher can do, named by its address: `os://<area>/<verb>`
+/// for the TV, `launcher://<area>/<verb>` for the launcher's own.
 class Operation {
   const Operation({
     required this.name,
     required this.label,
     required this.run,
     this.args = const {},
-    this.onDevice = false,
   });
 
+  static const device = 'os://', launcher = 'launcher://';
+
+  /// Its address, e.g. `os://apps/launch`.
   final String name;
 
   /// What it does, for whoever defines an action with it.
@@ -62,8 +66,8 @@ class Operation {
   /// Arguments by name, each with its allowed values (empty = anything).
   final Map<String, List<String>> args;
 
-  /// True if only the TV can do it. The web editor sends these to the TV.
-  final bool onDevice;
+  /// Whether only the TV can do it. The web editor sends these to the TV.
+  bool get onDevice => name.startsWith(device);
 
   /// Returns a message for the user, or null.
   final Future<String?> Function(OperationRun run) run;

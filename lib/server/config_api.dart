@@ -214,7 +214,11 @@ class ConfigApi {
   /// nothing.
   Future<Response> _act(Map<String, Object?> body) async {
     final act = Act.fromJson(body);
-    if (act == null) throw const FormatException('"do" must name an action');
+    if (act == null) {
+      throw const FormatException(
+        '"do" must name an action, or "run" an address',
+      );
+    }
     try {
       final message = await _ref.read(actionRunnerProvider).run(act);
       return Response.ok(jsonEncode({'message': message}), headers: _json);

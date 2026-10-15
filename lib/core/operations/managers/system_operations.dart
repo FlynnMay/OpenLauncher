@@ -16,7 +16,7 @@ class SystemOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'openSettings',
+      name: 'launcher://settings/open',
       label: "Open the launcher's settings",
       run: (run) async {
         await run.screen?.openSettings();
@@ -25,12 +25,11 @@ class SystemOperationsManager implements OperationsManager {
     ),
     // The message's first line is its heading.
     Operation(
-      name: 'changeAccess',
+      name: 'os://access/change',
       label: "Allow or withdraw a permission in the TV's settings",
       args: {
         'access': [for (final access in Access.values) access.name],
       },
-      onDevice: true,
       run: (run) async {
         final access = Access.values.asNameMap()[run.arg('access')];
         if (access == null) {
@@ -48,9 +47,8 @@ class SystemOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'openTvSettings',
+      name: 'os://settings/open',
       label: "Open the TV's settings",
-      onDevice: true,
       run: (run) async {
         await _platform.openTvSettings();
         return null;

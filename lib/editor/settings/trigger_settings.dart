@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 
@@ -173,13 +174,14 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
   ) {
     final acts = _acts(trigger);
     final act = acts[index];
-    final target = act.arg(entityArg);
-    final actions = actionsOf(_entityOf(target), entities);
-    final action = actions[act.name];
     void put(Act? next) => _change(trigger, [
       for (final (i, one) in acts.indexed)
         if (i != index) one else ?next,
     ]);
+    if (act.isAddress) return _address(act, put);
+    final target = act.arg(entityArg);
+    final actions = actionsOf(_entityOf(target), entities);
+    final action = actions[act.name];
     return _act([
       _pair(
         SearchBox(
@@ -219,12 +221,49 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       else if (action.args.isNotEmpty) ...[
         const SizedBox(height: 8),
         ...optionFields(
-          options: argOptions(action),
+          options: argOptions(action.args),
           values: {
             for (final MapEntry(:key, :value) in act.args.entries)
               if (key != entityArg) key: value,
           },
           onChanged: (args) => put(Act(act.name, {entityArg: target, ...args})),
+        ),
+      ],
+    ]);
+  }
+
+  /// An act that calls an address: what is there, and what it is told.
+  Widget _address(Act act, void Function(Act? next) put) {
+    final operation = ref.watch(operationsRegistryProvider)[act.name];
+    final theme = Theme.of(context);
+    return _act([
+      Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(operation?.label ?? act.name),
+                Text(act.name, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          _remove('Remove action', () => put(null)),
+        ],
+      ),
+      if (operation == null)
+        Text(
+          'There is nothing at "${act.name}".',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        )
+      else if (operation.args.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        ...optionFields(
+          options: argOptions(operation.args),
+          values: act.args,
+          onChanged: (args) => put(Act(act.name, args)),
         ),
       ],
     ]);

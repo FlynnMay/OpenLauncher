@@ -7,7 +7,7 @@ import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
 /// An act that cannot be run as written: it names no entity, an unknown one,
-/// one without that action, or the action runs an operation there is none of.
+/// one without that action, or an address there is no operation at.
 class ImproperAct extends FormatException {
   const ImproperAct(super.message);
 }
@@ -31,8 +31,9 @@ class ImproperAct extends FormatException {
   return (entity: entity, action: action);
 }
 
-/// Whether [act] can be run as written.
+/// Whether [act] can be run as written. An address is checked as it runs.
 bool isProper(Act act, Iterable<Entity> entities) {
+  if (act.isAddress) return true;
   try {
     targetOf(act, entities);
     return true;
@@ -54,9 +55,10 @@ Map<String, EntityAction> actionsOf(String? target, Iterable<Entity> entities) {
   return all;
 }
 
-/// The editor's fields for what an act may add to [action].
-List<ComponentOption> argOptions(EntityAction action) => [
-  for (final MapEntry(key: name, value: choices) in action.args.entries)
+/// The editor's fields for [args], what an act may say: an action's, or an
+/// operation's.
+List<ComponentOption> argOptions(Map<String, List<String>> args) => [
+  for (final MapEntry(key: name, value: choices) in args.entries)
     choices.isEmpty
         ? ComponentOption(
             name,
@@ -88,15 +90,31 @@ class ActionRunner {
   final Ref _ref;
 
   /// Has the entity [act] names do it: runs the operation its action names,
-  /// with what the action binds and what the act adds. Throws [ImproperAct]
-  /// if it cannot be done as written. Returns a message for the user, or
-  /// null.
+  /// with what the action binds and what the act adds. An act that calls an
+  /// address runs that operation with what it says. Throws [ImproperAct] if
+  /// it cannot be done as written. Returns a message for the user, or null.
   Future<String?> run(
     Act act, {
     ActionScreen? screen,
     bool held = false,
     String? component,
   }) async {
+    if (act.isAddress) {
+      final operation = _ref.read(operationsRegistryProvider)[act.name];
+      if (operation == null) {
+        throw ImproperAct('There is nothing at "${act.name}"');
+      }
+      return carryOut(
+        operation,
+        act,
+        OperationRun(
+          act.args,
+          screen: screen,
+          held: held,
+          component: component,
+        ),
+      );
+    }
     final (:entity, :action) = targetOf(
       act,
       await _ref.read(entitiesProvider.future),

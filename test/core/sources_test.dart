@@ -38,7 +38,7 @@ Map<String, Object> _appsAs(String prefix) => {
     },
     'actions': {
       'open': {
-        'run': 'launchApp',
+        'run': 'os://apps/launch',
         'with': {'package': '{{row.package}}', 'from': '{{self.id}}'},
       },
     },
@@ -133,7 +133,7 @@ void main() {
       expect(
         app.actions['open'],
         isA<EntityAction>()
-            .having((action) => action.run, 'run', 'launchApp')
+            .having((action) => action.run, 'run', 'os://apps/launch')
             .having((action) => action.bound, 'bound', {
               'package': '{{self.package}}',
             }),
@@ -322,7 +322,7 @@ void main() {
       final entities = await c.read(entitiesProvider.future);
       final app = entities.byId('tv:a.b')!;
       expect(app.data, {'package': 'a.b', 'icon': '/a.png', 'shape': 'banner'});
-      expect(app.actions['open']!.run, 'launchApp');
+      expect(app.actions['open']!.run, 'os://apps/launch');
       expect(entities.byId('tv:skip.me'), isNull);
 
       // A pack's picture is given as its file; one it does not have, not

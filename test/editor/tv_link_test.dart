@@ -42,12 +42,12 @@ const _entity = Entity(
   data: {'package': 'a'},
   actions: {
     'open': EntityAction(
-      run: 'launchApp',
+      run: 'os://apps/launch',
       bound: {'package': '{{self.package}}'},
       label: 'Open',
     ),
     'uninstall': EntityAction(
-      run: 'uninstallApp',
+      run: 'os://apps/uninstall',
       bound: {'package': '{{self.package}}'},
       label: 'Uninstall',
     ),
@@ -208,16 +208,31 @@ void main() {
         '{do: uninstall, entity: app:a}',
         '{do: access, entity: system, access: homeButton}',
       ]);
+      // So is an address the TV answers, and the TV's own updater.
+      await actions.run(const Act('os://apps/launch', {'package': 'a'}));
+      await actions.run(const Act('launcher://updates/check'));
+      expect(tv.sent.skip(2), [
+        '{run: os://apps/launch, with: {package: a}}',
+        '{run: launcher://updates/check}',
+      ]);
+      tv.sent.removeRange(2, 4);
       // One that names no entity is declined here and never sent.
       expect(actions.run(const Act('access')), throwsA(isA<ImproperAct>()));
 
-      // Setting a variable is the page's own business.
+      // Setting a variable is the page's own business, however it is asked.
       await actions.run(
         const Act('set', {
           'entity': 'variables',
           'of': 'x',
           'var': 'on',
           'value': 1,
+        }),
+      );
+      await actions.run(
+        const Act('launcher://variables/set', {
+          'of': 'x',
+          'var': 'on',
+          'value': 2,
         }),
       );
       expect(tv.sent, hasLength(2));

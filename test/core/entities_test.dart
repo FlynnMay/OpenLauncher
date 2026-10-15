@@ -383,8 +383,8 @@ void main() {
       expect(app.actions.keys, ['open', 'info', 'uninstall']);
       expect(input.actions.keys, ['open']);
       // The same name, done as each defines it.
-      expect(app.actions['open']!.run, 'launchApp');
-      expect(input.actions['open']!.run, 'switchInput');
+      expect(app.actions['open']!.run, 'os://apps/launch');
+      expect(input.actions['open']!.run, 'os://inputs/switch');
       // None belongs to nothing: the rest are the system's, the layers'...
       for (final MapEntry(key: action, value: owner) in const {
         'access': 'system',
@@ -407,8 +407,47 @@ void main() {
       expect(run, {for (final operation in operations.all) operation.name});
     });
 
+    test('every operation is at an address on the TV or the launcher', () {
+      final c = container(const []);
+      for (final operation in c.read(operationsRegistryProvider).all) {
+        expect(
+          operation.name,
+          matches(RegExp(r'^(os|launcher)://[a-z]+/[a-z]+$')),
+        );
+        expect(operation.onDevice, operation.name.startsWith('os://'));
+      }
+    });
+
+    test('an act may call an address itself', () async {
+      final c = container(const []);
+      final actions = c.read(actionRunnerProvider);
+      final act = Act.fromJson({
+        'run': 'os://apps/launch',
+        'with': {'package': 'a'},
+      })!;
+      expect(act.isAddress, isTrue);
+      expect(act.toJson(), {
+        'run': 'os://apps/launch',
+        'with': {'package': 'a'},
+      });
+      expect(Act.fromJson({'run': 'launchApp'}), isNull);
+      await actions.run(act);
+      expect(
+        (c.read(launcherPlatformProvider) as FakeLauncherPlatform).launched,
+        ['a'],
+      );
+      expect(isProper(act, const []), isTrue);
+      expect(
+        () => actions.run(const Act('os://apps/nothing')),
+        throwsA(isA<ImproperAct>()),
+      );
+    });
+
     test('two of a category need not do the same', () async {
-      const lamp = EntityAction(run: 'setVariable', bound: {'of': 'lamps'});
+      const lamp = EntityAction(
+        run: 'launcher://variables/set',
+        bound: {'of': 'lamps'},
+      );
       final c = container([
         Entity(
           id: 'desk',
@@ -417,7 +456,7 @@ void main() {
           actions: {
             'toggle': lamp,
             'dim': EntityAction(
-              run: 'setVariable',
+              run: 'launcher://variables/set',
               bound: const {'of': 'lamps', 'var': 'desk'},
               args: const {'value': []},
               label: 'Dim',
@@ -477,7 +516,7 @@ void main() {
                     data: {'package': 'com.plexapp'},
                     actions: {
                       'open': EntityAction(
-                        run: 'launchApp',
+                        run: 'os://apps/launch',
                         bound: {'package': '{{self.package}}'},
                       ),
                       'lost': EntityAction(run: 'teleport'),
@@ -519,7 +558,7 @@ void main() {
         placed: true,
         actions: {
           'dim': EntityAction(
-            run: 'setVariable',
+            run: 'launcher://variables/set',
             bound: {'var': 'desk'},
             args: {
               'value': ['10', '50'],
@@ -532,7 +571,7 @@ void main() {
       expect(Entity.fromJson(made.toJson()), made);
       expect(made.toJson()['actions'], {
         'dim': {
-          'run': 'setVariable',
+          'run': 'launcher://variables/set',
           'with': {'var': 'desk'},
           'args': {
             'value': ['10', '50'],

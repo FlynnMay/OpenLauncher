@@ -211,13 +211,13 @@ void main() {
     test('the form keeps what it does not show, and makes actions', () {
       final operations = [
         Operation(
-          name: 'launchApp',
+          name: 'os://apps/launch',
           label: 'Open an app',
           args: const {'package': []},
           run: (run) async => null,
         ),
         Operation(
-          name: 'mediaCommand',
+          name: 'os://media/command',
           label: 'Tell the media player',
           args: const {
             'command': ['next', 'previous'],
@@ -233,13 +233,13 @@ void main() {
         prefab: 'app-card',
         actions: {
           'open': EntityAction(
-            run: 'launchApp',
+            run: 'os://apps/launch',
             bound: {'package': 'com.plexapp'},
             label: 'Open',
             icon: 'play',
           ),
           'tell': EntityAction(
-            run: 'mediaCommand',
+            run: 'os://media/command',
             args: {
               'command': ['next', 'previous'],
             },
@@ -255,16 +255,23 @@ void main() {
           'kind': 'http',
           'url': 'http://x.test',
           'actions': [
-            {'name': 'skip', 'run': 'mediaCommand', 'with:command': 'next'},
-            {'name': 'skip', 'run': 'launchApp'},
-            {'name': '', 'run': 'launchApp'},
+            {
+              'name': 'skip',
+              'run': 'os://media/command',
+              'with:command': 'next',
+            },
+            {'name': 'skip', 'run': 'os://apps/launch'},
+            {'name': '', 'run': 'os://apps/launch'},
           ],
         },
         operations,
         was: made,
       );
       expect(bound.actions, const {
-        'skip': EntityAction(run: 'mediaCommand', bound: {'command': 'next'}),
+        'skip': EntityAction(
+          run: 'os://media/command',
+          bound: {'command': 'next'},
+        ),
       });
       expect(HttpFeed.of(bound)?.every, 60);
       expect(bound.data, {'colour': 'orange'});
