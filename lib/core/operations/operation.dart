@@ -1,3 +1,5 @@
+import 'dart:math';
+
 /// What only the screen an action fired on can do. Null off-screen.
 abstract interface class ActionScreen {
   Future<void> openSettings();
@@ -65,6 +67,15 @@ class Operation {
 
   /// Arguments by name, each with its allowed values (empty = anything).
   final Map<String, List<String>> args;
+
+  /// Its address up to the verb, e.g. `os://apps`.
+  String get area => areaOf(name);
+
+  /// The area of [address].
+  static String areaOf(String address) => address.substring(
+    0,
+    max(address.indexOf('://') + 3, address.lastIndexOf('/')),
+  );
 
   /// Whether only the TV can do it. The web editor sends these to the TV.
   bool get onDevice => name.startsWith(device);
