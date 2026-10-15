@@ -9,9 +9,8 @@ typedef EntityGenerator = Future<List<Entity>> Function(Ref ref);
 /// Everything that makes up the entity list, in the order categories are
 /// listed. A new source of entities is one entry here.
 final List<EntityGenerator> entityGenerators = [
-  // The launcher's own, apps and inputs among them, from the System pack.
-  (ref) => ref.watch(packEntitiesProvider(true).future),
-  (ref) => ref.watch(packEntitiesProvider(false).future),
+  // Every pack's, the launcher's own among them.
+  (ref) => ref.watch(packEntitiesProvider.future),
   // The user's own: the only ones that are saved.
   (ref) => ref.watch(configProvider.selectAsync((config) => config.entities)),
 ];

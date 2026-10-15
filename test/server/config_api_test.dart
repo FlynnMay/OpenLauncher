@@ -165,12 +165,12 @@ void main() {
 
   test('state lists every entity in display order', () async {
     expect((await entities()).map((c) => c['id']), [
-      'input:tv/HW1',
-      'app:a',
-      'app:b',
+      'system:input/tv/HW1',
+      'system:app/a',
+      'system:app/b',
     ]);
     expect((await entities()).first, {
-      'id': 'input:tv/HW1',
+      'id': 'system:input/tv/HW1',
       'category': 'input',
       // What it defines: the operation each action runs, and with what.
       'actions': {
@@ -181,7 +181,7 @@ void main() {
           'icon': 'material:play_arrow',
         },
       },
-      'prefab': 'app-card',
+      'prefab': 'system:app-card',
       'placed': true,
       'label': 'HDMI 1',
       'name': 'HDMI 1',
@@ -213,7 +213,12 @@ void main() {
     expect(page['layout']['inbox'], section['id']);
     expect(
       (section['children'] as List).map((i) => i['vars']?['source']?['value']),
-      ['input:tv/HW1', 'app:a', 'app:b', 'launcher:settings'],
+      [
+        'system:input/tv/HW1',
+        'system:app/a',
+        'system:app/b',
+        'system:settings',
+      ],
     );
     // No app on this device offers widgets, so that kind is not offered.
     expect((page['components'] as List).map((w) => w['type']), [
@@ -249,25 +254,25 @@ void main() {
       return jsonDecode(await response.readAsString())['message'];
     }
 
-    await said(await act('open', on: 'app:a'));
-    await said(await act('open', on: 'input:tv/HW1'));
+    await said(await act('open', on: 'system:app/a'));
+    await said(await act('open', on: 'system:input/tv/HW1'));
     expect(platform.launched, ['a', 'tv/HW1']);
     // Settings opens on a screen, and there is none here: nothing is done.
-    await said(await act('open', on: 'launcher:settings'));
+    await said(await act('open', on: 'system:settings'));
     // An improper payload is declined: an entity that is not there, or none
     // named.
-    expect((await act('open', on: 'app:gone')).statusCode, 400);
+    expect((await act('open', on: 'system:app/gone')).statusCode, 400);
     expect((await act('open')).statusCode, 400);
     expect((await act('open', on: '')).statusCode, 400);
     expect(platform.launched, hasLength(2));
 
-    await said(await act('info', on: 'app:a'));
-    await said(await act('uninstall', on: 'app:b'));
+    await said(await act('info', on: 'system:app/a'));
+    await said(await act('uninstall', on: 'system:app/b'));
     expect(platform.appActions, ['info a', 'uninstall b']);
     // Only apps have these.
-    expect((await act('info', on: 'input:tv/HW1')).statusCode, 400);
+    expect((await act('info', on: 'system:input/tv/HW1')).statusCode, 400);
 
-    await said(await act('playPause', on: 'media'));
+    await said(await act('playPause', on: 'system:media'));
     expect(platform.mediaCommands, [MediaCommand.playPause]);
 
     // What the TV's settings allow is part of the state.
@@ -282,15 +287,18 @@ void main() {
     expect((await act('playPause')).statusCode, 400);
     // The TV shows the screen for it; which permission has to be said.
     final change = {'access': 'homeButton'};
-    expect(await said(await act('access', on: 'device', more: change)), isNull);
+    expect(
+      await said(await act('access', on: 'system:device', more: change)),
+      isNull,
+    );
     expect(platform.accessChanged, [Access.homeButton]);
-    expect((await act('access', on: 'device')).statusCode, 502);
+    expect((await act('access', on: 'system:device')).statusCode, 502);
     platform.noAccessScreen = true;
     expect(
-      await said(await act('access', on: 'device', more: change)),
+      await said(await act('access', on: 'system:device', more: change)),
       startsWith('This TV has no screen for it\n'),
     );
-    await said(await act('tvSettings', on: 'device'));
+    await said(await act('tvSettings', on: 'system:device'));
     expect(platform.tvSettingsOpened, 1);
 
     // What is not the device's doing is done all the same: a variable set.
@@ -309,7 +317,7 @@ void main() {
       400,
     );
 
-    expect((await act('dance', on: 'device')).statusCode, 400);
+    expect((await act('dance', on: 'system:device')).statusCode, 400);
     expect((await call('POST', '/api/act', body: {})).statusCode, 400);
   });
 
@@ -320,7 +328,7 @@ void main() {
       final checked = await call(
         'POST',
         '/api/act',
-        body: {'do': 'check', 'entity': 'updates'},
+        body: {'do': 'check', 'entity': 'system:updates'},
       );
       expect(
         jsonDecode(await checked.readAsString())['message'],
@@ -339,7 +347,7 @@ void main() {
       await call(
         'POST',
         '/api/act',
-        body: {'do': 'install', 'entity': 'updates'},
+        body: {'do': 'install', 'entity': 'system:updates'},
       );
       final platform =
           container.read(launcherPlatformProvider) as FakeLauncherPlatform;
@@ -417,31 +425,31 @@ void main() {
                   'children': [
                     {
                       'id': 'i1',
-                      'prefab': 'app-card',
+                      'prefab': 'system:app-card',
                       'vars': {
-                        'source': {'value': 'app:b', 'type': 'entity'},
+                        'source': {'value': 'system:app/b', 'type': 'entity'},
                       },
                       'transform': {'x': 2, 'y': 0, 'w': 9},
                     },
                     {
                       'id': 'i2',
-                      'prefab': 'folder-card',
+                      'prefab': 'system:folder-card',
                       'vars': {
                         'source': {'value': 'games', 'type': 'entity'},
                       },
                     },
                     {
                       'id': 'i3',
-                      'prefab': 'folder-card',
+                      'prefab': 'system:folder-card',
                       'vars': {
                         'source': {'value': 'nothing', 'type': 'entity'},
                       },
                     },
                     {
                       'id': 'i4',
-                      'prefab': 'weather',
+                      'prefab': 'system:weather',
                       'vars': {
-                        'source': {'value': 'weather', 'type': 'entity'},
+                        'source': {'value': 'system:weather', 'type': 'entity'},
                       },
                     },
                   ],
@@ -454,9 +462,9 @@ void main() {
                   'children': [
                     {
                       'id': 'i5',
-                      'prefab': 'app-card',
+                      'prefab': 'system:app-card',
                       'vars': {
-                        'source': {'value': 'app:a', 'type': 'entity'},
+                        'source': {'value': 'system:app/a', 'type': 'entity'},
                       },
                     },
                   ],
@@ -478,13 +486,13 @@ void main() {
     expect((top.children.first.w, top.children.first.x), (4, 0));
     expect(
       (top.children.last.prefab, top.children.last.handed.firstOrNull),
-      ('weather', 'weather'),
+      ('system:weather', 'system:weather'),
     );
     expect((games.dock, games.hovers), ('bottom', true));
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
     // which was placed nowhere, in the pane for new entities.
-    expect(await onTv(), ['app:b', 'input:tv/HW1']);
+    expect(await onTv(), ['system:app/b', 'system:input/tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
     final folder = view.home.root.contents.elementAt(1);
     expect(folder.prefab, folderPrefabId);
@@ -493,12 +501,12 @@ void main() {
           .pane(folder.handed.firstOrNull!)!
           .contents
           .map((entry) => entry.handed.firstOrNull),
-      ['app:a'],
+      ['system:app/a'],
     );
     final shown = (await state())['layout']['layers'][0]['root']['children'][1];
     expect(
       (shown['children'] as List).map((i) => i['vars']?['source']?['value']),
-      ['input:tv/HW1', 'launcher:settings'],
+      ['system:input/tv/HW1', 'system:settings'],
     );
   });
 
@@ -570,7 +578,7 @@ void main() {
       '/api/config',
       body: {
         'wallpapers': ['/etc/passwd', '../config.json'],
-        'iconOverrides': {'app:a': '/etc/passwd'},
+        'iconOverrides': {'system:app/a': '/etc/passwd'},
       },
     );
     expect(response.statusCode, 200);
@@ -687,18 +695,18 @@ void main() {
     final section = layout['layers'][0]['root']['children'][0];
     // What the page does to remove an entity: drop its item and say so.
     (section['children'] as List).removeWhere(
-      (i) => i['vars']?['source']?['value'] == 'input:tv/HW1',
+      (i) => i['vars']?['source']?['value'] == 'system:input/tv/HW1',
     );
-    layout['removed'] = ['input:tv/HW1'];
+    layout['removed'] = ['system:input/tv/HW1'];
     expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
 
-    expect(await onTv(), ['app:a', 'app:b']);
+    expect(await onTv(), ['system:app/a', 'system:app/b']);
     final after = await state();
-    expect(after['layout']['removed'], ['input:tv/HW1']);
+    expect(after['layout']['removed'], ['system:input/tv/HW1']);
     // Still offered, so it can be added again.
     expect(
       (after['entities'] as List).map((c) => c['id']),
-      contains('input:tv/HW1'),
+      contains('system:input/tv/HW1'),
     );
 
     // Adding it again, twice: an entity can be in more than one place.
@@ -707,14 +715,19 @@ void main() {
       for (final id in ['x1', 'x2'])
         {
           'id': id,
-          'prefab': 'app-card',
+          'prefab': 'system:app-card',
           'vars': {
-            'source': {'value': 'input:tv/HW1', 'type': 'entity'},
+            'source': {'value': 'system:input/tv/HW1', 'type': 'entity'},
           },
         },
     ]);
     await call('PUT', '/api/layout', body: again);
-    expect(await onTv(), ['app:a', 'app:b', 'input:tv/HW1', 'input:tv/HW1']);
+    expect(await onTv(), [
+      'system:app/a',
+      'system:app/b',
+      'system:input/tv/HW1',
+      'system:input/tv/HW1',
+    ]);
     expect(store.config.layout.removed, isEmpty);
   });
 
@@ -727,18 +740,20 @@ void main() {
       'PUT',
       '/api/config',
       body: {
-        'iconOverrides': {'app:a': id},
+        'iconOverrides': {'system:app/a': id},
       },
     );
     expect(response.statusCode, 200);
-    final entity = (await entities()).firstWhere((c) => c['id'] == 'app:a');
+    final entity = (await entities()).firstWhere(
+      (c) => c['id'] == 'system:app/a',
+    );
     expect(entity['data']['shape'], 'banner');
-    final saved = File(store.config.iconOverrides['app:a']!);
+    final saved = File(store.config.iconOverrides['system:app/a']!);
     expect(saved.parent.path, '${tmp.path}/custom-icons');
     response = await call('GET', entity['data']['icon'] as String);
     expect(response.headers['content-type'], 'image/png');
     expect(await response.read().expand((b) => b).toList(), _png);
-    expect((await state())['config']['iconOverrides'], {'app:a': id});
+    expect((await state())['config']['iconOverrides'], {'system:app/a': id});
     expect((await media()).single['used'], isTrue);
 
     // A file in use is not deleted.
@@ -750,7 +765,7 @@ void main() {
       'PUT',
       '/api/config',
       body: {
-        'iconOverrides': {'app:a': second},
+        'iconOverrides': {'system:app/a': second},
       },
     );
     expect(saved.existsSync(), isTrue);
@@ -770,7 +785,7 @@ void main() {
       'PUT',
       '/api/config',
       body: {
-        'iconOverrides': {'app:a': id},
+        'iconOverrides': {'system:app/a': id},
       },
     );
     expect(store.config.iconOverrides, isEmpty);
@@ -784,30 +799,30 @@ void main() {
       'PUT',
       '/api/config',
       body: {
-        'names': {'app:a': 'Films'},
-        'iconSources': {'app:a': 'input:tv/HW1'},
+        'names': {'system:app/a': 'Films'},
+        'iconSources': {'system:app/a': 'system:input/tv/HW1'},
       },
     );
     expect(response.statusCode, 200);
-    var a = await entity('app:a');
+    var a = await entity('system:app/a');
     expect(a['label'], 'Films');
     response = await call('GET', a['data']['icon'] as String);
     expect(response.headers['content-type'], 'image/svg+xml');
     final config = (await state())['config'];
-    expect(config['names'], {'app:a': 'Films'});
-    expect(config['iconSources'], {'app:a': 'input:tv/HW1'});
+    expect(config['names'], {'system:app/a': 'Films'});
+    expect(config['iconSources'], {'system:app/a': 'system:input/tv/HW1'});
 
     // A key left out is left alone.
     await call('PUT', '/api/config', body: {'names': {}});
-    a = await entity('app:a');
+    a = await entity('system:app/a');
     expect(a['label'], 'A');
-    expect(store.config.iconSources, {'app:a': 'input:tv/HW1'});
+    expect(store.config.iconSources, {'system:app/a': 'system:input/tv/HW1'});
 
     response = await call(
       'PUT',
       '/api/config',
       body: {
-        'names': {'app:a': 'x' * 61},
+        'names': {'system:app/a': 'x' * 61},
       },
     );
     expect(response.statusCode, 400);
@@ -1000,6 +1015,8 @@ void main() {
       'version': '1',
       'author': '',
       'licence': '',
+      'source': '',
+      'requires': <Object?>[],
       'builtIn': true,
       'bytes': isPositive,
       'files': ['fonts/core.ttf', 'icons/core.json'],
@@ -1024,7 +1041,8 @@ void main() {
     response = await call('POST', '/api/packs', body: packZip('mdi'));
     expect(response.statusCode, 200);
     expect(jsonDecode(await response.readAsString()), {'id': 'mdi'});
-    expect(await packs(), ['core', 'system', 'mdi']);
+    // By name: a built-in pack is listed like any other.
+    expect(await packs(), ['core', 'mdi', 'system']);
 
     response = await call('POST', '/api/packs', body: [1, 2, 3]);
     expect(response.statusCode, 415);

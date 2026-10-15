@@ -21,13 +21,12 @@ const _lamp =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
     '<circle cx="5" cy="5" r="4"/></svg>';
 
-/// A generator of one entity per app, as a pack would write it, ids
-/// starting [prefix].
-Map<String, Object> _appsAs(String prefix) => {
+/// A generator of one entity per app, as a pack would write it.
+const _apps = {
   'from': 'apps',
   'where': "{{row.package != 'skip.me'}}",
   'entity': {
-    'id': '$prefix:{{row.package}}',
+    'id': 'app/{{row.package}}',
     'category': 'app',
     'label': '{{row.label}}',
     'placed': true,
@@ -45,14 +44,26 @@ Map<String, Object> _appsAs(String prefix) => {
   },
 };
 
-final _apps = _appsAs('app');
-
-/// A pack's zip: `pack.json` for [id] and [files], JSON unless text.
-Uint8List _pack(String id, Map<String, Object> files) => zipOf({
-  'pack.json': jsonEncode({'id': id}),
+/// A pack's zip: `pack.json` for [id], needing [requires], and [files],
+/// JSON unless text.
+Uint8List _pack(
+  String id,
+  Map<String, Object> files, {
+  List<String> requires = const [],
+}) => zipOf({
+  'pack.json': jsonEncode({'id': id, 'requires': requires}),
   for (final MapEntry(key: path, value: content) in files.entries)
     path: content is String ? content : jsonEncode(content),
 });
+
+Future<PackRefused> _refusedDelete(PackStore store, String id) async {
+  try {
+    await store.delete(id);
+  } on PackRefused catch (refusal) {
+    return refusal;
+  }
+  fail('Not refused');
+}
 
 void main() {
   group('a template', () {
@@ -119,7 +130,7 @@ void main() {
 
     test('makes the apps, as the launcher always has', () async {
       final entities = await container().read(entitiesProvider.future);
-      final app = entities.byId('app:a.b')!;
+      final app = entities.byId(Entity.appId('a.b'))!;
       expect(app.category, appCategory);
       expect(app.label, 'AB');
       expect(app.prefab, cardPrefabId);
@@ -138,14 +149,17 @@ void main() {
               'package': '{{self.package}}',
             }),
       );
-      expect(entities.byId('app:c.d')!.data[Entity.shape], 'icon');
-      expect(entities.byId('app:e.f')!.data.containsKey(Entity.icon), isFalse);
+      expect(entities.byId(Entity.appId('c.d'))!.data[Entity.shape], 'icon');
+      expect(
+        entities.byId(Entity.appId('e.f'))!.data.containsKey(Entity.icon),
+        isFalse,
+      );
     });
 
     test('makes the inputs, numbered, with a picture of each kind', () async {
       final c = container();
       final entities = await c.read(entitiesProvider.future);
-      final hdmi = entities.byId('input:hw2')!;
+      final hdmi = entities.byId(Entity.inputId('hw2'))!;
       expect(hdmi.category, inputCategory);
       expect(hdmi.data['input'], 'hw2');
       expect(hdmi.data['number'], '2');
@@ -154,13 +168,13 @@ void main() {
         File(hdmi.data[Entity.icon]! as String).readAsStringSync(),
         File('packs/system/images/input-hdmi.svg').readAsStringSync(),
       );
-      final tuner = entities.byId('input:tuner')!;
+      final tuner = entities.byId(Entity.inputId('tuner'))!;
       expect(tuner.data.containsKey('number'), isFalse);
       expect(tuner.data[Entity.icon], endsWith('input-tuner.svg'));
 
       await c
           .read(actionRunnerProvider)
-          .run(const Act('open', {entityArg: 'input:hw2'}));
+          .run(Act('open', {entityArg: Entity.inputId('hw2')}));
       expect(platform.launched, ['hw2']);
     });
 
@@ -272,7 +286,7 @@ void main() {
         {'package': 'skip.me', 'label': 'Skip'},
         {'package': 'a.b', 'label': 'Again'},
       ]);
-      expect(made.map((entity) => entity.id), ['app:a.b', 'app:c.d']);
+      expect(made.map((entity) => entity.id), ['app/a.b', 'app/c.d']);
       final ab = made.first;
       expect(ab.label, 'AB');
       expect(ab.placed, isTrue);
@@ -342,12 +356,11 @@ void main() {
     final system = _pack('sys', {
       'sources/apps.json': {'url': 'os://apps', 'watch': true},
       'sources/inputs.json': {'url': 'os://inputs'},
-      // Not `app:`, which the launcher still makes itself.
-      'generators/apps.json': _appsAs('tv'),
+      'generators/apps.json': _apps,
       'generators/inputs.json': {
         'from': 'inputs',
         'entity': {
-          'id': 'socket:{{row.id}}',
+          'id': 'socket/{{row.id}}',
           'label': '{{row.label}}',
           'data': {'kind': '{{row.kind}}', 'icon': 'pack:sys/images/lamp.svg'},
         },
@@ -368,26 +381,30 @@ void main() {
     test('a built-in pack makes entities from the device', () async {
       final c = container({'sys': system});
       final entities = await c.read(entitiesProvider.future);
-      final app = entities.byId('tv:a.b')!;
+      // Its names given its own id.
+      final app = entities.byId('sys:app/a.b')!;
       expect(app.data, {'package': 'a.b', 'icon': '/a.png', 'shape': 'banner'});
       expect(app.actions['open']!.run, 'os://apps/launch');
-      expect(entities.byId('tv:skip.me'), isNull);
+      expect(entities.byId('sys:app/skip.me'), isNull);
 
       // A pack's picture is given as its file; one it does not have, not
       // at all.
-      final input = entities.byId('socket:hw1')!;
+      final input = entities.byId('sys:socket/hw1')!;
       expect(input.data['kind'], 'hdmi');
       expect(File(input.data['icon']! as String).readAsStringSync(), _lamp);
-      expect(entities.byId('lamp')!.data.containsKey('icon'), isFalse);
+      expect(entities.byId('sys:lamp')!.data.containsKey('icon'), isFalse);
 
-      expect(c.read(prefabsProvider)['tile']?.name, 'Tile');
+      expect(c.read(prefabsProvider)['sys:tile']?.name, 'Tile');
     });
 
     test('a watched source is read again when the device says', () async {
       final c = container({'sys': system});
       final held = c.listen(entitiesProvider, (_, _) {});
       addTearDown(held.close);
-      expect((await c.read(entitiesProvider.future)).byId('tv:c.d'), isNull);
+      expect(
+        (await c.read(entitiesProvider.future)).byId('sys:app/c.d'),
+        isNull,
+      );
 
       platform.apps = [
         ...platform.apps,
@@ -395,7 +412,10 @@ void main() {
       ];
       platform.notifyAppsChanged();
       await pumpEventQueue();
-      expect((await c.read(entitiesProvider.future)).byId('tv:c.d'), isNotNull);
+      expect(
+        (await c.read(entitiesProvider.future)).byId('sys:app/c.d'),
+        isNotNull,
+      );
     });
 
     test('an entity is fed by a source of its pack, sharing it', () async {
@@ -405,7 +425,7 @@ void main() {
         (await refused(
           store,
           _pack('ha', {
-            'entities/x.json': {'id': 'ha:x', 'feed': 'nowhere'},
+            'entities/x.json': {'id': 'x', 'feed': 'nowhere'},
           }),
         )).message,
         contains('not in sources/'),
@@ -414,7 +434,7 @@ void main() {
         Stream.value(
           _pack('ha', {
             'sources/time.json': {'url': 'launcher://clock'},
-            'entities/lounge.json': {'id': 'ha:lounge', 'feed': 'time'},
+            'entities/lounge.json': {'id': 'lounge', 'feed': 'time'},
           }),
         ),
       );
@@ -428,39 +448,34 @@ void main() {
       expect(lounge.toJson()['feed'], 'time');
     });
 
-    test("another pack's ids start with its own", () async {
+    test('a pack writes short names, given its own id as it loads', () async {
       final c = container(const {});
       final store = c.read(packStoreProvider);
       Future<String> why(Map<String, Object> files) async =>
           (await refused(store, _pack('ha', files))).message;
 
+      // What it defines is its own: no other pack's name in it.
       expect(
         await why({
-          'entities/x.json': {'id': 'clock'},
+          'entities/x.json': {'id': 'other:x'},
         }),
-        contains('must start with "ha:"'),
+        contains('must be a name without ":"'),
       );
       expect(
         await why({
-          'prefabs/x.json': {
-            'id': 'tile',
-            'root': {'id': 'tile', 'kind': 'pane'},
+          'sources/states.json': {'url': 'os://apps'},
+          'generators/x.json': {
+            'from': 'states',
+            'entity': {'id': 'other:{{row.id}}'},
           },
         }),
-        contains('must start with "ha:"'),
-      );
-      expect(
-        await why({
-          'sources/apps.json': {'url': 'os://apps'},
-          'generators/x.json': _apps,
-        }),
-        contains('must start with "ha:"'),
+        contains('must be a name without ":"'),
       );
       expect(
         await why({
           'generators/x.json': {
             'from': 'states',
-            'entity': {'id': 'ha:{{row.id}}'},
+            'entity': {'id': '{{row.id}}'},
           },
         }),
         contains('not in sources/'),
@@ -476,17 +491,81 @@ void main() {
       await store.install(
         Stream.value(
           _pack('ha', {
-            'entities/lounge.json': {'id': 'ha:lounge', 'label': 'Lounge'},
+            'entities/lounge.json': {
+              'id': 'lounge',
+              'label': 'Lounge',
+              'prefab': 'tile',
+            },
             'prefabs/tile.json': {
-              'id': 'ha:tile',
-              'root': {'id': 'tile', 'kind': 'pane'},
+              'id': 'tile',
+              'root': {
+                'id': 'tile',
+                'kind': 'pane',
+                'vars': {
+                  'source': {'value': 'lounge', 'type': 'entity'},
+                },
+                'on': {
+                  'press': [
+                    {'do': 'toggle', 'entity': 'lounge'},
+                    {'do': 'open', 'entity': '{{source.id}}'},
+                  ],
+                },
+                'children': [
+                  {
+                    'id': 'state',
+                    'kind': 'text',
+                    'options': {
+                      'text': "{{lounge.state == 'on' ? 'On' : source.label}}",
+                    },
+                  },
+                ],
+              },
             },
           }),
         ),
       );
-      final entities = await c.read(entitiesProvider.future);
-      expect(entities.byId('ha:lounge')?.label, 'Lounge');
-      expect(c.read(prefabsProvider).containsKey('ha:tile'), isTrue);
+      final lounge = (await c.read(entitiesProvider.future)).byId('ha:lounge')!;
+      expect((lounge.label, lounge.prefab), ('Lounge', 'ha:tile'));
+      final tile = c.read(prefabsProvider)['ha:tile']!.root;
+      expect(tile.vars['source']?.value, 'ha:lounge');
+      expect(tile.on[Trigger.press], [
+        const Act('toggle', {'entity': 'ha:lounge'}),
+        const Act('open', {'entity': '{{source.id}}'}),
+      ]);
+      // A root is its entity's only where it names one; a variable is not.
+      expect(
+        tile.children.single.options['text'],
+        "{{ha:lounge.state == 'on' ? 'On' : source.label}}",
+      );
+    });
+
+    test('a pack names another only if it requires it', () async {
+      final c = container({'sys': system});
+      final store = c.read(packStoreProvider);
+      final card = {
+        'prefabs/card.json': {
+          'id': 'card',
+          'root': {'id': 'card', 'prefab': 'sys:tile'},
+        },
+      };
+      expect(
+        (await refused(store, _pack('ha', card))).message,
+        contains('does not require'),
+      );
+      expect(
+        (await refused(store, _pack('ha', card, requires: ['base']))).message,
+        contains('"base" installed first'),
+      );
+      await store.install(Stream.value(_pack('ha', card, requires: ['sys'])));
+      await c.read(packContentsProvider.future);
+      expect(c.read(prefabsProvider)['ha:card']?.root.prefab, 'sys:tile');
+
+      // One that another needs stays.
+      await store.install(Stream.value(_pack('base', const {})));
+      await store.install(
+        Stream.value(_pack('lamps', const {}, requires: ['base'])),
+      );
+      expect((await _refusedDelete(store, 'base')).message, contains('needs'));
     });
   });
 }

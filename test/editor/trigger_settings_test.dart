@@ -81,7 +81,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(on, {
       Trigger.press: [
-        const Act('playPause', {'entity': 'media'}),
+        const Act('playPause', {'entity': 'system:media'}),
       ],
     });
 
@@ -93,13 +93,13 @@ void main() {
     await tester.tap(find.text('Next').last);
     await tester.pumpAndSettle();
     expect(on[Trigger.press], [
-      const Act('next', {'entity': 'media'}),
+      const Act('next', {'entity': 'system:media'}),
     ]);
 
     // Aimed at another entity, it takes that one's first action.
     await choose(tester, find.byType(SearchBox), 'Updates');
     expect(on[Trigger.press], [
-      const Act('check', {'entity': 'updates'}),
+      const Act('check', {'entity': 'system:updates'}),
     ]);
 
     await tester.tap(find.byTooltip('Remove action'));
@@ -117,7 +117,7 @@ void main() {
       defaults: const {
         Trigger.press: [open],
       },
-      scope: const {'source': Variable('app:a', type: VarType.entity)},
+      scope: const {'source': Variable('system:app/a', type: VarType.entity)},
     );
     expect(find.text('From prefab'), findsOneWidget);
     // The variable is the target, read as the entity it holds.
@@ -152,7 +152,7 @@ void main() {
     Variables variables = const {
       'count': Variable(3, type: VarType.number),
       'on': Variable(null, type: VarType.bool),
-      'title': Variable('Hi {{clock.time}}', type: VarType.text),
+      'title': Variable('Hi {{system:clock.time}}', type: VarType.text),
     };
     await tester.pumpWidget(
       ProviderScope(
@@ -197,7 +197,7 @@ void main() {
     expect(variables['on']!.value, true);
 
     // Text stays as written, templates and all.
-    expect(variables['title']!.value, 'Hi {{clock.time}}');
+    expect(variables['title']!.value, 'Hi {{system:clock.time}}');
 
     // As an expression, the number is written as a template instead.
     await tester.tap(find.widgetWithText(CheckboxListTile, 'Expression').first);
@@ -205,11 +205,11 @@ void main() {
     expect(find.byTooltip('Increase'), findsNothing);
     await tester.enterText(
       find.widgetWithText(TextField, '0.5'),
-      '{{clock.second}}',
+      '{{system:clock.second}}',
     );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-    expect(variables['count']!.value, '{{clock.second}}');
+    expect(variables['count']!.value, '{{system:clock.second}}');
     expect(variables.keys, ['count', 'on', 'title']);
     expect(tester.takeException(), isNull);
   });
@@ -269,7 +269,7 @@ void main() {
     await tester.tap(find.text('Media Player').last);
     await tester.pumpAndSettle();
     expect(on[Trigger.press], [
-      const Act('playPause', {'entity': 'media'}),
+      const Act('playPause', {'entity': 'system:media'}),
     ]);
     expect(tester.takeException(), isNull);
   });

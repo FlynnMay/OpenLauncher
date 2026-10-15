@@ -52,9 +52,15 @@ void main() {
             (ref) => Stream.value(
               TvState(
                 entities: const [
-                  Entity(id: 'app:a', category: appCategory, label: 'Alpha'),
+                  Entity(
+                    id: 'system:app/a',
+                    category: appCategory,
+                    label: 'Alpha',
+                  ),
                 ],
-                config: LauncherConfig(layout: Layout.initial(['app:a'])),
+                config: LauncherConfig(
+                  layout: Layout.initial(['system:app/a']),
+                ),
                 components: const [],
               ),
             ),
@@ -122,9 +128,9 @@ void main() {
             'entities': [],
             'layout': Layout.initial().toJson(),
             'config': {
-              'iconOverrides': {'app:a': 'picture-1.png'},
+              'iconOverrides': {'system:app/a': 'picture-1.png'},
               'wallpapers': ['wallpaper-2.mp4'],
-              'names': {'app:a': 'Films'},
+              'names': {'system:app/a': 'Films'},
               'wallpaperEvery': 5,
             },
             'components': [],
@@ -143,10 +149,10 @@ void main() {
       }),
     );
     final config = (await api.states().first).config;
-    final picture = config.iconOverrides['app:a']!;
+    final picture = config.iconOverrides['system:app/a']!;
     expect(Uri.parse(picture).path, '/api/media/picture-1.png');
     expect(Uri.parse(config.wallpaper!).path, '/api/media/wallpaper-2.mp4');
-    expect(config.names, {'app:a': 'Films'});
+    expect(config.names, {'system:app/a': 'Films'});
     expect(config.wallpaperEvery, 5);
 
     await api.setConfig({
@@ -156,9 +162,9 @@ void main() {
     });
     expect(asked.single.url.path, '/api/config');
     expect(jsonDecode(asked.single.body), {
-      'iconOverrides': {'app:a': 'picture-1.png'},
+      'iconOverrides': {'system:app/a': 'picture-1.png'},
       'wallpapers': ['wallpaper-2.mp4'],
-      'names': {'app:a': 'Films'},
+      'names': {'system:app/a': 'Films'},
     });
   });
 }

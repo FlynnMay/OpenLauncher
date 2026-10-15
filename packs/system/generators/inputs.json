@@ -1,7 +1,7 @@
 {
   "from": "inputs",
   "entity": {
-    "id": "input:{{row.id}}",
+    "id": "input/{{row.id}}",
     "category": "input",
     "label": "{{row.label}}",
     "prefab": "app-card",

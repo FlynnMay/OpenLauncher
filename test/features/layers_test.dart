@@ -62,7 +62,7 @@ void main() {
                 LauncherConfig(
                   layout: Layout(
                     inbox: 'main',
-                    removed: const {'launcher:settings'},
+                    removed: const {'system:settings'},
                     layers: [
                       Layer(
                         id: Layout.homeId,
@@ -73,12 +73,12 @@ void main() {
                           // leads here.
                           mode: PaneMode.grid,
                           children: [
-                            Component.of('app:a', id: 'a', x: 3, y: 0),
+                            Component.of('system:app/a', id: 'a', x: 3, y: 0),
                             // What it does when shown is written on it:
                             // [on] over what a new sidebar comes with.
                             sidebarPane('left', 'left').copyWith(
                               on: {...barTriggers(), ...on},
-                              children: [Component.of('app:b', id: 'b')],
+                              children: [Component.of('system:app/b', id: 'b')],
                             ),
                           ],
                         ),
@@ -161,7 +161,7 @@ void main() {
               LauncherConfig(
                 layout: Layout(
                   inbox: 'main',
-                  removed: const {'launcher:settings', 'app:a'},
+                  removed: const {'system:settings', 'system:app/a'},
                   layers: [
                     Layer(
                       id: Layout.homeId,
@@ -174,7 +174,7 @@ void main() {
                             prefab: folderPrefabId,
                           ),
                           folderPane('games', title: 'Games').copyWith(
-                            children: [Component.of('app:b', id: 'b')],
+                            children: [Component.of('system:app/b', id: 'b')],
                           ),
                         ],
                       ),

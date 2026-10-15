@@ -42,7 +42,7 @@ void main() {
           'readings': [3, 4.0, 5.5],
         },
       },
-      'weather': {'text': '18°', 'temperature': 17.6},
+      'system:weather': {'text': '18°', 'temperature': 17.6},
       'updated': 1760140800,
     };
 
@@ -59,15 +59,14 @@ void main() {
       );
       expect(_render('{{lounge.attributes.readings[1]}}', values), '4');
       expect(_render('{{lounge.attributes.readings.2}}', values), '5.5');
-      expect(Template.parse('{{lounge.state}} {{weather}} {{a-b.c}}').roots, {
-        'lounge',
-        'weather',
-        'a-b',
-      });
+      expect(
+        Template.parse('{{lounge.state}} {{system:weather}} {{a-b.c}}').roots,
+        {'lounge', 'system:weather', 'a-b'},
+      );
     });
 
     test('a thing of several parts reads by its text', () {
-      expect(_render('{{weather}}', values), '18°');
+      expect(_render('{{system:weather}}', values), '18°');
       expect(_render('{{lounge}}', values), '');
     });
 
@@ -83,7 +82,7 @@ void main() {
       expect(_render('{{lounge.state | round:1}}', values), '21.5');
       expect(
         _render(
-          '{{weather.temperature | times:1.8 | plus:32 | round}}',
+          '{{system:weather.temperature | times:1.8 | plus:32 | round}}',
           values,
         ),
         '64',
@@ -230,7 +229,7 @@ void main() {
         category: 'shortcut',
         label: 'Plex',
         data: {'text': 'Plex', 'colour': 'orange'},
-        prefab: 'app-card',
+        prefab: 'system:app-card',
         actions: {
           'open': EntityAction(
             run: 'os://apps/launch',
@@ -326,22 +325,28 @@ void main() {
 
     test('the launcher has the time and the date', () async {
       final c = container(LauncherConfig());
-      expect(await reads(c, '{{clock.time}}'), '15:04');
+      expect(await reads(c, '{{system:clock.time}}'), '15:04');
       expect(
-        await reads(c, '{{clock.hour12}}:{{clock.minute}} {{clock.ampm}}'),
+        await reads(
+          c,
+          '{{system:clock.hour12}}:{{system:clock.minute}} {{system:clock.ampm}}',
+        ),
         '3:4 pm',
       );
-      expect(await reads(c, '{{clock | format:hh:mm:ss a}}'), '03:04:09 pm');
-      expect(await reads(c, '{{clock.date}}'), 'Sunday 11 October');
       expect(
-        await reads(c, '{{clock.monthName}} {{clock.year}}'),
+        await reads(c, '{{system:clock | format:hh:mm:ss a}}'),
+        '03:04:09 pm',
+      );
+      expect(await reads(c, '{{system:clock.date}}'), 'Sunday 11 October');
+      expect(
+        await reads(c, '{{system:clock.monthName}} {{system:clock.year}}'),
         'October 2026',
       );
     });
 
     test('what is playing, and nothing when nothing is', () async {
       final c = container(LauncherConfig());
-      const template = '{{media.title | default:Silence}}';
+      const template = '{{system:media.title | default:Silence}}';
       expect(await reads(c, template), 'Silence');
       platform.playing = NowPlaying(
         packageName: 'p',
@@ -353,27 +358,27 @@ void main() {
       platform.notifyNowPlayingChanged();
       expect(await reads(c, template), 'Song');
       expect(
-        await reads(c, '{{media.artist}} on {{media.app}}'),
+        await reads(c, '{{system:media.artist}} on {{system:media.app}}'),
         'Band on Player',
       );
     });
 
     test('the place and its weather, once a place is said', () async {
       var c = container(LauncherConfig());
-      expect(await reads(c, '[{{location}}{{weather}}]'), '[]');
+      expect(await reads(c, '[{{system:location}}{{system:weather}}]'), '[]');
       c = container(
         LauncherConfig(
           place: (name: 'Perth', latitude: -31.95, longitude: 115.86),
         ),
       );
       expect(
-        await reads(c, '{{location}} {{location.latitude}}'),
+        await reads(c, '{{system:location}} {{system:location.latitude}}'),
         'Perth -31.95',
       );
       expect(
         await reads(
           c,
-          '{{weather}} {{weather.description}} {{weather.high|round}}',
+          '{{system:weather}} {{system:weather.description}} {{system:weather.high|round}}',
         ),
         '18° Partly cloudy 22',
       );

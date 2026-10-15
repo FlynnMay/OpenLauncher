@@ -241,7 +241,7 @@ bool _edited(WidgetRef ref, Prefab prefab) =>
         .any((own) => own.id == prefab.id) ??
     false;
 
-/// Every prefab: opened for editing, duplicated, deleted. A built-in that
+/// Every prefab: opened for editing, duplicated, deleted. One a pack ships that
 /// was edited can be reset.
 class PrefabList extends ConsumerWidget {
   const PrefabList({super.key});
@@ -258,8 +258,8 @@ class PrefabList extends ConsumerWidget {
           subtitle: Text(
             [
               _used(ref, prefab),
-              if (isBuiltIn(ref, prefab.id))
-                _edited(ref, prefab) ? 'built-in, modified' : 'built-in',
+              if (shippedBy(ref, prefab.id) case final pack?)
+                _edited(ref, prefab) ? '$pack, modified' : pack,
             ].join(' · '),
           ),
           onTap: () => openPrefab(ref, prefab.id),
@@ -296,7 +296,7 @@ class _PrefabMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final builtIn = isBuiltIn(ref, prefab.id);
+    final pack = shippedBy(ref, prefab.id);
     return PopupMenuButton<void Function()>(
       tooltip: 'More',
       iconSize: 18,
@@ -310,10 +310,10 @@ class _PrefabMenu extends ConsumerWidget {
           value: () => renamePrefab(context, ref, prefab),
           child: const Text('Rename'),
         ),
-        if (!builtIn || _edited(ref, prefab))
+        if (pack == null || _edited(ref, prefab))
           PopupMenuItem(
             value: () => deletePrefab(context, ref, prefab),
-            child: Text(builtIn ? 'Reset to built-in' : 'Delete'),
+            child: Text(pack == null ? 'Delete' : 'Revert to $pack'),
           ),
       ],
     );
@@ -328,7 +328,7 @@ class PrefabDetails extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final builtIn = isBuiltIn(ref, prefab.id);
+    final pack = shippedBy(ref, prefab.id);
     return Section('Prefab', [
       CommitField(
         label: 'Name',
@@ -352,10 +352,10 @@ class PrefabDetails extends ConsumerWidget {
             onPressed: () => duplicatePrefab(context, ref, prefab),
             child: const Text('Duplicate'),
           ),
-          if (!builtIn || _edited(ref, prefab))
+          if (pack == null || _edited(ref, prefab))
             TextButton(
               onPressed: () => deletePrefab(context, ref, prefab),
-              child: Text(builtIn ? 'Reset to built-in' : 'Delete'),
+              child: Text(pack == null ? 'Delete' : 'Revert to $pack'),
             ),
         ],
       ),

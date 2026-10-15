@@ -1,5 +1,5 @@
 {
-  "id": "launcher:settings",
+  "id": "settings",
   "category": "launcher",
   "label": "Settings",
   "data": {

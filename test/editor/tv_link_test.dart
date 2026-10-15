@@ -36,7 +36,7 @@ class _Tv extends TvApi {
 }
 
 const _entity = Entity(
-  id: 'app:a',
+  id: 'system:app/a',
   category: appCategory,
   label: 'Alpha',
   data: {'package': 'a'},
@@ -58,7 +58,7 @@ TvState _state() => TvState(
   entities: [
     _entity,
     const Entity(
-      id: 'device',
+      id: 'system:device',
       category: 'device',
       label: 'Device',
       actions: {
@@ -66,7 +66,7 @@ TvState _state() => TvState(
       },
     ),
   ],
-  config: LauncherConfig(layout: Layout.initial(['app:a'])),
+  config: LauncherConfig(layout: Layout.initial(['system:app/a'])),
   components: const [],
 );
 
@@ -79,7 +79,9 @@ void main() {
     await store.save(config);
     expect(tv.sent, isEmpty);
 
-    final emptied = config.copyWith(layout: config.layout.without({'app:a'}));
+    final emptied = config.copyWith(
+      layout: config.layout.without({'system:app/a'}),
+    );
     await store.save(emptied);
     expect(tv.sent, ['layout']);
 
@@ -122,7 +124,7 @@ void main() {
     final layout = ref.read(configProvider).value!.layout;
     await ref
         .read(configProvider.notifier)
-        .setLayout(layout.without({'app:a'}));
+        .setLayout(layout.without({'system:app/a'}));
     await tester.pumpAndSettle();
     expect(tv.sent, ['layout']);
     expect(find.text('Alpha'), findsNothing);
@@ -145,7 +147,7 @@ void main() {
 
     await tester.tap(find.text('Alpha').last);
     await tester.pumpAndSettle();
-    expect(tv.sent, ['{do: open, entity: app:a}']);
+    expect(tv.sent, ['{do: open, entity: system:app/a}']);
   });
 
   test(
@@ -170,7 +172,7 @@ void main() {
       states.add(
         TvState(
           entities: const [_entity],
-          config: LauncherConfig(layout: Layout.initial(['app:a'])),
+          config: LauncherConfig(layout: Layout.initial(['system:app/a'])),
           components: const [],
           nowPlaying: NowPlaying(
             packageName: 'a',
@@ -204,15 +206,18 @@ void main() {
 
       // The TV is sent the act as written, entity and all.
       expect(
-        await actions.run(const Act('uninstall', {'entity': 'app:a'})),
+        await actions.run(const Act('uninstall', {'entity': 'system:app/a'})),
         'Asked on the TV.',
       );
       await actions.run(
-        const Act('access', {'entity': 'device', 'access': 'homeButton'}),
+        const Act('access', {
+          'entity': 'system:device',
+          'access': 'homeButton',
+        }),
       );
       expect(tv.sent, [
-        '{do: uninstall, entity: app:a}',
-        '{do: access, entity: device, access: homeButton}',
+        '{do: uninstall, entity: system:app/a}',
+        '{do: access, entity: system:device, access: homeButton}',
       ]);
       // So is an address the TV answers, and the TV's own updater.
       await actions.run(const Act('os://apps/launch', {'package': 'a'}));
@@ -247,7 +252,7 @@ void main() {
           (ref) => Stream.value(
             TvState(
               entities: const [_entity],
-              config: LauncherConfig(layout: Layout.initial(['app:a'])),
+              config: LauncherConfig(layout: Layout.initial(['system:app/a'])),
               components: const [],
               access: const {Access.homeButton: false},
             ),

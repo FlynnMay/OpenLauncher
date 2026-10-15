@@ -13,6 +13,8 @@ class Pack {
     this.version = '',
     this.author = '',
     this.licence = '',
+    this.source = '',
+    this.requires = const [],
     this.builtIn = false,
     this.bytes = 0,
     this.files = const [],
@@ -25,7 +27,13 @@ class Pack {
 
   final String id, name, version, author, licence;
 
-  /// Ships with the launcher; cannot be removed.
+  /// Where it is made, e.g. its repository.
+  final String source;
+
+  /// The packs it names, which must be installed first.
+  final List<String> requires;
+
+  /// Ships with the launcher, so cannot be removed: the one way it differs.
   final bool builtIn;
 
   /// Its size once unpacked.
@@ -58,6 +66,12 @@ class Pack {
         version: text('version'),
         author: text('author'),
         licence: text('licence'),
+        source: text('source'),
+        requires: [
+          if (json['requires'] case final List<Object?> packs)
+            for (final pack in packs)
+              if (validId(pack)) pack as String,
+        ],
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {
           final num bytes => bytes.toInt(),
@@ -79,6 +93,8 @@ class Pack {
     'version': version,
     'author': author,
     'licence': licence,
+    'source': source,
+    'requires': requires,
     'builtIn': builtIn,
     'bytes': bytes,
     'files': files,
@@ -90,19 +106,24 @@ class Pack {
     version: version,
     author: author,
     licence: licence,
+    source: source,
+    requires: requires,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,
     files: files ?? this.files,
   );
 
-  /// How many times [saved] (a config as JSON) names an icon of this pack.
+  /// How many times [saved] (a config as JSON) names something of this
+  /// pack: an icon of its sets, or anything by its id.
   int usesIn(Object? saved) {
     final text = jsonEncode(saved);
-    return iconSets.fold(
+    return {id, ...iconSets}.fold(
       0,
-      (uses, set) =>
+      (uses, prefix) =>
           uses +
-          RegExp('\\b${RegExp.escape(set)}:[a-z0-9_]').allMatches(text).length,
+          RegExp('(?<![\\w:-])${RegExp.escape(prefix)}:[a-z0-9_]')
+              .allMatches(text)
+              .length,
     );
   }
 
@@ -114,6 +135,8 @@ class Pack {
       other.version == version &&
       other.author == author &&
       other.licence == licence &&
+      other.source == source &&
+      listEquals(other.requires, requires) &&
       other.builtIn == builtIn &&
       other.bytes == bytes &&
       listEquals(other.files, files);

@@ -154,7 +154,7 @@ class PaneSettings extends StatelessWidget {
         ),
       ),
       for (final prefab in shown)
-        ..._rule(prefab, builtIn: shipped.contains(prefab.id)),
+        ..._rule(prefab, shipped: shipped.contains(prefab.id)),
       if (addable.isNotEmpty)
         Align(
           alignment: Alignment.centerLeft,
@@ -187,7 +187,7 @@ class PaneSettings extends StatelessWidget {
   }
 
   /// A prefab's rule: its variant and each part's visibility.
-  List<Widget> _rule(Prefab prefab, {required bool builtIn}) => [
+  List<Widget> _rule(Prefab prefab, {required bool shipped}) => [
     LabelledRow(
       prefab.name,
       ChoiceBox<String>(
@@ -201,8 +201,8 @@ class PaneSettings extends StatelessWidget {
           ),
         ),
         choices: {
-          // Built-ins may leave the variant to each instance.
-          if (builtIn ||
+          // A pack's may leave the variant to each instance.
+          if (shipped ||
               panes.any(
                 (pane) => pane.prefabRules[prefab.id]?['variant'] == null,
               ))
@@ -261,7 +261,7 @@ class PaneSettings extends StatelessWidget {
           }),
         ),
       ),
-    if (!builtIn)
+    if (!shipped)
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(

@@ -2,5 +2,6 @@
   "id": "system",
   "name": "System",
   "version": "1",
-  "author": "OpenLauncher"
+  "author": "OpenLauncher",
+  "source": "https://github.com/FlynnMay/OpenLauncher"
 }

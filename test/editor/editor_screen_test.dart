@@ -22,7 +22,11 @@ class _Tv extends TvApi {
   Future<void> setConfig(Map<String, Object?> changed) async {}
 }
 
-const _entity = Entity(id: 'app:a', category: appCategory, label: 'Alpha');
+const _entity = Entity(
+  id: 'system:app/a',
+  category: appCategory,
+  label: 'Alpha',
+);
 
 void main() {
   Future<WidgetRef> pump(
@@ -44,8 +48,11 @@ void main() {
             (ref) => Stream.value(
               state ??
                   TvState(
+                    packs: [systemPack],
                     entities: const [_entity],
-                    config: LauncherConfig(layout: Layout.initial(['app:a'])),
+                    config: LauncherConfig(
+                      layout: Layout.initial(['system:app/a']),
+                    ),
                     components: const [],
                   ),
             ),
@@ -79,7 +86,7 @@ void main() {
     await tester.tap(inTree('Alpha'));
     await tester.pumpAndSettle();
     final picked = ref.read(selectedProvider).single;
-    expect(picked.item.handed.firstOrNull, 'app:a');
+    expect(picked.item.handed.firstOrNull, 'system:app/a');
 
     // Its id is beside its name, and a press copies it.
     final id = find.text('(ID: ${picked.item.id})');
@@ -195,29 +202,30 @@ void main() {
       tester,
       const Size(1600, 1400),
       state: TvState(
+        packs: [systemPack],
         entities: const [
           Entity(
-            id: 'app:a',
+            id: 'system:app/a',
             category: appCategory,
             label: 'Alpha',
             prefab: cardPrefabId,
           ),
           Entity(
-            id: 'app:b',
+            id: 'system:app/b',
             category: appCategory,
             label: 'Beta',
             prefab: cardPrefabId,
           ),
           Entity(
-            id: 'clock',
+            id: 'system:clock',
             category: 'clock',
             label: 'Clock',
-            prefab: 'clock',
+            prefab: 'system:clock',
           ),
           mine,
         ],
         config: LauncherConfig(
-          layout: Layout.initial(['app:a']),
+          layout: Layout.initial(['system:app/a']),
           entities: const [mine],
           prefabs: [
             Prefab(
@@ -225,9 +233,9 @@ void main() {
               name: 'My prefab',
               root: Component.pane(id: 'root'),
             ),
-            // A built-in, edited: still the system's.
+            // The System pack's, edited: offered as the System pack's.
             Prefab(
-              id: 'clock',
+              id: 'system:clock',
               name: 'Edited clock',
               root: Component.pane(id: 'root'),
             ),
@@ -260,13 +268,14 @@ void main() {
       for (final heading in headings) tester.getTopLeft(offered(heading)).dy,
     ];
     expect(tops, [...tops]..sort());
-    for (final gone in ['Components', 'Buttons', 'Folders', 'Edited clock']) {
+    for (final gone in ['Components', 'Buttons', 'Folders']) {
       expect(offered(gone), findsNothing);
     }
     expect(over('Button'), 'Primitives');
     expect(over('Sidebar'), 'Layout');
     // The only one of its category.
     expect(over('Clock'), 'System prefabs');
+    expect(over('Edited clock'), 'System prefabs');
     expect(over('My prefab'), 'User prefabs');
     expect(over('Mine'), 'User prefabs');
     expect(over('Beta'), 'Apps');

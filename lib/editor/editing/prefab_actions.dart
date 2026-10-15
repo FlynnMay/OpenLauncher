@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
@@ -14,9 +15,19 @@ import 'package:openlauncher/editor/editing/selection.dart';
 /// Marks a prefab or an instance of one wherever it is shown.
 const prefabIcon = Icons.view_in_ar_outlined;
 
-/// Whether a pack ships [prefabId]; the user's of that id is it, edited.
-bool isBuiltIn(WidgetRef ref, String prefabId) =>
-    ref.read(shippedPrefabsProvider).containsKey(prefabId);
+/// The name of the pack that ships [prefabId], if one does; the user's of
+/// that id is it, edited.
+String? shippedBy(WidgetRef ref, String prefabId) {
+  if (!ref.read(shippedPrefabsProvider).containsKey(prefabId)) return null;
+  final pack = prefabId.substring(0, prefabId.indexOf(':'));
+  return ref
+          .read(packsProvider)
+          .value
+          ?.where((one) => one.id == pack)
+          .firstOrNull
+          ?.name ??
+      pack;
+}
 
 const _shared =
     'Variants share the prefab\'s structure, variables and actions. Switch '
@@ -206,7 +217,7 @@ Future<void> renamePrefab(
 }
 
 /// Deletes [prefab] once confirmed, unpacking its instances where they
-/// stand; an edited built-in goes back to the launcher's own.
+/// stand; an edited one a pack ships goes back to the pack's.
 Future<void> deletePrefab(
   BuildContext context,
   WidgetRef ref,
@@ -215,13 +226,12 @@ Future<void> deletePrefab(
   final config = ref.read(configProvider).value;
   if (config == null) return;
   final controller = ref.read(configProvider.notifier);
-  if (isBuiltIn(ref, prefab.id)) {
+  if (shippedBy(ref, prefab.id) case final pack?) {
     if (!await confirm(
       context,
-      'Reset "${prefab.name}"?',
-      'Your changes to it are lost. Its instances follow the built-in one '
-          'again.',
-      'Reset',
+      'Revert "${prefab.name}" to $pack?',
+      'Your changes to it are lost. Its instances follow $pack\'s again.',
+      'Revert',
     )) {
       return;
     }

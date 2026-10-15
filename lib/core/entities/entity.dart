@@ -22,7 +22,7 @@ class Entity {
     this.placed = false,
   }) : name = name ?? label;
 
-  /// e.g. `app:com.example`, `clock`.
+  /// e.g. `system:app/com.example`, `system:clock`.
   final String id;
 
   /// What it is grouped and sorted with, e.g. `app`.
@@ -58,8 +58,9 @@ class Entity {
   // Anything else is a padded icon.
   static const banner = 'banner', lineArt = 'line';
 
-  static String appId(String packageName) => 'app:$packageName';
-  static String inputId(String tvInputId) => 'input:$tvInputId';
+  // As the System pack makes them.
+  static String appId(String packageName) => 'system:app/$packageName';
+  static String inputId(String tvInputId) => 'system:input/$tvInputId';
 
   /// What an action's `{{self...}}` reads: [data] and what names it.
   Map<String, Object?> get self => {

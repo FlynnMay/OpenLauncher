@@ -302,7 +302,7 @@ void main() {
       );
       expect(
         (await refused(store.delete('mdi'))).message,
-        '"Pack mdi" is in use: 1 icon',
+        '"Pack mdi" is in use in 1 place',
       );
 
       await packs.read(configProvider.notifier).setLayout(home);

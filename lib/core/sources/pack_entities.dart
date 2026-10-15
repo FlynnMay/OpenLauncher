@@ -6,12 +6,9 @@ import 'package:openlauncher/core/packs/pack_store.dart';
 import 'package:openlauncher/core/sources/source.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
 
-/// The entities of the built-in packs (true) or the others: each pack's
-/// own, then what its generators make. `pack:` pictures are given as files.
-final packEntitiesProvider = FutureProvider.family<List<Entity>, bool>((
-  ref,
-  builtIn,
-) async {
+/// The entities of every pack: each pack's own, then what its generators
+/// make. `pack:` pictures are given as files.
+final packEntitiesProvider = FutureProvider<List<Entity>>((ref) async {
   final List<PackContents> packs;
   try {
     packs = await ref.watch(packContentsProvider.future);
@@ -20,10 +17,9 @@ final packEntitiesProvider = FutureProvider.family<List<Entity>, bool>((
   }
   if (!ref.mounted) return const [];
   final picture = ref.watch(packPictureProvider);
-  final ours = packs.where((contents) => contents.pack.builtIn == builtIn);
   // Every source watched before any is waited for.
   final rows = {
-    for (final PackContents(:pack, :sources, :generators) in ours)
+    for (final PackContents(:pack, :sources, :generators) in packs)
       for (final MapEntry(key: name, value: generator) in generators.entries)
         '${pack.id}/$name': _rows(ref, (
           id: '${pack.id}:${generator.from}',
@@ -31,13 +27,14 @@ final packEntitiesProvider = FutureProvider.family<List<Entity>, bool>((
         )),
   };
   final made = <Entity>[];
-  for (final PackContents(:pack, :entities, :sources, :generators) in ours) {
+  for (final PackContents(:pack, :entities, :sources, :generators) in packs) {
     for (final entity in [
       ...entities,
       for (final MapEntry(key: name, value: generator) in generators.entries)
         ...generator.entitiesFrom(await rows['${pack.id}/$name']!),
     ]) {
-      if (!builtIn && !entity.id.startsWith('${pack.id}:')) continue;
+      // A made id is the pack's like any other.
+      if (!entity.id.startsWith('${pack.id}:')) continue;
       made.add(await _pictured(_fed(entity, pack.id, sources), picture));
     }
   }

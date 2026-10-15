@@ -14,7 +14,7 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 import '../support/packs.dart';
 
 Entity _entity(String name, {String? icon}) => Entity(
-  id: 'app:$name',
+  id: 'system:app/$name',
   category: appCategory,
   label: name,
   data: {
@@ -47,7 +47,7 @@ void main() {
   group('arrangeEntities', () {
     test('sorts inputs first, then apps, each alphabetically', () {
       const hdmi = Entity(
-        id: 'input:x/HW1',
+        id: 'system:input/x/HW1',
         category: inputCategory,
         label: 'HDMI 1',
       );
@@ -63,7 +63,7 @@ void main() {
     test('icon override replaces the automatic icon', () {
       final entities = arrangeEntities([
         _entity('Plex', icon: '/auto.png'),
-      ], LauncherConfig(iconOverrides: {'app:Plex': '/custom.png'}));
+      ], LauncherConfig(iconOverrides: {'system:app/Plex': '/custom.png'}));
       expect(entities.single.data[Entity.icon], '/custom.png');
       expect(entities.single.data[Entity.shape], Entity.banner);
     });
@@ -75,24 +75,27 @@ void main() {
           _entity('Shim', icon: '/shim.png'),
         ],
         LauncherConfig(
-          iconOverrides: {'app:Plex': '/custom.png'},
+          iconOverrides: {'system:app/Plex': '/custom.png'},
           // Plex borrowing back is not followed, and a missing entity is
           // ignored.
-          iconSources: {'app:Shim': 'app:Plex', 'app:Plex': 'app:Shim'},
+          iconSources: {
+            'system:app/Shim': 'system:app/Plex',
+            'system:app/Plex': 'system:app/Shim',
+          },
         ),
       );
-      final shim = entities.firstWhere((c) => c.id == 'app:Shim');
+      final shim = entities.firstWhere((c) => c.id == 'system:app/Shim');
       expect(shim.data[Entity.icon], '/custom.png');
       expect(shim.data[Entity.shape], Entity.banner);
       expect(shim.label, 'Shim');
       expect(
-        entities.firstWhere((c) => c.id == 'app:Plex').data[Entity.icon],
+        entities.firstWhere((c) => c.id == 'system:app/Plex').data[Entity.icon],
         '/shim.png',
       );
 
       final alone = arrangeEntities([
         _entity('Shim', icon: '/shim.png'),
-      ], LauncherConfig(iconSources: {'app:Shim': 'app:Gone'}));
+      ], LauncherConfig(iconSources: {'system:app/Shim': 'system:app/Gone'}));
       expect(alone.single.data[Entity.icon], '/shim.png');
     });
 
@@ -100,9 +103,9 @@ void main() {
       final entities = arrangeEntities([
         _entity('Plex'),
         _entity('alpha'),
-      ], LauncherConfig(names: {'app:alpha': 'Zebra'}));
+      ], LauncherConfig(names: {'system:app/alpha': 'Zebra'}));
       expect(entities.map((c) => c.label), ['Plex', 'Zebra']);
-      expect(entities.last.id, 'app:alpha');
+      expect(entities.last.id, 'system:app/alpha');
       // What the device calls it is kept, for ids in the layout.
       expect(entities.map((c) => c.name), ['Plex', 'alpha']);
     });
@@ -149,47 +152,47 @@ void main() {
         (await entities()).map((c) => c.id).toList();
 
     test('config changes are persisted and reflected in entities', () async {
-      expect(await ids(), ['app:a', 'app:b']);
+      expect(await ids(), ['system:app/a', 'system:app/b']);
 
       final config = container.read(configProvider.notifier);
-      await config.setLayout(Layout.initial(['app:b', 'app:a']));
-      expect(await ids(), ['app:b', 'app:a']);
+      await config.setLayout(Layout.initial(['system:app/b', 'system:app/a']));
+      expect(await ids(), ['system:app/b', 'system:app/a']);
       expect(store.config.layout.items.map((i) => i.handed.firstOrNull), [
-        'app:b',
-        'app:a',
+        'system:app/b',
+        'system:app/a',
       ]);
 
       // Removed entities are gone until they are placed again; they are not
       // mistaken for new apps.
-      await config.removeEntity('app:b');
-      expect(await ids(), ['app:a']);
-      expect(store.config.layout.removed, {'app:b'});
-      await config.setLayout(Layout.initial(['app:b', 'app:a']));
-      expect(await ids(), ['app:b', 'app:a']);
+      await config.removeEntity('system:app/b');
+      expect(await ids(), ['system:app/a']);
+      expect(store.config.layout.removed, {'system:app/b'});
+      await config.setLayout(Layout.initial(['system:app/b', 'system:app/a']));
+      expect(await ids(), ['system:app/b', 'system:app/a']);
       expect(store.config.layout.removed, isEmpty);
 
-      await config.setIconOverride('app:a', '/x.png');
-      expect(store.config.iconOverrides, {'app:a': '/x.png'});
-      await config.setIconOverride('app:a', null);
+      await config.setIconOverride('system:app/a', '/x.png');
+      expect(store.config.iconOverrides, {'system:app/a': '/x.png'});
+      await config.setIconOverride('system:app/a', null);
       expect(store.config.iconOverrides, isEmpty);
 
       // A custom picture and a borrowed one replace each other.
-      await config.setIconOverride('app:a', '/x.png');
-      await config.setIconSource('app:a', 'app:b');
+      await config.setIconOverride('system:app/a', '/x.png');
+      await config.setIconSource('system:app/a', 'system:app/b');
       expect(store.config.iconOverrides, isEmpty);
-      await config.setIconOverride('app:a', '/x.png');
+      await config.setIconOverride('system:app/a', '/x.png');
       expect(store.config.iconSources, isEmpty);
     });
 
     test('entities refresh when the device reports a package change', () async {
-      expect(await ids(), ['app:a', 'app:b']);
+      expect(await ids(), ['system:app/a', 'system:app/b']);
       platform.apps = [
         ...platform.apps,
         InstalledApp(packageName: 'c', label: 'C', isBanner: false),
       ];
       platform.notifyAppsChanged();
       await pumpEventQueue();
-      expect(await ids(), ['app:a', 'app:b', 'app:c']);
+      expect(await ids(), ['system:app/a', 'system:app/b', 'system:app/c']);
     });
 
     test('TV inputs become entities, refresh, and switch input', () async {
@@ -198,18 +201,22 @@ void main() {
       ];
       platform.notifyInputsChanged();
       await pumpEventQueue();
-      expect(await ids(), ['input:tv/HW15', 'app:a', 'app:b']);
+      expect(await ids(), [
+        'system:input/tv/HW15',
+        'system:app/a',
+        'system:app/b',
+      ]);
 
       await container
           .read(actionRunnerProvider)
-          .run(const Act('open', {'entity': 'input:tv/HW15'}));
+          .run(const Act('open', {'entity': 'system:input/tv/HW15'}));
       expect(platform.launched, ['tv/HW15']);
     });
 
     test('launching an app entity goes to the platform', () async {
       await container
           .read(actionRunnerProvider)
-          .run(const Act('open', {'entity': 'app:b'}));
+          .run(const Act('open', {'entity': 'system:app/b'}));
       expect(platform.launched, ['b']);
     });
 
@@ -255,12 +262,15 @@ void main() {
         expect(run('uninstall', input.id), improper);
         expect(run('uninstall'), improper);
         expect(run('uninstall', ''), improper);
-        expect(run('uninstall', 'app:gone'), improper);
+        expect(run('uninstall', 'system:app/gone'), improper);
         expect(run('teleport', app.id), improper);
         // Nor is an owner guessed for an action only one entity has.
         expect(run('tvSettings'), improper);
         expect(run('playPause'), improper);
-        expect(actions.run(const Act('remove', {'what': 'app:a'})), improper);
+        expect(
+          actions.run(const Act('remove', {'what': 'system:app/a'})),
+          improper,
+        );
         await pumpEventQueue();
         expect(platform.appActions, hasLength(2));
 
@@ -272,10 +282,10 @@ void main() {
         await actions.run(
           const Act('launcher://layout/remove', {
             'layer': 'home',
-            'what': 'app:a',
+            'what': 'system:app/a',
           }),
         );
-        expect(await ids(), ['input:tv/HW15', 'app:b']);
+        expect(await ids(), ['system:input/tv/HW15', 'system:app/b']);
         expect(
           actions.run(const Act('remove', {'entity': 'layout', 'what': 'x'})),
           improper,
@@ -286,22 +296,26 @@ void main() {
           await actions.run(
             const Act('launcher://layout/add', {
               'layer': 'home',
-              'what': 'app:a',
+              'what': 'system:app/a',
             }),
           ),
           contains('A'),
         );
         // It is saved where it was put; what is placed nowhere comes after.
-        expect(await ids(), ['app:a', 'input:tv/HW15', 'app:b']);
+        expect(await ids(), [
+          'system:app/a',
+          'system:input/tv/HW15',
+          'system:app/b',
+        ]);
         final layout = container.read(configProvider).value!.layout;
         final added = layout.pane(layout.inbox)!.children.last;
         expect(added.prefab, cardPrefabId);
-        expect(added.handed, ['app:a']);
+        expect(added.handed, ['system:app/a']);
         expect(
           await actions.run(
             const Act('launcher://layout/add', {
               'layer': 'home',
-              'what': 'app:b',
+              'what': 'system:app/b',
               'to': 'no',
             }),
           ),
@@ -314,7 +328,7 @@ void main() {
       const entity = Component(
         id: 'a',
         prefab: cardPrefabId,
-        vars: {'source': Variable('app:a', type: VarType.entity)},
+        vars: {'source': Variable('system:app/a', type: VarType.entity)},
       );
       // What an instance does is its prefab's to say, unless it says.
       Triggers does(Component item) =>
@@ -342,7 +356,7 @@ void main() {
         'on': {
           'hold': <Object?>[],
           'focus': [
-            {'do': 'media', 'command': 'pause'},
+            {'do': 'system:media', 'command': 'pause'},
             {'no': 'name'},
           ],
           'shake': [
@@ -356,7 +370,7 @@ void main() {
         ],
         Trigger.hold: <Act>[],
         Trigger.focus: [
-          const Act('media', {'command': 'pause'}),
+          const Act('system:media', {'command': 'pause'}),
         ],
       });
       expect(Component.fromJson(quiet.toJson()).on, quiet.on);
@@ -387,7 +401,8 @@ void main() {
     test('is its own to define, by the names actions go by', () async {
       final c = container(const []);
       final all = await c.read(entitiesProvider.future);
-      final app = all.byId('app:a')!, input = all.byId('input:x')!;
+      final app = all.byId('system:app/a')!,
+          input = all.byId('system:input/x')!;
       expect(app.actions.keys, ['open', 'info', 'uninstall']);
       expect(input.actions.keys, ['open']);
       // The same name, done as each defines it.
@@ -396,10 +411,10 @@ void main() {
       // None belongs to nothing: the rest are the device's, the media
       // player's...
       for (final MapEntry(key: action, value: owner) in const {
-        'access': 'device',
-        'tvSettings': 'device',
-        'playPause': 'media',
-        'check': 'updates',
+        'access': 'system:device',
+        'tvSettings': 'system:device',
+        'playPause': 'system:media',
+        'check': 'system:updates',
       }.entries) {
         expect(all.byId(owner)!.actions, contains(action), reason: action);
         expect(app.actions, isNot(contains(action)), reason: action);
@@ -721,29 +736,29 @@ void main() {
       final all = await c.read(entitiesProvider.future);
       // The System pack's, the rest in the order its files are.
       expect(all.map((entity) => entity.id), [
-        'app:a',
-        'launcher:settings',
-        'clock',
-        'device',
-        'location',
-        'media',
-        'updates',
-        'weather',
+        'system:app/a',
+        'system:settings',
+        'system:clock',
+        'system:device',
+        'system:location',
+        'system:media',
+        'system:updates',
+        'system:weather',
       ]);
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);
       expect(
         view.home.root.ownContents.map((entry) => entry.handed.firstOrNull),
-        ['app:a', 'launcher:settings'],
+        ['system:app/a', 'system:settings'],
       );
-      expect((await data(c, 'clock'))['time'], '15:04');
-      expect((await data(c, 'clock'))['weekday'], 'Sunday');
+      expect((await data(c, 'system:clock'))['time'], '15:04');
+      expect((await data(c, 'system:clock'))['weekday'], 'Sunday');
     });
 
     test(
       'an app says what it is, and leaves how it is shown to others',
       () async {
-        final app = await data(container(), 'app:a');
+        final app = await data(container(), 'system:app/a');
         expect((app['label'], app['category']), ('A', appCategory));
         expect(app['package'], isA<String>());
         // How its picture sits in a frame is the card's to work out.
@@ -754,7 +769,7 @@ void main() {
 
     test('the media player says what plays and is told what to do', () async {
       final c = container();
-      expect((await data(c, 'media'))['playing'], isFalse);
+      expect((await data(c, 'system:media'))['playing'], isFalse);
       platform.playing = NowPlaying(
         packageName: 'p',
         appLabel: 'Player',
@@ -763,21 +778,21 @@ void main() {
       );
       platform.notifyNowPlayingChanged();
       await pumpEventQueue();
-      final media = await data(c, 'media');
+      final media = await data(c, 'system:media');
       expect(
         (media['title'], media['app'], media['text']),
         ('Song', 'Player', 'Song'),
       );
       // Its commands are actions it presents, and no other entity's.
       final all = await c.read(entitiesProvider.future);
-      final player = all.firstWhere((entity) => entity.id == 'media');
+      final player = all.firstWhere((entity) => entity.id == 'system:media');
       final app = all.first;
       final actions = c.read(actionRunnerProvider);
       expect(player.actions, contains('next'));
       expect(app.actions, isNot(contains('next')));
       // There is the one player, and it is named all the same.
-      await actions.run(const Act('next', {'entity': 'media'}));
-      await actions.run(const Act('playPause', {'entity': 'media'}));
+      await actions.run(const Act('next', {'entity': 'system:media'}));
+      await actions.run(const Act('playPause', {'entity': 'system:media'}));
       expect(
         actions.run(Act('playPause', {'entity': app.id})),
         throwsA(isA<ImproperAct>()),

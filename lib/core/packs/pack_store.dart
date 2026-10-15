@@ -133,7 +133,7 @@ class PackStore with ChangeNotifier {
     );
   }
 
-  /// Built-in packs first, then by name.
+  /// By name.
   Future<List<Pack>> list() async =>
       _installed(await (_builtIn ??= _unpackBundled()));
 
@@ -145,11 +145,8 @@ class PackStore with ChangeNotifier {
         if (entry is Directory && !p.basename(entry.path).startsWith('.'))
           ?await _read(entry, builtIn),
     ];
-    return packs..sort(
-      (a, b) => a.builtIn != b.builtIn
-          ? (a.builtIn ? -1 : 1)
-          : a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-    );
+    return packs
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
   /// Where pack [id] keeps [path]; null if it does not.
@@ -244,10 +241,18 @@ class PackStore with ChangeNotifier {
     if (stamp == null && builtIn.contains(pack.id)) {
       throw PackRefused(409, '"${pack.id}" is built in');
     }
+    final installed = await _installed(builtIn);
     final others = [
-      for (final other in await _installed(builtIn))
+      for (final other in installed)
         if (other.id != pack.id) ...other.iconSets,
     ];
+    for (final needed in pack.requires) {
+      if (needed != pack.id &&
+          !builtIn.contains(needed) &&
+          !installed.any((other) => other.id == needed)) {
+        throw PackRefused(409, 'It needs the pack "$needed" installed first');
+      }
+    }
     for (final MapEntry(key: path, value: content) in files.entries) {
       if (path.startsWith('fonts/') && !_isFont(content)) {
         throw PackRefused(415, '$path is not a TrueType or OpenType font');
@@ -271,7 +276,7 @@ class PackStore with ChangeNotifier {
       }
     }
     try {
-      PackContents.parse(pack.copyWith(builtIn: stamp != null), {
+      PackContents.parse(pack, {
         for (final MapEntry(key: path, value: content) in files.entries)
           if (PackContents.reads(path))
             path: utf8.decode(content, allowMalformed: true),
@@ -320,12 +325,18 @@ class PackStore with ChangeNotifier {
     final pack = (await list()).where((pack) => pack.id == id).firstOrNull;
     if (pack == null) throw const PackRefused(404, 'No such pack');
     if (pack.builtIn) throw PackRefused(409, '"${pack.name}" is built in');
+    final needing = (await list()).where(
+      (other) => other.requires.contains(id),
+    );
+    if (needing.isNotEmpty) {
+      throw PackRefused(409, '"${needing.first.name}" needs "${pack.name}"');
+    }
     final config = await _ref.read(configProvider.future);
     final uses = pack.usesIn(config.toJson());
     if (uses > 0) {
       throw PackRefused(
         409,
-        '"${pack.name}" is in use: $uses ${uses == 1 ? 'icon' : 'icons'}',
+        '"${pack.name}" is in use in $uses ${uses == 1 ? 'place' : 'places'}',
       );
     }
     await Directory(p.join((await _dir()).path, id)).delete(recursive: true);

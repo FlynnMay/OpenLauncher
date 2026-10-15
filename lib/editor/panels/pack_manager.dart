@@ -120,7 +120,7 @@ class _PackRow extends ConsumerWidget {
 
   final Pack pack;
 
-  /// How many icons of it the config names.
+  /// How many times the config names something of it.
   final int uses;
 
   final VoidCallback? onRemove;
@@ -134,7 +134,7 @@ class _PackRow extends ConsumerWidget {
     final kept = pack.builtIn
         ? 'Built in'
         : uses > 0
-        ? 'In use: $uses ${uses == 1 ? 'icon' : 'icons'}'
+        ? 'In use in $uses ${uses == 1 ? 'place' : 'places'}'
         : null;
     return ListTile(
       title: Text(pack.name),
@@ -146,6 +146,8 @@ class _PackRow extends ConsumerWidget {
           if (icons > 0) '$icons icons',
           MediaManager.sizeOf(pack.bytes),
           ?kept,
+          if (pack.requires.isNotEmpty) 'Needs ${pack.requires.join(', ')}',
+          if (pack.source.isNotEmpty) pack.source,
         ].join('  ·  '),
       ),
       trailing: IconButton(

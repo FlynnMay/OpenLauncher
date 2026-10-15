@@ -113,3 +113,115 @@ void feedsAsSources(Json save, Device device) {
 
   walk(save);
 }
+
+const _systemEntities = {
+  'clock',
+  'weather',
+  'location',
+  'media',
+  'device',
+  'updates',
+};
+
+const _systemPrefabs = {
+  'app-card',
+  'folder-card',
+  'clock',
+  'weather',
+  'now-playing',
+};
+
+/// A pack's ids are `<pack>:<name>`, the launcher's own `system:`. Apps are
+/// `system:app/<package>`, inputs `system:input/<id>`.
+String? _entity(Object? id) => switch (id) {
+  final String id when id.startsWith('app:') => 'system:app/${id.substring(4)}',
+  final String id when id.startsWith('input:') =>
+    'system:input/${id.substring(6)}',
+  'launcher:settings' => 'system:settings',
+  final String id when _systemEntities.contains(id) => 'system:$id',
+  _ => null,
+};
+
+String? _prefab(Object? id) =>
+    _systemPrefabs.contains(id) ? 'system:$id' : null;
+
+final _slot = RegExp(r'\{\{(.*?)\}\}');
+final _unquoted = RegExp('(\'[^\']*\'|"[^"]*")|[^\'"]+');
+final _root = RegExp(r'(^|[\s(!=<>?:])([A-Za-z][\w-]*)(?=[.\s|\[]|$)');
+
+/// [text] with the launcher's own entities given in full where a template
+/// starts a value's path with one.
+String _template(String text) => text.replaceAllMapped(
+  _slot,
+  (slot) =>
+      '{{${slot[1]!.replaceAllMapped(_unquoted, (part) {
+        if (part[1] != null) return part[0]!;
+        return part[0]!.replaceAllMapped(_root, (root) => _systemEntities.contains(root[2]) ? '${root[1]}system:${root[2]}' : root[0]!);
+      })}}}',
+);
+
+/// Every pack's ids carry its own: what the launcher ships is `system:...`.
+/// Saved ids are given in full wherever an entity or a prefab is named.
+void packIds(Json save, Device device) {
+  Map<String, Object?> keyed(Object? map, {bool values = false}) => {
+    if (map is Json)
+      for (final MapEntry(:key, :value) in map.entries)
+        _entity(key) ?? key: values ? _entity(value) ?? value : value,
+  };
+  for (final key in ['names', 'iconOverrides']) {
+    if (save[key] is Json) save[key] = keyed(save[key]);
+  }
+  if (save['iconSources'] is Json) {
+    save['iconSources'] = keyed(save['iconSources'], values: true);
+  }
+  if (layoutOf(save) case final layout? when layout['removed'] is List) {
+    layout['removed'] = [
+      for (final id in layout['removed']! as List) _entity(id) ?? id,
+    ];
+  }
+  for (final prefab in objectsIn(save, 'prefabs')) {
+    prefab['id'] = _prefab(prefab['id']) ?? prefab['id'];
+  }
+
+  Object? walk(Object? json) {
+    if (json is String) return json.contains('{{') ? _template(json) : json;
+    if (json is List<Object?>) {
+      for (var i = 0; i < json.length; i++) {
+        json[i] = walk(json[i]);
+      }
+      return json;
+    }
+    if (json is! Json) return json;
+    for (final key in [...json.keys]) {
+      final value = json[key];
+      json[key] = switch ((key, value)) {
+        ('prefab', _) => _prefab(value) ?? value,
+        // What the layout adds or removes is an entity.
+        ('with', final Json told)
+            when '${json['run']}'.startsWith('launcher://layout/') =>
+          (walk(told)! as Json)
+            ..['what'] = _entity(told['what']) ?? told['what'],
+        ('entity', _) when json['do'] is String =>
+          _entity(value) ?? walk(value),
+        ('prefabRules', final Json rules) => {
+          for (final MapEntry(:key, :value) in rules.entries)
+            _prefab(key) ?? key: walk(value),
+        },
+        ('vars', final Json vars) => {
+          for (final MapEntry(:key, :value) in vars.entries)
+            key: switch (value) {
+              {'type': 'entity', 'value': final String id} && final Json v =>
+                (walk(v)! as Json)..['value'] = _entity(id) ?? walk(id),
+              _ => walk(value),
+            },
+        },
+        _ => walk(value),
+      };
+    }
+    return json;
+  }
+
+  for (final key in ['layout', 'prefabs', 'entities']) {
+    if (save[key] != null) save[key] = walk(save[key]);
+  }
+}

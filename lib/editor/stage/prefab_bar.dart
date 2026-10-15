@@ -29,8 +29,9 @@ class PrefabBar extends ConsumerWidget {
     final byDefault = shown == prefab.defaultVariant;
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final folders = ref.watch(configProvider).value?.layout.docked ?? const [];
+    final pack = shippedBy(ref, prefab.id);
     final modified =
-        isBuiltIn(ref, prefab.id) &&
+        pack != null &&
         (ref
                 .watch(configProvider)
                 .value
@@ -173,7 +174,7 @@ class PrefabBar extends ConsumerWidget {
           if (modified)
             TextButton(
               onPressed: () => deletePrefab(context, ref, prefab),
-              child: const Text('Modified · Reset to built-in'),
+              child: Text('Modified · Revert to $pack'),
             ),
         ],
       ),
