@@ -13,6 +13,8 @@ import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import '../support/packs.dart';
+
 class _Tv extends TvApi {
   final sent = <String>[];
 
@@ -89,6 +91,7 @@ void main() {
       ProviderScope(
         overrides: [
           ...tvOverrides,
+          systemContents,
           tvApiProvider.overrideWithValue(tv),
           tvStateProvider.overrideWith((ref) => Stream.value(_state())),
         ],
@@ -125,6 +128,7 @@ void main() {
       ProviderScope(
         overrides: [
           ...tvOverrides,
+          systemContents,
           tvApiProvider.overrideWithValue(tv),
           tvStateProvider.overrideWith((ref) => Stream.value(_state())),
         ],
@@ -145,6 +149,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           ...tvOverrides,
+          systemContents,
           tvApiProvider.overrideWithValue(_Tv()),
           tvStateProvider.overrideWith((ref) => states.stream),
         ],
@@ -181,6 +186,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           ...tvOverrides,
+          systemContents,
           tvApiProvider.overrideWithValue(tv),
           tvStateProvider.overrideWith((ref) => Stream.value(_state())),
         ],
@@ -222,6 +228,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         ...tvOverrides,
+        systemContents,
         tvApiProvider.overrideWithValue(_Tv()),
         tvStateProvider.overrideWith(
           (ref) => Stream.value(

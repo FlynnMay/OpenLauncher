@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+
+import '../support/packs.dart';
 
 void main() {
   testWidgets("the launcher's prefabs have their rule; others are added", (
@@ -15,7 +16,7 @@ void main() {
     tester.view.physicalSize = const Size(500, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final own = builtInPrefabs.first.copyWith(
+    final own = systemPrefabs.first.copyWith(
       id: 'big-entity',
       name: 'Big entity',
     );
@@ -23,6 +24,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
@@ -35,7 +37,7 @@ void main() {
                 builder: (context, setState) => PaneSettings(
                   title: 'Pane',
                   prefabs: {
-                    for (final prefab in [...builtInPrefabs, own])
+                    for (final prefab in [...systemPrefabs, own])
                       prefab.id: prefab,
                   },
                   panes: [pane],
@@ -82,6 +84,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...packOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),

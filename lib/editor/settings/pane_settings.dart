@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
@@ -70,7 +71,11 @@ class PaneSettings extends StatelessWidget {
           ),
         ),
       _entities,
-      if (prefabs.isNotEmpty) _rules,
+      if (prefabs.isNotEmpty)
+        Consumer(
+          builder: (context, ref, _) =>
+              _rules(ref.watch(shippedPrefabsProvider).keys.toSet()),
+        ),
       // One pane at a time.
       if (dockable && panes.length == 1)
         Section(
@@ -127,17 +132,14 @@ class PaneSettings extends StatelessWidget {
     return pane.withOption('prefabRules', rules.isEmpty ? null : rules);
   }
 
-  static bool _builtIn(Prefab prefab) =>
-      builtInPrefabs.any((own) => own.id == prefab.id);
-
-  /// Rules for instances directly in the pane. Built-in prefabs are always
-  /// listed; a user prefab's rule appears once added.
-  Widget get _rules {
+  /// Rules for instances directly in the pane. Prefabs packs ship are
+  /// always listed; a user prefab's rule appears once added.
+  Widget _rules(Set<String> shipped) {
     bool ruled(Prefab prefab) =>
         panes.any((pane) => pane.prefabRules.containsKey(prefab.id));
     final shown = [
       for (final prefab in prefabs.values)
-        if (_builtIn(prefab) || ruled(prefab)) prefab,
+        if (shipped.contains(prefab.id) || ruled(prefab)) prefab,
     ];
     final addable = [
       for (final prefab in prefabs.values)
@@ -151,7 +153,8 @@ class PaneSettings extends StatelessWidget {
           'the instance\'s own setting.',
         ),
       ),
-      for (final prefab in shown) ..._rule(prefab),
+      for (final prefab in shown)
+        ..._rule(prefab, builtIn: shipped.contains(prefab.id)),
       if (addable.isNotEmpty)
         Align(
           alignment: Alignment.centerLeft,
@@ -184,7 +187,7 @@ class PaneSettings extends StatelessWidget {
   }
 
   /// A prefab's rule: its variant and each part's visibility.
-  List<Widget> _rule(Prefab prefab) => [
+  List<Widget> _rule(Prefab prefab, {required bool builtIn}) => [
     LabelledRow(
       prefab.name,
       ChoiceBox<String>(
@@ -199,7 +202,7 @@ class PaneSettings extends StatelessWidget {
         ),
         choices: {
           // Built-ins may leave the variant to each instance.
-          if (_builtIn(prefab) ||
+          if (builtIn ||
               panes.any(
                 (pane) => pane.prefabRules[prefab.id]?['variant'] == null,
               ))
@@ -258,7 +261,7 @@ class PaneSettings extends StatelessWidget {
           }),
         ),
       ),
-    if (!_builtIn(prefab))
+    if (!builtIn)
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(

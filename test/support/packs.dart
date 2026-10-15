@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
@@ -38,6 +39,25 @@ final systemPack = Pack(
       if (file is File && !file.path.endsWith('pack.json'))
         file.path.substring('packs/system/'.length),
   ]..sort(),
+);
+
+/// The System pack's prefabs, by file name: the app card first.
+final systemPrefabs = [
+  for (final file
+      in Directory('packs/system/prefabs').listSync().whereType<File>().toList()
+        ..sort((a, b) => a.path.compareTo(b.path)))
+    Prefab.fromJson(jsonDecode(file.readAsStringSync()))!,
+];
+
+/// What the System pack holds, for the editor's tests, whose packs come
+/// from a stand-in TV.
+final systemContents = packContentsProvider.overrideWith(
+  (ref) async => [
+    PackContents.parse(systemPack, {
+      for (final path in systemPack.files.where(PackContents.reads))
+        path: File('packs/system/$path').readAsStringSync(),
+    }),
+  ],
 );
 
 /// The packs in `packs/` installed, read from there rather than through the

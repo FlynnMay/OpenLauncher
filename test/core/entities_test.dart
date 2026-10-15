@@ -308,7 +308,7 @@ void main() {
       );
       // What an instance does is its prefab's to say, unless it says.
       Triggers does(Component item) =>
-          resolved(item, {cardPrefabId: builtInPrefabs.first}).on;
+          resolved(item, {cardPrefabId: systemPrefabs.first}).on;
       expect(entity.on, isEmpty);
       expect(does(entity), {
         Trigger.press: [

@@ -12,6 +12,8 @@ import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
+import '../support/packs.dart';
+
 class _Tv extends TvApi {
   @override
   Future<void> setLayout(Layout layout) async {}
@@ -36,6 +38,7 @@ void main() {
       ProviderScope(
         overrides: [
           ...tvOverrides,
+          systemContents,
           tvApiProvider.overrideWithValue(_Tv()),
           tvStateProvider.overrideWith(
             (ref) => Stream.value(

@@ -1,0 +1,111 @@
+{
+  "id": "now-playing",
+  "name": "Now playing",
+  "root": {
+    "id": "root",
+    "kind": "pane",
+    "transform": {
+      "w": 2
+    },
+    "options": {
+      "mode": "row",
+      "gap": 12
+    },
+    "vars": {
+      "source": {
+        "value": "media",
+        "type": "entity"
+      },
+      "stateIcon": {
+        "when": "{{source.playing}}",
+        "cases": [
+          {
+            "equals": "true",
+            "then": "material:pause_circle"
+          }
+        ],
+        "else": "material:play_arrow",
+        "exposed": false
+      },
+      "summary": {
+        "when": "{{source.artist}}",
+        "cases": [
+          {
+            "equals": "",
+            "then": "{{source.app}}"
+          }
+        ],
+        "else": "{{source.artist}} · {{source.app}}",
+        "exposed": false
+      }
+    },
+    "on": {
+      "press": [
+        {
+          "do": "playPause",
+          "entity": "{{source.id}}"
+        }
+      ]
+    },
+    "children": [
+      {
+        "id": "cover",
+        "kind": "picture",
+        "transform": {
+          "aspect": 1.0
+        },
+        "options": {
+          "source": "{{source.art}}"
+        }
+      },
+      {
+        "id": "lines",
+        "kind": "pane",
+        "transform": {
+          "flex": 1
+        },
+        "options": {
+          "mode": "column",
+          "align": "start"
+        },
+        "children": [
+          {
+            "id": "title",
+            "kind": "text",
+            "options": {
+              "text": "{{source.title | default:Nothing is playing}}"
+            },
+            "style": {
+              "fontSize": 15,
+              "fontWeight": "medium"
+            }
+          },
+          {
+            "id": "summary",
+            "kind": "text",
+            "options": {
+              "text": "{{summary}}"
+            },
+            "style": {
+              "fontSize": 13,
+              "color": "#ffffffb3"
+            }
+          }
+        ]
+      },
+      {
+        "id": "state",
+        "kind": "icon",
+        "options": {
+          "icon": "{{stateIcon}}",
+          "size": 24
+        }
+      }
+    ]
+  },
+  "variants": {
+    "row": {
+      "label": "Beside its cover"
+    }
+  }
+}

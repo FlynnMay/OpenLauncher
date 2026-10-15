@@ -6,9 +6,11 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 
+import '../support/packs.dart';
+
 void main() {
-  final card = builtInPrefabs.first;
-  final prefabs = {for (final prefab in builtInPrefabs) prefab.id: prefab};
+  final card = systemPrefabs.first;
+  final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
   const plain = Component(
     id: 'a',
     prefab: cardPrefabId,

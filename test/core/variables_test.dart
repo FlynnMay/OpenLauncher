@@ -230,9 +230,9 @@ void main() {
 
     test("the launcher's own prefabs are made the same way", () {
       Prefab prefab(String id) =>
-          builtInPrefabs.firstWhere((prefab) => prefab.id == id);
+          systemPrefabs.firstWhere((prefab) => prefab.id == id);
       // What each is drawn from is a variable like any other.
-      for (final own in builtInPrefabs) {
+      for (final own in systemPrefabs) {
         if (own.id != folderPrefabId) {
           expect(own.vars.keys, contains('source'), reason: own.id);
         }
@@ -240,7 +240,7 @@ void main() {
       expect(prefab('weather').vars['icon']!.isConditional, isTrue);
       expect(prefab('now-playing').vars['stateIcon']!.isConditional, isTrue);
       // And each can be saved, changed and read back as it was.
-      for (final own in builtInPrefabs) {
+      for (final own in systemPrefabs) {
         expect(Prefab.fromJson(own.toJson())!.toJson(), own.toJson());
       }
     });

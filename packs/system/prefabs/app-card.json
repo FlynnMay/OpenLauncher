@@ -1,0 +1,112 @@
+{
+  "id": "app-card",
+  "name": "App card",
+  "root": {
+    "id": "root",
+    "kind": "pane",
+    "options": {
+      "mode": "column",
+      "gap": 6
+    },
+    "vars": {
+      "source": {
+        "value": null,
+        "type": "entity"
+      }
+    },
+    "on": {
+      "press": [
+        {
+          "do": "open",
+          "entity": "{{source.id}}"
+        }
+      ],
+      "hold": [
+        {
+          "do": "set",
+          "entity": "variables",
+          "of": "quick-actions",
+          "var": "source",
+          "value": "{{source.id}}"
+        },
+        {
+          "do": "set",
+          "entity": "variables",
+          "of": "quick-actions",
+          "var": "open",
+          "value": true
+        }
+      ]
+    },
+    "children": [
+      {
+        "id": "picture",
+        "kind": "picture",
+        "transform": {
+          "flex": 1
+        },
+        "options": {
+          "source": "{{source.icon}}",
+          "fit": "{{source.shape == 'banner' ? 'cover' : 'contain'}}",
+          "pad": "{{source.shape == 'icon' ? 14 : 0}}",
+          "alt": "{{source.label}}",
+          "badge": "{{source.number}}",
+          "frame": true,
+          "bare": "{{source.shape == 'line'}}"
+        },
+        "style": {
+          "radius": 0
+        }
+      },
+      {
+        "id": "name",
+        "kind": "text",
+        "transform": {
+          "keep": true
+        },
+        "options": {
+          "text": "{{source.label}}",
+          "overflow": "ellipsis"
+        },
+        "style": {
+          "fontSize": 12,
+          "fontWeight": "medium"
+        }
+      }
+    ]
+  },
+  "variants": {
+    "stacked": {
+      "label": "Name under the picture"
+    },
+    "row": {
+      "label": "Name beside the picture",
+      "overrides": {
+        "root": {
+          "options": {
+            "mode": "row",
+            "gap": 12
+          }
+        },
+        "picture": {
+          "transform": {
+            "flex": 0,
+            "aspect": 1.7777777777777777
+          },
+          "options": {
+            "pad": "{{source.shape == 'icon' ? 4 : 0}}"
+          }
+        },
+        "name": {
+          "transform": {
+            "flex": 1,
+            "keep": false
+          },
+          "style": {
+            "textAlign": "left"
+          }
+        }
+      }
+    }
+  }
+}

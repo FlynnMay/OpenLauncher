@@ -229,13 +229,15 @@ flutter test
 ```
 lib/
   core/        the model, with no UI: components, prefabs, entities, actions,
-               operations, variables, style, layout, config, packs, updates
+               operations, variables, style, layout, config, packs, sources,
+               updates
   platform/    interface to the device, with a fake for tests
   features/    what the TV draws: home, components, notifications, settings,
                wallpaper
   server/      the web API, uploads, and serving the editor
   editor/      the editor: the launcher as a web app, plus editing
-packs/         the built-in packs, as folders
+packs/         the built-in packs, as folders: material (icons) and system
+               (the apps, inputs and prefabs the launcher starts with)
 tool/          build scripts
 pigeons/       definition of the Dart <-> Kotlin bridge
 android/       Kotlin: apps, inputs, Home button service, permissions, updates,

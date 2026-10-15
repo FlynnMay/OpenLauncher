@@ -159,7 +159,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
         for (final prefab in config.prefabs)
           // One with a built-in's id is that built-in, edited.
-          if (!isBuiltIn(prefab.id) &&
+          if (!isBuiltIn(ref, prefab.id) &&
               (open == null || !holdsPrefab(prefab.id, open.id, prefabs)))
             _Offer(
               Dragged(
