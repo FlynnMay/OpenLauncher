@@ -101,7 +101,7 @@ void main() {
     auth.pairing.open();
     token = (await auth.pair(auth.pairing.value!, 'test')).token;
     addTearDown(() async {
-      container.dispose();
+      await closePacks(container);
       await tmp.delete(recursive: true);
     });
   });

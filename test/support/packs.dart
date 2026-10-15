@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/packs/packs.dart';
@@ -125,6 +126,17 @@ Uint8List folderZip(String id) => zipOf({
     if (file is File)
       file.path.substring('packs/$id/'.length): file.readAsBytesSync(),
 });
+
+/// Lets [container]'s pack store finish unpacking into its folder, which a
+/// test is about to delete, then disposes it.
+Future<void> closePacks(ProviderContainer container) async {
+  try {
+    await container.read(packStoreProvider).list();
+  } on Object {
+    // Nothing is being written.
+  }
+  container.dispose();
+}
 
 /// The app's assets holding [zips] as built-in packs, by id.
 class BundledPacks extends CachingAssetBundle {
