@@ -30,7 +30,9 @@ void main() {
       ProviderScope(
         overrides: [
           ...packOverrides,
-          configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          configStoreProvider.overrideWithValue(
+            MemoryConfigStore(startingConfig),
+          ),
           launcherPlatformProvider.overrideWithValue(platform),
           configServerProvider.overrideWith((ref) => null),
         ],
@@ -67,7 +69,9 @@ void main() {
         ProviderScope(
           overrides: [
             ...packOverrides,
-            configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
+            configStoreProvider.overrideWithValue(
+              MemoryConfigStore(config ?? startingConfig),
+            ),
             launcherPlatformProvider.overrideWithValue(platform),
             configServerProvider.overrideWith((ref) => null),
           ],
@@ -1062,7 +1066,9 @@ void main() {
         ProviderScope(
           overrides: [
             ...packOverrides,
-            configStoreProvider.overrideWithValue(MemoryConfigStore()),
+            configStoreProvider.overrideWithValue(
+              MemoryConfigStore(startingConfig),
+            ),
             launcherPlatformProvider.overrideWithValue(platform),
             configServerProvider.overrideWith((ref) => null),
           ],

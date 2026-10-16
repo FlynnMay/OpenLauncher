@@ -1,0 +1,39 @@
+{
+  "id": "home",
+  "inbox": "main",
+  "removed": [],
+  "layers": [
+    {
+      "id": "home",
+      "root": {
+        "id": "home/root",
+        "kind": "pane",
+        "options": {
+          "mode": "free",
+          "columns": 12
+        },
+        "children": [
+          {
+            "id": "main",
+            "kind": "pane",
+            "transform": {
+              "w": 10.82,
+              "h": 7.69,
+              "x": 0.59,
+              "y": 1.35
+            },
+            "options": {
+              "mode": "flow",
+              "columns": 5
+            },
+            "children": []
+          },
+          {
+            "id": "quick-actions",
+            "prefab": "quick-actions"
+          }
+        ]
+      }
+    }
+  ]
+}

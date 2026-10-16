@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
@@ -50,6 +52,23 @@ final _systemContents = PackContents.parse(systemPack, {
   for (final path in systemPack.files.where(PackContents.reads))
     path: File('packs/system/$path').readAsStringSync(),
 });
+
+/// The System pack's starting layout, with [order] placed in its inbox.
+Layout homeLayout([List<String> order = const []]) {
+  final home = _systemContents.layouts[startingLayoutId]!;
+  return home.rebuild(
+    (pane, items) => pane.id != home.inbox
+        ? items
+        : [
+            ...items,
+            for (final id in order) Component.of(id, id: Component.autoId(id)),
+          ],
+  );
+}
+
+/// A new config, as the store gives it: the starting layout, not the user's.
+LauncherConfig get startingConfig =>
+    LauncherConfig(layout: homeLayout(), ownLayout: false);
 
 /// What the System pack holds, for the editor's tests, whose packs come
 /// from a stand-in TV.

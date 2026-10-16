@@ -20,18 +20,31 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
 
   /// Replaces the layout, repaired first. The pictures of folders it no
   /// longer has go with them.
-  Future<void> setLayout(Layout layout) => _update((c) {
-    final next = layout.normalised();
+  Future<void> setLayout(Layout layout) =>
+      _update((c) => _withLayout(c, layout.normalised()));
+
+  /// Puts back the starting layout as its pack has it.
+  Future<void> revertLayout() async {
+    final start = await ref.read(startingLayoutProvider.future);
+    await _update((c) => _withLayout(c, start, own: false));
+  }
+
+  static LauncherConfig _withLayout(
+    LauncherConfig c,
+    Layout next, {
+    bool own = true,
+  }) {
     final folders = {for (final pane in next.docked) Layout.iconKey(pane.id)};
     return c.copyWith(
       layout: next,
+      ownLayout: own,
       iconOverrides: {
         for (final MapEntry(:key, :value) in c.iconOverrides.entries)
           if (!key.startsWith(Layout.iconKey('')) || folders.contains(key))
             key: value,
       },
     );
-  });
+  }
 
   /// Applies [how] to the config.
   Future<void> change(LauncherConfig Function(LauncherConfig config) how) =>

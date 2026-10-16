@@ -41,6 +41,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     // As the TV draws it: unplaced entities in the inbox, missing ones
     // dropped.
     'layout': layoutWith(config.layout, entities).toJson(),
+    // False while it is a pack's starting layout.
+    'ownLayout': config.ownLayout,
     'components': [
       for (final kind in ComponentRegistry.values)
         // App widgets only where some exist.

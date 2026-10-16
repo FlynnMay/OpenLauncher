@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/access/access.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
@@ -46,7 +45,7 @@ void main() {
   final fetched = <Uri>[];
 
   setUp(() async {
-    store = MemoryConfigStore();
+    store = MemoryConfigStore(startingConfig);
     tmp = await Directory.systemTemp.createTemp('openlauncher_test');
     container = ProviderContainer(
       overrides: [
@@ -229,12 +228,11 @@ void main() {
       'folder',
       'button',
     ]);
-    // The quick actions are a pane docked on the home layer, like any
-    // folder.
+    // The quick actions are an instance of the System pack's menu.
     final menu = (page['layout']['layers'][0]['root']['children'] as List)
-        .firstWhere((pane) => pane['id'] == Layout.menuId);
-    expect(menu['options']['dock'], 'center');
-    expect(menu['children'], hasLength(defaultMenu.length));
+        .firstWhere((item) => item['id'] == 'quick-actions');
+    expect(menu['prefab'], 'system:quick-actions');
+    expect(page['ownLayout'], isFalse);
     // The layout is the launcher's, called by address, not an entity.
     expect(
       (page['entities'] as List).map((entity) => entity['id']),
@@ -242,6 +240,30 @@ void main() {
     );
     expect(page['config']['toasts'], const ToastOptions().toJson());
     expect(page['access'], {'homeButton': true, 'notifications': true});
+  });
+
+  test('the layout is reverted to the System pack\'s', () async {
+    List<Object?> ids(Map<String, dynamic> page) => [
+      for (final item in page['layout']['layers'][0]['root']['children'])
+        item['id'],
+    ];
+    final start = await state();
+    expect(ids(start), ['main', 'quick-actions']);
+
+    // Edited, it is the user's and saved.
+    final layout = (start['layout'] as Map).cast<String, Object?>();
+    (layout['layers'] as List)[0]['root']['children'].removeLast();
+    expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
+    expect(ids(await state()), ['main']);
+    expect((await state())['ownLayout'], isTrue);
+    expect(store.config.toJson(), contains('layout'));
+
+    // Reverted, it is read from the pack again and not saved.
+    expect((await call('DELETE', '/api/layout')).statusCode, 200);
+    final reverted = await state();
+    expect(ids(reverted), ['main', 'quick-actions']);
+    expect(reverted['ownLayout'], isFalse);
+    expect(store.config.toJson(), isNot(contains('layout')));
   });
 
   test('an action sent by the page is done on the TV', () async {

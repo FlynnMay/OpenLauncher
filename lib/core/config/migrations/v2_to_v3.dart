@@ -225,3 +225,47 @@ void packIds(Json save, Device device) {
     if (save[key] != null) save[key] = walk(save[key]);
   }
 }
+
+/// What the launcher made the quick actions menu with.
+const _menuOptions = {
+  'title': '{{source.label}}',
+  'mode': 'flow',
+  'columns': 1,
+  'dock': 'center',
+  'width': 432,
+  'opening': 'instant',
+  'rowHeight': 40,
+  'spacing': 4,
+};
+
+/// The quick actions menu is the System pack's prefab: the saved pane is
+/// replaced by an instance of it, keeping the pane's own style and the
+/// options it changed. Its buttons are the prefab's.
+void quickActionsAsPrefab(Json save, Device device) {
+  void walk(Json pane) {
+    objectsIn(pane, 'children').forEach(walk);
+    if (pane['children'] case final List<Object?> list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i]
+            case {'id': 'quick-actions', 'kind': 'pane'} && final Json menu) {
+          final options = {
+            if (menu['options'] case final Json options)
+              for (final MapEntry(:key, :value) in options.entries)
+                if (_menuOptions[key] != value) key: value,
+          };
+          list[i] = {
+            'id': 'quick-actions',
+            'prefab': 'system:quick-actions',
+            if (options.isNotEmpty) 'options': options,
+            if (menu['style'] case final Json style when style.isNotEmpty)
+              'style': style,
+          };
+        }
+      }
+    }
+  }
+
+  for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {
+    if (layer['root'] case final Json root) walk(root);
+  }
+}

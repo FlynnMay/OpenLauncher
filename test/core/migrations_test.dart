@@ -302,6 +302,48 @@ void main() {
     );
   });
 
+  test('2 to 3: the quick actions are the System pack\'s prefab', () {
+    final menu = {
+      'id': 'quick-actions',
+      'kind': 'pane',
+      'options': {'dock': 'center', 'width': 500, 'rowHeight': 40},
+      'style': {'borderWidth': 6},
+      'children': [
+        {'id': 'quick-actions-open', 'kind': 'button'},
+      ],
+    };
+    final next = migrate({
+      'v': 2,
+      'layout': {
+        'v': 2,
+        'layers': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'kind': 'pane',
+              'children': [
+                {'id': 'main', 'kind': 'pane'},
+                menu,
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    expect(root['children'], [
+      {'id': 'main', 'kind': 'pane'},
+      // Its own look is kept; what it was made with is the prefab's.
+      {
+        'id': 'quick-actions',
+        'prefab': 'system:quick-actions',
+        'options': {'width': 500},
+        'style': {'borderWidth': 6},
+      },
+    ]);
+  });
+
   test('1 to 2: force stop and automatic setup are taken out', () {
     Map<String, Object?> button(String id, List<Map<String, Object?>> acts) => {
       'id': id,

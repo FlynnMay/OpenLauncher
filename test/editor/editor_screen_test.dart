@@ -51,7 +51,7 @@ void main() {
                     packs: [systemPack],
                     entities: const [_entity],
                     config: LauncherConfig(
-                      layout: Layout.initial(['system:app/a']),
+                      layout: homeLayout(['system:app/a']),
                     ),
                     components: const [],
                   ),
@@ -225,7 +225,7 @@ void main() {
           mine,
         ],
         config: LauncherConfig(
-          layout: Layout.initial(['system:app/a']),
+          layout: homeLayout(['system:app/a']),
           entities: const [mine],
           prefabs: [
             Prefab(

@@ -153,7 +153,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final tv = _Tv();
-    final home = Layout.initial(['system:app/a']);
+    final home = homeLayout(['system:app/a']);
     final using = home.withPane(
       home.home.root.id,
       (pane) => pane.copyWith(
@@ -255,7 +255,7 @@ void main() {
             (ref) => Stream.value(
               TvState(
                 entities: const [],
-                config: LauncherConfig(layout: Layout.initial()),
+                config: LauncherConfig(layout: homeLayout()),
                 components: const [],
                 packs: const [materialPack],
               ),
@@ -283,7 +283,7 @@ void main() {
           if (request.url.path == '/api/events') {
             final state = {
               'entities': [],
-              'layout': Layout.initial().toJson(),
+              'layout': homeLayout().toJson(),
               'config': <String, Object?>{},
               'components': [],
               'widgetProviders': [],

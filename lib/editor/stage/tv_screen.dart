@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 
@@ -24,7 +24,7 @@ class TvScreen extends StatelessWidget {
     final launcher = _launcher;
     if (launcher == null) return;
     final vars = launcher.read(runtimeVarsProvider.notifier);
-    final layout = launcher.read(configProvider).value?.layout;
+    final layout = launcher.read(layoutViewProvider).value;
     for (final MapEntry(key: id, value: set)
         in launcher.read(runtimeVarsProvider).entries) {
       if (set[openVar] == true && (layout?.pane(id)?.hovers ?? false)) {

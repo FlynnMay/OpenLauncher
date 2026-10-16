@@ -117,7 +117,7 @@ void main() {
     late ProviderContainer container;
 
     setUp(() {
-      store = MemoryConfigStore();
+      store = MemoryConfigStore(LauncherConfig(layout: homeLayout()));
       platform = FakeLauncherPlatform([
         InstalledApp(packageName: 'a', label: 'A', isBanner: false),
         InstalledApp(packageName: 'b', label: 'B', isBanner: false),
@@ -155,9 +155,9 @@ void main() {
       expect(await ids(), ['system:app/a', 'system:app/b']);
 
       final config = container.read(configProvider.notifier);
-      await config.setLayout(Layout.initial(['system:app/b', 'system:app/a']));
+      await config.setLayout(homeLayout(['system:app/b', 'system:app/a']));
       expect(await ids(), ['system:app/b', 'system:app/a']);
-      expect(store.config.layout.items.map((i) => i.handed.firstOrNull), [
+      expect(store.config.layout.items.expand((i) => i.handed), [
         'system:app/b',
         'system:app/a',
       ]);
@@ -167,7 +167,7 @@ void main() {
       await config.removeEntity('system:app/b');
       expect(await ids(), ['system:app/a']);
       expect(store.config.layout.removed, {'system:app/b'});
-      await config.setLayout(Layout.initial(['system:app/b', 'system:app/a']));
+      await config.setLayout(homeLayout(['system:app/b', 'system:app/a']));
       expect(await ids(), ['system:app/b', 'system:app/a']);
       expect(store.config.layout.removed, isEmpty);
 
@@ -235,10 +235,10 @@ void main() {
           final view = await container.read(layoutViewProvider.future);
           container
               .read(runtimeVarsProvider.notifier)
-              .set(Layout.menuId, Component.sourceVar, entity.id);
+              .set('quick-actions', Component.sourceVar, entity.id);
           return [
             for (final item in offeredFor(
-              view.pane(Layout.menuId)!,
+              view.pane('quick-actions')!,
               container.read,
               await container.read(entitiesProvider.future),
             ))

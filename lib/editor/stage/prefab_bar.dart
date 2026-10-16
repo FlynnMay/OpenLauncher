@@ -29,7 +29,7 @@ class PrefabBar extends ConsumerWidget {
     final byDefault = shown == prefab.defaultVariant;
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final folders = ref.watch(configProvider).value?.layout.docked ?? const [];
-    final pack = shippedBy(ref, prefab.id);
+    final pack = ref.watch(shippedByProvider(prefab.id));
     final modified =
         pack != null &&
         (ref
@@ -143,7 +143,7 @@ class PrefabBar extends ConsumerWidget {
                       },
                       'Folders': {
                         for (final pane in folders)
-                          if (pane.hovers && pane.id != Layout.menuId)
+                          if (pane.hovers)
                             pane.id: pane.title.isEmpty ? pane.id : pane.title,
                       },
                     },
