@@ -11,6 +11,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
+import '../support/packs.dart';
+
 class _Tv extends TvApi {
   final files = <MediaFile>[];
 
@@ -58,9 +60,7 @@ void main() {
                     label: 'Alpha',
                   ),
                 ],
-                config: LauncherConfig(
-                  layout: Layout.initial(['system:app/a']),
-                ),
+                config: LauncherConfig(layout: homeLayout(['system:app/a'])),
                 components: const [],
               ),
             ),
@@ -126,7 +126,7 @@ void main() {
         if (request.url.path == '/api/events') {
           final state = {
             'entities': [],
-            'layout': Layout.initial().toJson(),
+            'layout': homeLayout().toJson(),
             'config': {
               'iconOverrides': {'system:app/a': 'picture-1.png'},
               'wallpapers': ['wallpaper-2.mp4'],

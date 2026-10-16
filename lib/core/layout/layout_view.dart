@@ -5,7 +5,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/layout_repair.dart';
-import 'package:openlauncher/core/prefabs/prefab.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 
 /// [layout] with missing entities dropped and unplaced auto-placed ones in
 /// the inbox.
@@ -35,12 +35,26 @@ Component instanceFor(
   );
 }
 
-Layout resolveLayout(List<Entity> entities, LauncherConfig config) =>
-    layoutWith(config.layout, entities);
+/// [item] as the pane it resolves to, if that is docked: an instance of a
+/// sidebar or folder prefab docks like one.
+Component? dockedForm(Component item, Map<String, Prefab> prefabs) {
+  if (!item.isInstance) return null;
+  final pane = resolved(item, prefabs);
+  return pane.isDocked ? pane : null;
+}
+
+/// [layout] with its instances of docked panes resolved.
+Layout withDockedInstances(Layout layout, Map<String, Prefab> prefabs) =>
+    layout.rebuild(
+      (_, items) => [
+        for (final item in items) dockedForm(item, prefabs) ?? item,
+      ],
+    );
 
 /// The layout as drawn, kept current with the device and config.
 final layoutViewProvider = FutureProvider<Layout>((ref) async {
+  final prefabs = ref.watch(prefabsProvider);
   final entities = await ref.watch(entitiesProvider.future);
   final config = await ref.watch(configProvider.future);
-  return resolveLayout(entities, config);
+  return layoutWith(withDockedInstances(config.layout, prefabs), entities);
 });

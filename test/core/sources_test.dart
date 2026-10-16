@@ -178,6 +178,31 @@ void main() {
       expect(platform.launched, ['hw2']);
     });
 
+    test('starts the home screen, the quick actions on it', () async {
+      final c = container();
+      final start = await c.read(startingLayoutProvider.future);
+      expect(start.inbox, 'main');
+      final menu = start.home.root.children.last;
+      expect((menu.id, menu.prefab), ('quick-actions', 'system:quick-actions'));
+
+      // Drawn, the instance is a folder in the middle, holding the prefab's
+      // buttons.
+      await c.read(packContentsProvider.future);
+      final pane = withDockedInstances(
+        start,
+        c.read(prefabsProvider),
+      ).pane('quick-actions')!;
+      expect((pane.dock, pane.hovers), ('center', true));
+      expect(pane.children.map((button) => button.options['label']), [
+        'Open',
+        'App info',
+        'Uninstall',
+        'Remove',
+      ]);
+      expect(pane.children.first.id, 'quick-actions/open');
+      expect(pane.vars.keys, [Component.sourceVar]);
+    });
+
     test('has a picture for every kind of input', () {
       for (final kind in TvInputKind.values) {
         expect(

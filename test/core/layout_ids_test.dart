@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
+import '../support/packs.dart';
+
 Component _entity(String id, String ref) => Component.of(ref, id: id);
 
 void main() {
@@ -36,10 +38,9 @@ void main() {
     // A folder is a pane: one id space for everything.
     expect(layout.paneIdFor('Games', 'folder'), 'games-2');
     expect(layout.paneIdFor('', 'folder'), 'folder');
-    // Nothing can take the id of the home layer or of the quick actions,
-    // there or not.
+    // Nothing can take the id of the home layer, there or not.
     expect(layout.paneIdFor('Home'), 'home-2');
-    expect(layout.itemIdFor('Quick actions'), 'quick-actions-2');
+    expect(layout.itemIdFor('Quick actions'), 'quick-actions');
   });
 
   test('an app is named after its package, whatever it is called', () {
@@ -54,7 +55,7 @@ void main() {
   });
 
   test('entities placed nowhere are named after what they are', () {
-    final shown = Layout.initial().withEntities(
+    final shown = homeLayout().withEntities(
       [
         'system:app/io.gh.reisxd.tizentube.cobalt',
         'system:input/x/HW15',
@@ -65,7 +66,7 @@ void main() {
         'system:input/x/HW15': 'HDMI 1',
       },
     );
-    expect(shown.items.where((i) => i.isInstance).map((i) => i.id), [
+    expect(shown.items.where((i) => i.handed.isNotEmpty).map((i) => i.id), [
       'tizentube-cobalt',
       'hdmi-1',
       'hw16',

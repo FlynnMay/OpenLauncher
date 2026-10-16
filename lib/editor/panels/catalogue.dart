@@ -183,7 +183,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         ],
       'User prefabs': [
         for (final pane in config.layout.docked)
-          if (pane.hovers && pane.id != Layout.menuId)
+          if (pane.hovers)
             _Offer(
               Dragged(
                 item: Component.of(

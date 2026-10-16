@@ -7,7 +7,6 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
-import 'package:openlauncher/editor/stage/stage.dart';
 
 /// Launcher-wide settings, shown when nothing is selected.
 class GlobalProperties extends ConsumerWidget {
@@ -22,6 +21,7 @@ class GlobalProperties extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const WallpaperSettings(),
+        if (config.ownLayout) const _RevertLayout(),
         // The screen's root pane.
         PaneSettings(
           title: 'Screen',
@@ -57,26 +57,6 @@ class GlobalProperties extends ConsumerWidget {
               controller.change((c) => c.copyWith(place: () => place)),
         ),
         const PrefabList(),
-        Section('Quick actions', open: false, [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text(
-              'The menu shown on holding OK: a folder of buttons. Add a '
-              'Button from Primitives and give it an action.',
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                TvScreen.closePopups();
-                TvScreen.openPopup(Layout.menuId);
-              },
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('Edit menu'),
-            ),
-          ),
-        ]),
         Section('Notifications', open: false, [
           const AccessNote(Access.notifications),
           ...optionFields(
@@ -88,6 +68,35 @@ class GlobalProperties extends ConsumerWidget {
         const UpdateSettings(),
         const DevicesSettings(),
       ],
+    );
+  }
+}
+
+/// Puts back the home screen its pack starts with.
+class _RevertLayout extends ConsumerWidget {
+  const _RevertLayout();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pack = ref.watch(packNameProvider(startingLayoutId));
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        onPressed: () async {
+          if (!await confirm(
+            context,
+            'Revert the screen to $pack?',
+            'Every layer goes back to how $pack starts it. Your changes to '
+                'the layout are lost; Undo brings them back.',
+            'Revert',
+          )) {
+            return;
+          }
+          ref.read(selectionProvider.notifier).clear();
+          await ref.read(configProvider.notifier).revertLayout();
+        },
+        child: Text('Screen modified · Revert to $pack'),
+      ),
     );
   }
 }

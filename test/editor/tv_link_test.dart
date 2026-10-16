@@ -22,6 +22,9 @@ class _Tv extends TvApi {
   Future<void> setLayout(Layout layout) async => sent.add('layout');
 
   @override
+  Future<void> revertLayout() async => sent.add('revert');
+
+  @override
   Future<void> setConfig(Map<String, Object?> changed) async =>
       sent.add('config ${changed.keys.join(' ')}');
 
@@ -66,7 +69,7 @@ TvState _state() => TvState(
       },
     ),
   ],
-  config: LauncherConfig(layout: Layout.initial(['system:app/a'])),
+  config: LauncherConfig(layout: homeLayout(['system:app/a'])),
   components: const [],
 );
 
@@ -88,6 +91,35 @@ void main() {
     // What was sent is what the TV now has.
     await store.save(emptied.copyWith(toasts: const ToastOptions(seconds: 9)));
     expect(tv.sent, ['layout', 'config toasts']);
+  });
+
+  test('a starting layout is not sent; reverting to it is', () async {
+    final tv = _Tv();
+    final store = TvConfigStore(
+      tv,
+      Future.value(
+        TvState(
+          entities: const [_entity],
+          config: startingConfig,
+          components: const [],
+        ),
+      ),
+    );
+    final start = await store.load();
+
+    // The editor has the pack's own; another setting changing leaves it.
+    final saved = start.copyWith(
+      layout: homeLayout(['system:app/a']),
+      ownLayout: false,
+      toasts: const ToastOptions(seconds: 9),
+    );
+    await store.save(saved);
+    expect(tv.sent, ['config toasts']);
+
+    final edited = saved.copyWith(layout: homeLayout(['system:app/a']));
+    await store.save(edited);
+    await store.save(edited.copyWith(layout: homeLayout(), ownLayout: false));
+    expect(tv.sent, ['config toasts', 'layout', 'revert']);
   });
 
   testWidgets('the launcher runs on what the TV sends, and edits go back', (
@@ -172,7 +204,7 @@ void main() {
       states.add(
         TvState(
           entities: const [_entity],
-          config: LauncherConfig(layout: Layout.initial(['system:app/a'])),
+          config: LauncherConfig(layout: homeLayout(['system:app/a'])),
           components: const [],
           nowPlaying: NowPlaying(
             packageName: 'a',
@@ -252,7 +284,7 @@ void main() {
           (ref) => Stream.value(
             TvState(
               entities: const [_entity],
-              config: LauncherConfig(layout: Layout.initial(['system:app/a'])),
+              config: LauncherConfig(layout: homeLayout(['system:app/a'])),
               components: const [],
               access: const {Access.homeButton: false},
             ),

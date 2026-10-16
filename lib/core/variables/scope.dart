@@ -103,16 +103,18 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   ref,
   id,
 ) {
-  final found = ref.watch(
+  final saved = ref.watch(
     configProvider.select(
       (config) => config.value?.layout.all
           .where((component) => component.id == id)
           .firstOrNull,
     ),
   );
-  if (found == null) return null;
+  if (saved == null) return null;
+  final prefabs = ref.watch(prefabsProvider);
+  final found = dockedForm(saved, prefabs) ?? saved;
   if (!found.isPane) {
-    final variables = variablesOf(found, ref.watch(prefabsProvider));
+    final variables = variablesOf(found, prefabs);
     if (!variables.values.any((v) => v.access == VarAccess.public)) {
       return null;
     }

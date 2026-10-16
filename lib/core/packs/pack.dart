@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
 /// `fonts/`, icon sets in `icons/`, pictures in `images/`, and JSON in
-/// `entities/`, `sources/`, `generators/` and `prefabs/`.
+/// `entities/`, `sources/`, `generators/`, `prefabs/` and `layouts/`.
 @immutable
 class Pack {
   const Pack({

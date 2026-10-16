@@ -56,8 +56,10 @@ const migrations = <Migration>[
     from: 2,
     to: 3,
     since: '0.2.0',
-    what: 'Operations named by address; feeds are sources; pack ids',
-    rules: [operationsByAddress, feedsAsSources, packIds],
+    what:
+        'Operations named by address; feeds are sources; pack ids; quick '
+        'actions as a prefab',
+    rules: [operationsByAddress, feedsAsSources, packIds, quickActionsAsPrefab],
   ),
 ];
 

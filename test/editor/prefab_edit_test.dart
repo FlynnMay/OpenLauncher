@@ -118,7 +118,7 @@ void main() {
 
   test('renaming or removing a part takes what names it along', () {
     final own = [card];
-    final layout = Layout.initial().withPane(
+    final layout = homeLayout().withPane(
       'main',
       (pane) => pane
           .withOption('prefabRules', {
@@ -197,7 +197,7 @@ void main() {
     expect(holdsPrefab('outer', 'outer', all), isTrue);
     expect(holdsPrefab(cardPrefabId, 'outer', all), isFalse);
     expect(holdsPrefab('inner', 'outer', all), isFalse);
-    expect(instancesOf('inner', Layout.initial(), all.values), 1);
+    expect(instancesOf('inner', homeLayout(), all.values), 1);
   });
 
   test('deleting a prefab unpacks its instances with the values they had', () {
@@ -237,7 +237,7 @@ void main() {
       ),
     );
     final all = {...prefabs, 'tile': tile, 'holder': holder};
-    final layout = Layout.initial().withPane(
+    final layout = homeLayout().withPane(
       'main',
       (pane) => pane
           .withOption('prefabRules', {

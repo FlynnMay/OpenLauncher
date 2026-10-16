@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -14,8 +16,24 @@ abstract class ConfigStore {
   Future<void> save(LauncherConfig config);
 }
 
+/// The layout a new home screen starts as.
+const startingLayoutId = 'system:home';
+
+/// [startingLayoutId] as its pack has it; blank if no pack has it.
+final startingLayoutProvider = FutureProvider<Layout>((ref) async {
+  try {
+    for (final pack in await ref.watch(packContentsProvider.future)) {
+      if (pack.layouts[startingLayoutId] case final layout?) return layout;
+    }
+  } on Object catch (e) {
+    debugPrint('Packs unreadable, starting from a blank layout: $e');
+  }
+  return Layout.blank();
+});
+
 final configStoreProvider = Provider<ConfigStore>(
   (ref) => FileConfigStore(
+    starting: () => ref.read(startingLayoutProvider.future),
     // Only inputs need device names; other ids describe themselves.
     device: () async => Device(
       names: {
@@ -26,9 +44,12 @@ final configStoreProvider = Provider<ConfigStore>(
   ),
 );
 
-/// `config.json` in the app's support directory.
+/// `config.json` in the app's support directory. Without a layout of the
+/// user's it has the [starting] one.
 class FileConfigStore implements ConfigStore {
-  FileConfigStore({this.device});
+  FileConfigStore({this.device, this.starting});
+
+  final Future<Layout> Function()? starting;
 
   /// Device info for migrations that use it. Waited on for at most 5 s.
   final Future<Device> Function()? device;
@@ -50,6 +71,12 @@ class FileConfigStore implements ConfigStore {
 
   @override
   Future<LauncherConfig> load() async {
+    final config = await _read();
+    if (config.ownLayout || starting == null) return config;
+    return config.copyWith(layout: await starting!(), ownLayout: false);
+  }
+
+  Future<LauncherConfig> _read() async {
     final file = await _file();
     if (!await file.exists()) return LauncherConfig();
     try {

@@ -78,16 +78,22 @@ class TvConfigStore implements ConfigStore {
   Future<void> save(LauncherConfig config) async {
     final known = _known ?? await load();
     _known = config;
-    final layout = jsonEncode(config.layout) != jsonEncode(known.layout);
+    // Only the user's own layout is sent; the TV has the starting one.
+    final revert = !config.ownLayout && known.ownLayout;
+    final layout =
+        config.ownLayout &&
+        (!known.ownLayout ||
+            jsonEncode(config.layout) != jsonEncode(known.layout));
     // Compared key by key.
     final was = known.open, now = config.open;
     final changed = {
       for (final key in LauncherConfig.openKeys)
         if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
     };
-    if (!layout && changed.isEmpty) return;
+    if (!layout && !revert && changed.isEmpty) return;
     onChange?.call(known);
     if (layout) await _api.setLayout(config.layout);
+    if (revert) await _api.revertLayout();
     if (changed.isNotEmpty) await _api.setConfig(changed);
   }
 }

@@ -51,7 +51,7 @@ void main() {
                 entities: const [_alpha],
                 config:
                     config ??
-                    LauncherConfig(layout: Layout.initial(['system:app/a'])),
+                    LauncherConfig(layout: homeLayout(['system:app/a'])),
                 components: const [
                   (type: 'text', label: 'Text', w: 2, h: 1, options: {}),
                 ],
@@ -99,7 +99,8 @@ void main() {
 
     // From the list in the launcher's settings.
     await press(tester, find.text('Prefabs'));
-    expect(find.text('1 instance · System'), findsOneWidget);
+    // The app card and the quick actions.
+    expect(find.text('1 instance · System'), findsNWidgets(2));
     await press(
       tester,
       find.descendant(
@@ -203,6 +204,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the quick actions open where they show, to be edited', (
+    tester,
+  ) async {
+    final ref = await pump(tester);
+    openPrefab(ref, 'system:quick-actions');
+    await tester.pumpAndSettle();
+    // Open in the middle, as for the first thing on the screen.
+    for (final label in ['Alpha', 'Open', 'App info', 'Uninstall', 'Remove']) {
+      expect(onStage(label), findsOneWidget, reason: label);
+    }
+    await tester.tap(onStage('App info'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(ref.read(selectionProvider), {'info'});
+    // Still open with one of its buttons selected.
+    expect(onStage('Remove'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a pane is made a prefab; deleting it unpacks the instance', (
     tester,
   ) async {
@@ -217,19 +236,22 @@ void main() {
     expect(config().prefabs.single.root.children.single.handed, [
       'system:app/a',
     ]);
-    final instance = config().layout.all.singleWhere((item) => item.isInstance);
+    final instance = config().layout.all.singleWhere(
+      (item) => item.prefab == 'shelf',
+    );
     expect((instance.id, instance.prefab), ('main', 'shelf'));
     // What it holds is not put back on the screen beside it.
     expect(config().layout.removed, {'system:app/a'});
 
-    // In the list it is marked as an instance and says of what; which
-    // prefab that is cannot be swapped from its settings.
+    // In the list it is marked as an instance, as the quick actions are,
+    // and says of what; which prefab that is cannot be swapped from its
+    // settings.
     expect(
       find.descendant(
         of: find.byType(ObjectTree),
         matching: find.byIcon(prefabIcon),
       ),
-      findsOneWidget,
+      findsNWidgets(2),
     );
     expect(find.byTooltip('Prefab: Shelf'), findsOneWidget);
     expect(
@@ -270,7 +292,7 @@ void main() {
     final ref = await pump(
       tester,
       config: LauncherConfig(
-        layout: Layout.initial(['system:app/a']),
+        layout: homeLayout(['system:app/a']),
         prefabs: [
           Prefab(
             id: 'inner',

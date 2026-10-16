@@ -4,6 +4,8 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
+import '../support/packs.dart';
+
 /// An instance of the prefab a card is, handed what [ref] names; or with
 /// a [kind], a primitive of that kind.
 Component _item(
@@ -423,11 +425,11 @@ void main() {
 
   group('a new layout', () {
     test('a new home screen is one pane as tall as the screen', () {
-      final layout = Layout.initial(['system:app/b', 'system:app/gone'])
+      final layout = homeLayout(['system:app/b', 'system:app/gone'])
           .withEntities(['system:app/a', 'system:app/b']);
-      // The quick actions come after it.
+      // The quick actions come after it, an instance of the System pack's.
       final [item, menu] = layout.home.root.children;
-      expect(menu.id, Layout.menuId);
+      expect(menu.prefab, 'system:quick-actions');
       expect(item.children.map((i) => i.handed.firstOrNull), [
         'system:app/b',
         'system:app/a',
@@ -520,8 +522,8 @@ void main() {
           ],
         ),
       );
-      final view = resolveLayout(entities, config);
-      final [folder, clock, pane, games, menu] = view.home.root.children;
+      final view = layoutWith(config.layout, entities);
+      final [folder, clock, pane, games] = view.home.root.children;
 
       // Handed a folder, not an entity.
       expect(config.layout.folderOf(folder), 'games');
@@ -530,14 +532,12 @@ void main() {
       // one does not.
       expect(pane.children.single.handed.firstOrNull, 'system:app/a');
       expect(games.children.single.handed.firstOrNull, 'system:app/b');
-      // The folder and the quick actions are docked: on the layer, off its
-      // cells.
-      expect(view.docked.map((p) => p.id), ['games', Layout.menuId]);
-      expect(menu.hovers, isTrue);
-      expect(placeItems(view.home.root.children, 5, PaneMode.flow).skip(3), [
+      // The folder is docked: on the layer, off its cells.
+      expect(view.docked.map((p) => p.id), ['games']);
+      expect(
+        placeItems(view.home.root.children, 5, PaneMode.flow).last,
         const Placement(0, 0, 0, 0),
-        const Placement(0, 0, 0, 0),
-      ]);
+      );
     });
 
     test('the same entity can be in several places', () {
@@ -557,9 +557,9 @@ void main() {
           ],
         ).normalised(),
       );
-      final entries = resolveLayout(
+      final entries = layoutWith(
+        config.layout,
         entities,
-        config,
       ).home.root.children.where((e) => e.isInstance);
       expect(entries.map((e) => e.handed.firstOrNull), [
         'system:app/a',
@@ -712,24 +712,22 @@ void main() {
     });
 
     test('what is drawn is what the pane decides', () {
-      final view = resolveLayout(
-        const [Entity(id: 'system:app/a', category: appCategory, label: 'A')],
-        LauncherConfig(
-          layout: Layout(
-            inbox: 'main',
-            layers: [
-              _home(
-                Component.pane(
-                  id: 'main',
-                  prefabRules: const {
-                    cardPrefabId: {'variant': 'row'},
-                  },
-                  children: [_item('a', ref: 'system:app/a')],
-                ),
+      final view = layoutWith(
+        Layout(
+          inbox: 'main',
+          layers: [
+            _home(
+              Component.pane(
+                id: 'main',
+                prefabRules: const {
+                  cardPrefabId: {'variant': 'row'},
+                },
+                children: [_item('a', ref: 'system:app/a')],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+        const [Entity(id: 'system:app/a', category: appCategory, label: 'A')],
       );
       expect(view.home.root.shown.first.variant, 'row');
     });
@@ -738,7 +736,7 @@ void main() {
   group('LauncherConfig', () {
     test('survives a JSON round trip', () {
       final config = LauncherConfig(
-        layout: Layout.initial(['system:app/a']).without({'system:app/b'}),
+        layout: homeLayout(['system:app/a']).without({'system:app/b'}),
         iconOverrides: {'system:app/a': '/x.png'},
         wallpapers: ['/w.mp4', '/x.png'],
         wallpaperEvery: 30,
@@ -756,6 +754,17 @@ void main() {
       expect(copy.copyWith(wallpapers: const []).wallpaper, isNull);
     });
 
+    test('a starting layout is not saved; the user\'s is', () {
+      final start = LauncherConfig(layout: homeLayout(), ownLayout: false);
+      expect(start.toJson(), isNot(contains('layout')));
+      expect(LauncherConfig.fromJson(start.toJson()).ownLayout, isFalse);
+      expect(start.copyWith(wallpapers: const []).ownLayout, isFalse);
+
+      final edited = start.copyWith(layout: homeLayout(['system:app/a']));
+      expect(edited.ownLayout, isTrue);
+      expect(LauncherConfig.fromJson(edited.toJson()).ownLayout, isTrue);
+    });
+
     test('a broken layout does not lose the rest', () {
       final config = LauncherConfig.fromJson(const {
         'layout': {'layers': 7},
@@ -763,7 +772,9 @@ void main() {
       });
       expect(config.wallpapers, ['/w.png']);
       expect(config.wallpaperEvery, 0);
-      expect(config.layout.home.root.children, hasLength(1));
+      // The store gives it the starting layout.
+      expect(config.ownLayout, isFalse);
+      expect(config.layout.home.root.children, isEmpty);
     });
   });
 }

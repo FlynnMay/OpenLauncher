@@ -258,7 +258,7 @@ class PrefabList extends ConsumerWidget {
           subtitle: Text(
             [
               _used(ref, prefab),
-              if (shippedBy(ref, prefab.id) case final pack?)
+              if (ref.watch(shippedByProvider(prefab.id)) case final pack?)
                 _edited(ref, prefab) ? '$pack, modified' : pack,
             ].join(' · '),
           ),
@@ -296,7 +296,7 @@ class _PrefabMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pack = shippedBy(ref, prefab.id);
+    final pack = ref.watch(shippedByProvider(prefab.id));
     return PopupMenuButton<void Function()>(
       tooltip: 'More',
       iconSize: 18,
@@ -328,7 +328,7 @@ class PrefabDetails extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pack = shippedBy(ref, prefab.id);
+    final pack = ref.watch(shippedByProvider(prefab.id));
     return Section('Prefab', [
       CommitField(
         label: 'Name',

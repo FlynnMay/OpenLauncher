@@ -16,7 +16,6 @@ String paneName(Component pane) {
   // A written title reads variables; it is not a name.
   final title = pane.title.contains('{{') ? '' : pane.title;
   if (title.isNotEmpty) return title;
-  if (pane.id == Layout.menuId) return 'Quick actions';
   return pane.isDocked ? 'Folder' : 'Pane';
 }
 
@@ -51,8 +50,6 @@ IconData objectIcon(Component item) => item.isInstance
     ? Icons.dashboard_outlined
     : !item.hovers
     ? Icons.view_sidebar_outlined
-    : item.id == Layout.menuId
-    ? Icons.more_horiz
     : Icons.folder_open_outlined;
 
 /// What is being edited as a tree: each layer and what is on it, or the open

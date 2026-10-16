@@ -44,11 +44,9 @@ String freeId(String wanted, Set<String> used) {
 }
 
 extension LayoutIds on Layout {
-  /// Ids in use. Panes and other components share one id space; the quick
-  /// actions' id is always reserved.
+  /// Ids in use. Panes and other components share one id space.
   Set<String> get itemIds => {
     Layout.homeId,
-    Layout.menuId,
     for (final component in all) component.id,
   };
 

@@ -3,13 +3,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entity.dart';
+import 'package:openlauncher/core/layout/layout_model.dart';
+import 'package:openlauncher/core/layout/layout_repair.dart';
 import 'package:openlauncher/core/packs/icon_sets.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/sources/generator.dart';
 import 'package:openlauncher/core/sources/source.dart';
 
-/// A pack's entities, sources, generators and prefabs. A pack writes short
+/// A pack's entities, sources, generators, prefabs and layouts. A pack writes short
 /// names; each is its own unless it says another pack's, `other:name`, and
 /// is read as `<pack>:<name>`.
 @immutable
@@ -20,9 +22,16 @@ class PackContents {
     this.sources = const {},
     this.generators = const {},
     this.prefabs = const [],
+    this.layouts = const {},
   });
 
-  static const folders = ['entities', 'sources', 'generators', 'prefabs'];
+  static const folders = [
+    'entities',
+    'sources',
+    'generators',
+    'prefabs',
+    'layouts',
+  ];
 
   final Pack pack;
   final List<Entity> entities;
@@ -32,6 +41,9 @@ class PackContents {
   final Map<String, Generator> generators;
 
   final List<Prefab> prefabs;
+
+  /// Whole screens to start from, by id.
+  final Map<String, Layout> layouts;
 
   /// Whether [path] is one of the files read here.
   static bool reads(String path) =>
@@ -59,12 +71,13 @@ class PackContents {
     final sources = <String, Source>{};
     final generators = <String, Generator>{};
     final prefabs = <Prefab>[];
+    final layouts = <String, Layout>{};
     for (final MapEntry(key: path, value: json) in decoded.entries) {
       final [folder, file] = path.split('/');
       final name = file.substring(0, file.length - '.json'.length);
       switch (folder) {
         case 'entities':
-          final entity = Entity.fromJson(glue.entity(path, json));
+          final entity = Entity.fromJson(glue.defined(path, json));
           if (entity == null) throw FormatException('$path needs an "id"');
           entities.add(entity);
         case 'sources':
@@ -81,11 +94,19 @@ class PackContents {
           }
           generators[name] = generator;
         case 'prefabs':
-          final prefab = Prefab.fromJson(glue.prefab(path, json));
+          final prefab = Prefab.fromJson(glue.defined(path, json));
           if (prefab == null) {
             throw FormatException('$path needs an "id" and a "root"');
           }
           prefabs.add(prefab);
+        case 'layouts':
+          if (glue.defined(path, json)
+              case {'id': final String id} &&
+                  final Map<Object?, Object?> json) {
+            layouts[id] = Layout.fromJson(json).normalised();
+          } else {
+            throw FormatException('$path needs an "id"');
+          }
       }
     }
     for (final other in glue.named) {
@@ -123,6 +144,7 @@ class PackContents {
       sources: sources,
       generators: generators,
       prefabs: prefabs,
+      layouts: layouts,
     );
   }
 }
@@ -226,14 +248,6 @@ class _Glue {
     _ => json,
   };
 
-  Object? entity(String path, Object? json) => switch (json) {
-    {'id': final Object? id} && final Map<Object?, Object?> json => {
-      ...?_tree({...json}..remove('id')) as Map<String, Object?>?,
-      'id': _id(path, id),
-    },
-    _ => json,
-  };
-
   /// A generator's entity id is a template: its own text has no ":".
   Object? generator(String path, Object? json) => switch (json) {
     {'entity': {'id': final String id} && final Map<Object?, Object?> entity} &&
@@ -253,7 +267,8 @@ class _Glue {
     _ => json,
   };
 
-  Object? prefab(String path, Object? json) => switch (json) {
+  /// An entity, prefab or layout: [json] with its own id given in full.
+  Object? defined(String path, Object? json) => switch (json) {
     {'id': final Object? id} && final Map<Object?, Object?> json => {
       ...?_tree({...json}..remove('id')) as Map<String, Object?>?,
       'id': _id(path, id),

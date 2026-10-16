@@ -1,4 +1,3 @@
-import 'package:openlauncher/core/actions/defaults.dart';
 import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
@@ -178,7 +177,7 @@ extension LayoutRepair on Layout {
   /// Matches the layout to the entities that exist. Instances of missing
   /// entities are dropped ([known] defaults to [entityIds]). Unplaced
   /// [entityIds] not in [removed] are appended to the [inbox], with ids from
-  /// [names]. Adds the default quick actions if there are none.
+  /// [names].
   Layout withEntities(
     Iterable<String> entityIds, {
     Map<String, String> names = const {},
@@ -208,14 +207,8 @@ extension LayoutRepair on Layout {
       for (final id in entityIds)
         if (placed.add(id)) Component.of(id, id: autoId(id)),
     ];
-    final filled = kept.rebuild(
+    return kept.rebuild(
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,
-    );
-    // The quick actions exist before they are first saved.
-    if (filled.pane(Layout.menuId) != null) return filled;
-    return filled.withPane(
-      filled.home.root.id,
-      (root) => root.copyWith(children: [...root.children, defaultMenuPane()]),
     );
   }
 }

@@ -10,6 +10,8 @@ import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
+import '../support/packs.dart';
+
 class _Tv extends TvApi {
   final sent = <String>[];
 
@@ -34,9 +36,7 @@ const _entities = [
 
 TvState _state() => TvState(
   entities: _entities,
-  config: LauncherConfig(
-    layout: Layout.initial(['system:app/a', 'system:app/b']),
-  ),
+  config: LauncherConfig(layout: homeLayout(['system:app/a', 'system:app/b'])),
   components: const [],
 );
 

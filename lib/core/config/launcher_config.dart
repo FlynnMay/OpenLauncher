@@ -78,6 +78,7 @@ class ToastOptions {
 class LauncherConfig {
   LauncherConfig({
     Layout? layout,
+    bool? ownLayout,
     this.iconOverrides = const {},
     this.iconSources = const {},
     this.names = const {},
@@ -88,9 +89,14 @@ class LauncherConfig {
     this.place,
     this.prefabs = const [],
     this.updates = const UpdateOptions(),
-  }) : layout = layout ?? Layout.initial();
+  }) : layout = layout ?? Layout.blank(),
+       ownLayout = ownLayout ?? layout != null;
 
   final Layout layout;
+
+  /// Whether [layout] is the user's. If not it is a pack's starting layout,
+  /// read from the pack and not saved.
+  final bool ownLayout;
 
   /// Entity id -> image path. A folder's picture is under `Layout.iconKey`.
   /// In the editor the paths are the TV's URLs.
@@ -160,8 +166,10 @@ class LauncherConfig {
       if (json.containsKey(key)) key: json[key],
   });
 
+  /// Giving a [layout] makes it the user's unless [ownLayout] says not.
   LauncherConfig copyWith({
     Layout? layout,
+    bool? ownLayout,
     Map<String, String>? iconOverrides,
     Map<String, String>? iconSources,
     Map<String, String>? names,
@@ -175,6 +183,7 @@ class LauncherConfig {
     UpdateOptions? updates,
   }) => LauncherConfig(
     layout: layout ?? this.layout,
+    ownLayout: ownLayout ?? (layout != null || this.ownLayout),
     iconOverrides: iconOverrides ?? this.iconOverrides,
     iconSources: iconSources ?? this.iconSources,
     names: names ?? this.names,
@@ -260,7 +269,7 @@ class LauncherConfig {
         if (key is String && value is String) key: value,
   };
 
-  static Layout _savedLayout(Map<String, dynamic> json) {
+  static Layout? _savedLayout(Map<String, dynamic> json) {
     try {
       if (json['layout'] case final Map<Object?, Object?> layout) {
         return Layout.fromJson(layout).normalised();
@@ -269,13 +278,13 @@ class LauncherConfig {
       // A bad layout must not lose the rest of the config.
       debugPrint('Saved layout unreadable, starting a new one: $e');
     }
-    return Layout.initial();
+    return null;
   }
 
   Map<String, dynamic> toJson() => {
     'v': saveVersion,
     'app': appVersion,
-    'layout': layout.toJson(),
+    if (ownLayout) 'layout': layout.toJson(),
     'iconOverrides': iconOverrides,
     'iconSources': iconSources,
     'names': names,

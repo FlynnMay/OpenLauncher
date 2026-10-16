@@ -2,14 +2,17 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
 import 'package:openlauncher/features/home/component_view.dart';
+import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// The open prefab alone on the TV's screen: its root at its default size,
-/// enlarged to fill the screen.
+/// enlarged to fill the screen. A sidebar or folder is shown open where it
+/// docks.
 class PrefabScreen extends ConsumerWidget {
   const PrefabScreen({super.key});
 
@@ -27,6 +30,20 @@ class PrefabScreen extends ConsumerWidget {
     final root = pane?.children.firstOrNull;
     if (pane == null || root == null) {
       return SizedBox.fromSize(size: TvScreen.size);
+    }
+    if (root.isDocked && root.dock != Component.inline) {
+      return SizedBox.fromSize(
+        size: TvScreen.size,
+        child: Material(
+          color: const Color(0xFF14151A),
+          child: TileTraversal(
+            child: DockHold(
+              ids: {root.id},
+              child: DockedPane(pane: root),
+            ),
+          ),
+        ),
+      );
     }
     final width = pane.columns * _cell + (pane.columns - 1) * pane.spacingX;
     final metrics = PaneMetrics(pane, width);

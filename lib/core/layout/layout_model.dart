@@ -3,7 +3,6 @@ import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layer.dart';
-import 'package:openlauncher/core/layout/layout_enums.dart';
 
 /// The saved layout: the layers of the screen, the home screen first.
 @immutable
@@ -17,38 +16,10 @@ class Layout {
   /// The bottom layer, and the entity that adds to and removes from it.
   static const homeId = 'home';
 
-  /// The quick-actions pane.
-  static const menuId = 'quick-actions';
-
-  static const _firstPane = 'main';
-
-  /// A home screen with one full-height pane holding [order].
-  factory Layout.initial([List<String> order = const []]) => Layout(
-    inbox: _firstPane,
-    layers: [
-      Layer(
-        id: homeId,
-        root: Component.pane(
-          id: Layer.rootId(homeId),
-          mode: PaneMode.free,
-          columns: Component.globalColumns,
-          children: [
-            Component.pane(
-              id: _firstPane,
-              x: 0.59,
-              y: 1.35,
-              w: 10.82,
-              h: 7.69,
-              children: [
-                for (final id in order)
-                  Component.of(id, id: Component.autoId(id)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
+  /// Only a home layer, receiving entities in its root; for when no pack
+  /// gives a starting layout.
+  factory Layout.blank() =>
+      Layout(inbox: Layer.rootId(homeId), layers: [Layer.empty(homeId)]);
 
   final List<Layer> layers;
 

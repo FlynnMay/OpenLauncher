@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
@@ -15,19 +17,26 @@ import 'package:openlauncher/editor/editing/selection.dart';
 /// Marks a prefab or an instance of one wherever it is shown.
 const prefabIcon = Icons.view_in_ar_outlined;
 
-/// The name of the pack that ships [prefabId], if one does; the user's of
-/// that id is it, edited.
-String? shippedBy(WidgetRef ref, String prefabId) {
-  if (!ref.read(shippedPrefabsProvider).containsKey(prefabId)) return null;
-  final pack = prefabId.substring(0, prefabId.indexOf(':'));
+/// The name of the pack whose id [id] starts with: `system:home` is
+/// System's.
+final packNameProvider = Provider.family<String, String>((ref, id) {
+  final pack = id.substring(0, max(0, id.indexOf(':')));
   return ref
-          .read(packsProvider)
+          .watch(packsProvider)
           .value
           ?.where((one) => one.id == pack)
           .firstOrNull
           ?.name ??
       pack;
-}
+});
+
+/// The name of the pack that ships prefab [id], if one does; the user's of
+/// that id is it, edited.
+final shippedByProvider = Provider.family<String?, String>(
+  (ref, id) => ref.watch(shippedPrefabsProvider).containsKey(id)
+      ? ref.watch(packNameProvider(id))
+      : null,
+);
 
 const _shared =
     'Variants share the prefab\'s structure, variables and actions. Switch '
@@ -89,10 +98,7 @@ void openPrefab(WidgetRef ref, String prefabId, {Component? from}) {
   final sample =
       entities.where((entity) => entity.prefab == prefabId).firstOrNull?.id ??
       (prefabId == folderPrefabId
-          ? folders
-                .where((pane) => pane.hovers && pane.id != Layout.menuId)
-                .firstOrNull
-                ?.id
+          ? folders.where((pane) => pane.hovers).firstOrNull?.id
           : entities.where((entity) => entity.placed).firstOrNull?.id);
   // What [from] was handed, read through the prefab around it.
   String? held(String name) => switch (from?.vars[name]?.value) {
@@ -226,7 +232,7 @@ Future<void> deletePrefab(
   final config = ref.read(configProvider).value;
   if (config == null) return;
   final controller = ref.read(configProvider.notifier);
-  if (shippedBy(ref, prefab.id) case final pack?) {
+  if (ref.read(shippedByProvider(prefab.id)) case final pack?) {
     if (!await confirm(
       context,
       'Revert "${prefab.name}" to $pack?',

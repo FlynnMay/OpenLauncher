@@ -129,7 +129,7 @@ class TvApi {
       'v': saveVersion,
       ...(json['config'] as Map).cast<String, Object?>(),
       'layout': json['layout'],
-    });
+    }).copyWith(ownLayout: json['ownLayout'] != false);
     return TvState(
       entities: await Future.wait([
         for (final Map entity in json['entities'] as List) _entity(entity),
@@ -251,6 +251,8 @@ class TvApi {
 
   Future<void> setLayout(Layout layout) =>
       _ask('PUT', '/api/layout', layout.toJson());
+
+  Future<void> revertLayout() => _ask('DELETE', '/api/layout');
 
   /// Sends the changed config keys, files as ids.
   Future<void> setConfig(Map<String, Object?> changed) =>
