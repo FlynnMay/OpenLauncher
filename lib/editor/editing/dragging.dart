@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 
 /// Something being dragged: a placed component or a new one from the
 /// catalogue.
@@ -11,10 +12,11 @@ class Dragged {
     required this.picture,
     this.folder,
     this.placed = false,
-  }) : sidebar = false;
+  }) : sidebar = false,
+       template = null;
 
   /// A new sidebar. It can only go to a free screen edge.
-  Dragged.sidebar({required this.label, required this.picture})
+  Dragged.sidebar({required this.label, required this.picture, this.template})
     : item = const Component(id: 'sidebar'),
       folder = null,
       placed = false,
@@ -30,6 +32,9 @@ class Dragged {
 
   /// A new sidebar; [item] is a placeholder.
   final bool sidebar;
+
+  /// What a new sidebar is made from; null for the first template.
+  final Prefab? template;
 
   final String label;
   final Widget picture;

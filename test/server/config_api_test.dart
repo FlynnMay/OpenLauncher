@@ -503,8 +503,9 @@ void main() {
     final [top, rest, games] = saved.home.root.children;
     expect((top.mode, top.columns), (PaneMode.grid, 4));
     expect((top.title, saved.inbox), ('Favourites', rest.id));
-    // Too wide for the pane, and a link to a panel that does not exist.
-    expect(top.children.map((i) => i.id), ['i1', 'i2', 'i4']);
+    // Too wide for the pane. A card for a folder that does not exist is
+    // kept, but not drawn.
+    expect(top.children.map((i) => i.id), ['i1', 'i2', 'i3', 'i4']);
     expect((top.children.first.w, top.children.first.x), (4, 0));
     expect(
       (top.children.last.prefab, top.children.last.handed.firstOrNull),
@@ -516,6 +517,7 @@ void main() {
     // which was placed nowhere, in the pane for new entities.
     expect(await onTv(), ['system:app/b', 'system:input/tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
+    expect(view.all.map((item) => item.id), isNot(contains('i3')));
     final folder = view.home.root.contents.elementAt(1);
     expect(folder.prefab, folderPrefabId);
     expect(
@@ -1039,6 +1041,7 @@ void main() {
       'licence': '',
       'source': '',
       'requires': <Object?>[],
+      'categories': <String, Object?>{},
       'builtIn': true,
       'bytes': isPositive,
       'files': ['fonts/core.ttf', 'icons/core.json'],

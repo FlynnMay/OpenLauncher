@@ -7,10 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/editor/editing/templates.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
@@ -32,17 +34,17 @@ const materialPack = Pack(
 );
 
 /// The launcher's own System pack as it is in `packs/system`.
-final systemPack = Pack(
-  id: 'system',
-  name: 'System',
-  version: '1',
-  builtIn: true,
-  files: [
-    for (final file in Directory('packs/system').listSync(recursive: true))
-      if (file is File && !file.path.endsWith('pack.json'))
-        file.path.substring('packs/system/'.length),
-  ]..sort(),
-);
+final systemPack =
+    Pack.fromJson(
+      jsonDecode(File('packs/system/pack.json').readAsStringSync()),
+    )!.copyWith(
+      builtIn: true,
+      files: [
+        for (final file in Directory('packs/system').listSync(recursive: true))
+          if (file is File && !file.path.endsWith('pack.json'))
+            file.path.substring('packs/system/'.length),
+      ]..sort(),
+    );
 
 /// The System pack's prefabs as the launcher reads them, by file name: the
 /// app card first.
@@ -55,16 +57,84 @@ final _systemContents = PackContents.parse(systemPack, {
 
 /// The System pack's starting layout, with [order] placed in its inbox.
 Layout homeLayout([List<String> order = const []]) {
-  final home = _systemContents.layouts[startingLayoutId]!;
+  final home = _systemContents.layouts[_systemContents.start]!;
   return home.rebuild(
     (pane, items) => pane.id != home.inbox
         ? items
         : [
             ...items,
-            for (final id in order) Component.of(id, id: Component.autoId(id)),
+            for (final id in order) cardOf(id, id: Component.autoId(id)),
           ],
   );
 }
+
+// What the System pack names, as tests write it.
+const cardPrefabId = 'system:app-card';
+const folderPrefabId = 'system:folder-card';
+const folderTemplateId = 'system:folder';
+const sidebarTemplateId = 'system:sidebar';
+const appCategory = 'app';
+const inputCategory = 'input';
+const launcherCategory = 'launcher';
+const sourceEntity = '{{source.id}}';
+String appId(String package) => 'system:app/$package';
+String inputId(String input) => 'system:input/$input';
+
+/// The System pack's prefab [id].
+Prefab systemPrefab(String id) =>
+    systemPrefabs.firstWhere((prefab) => prefab.id == id);
+
+/// The System pack's prefabs by id.
+Map<String, Prefab> get systemPrefabMap => {
+  for (final prefab in systemPrefabs) prefab.id: prefab,
+};
+
+/// An instance of [prefab], the app card unless said, handed [entityId] in
+/// its `source` variable, as the System pack's cards take it.
+Component cardOf(
+  String entityId, {
+  required String id,
+  String prefab = cardPrefabId,
+  double w = 1,
+  double h = 1,
+  double? x,
+  double? y,
+  String? variant,
+  Overrides overrides = const {},
+  Style style = const {},
+  Triggers on = const {},
+}) => Component.of(
+  entityId,
+  id: id,
+  prefab: prefab,
+  variable: 'source',
+  w: w,
+  h: h,
+  x: x,
+  y: y,
+  variant: variant,
+  overrides: overrides,
+  style: style,
+  on: on,
+);
+
+/// [cardOf] as `withEntities` places an entity.
+Component? placedCard(String entityId, String id) => cardOf(entityId, id: id);
+
+/// A new folder, as the editor makes it from the System pack's template.
+Component folderPane(String id, {String title = ''}) =>
+    folderFrom(systemPrefab(folderTemplateId), id, title: title);
+
+/// A new sidebar on [edge], as the editor makes it from the System pack's
+/// template.
+Component sidebarPane(String id, String edge) =>
+    sidebarFrom(systemPrefab(sidebarTemplateId), id, edge);
+
+/// The chains of a sidebar made from the System pack's template.
+Triggers barTriggers() => systemPrefab(sidebarTemplateId).root.on;
+
+/// The chains of a folder made from the System pack's template.
+Triggers folderTriggers() => systemPrefab(folderTemplateId).root.on;
 
 /// A new config, as the store gives it: the starting layout, not the user's.
 LauncherConfig get startingConfig =>

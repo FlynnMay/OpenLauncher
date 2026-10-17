@@ -41,7 +41,7 @@ class PrefabBar extends ConsumerWidget {
     final previews = ref.watch(
       runtimeVarsProvider.select((all) => all[prefab.root.id] ?? const {}),
     );
-    return Padding(
+    final bar = Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 12, 0),
       child: Wrap(
         spacing: 12,
@@ -175,6 +175,67 @@ class PrefabBar extends ConsumerWidget {
             TextButton(
               onPressed: () => deletePrefab(context, ref, prefab),
               child: Text('Modified · Revert to $pack'),
+            ),
+        ],
+      ),
+    );
+    return switch (prefab.template ? madeName(prefab) : null) {
+      null => bar,
+      final kind => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [bar, _TemplateNote(prefab, kind)],
+      ),
+    };
+  }
+}
+
+/// Says that a template is copied, not followed, and offers to give what it
+/// already made its look.
+class _TemplateNote extends ConsumerWidget {
+  const _TemplateNote(this.template, this.kind);
+
+  final Prefab template;
+  final String kind;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final layout = ref.watch(configProvider).value?.layout;
+    final count = layout == null ? 0 : madeBy(template, layout).length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 12, 0),
+      child: Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 8,
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              Flexible(
+                child: Text(
+                  'Template: ${kind}s you make from now on start like this. '
+                  '${kind[0].toUpperCase()}${kind.substring(1)}s already on '
+                  'your screen keep their own look.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+          if (count > 0)
+            TextButton(
+              onPressed: () => applyTemplate(context, ref, template),
+              child: Text(
+                count == 1
+                    ? 'Apply to 1 existing $kind'
+                    : 'Apply to $count existing ${kind}s',
+              ),
             ),
         ],
       ),

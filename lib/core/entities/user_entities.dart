@@ -8,8 +8,9 @@ import 'package:openlauncher/core/operations/operation.dart';
 /// The most entities a user can make.
 const maxUserEntities = 24;
 
-/// Ids an entity the user makes may not take: names templates read.
-const reservedIds = {'source', 'self'};
+/// Ids an entity the user makes may not take: what an action's templates
+/// read itself as.
+const reservedIds = {'self'};
 
 /// The user's own entities from a save. Skips what cannot be read, duplicate
 /// ids, ids that are not plain slugs and [reservedIds].

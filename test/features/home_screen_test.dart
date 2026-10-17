@@ -233,14 +233,14 @@ void main() {
                     mode: PaneMode.grid,
                     columns: 4,
                     children: [
-                      Component.of(
+                      cardOf(
                         'games',
                         id: 'folder',
                         prefab: folderPrefabId,
                         x: 1,
                         y: 0,
                       ),
-                      Component.of(
+                      cardOf(
                         'system:clock',
                         id: 'system:clock',
                         prefab: 'system:clock',

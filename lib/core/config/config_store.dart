@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
-import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:path/path.dart' as p;
@@ -16,31 +15,27 @@ abstract class ConfigStore {
   Future<void> save(LauncherConfig config);
 }
 
-/// The layout a new home screen starts as.
-const startingLayoutId = 'system:home';
-
-/// [startingLayoutId] as its pack has it; blank if no pack has it.
-final startingLayoutProvider = FutureProvider<Layout>((ref) async {
+/// The layout a new home screen starts as: the first a pack marks to start
+/// with, by id; blank if none does.
+final startingLayoutProvider = FutureProvider<({String? id, Layout layout})>((
+  ref,
+) async {
   try {
     for (final pack in await ref.watch(packContentsProvider.future)) {
-      if (pack.layouts[startingLayoutId] case final layout?) return layout;
+      if (pack.layouts[pack.start] case final layout?) {
+        return (id: pack.start, layout: layout);
+      }
     }
   } on Object catch (e) {
     debugPrint('Packs unreadable, starting from a blank layout: $e');
   }
-  return Layout.blank();
+  return (id: null, layout: Layout.blank());
 });
 
 final configStoreProvider = Provider<ConfigStore>(
   (ref) => FileConfigStore(
-    starting: () => ref.read(startingLayoutProvider.future),
-    // Only inputs need device names; other ids describe themselves.
-    device: () async => Device(
-      names: {
-        for (final input in await ref.read(tvInputsProvider.future))
-          Entity.inputId(input.id): input.label,
-      },
-    ),
+    starting: () async =>
+        (await ref.read(startingLayoutProvider.future)).layout,
   ),
 );
 

@@ -269,3 +269,29 @@ void quickActionsAsPrefab(Json save, Device device) {
     if (layer['root'] case final Json root) walk(root);
   }
 }
+
+/// A new folder or sidebar records the template it was copied from: the
+/// saved ones were the launcher's, now the System pack's. One docked with a
+/// strip is a sidebar; any other docked pane, a folder.
+void templatesRecorded(Json save, Device device) {
+  void walk(Json pane) {
+    final children = objectsIn(pane, 'children');
+    for (final child in children) {
+      if (child
+          case {
+            'kind': 'pane',
+            'options': {'dock': final String _} && final Json options,
+          }
+          when !child.containsKey('template')) {
+        child['template'] = options.containsKey('closed')
+            ? 'system:sidebar'
+            : 'system:folder';
+      }
+      walk(child);
+    }
+  }
+
+  for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {
+    if (layer['root'] case final Json root) walk(root);
+  }
+}

@@ -6,6 +6,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
@@ -237,7 +238,10 @@ void main() {
             Prefab(
               id: 'system:clock',
               name: 'Edited clock',
-              root: Component.pane(id: 'root'),
+              root: Component.pane(
+                id: 'root',
+                vars: const {'clock': Variable(null, type: VarType.entity)},
+              ),
             ),
           ],
         ),
@@ -248,12 +252,15 @@ void main() {
     );
     Finder offered(String label) =>
         find.descendant(of: find.byType(Catalogue), matching: find.text(label));
+    // Each pack's things under its name, as a tree.
     const headings = [
       'Primitives',
-      'Layout',
-      'System prefabs',
-      'User prefabs',
+      'System',
+      'Templates',
+      'Prefabs',
+      'Entities',
       'Apps',
+      'User prefabs',
     ];
     // The heading [label] is under.
     String over(String label) {
@@ -272,10 +279,13 @@ void main() {
       expect(offered(gone), findsNothing);
     }
     expect(over('Button'), 'Primitives');
-    expect(over('Sidebar'), 'Layout');
+    expect(over('Pane'), 'Primitives');
+    expect(over('Sidebar'), 'Templates');
+    expect(over('Folder'), 'Templates');
+    expect(find.byTooltip('Made from the Folder template'), findsOneWidget);
     // The only one of its category.
-    expect(over('Clock'), 'System prefabs');
-    expect(over('Edited clock'), 'System prefabs');
+    expect(over('Clock'), 'Entities');
+    expect(over('Edited clock'), 'Prefabs');
     expect(over('My prefab'), 'User prefabs');
     expect(over('Mine'), 'User prefabs');
     expect(over('Beta'), 'Apps');
@@ -284,6 +294,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(offered('Beta'), findsNothing);
     expect(offered('Clock'), findsWidgets);
+    // Closing the pack closes all of it.
+    await tester.tap(offered('System'));
+    await tester.pumpAndSettle();
+    expect(offered('Templates'), findsNothing);
+    expect(offered('Clock'), findsNothing);
+    expect(offered('My prefab'), findsOneWidget);
 
     // A search shows what matches, closed or not.
     final search = find.descendant(
@@ -296,6 +312,11 @@ void main() {
     expect(offered('Primitives'), findsNothing);
     await tester.enterText(search, '');
     await tester.pumpAndSettle();
+    expect(offered('Beta'), findsNothing);
+    await tester.tap(offered('System'));
+    await tester.pumpAndSettle();
+    // What was closed inside it stays closed.
+    expect(offered('Clock'), findsWidgets);
     expect(offered('Beta'), findsNothing);
     expect(tester.takeException(), isNull);
   });

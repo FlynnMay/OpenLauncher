@@ -98,7 +98,13 @@ void main() {
         .singleWhere((prefab) => prefab.id == cardPrefabId);
 
     // From the list in the launcher's settings.
-    await press(tester, find.text('Prefabs'));
+    await press(
+      tester,
+      find.descendant(
+        of: find.byType(PrefabList),
+        matching: find.text('Prefabs'),
+      ),
+    );
     // The app card and the quick actions.
     expect(find.text('1 instance · System'), findsNWidgets(2));
     await press(
@@ -219,6 +225,50 @@ void main() {
     expect(ref.read(selectionProvider), {'info'});
     // Still open with one of its buttons selected.
     expect(onStage('Remove'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a template says it is copied, and can restyle its copies', (
+    tester,
+  ) async {
+    final ref = await pump(
+      tester,
+      config: LauncherConfig(
+        layout: homeLayout(['system:app/a']).withPane(
+          'home/root',
+          (root) => root.copyWith(
+            children: [
+              ...root.children,
+              folderPane(
+                'games',
+                title: 'Games',
+              ).copyWith(style: const {'background': '#ff0000ff'}),
+            ],
+          ),
+        ),
+      ),
+    );
+    await press(
+      tester,
+      find.descendant(
+        of: find.byType(PrefabList),
+        matching: find.text('Prefabs'),
+      ),
+    );
+    expect(find.text('Template for new folders · System'), findsOneWidget);
+
+    openPrefab(ref, 'system:folder');
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Template: folders you make from now on'),
+      findsOneWidget,
+    );
+    await press(tester, find.text('Apply to 1 existing folder'));
+    expect(find.text('Apply "Folder" to the folder on the screen?'), findsOne);
+    await press(tester, find.widgetWithText(FilledButton, 'Apply'));
+    final games = ref.read(configProvider).value!.layout.pane('games')!;
+    expect(games.style, systemPrefab(folderTemplateId).root.style);
+    expect(games.title, 'Games');
     expect(tester.takeException(), isNull);
   });
 

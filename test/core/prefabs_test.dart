@@ -42,6 +42,39 @@ void main() {
     expect(Prefab.fromJson({'id': 'no-root'}), isNull);
   });
 
+  test(
+    'an entity is handed to the first entity variable, whatever its name',
+    () {
+      const tile = Prefab(
+        id: 'acme:tile',
+        name: 'Tile',
+        root: Component(
+          id: 'root',
+          kind: 'pane',
+          w: 2,
+          vars: {
+            'title': Variable('Hi'),
+            'thing': Variable(null, type: VarType.entity),
+          },
+        ),
+      );
+      expect(tile.entityVar, 'thing');
+      final item = tile.instance('system:clock', id: 'c')!;
+      expect((item.prefab, item.w), ('acme:tile', 2.0));
+      expect(item.handed, ['system:clock']);
+      expect(item.vars.keys, ['thing']);
+      // One that takes no entity cannot show one.
+      expect(
+        const Prefab(
+          id: 'x',
+          name: 'X',
+          root: Component(id: 'root', kind: 'pane'),
+        ).instance('system:clock', id: 'c'),
+        isNull,
+      );
+    },
+  );
+
   test('an instance is its prefab until it says otherwise', () {
     final drawn = resolved(plain, prefabs);
     expect((drawn.id, drawn.isPane, drawn.mode), ('a', true, PaneMode.column));
@@ -154,7 +187,7 @@ void main() {
   });
 
   test('what opens a folder is an instance too', () {
-    final folder = Component.of('games', id: 'f', prefab: folderPrefabId);
+    final folder = cardOf('games', id: 'f', prefab: folderPrefabId);
     expect(part(folder, 'picture').kind, 'folder');
     // What it does is set the `open` of whatever it was handed: said in
     // the prefab, against its `source`, like anything else.
@@ -170,11 +203,7 @@ void main() {
 
   test('a prefab can be made of panes, and of other prefabs', () {
     // The weather keeps its lines in a pane of their own.
-    final weather = Component.of(
-      'system:weather',
-      id: 'w',
-      prefab: 'system:weather',
-    );
+    final weather = cardOf('system:weather', id: 'w', prefab: 'system:weather');
     final drawn = resolved(weather, prefabs);
     expect(drawn.children.map((part) => (part.id, part.isPane)), [
       ('w/icon', false),
@@ -195,7 +224,7 @@ void main() {
         },
       ),
     );
-    final loud = Component.of('system:app/a', id: 'l', prefab: 'loud-card');
+    final loud = cardOf('system:app/a', id: 'l', prefab: 'loud-card');
     final all = {...prefabs, own.id: own};
     expect(resolved(loud, all).on.keys, contains(Trigger.press));
     expect(resolved(loud, all).children.last.style['fontSize'], 40);

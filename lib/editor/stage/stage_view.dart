@@ -363,7 +363,7 @@ class _StageState extends ConsumerState<Stage> {
             _mark(null);
             if (_over != null) setState(() => _over = null);
             if (target?.bar case final bar?) {
-              addBar(context, ref, bar);
+              addBar(context, ref, bar, template: details.data.template);
             } else if (target?.drop case final drop?) {
               placeDragged(context, ref, details.data, drop);
             }

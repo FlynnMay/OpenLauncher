@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/editor/editing/templates.dart';
 
 /// A drop target: [pane], and either before child [before] (flow) or at cell
 /// [x], [y]. With neither, wherever there is room.
@@ -403,14 +405,20 @@ Layout transformItems(
   ),
 };
 
-/// Sets a pane option. `mode` and `columns` also re-place the children.
-Component withRule(Component pane, String key, Object? value) => switch (key) {
+/// Sets a pane option. `mode` and `columns` also re-place the children; a
+/// new dock takes what docking adds from the templates in [prefabs].
+Component withRule(
+  Component pane,
+  String key,
+  Object? value, {
+  Map<String, Prefab> prefabs = const {},
+}) => switch (key) {
   'mode' => withMode(pane, PaneMode.values.asNameMap()[value] ?? PaneMode.flow),
   'columns' => withColumns(
     pane,
     value is num ? value.toInt() : Component.defaultColumns,
   ),
-  'dock' => withDock(pane, value is String ? value : null),
+  'dock' => withDock(pane, value is String ? value : null, prefabs),
   // No longer scrolling across, its children go back inside its columns.
   'scrollX' when value != true && !pane.mode.inLine => withColumns(
     pane.withOption(key, null),
@@ -422,7 +430,11 @@ Component withRule(Component pane, String key, Object? value) => switch (key) {
 };
 
 /// Docks [pane] at [dock], or with null puts it back on its parent's cells.
-Component withDock(Component pane, String? dock) {
+Component withDock(
+  Component pane,
+  String? dock, [
+  Map<String, Prefab> prefabs = const {},
+]) {
   // What only a docked pane has goes with the dock.
   if (dock == null) {
     return pane.copyWith(
@@ -437,7 +449,12 @@ Component withDock(Component pane, String? dock) {
     );
   }
   // Newly docked, it is a sidebar.
-  if (!pane.isDocked) return asSidebar(pane, dock);
+  if (!pane.isDocked) {
+    return dockedLike(
+      pane,
+      sidebarFrom(templateFor(dock, prefabs), pane.id, dock),
+    );
+  }
   // A folder moved into what opens it needs no layer; moved out, it does.
   if (pane.hovers &&
       (dock == Component.inline) != (pane.dock == Component.inline)) {
@@ -447,7 +464,12 @@ Component withDock(Component pane, String? dock) {
           on: {
             for (final MapEntry(:key, :value) in pane.on.entries)
               if (key != Trigger.reveal && key != Trigger.hide) key: value,
-            ...folderTriggers(inPlace: dock == Component.inline),
+            if (dock != Component.inline)
+              for (final MapEntry(:key, :value) in folderFrom(
+                templateFor(dock, prefabs),
+                pane.id,
+              ).on.entries)
+                if (key == Trigger.reveal || key == Trigger.hide) key: value,
           },
         );
   }
@@ -527,15 +549,16 @@ Component? barOn(Layout layout, String edge) => layout.docked
     .where((pane) => pane.dock == edge && !pane.hovers)
     .firstOrNull;
 
-/// Adds an empty sidebar on [edge] if there is none.
-Layout withBar(Layout layout, String edge) => barOn(layout, edge) != null
+/// Adds an empty sidebar on [edge] made from [template] if there is none.
+Layout withBar(Layout layout, String edge, [Prefab? template]) =>
+    barOn(layout, edge) != null
     ? layout
     : layout.withPane(
         layout.home.root.id,
         (root) => root.copyWith(
           children: [
             ...root.children,
-            sidebarPane(layout.paneIdFor(edge), edge),
+            sidebarFrom(template, layout.paneIdFor(edge), edge, layout.itemIds),
           ],
         ),
       );

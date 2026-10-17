@@ -150,7 +150,7 @@ void main() {
           ...saved,
           saved.first, // The same id again.
           {'id': 'Not An Id'},
-          {'id': 'source'},
+          {'id': 'self'},
           {'name': 'No id'},
           'nonsense',
           {

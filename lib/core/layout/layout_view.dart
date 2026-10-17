@@ -8,32 +8,40 @@ import 'package:openlauncher/core/layout/layout_repair.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 
 /// [layout] with missing entities dropped and unplaced auto-placed ones in
-/// the inbox.
-Layout layoutWith(Layout layout, List<Entity> entities) => layout.withEntities(
-  [
-    for (final entity in entities)
-      if (entity.placed) entity.id,
-  ],
-  known: {for (final entity in entities) entity.id},
-  names: {for (final entity in entities) entity.id: entity.name},
-);
+/// the inbox, as instances of their prefabs.
+Layout layoutWith(
+  Layout layout,
+  List<Entity> entities,
+  Map<String, Prefab> prefabs,
+) {
+  final byId = {for (final entity in entities) entity.id: entity};
+  return layout.withEntities(
+    [
+      for (final entity in entities)
+        if (entity.placed) entity.id,
+    ],
+    instance: (entityId, id) => switch (byId[entityId]?.prefab) {
+      final prefab? => prefabs[prefab]?.instance(entityId, id: id),
+      null => null,
+    },
+    known: byId.keys.toSet(),
+    names: {for (final entity in entities) entity.id: entity.name},
+  );
+}
 
 /// [entity] as an instance of its prefab, at that prefab's size, with an id
-/// free in [layout].
-Component instanceFor(
+/// free in [layout]; null if it has no prefab that takes it.
+Component? instanceFor(
   Entity entity,
   Layout layout,
   Map<String, Prefab> prefabs,
-) {
-  final prefab = prefabs[entity.prefab];
-  return Component.of(
+) => switch (entity.prefab) {
+  final prefab? => prefabs[prefab]?.instance(
     entity.id,
-    prefab: prefab?.id ?? cardPrefabId,
-    w: prefab?.root.w ?? 1,
-    h: prefab?.root.h ?? 1,
     id: layout.itemIdFor(Component.autoId(entity.id, entity.name)),
-  );
-}
+  ),
+  null => null,
+};
 
 /// [item] as the pane it resolves to, if that is docked: an instance of a
 /// sidebar or folder prefab docks like one.
@@ -56,5 +64,9 @@ final layoutViewProvider = FutureProvider<Layout>((ref) async {
   final prefabs = ref.watch(prefabsProvider);
   final entities = await ref.watch(entitiesProvider.future);
   final config = await ref.watch(configProvider.future);
-  return layoutWith(withDockedInstances(config.layout, prefabs), entities);
+  return layoutWith(
+    withDockedInstances(config.layout, prefabs),
+    entities,
+    prefabs,
+  );
 });

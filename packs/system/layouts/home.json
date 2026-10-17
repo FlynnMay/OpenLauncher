@@ -1,5 +1,6 @@
 {
   "id": "home",
+  "start": true,
   "inbox": "main",
   "removed": [],
   "layers": [

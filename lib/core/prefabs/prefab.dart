@@ -36,9 +36,19 @@ class Prefab {
     required this.name,
     required this.root,
     this.variants = const {},
+    this.template = false,
+    this.card,
   });
 
   final String id, name;
+
+  /// Whether new panes are made as copies of it rather than instances. How
+  /// its root docks says what it makes: at an edge, a sidebar; anywhere
+  /// else, a folder opened by a [card].
+  final bool template;
+
+  /// The prefab whose instance opens a folder made from this template.
+  final String? card;
 
   /// The component. Its size is what a new instance starts with.
   final Component root;
@@ -49,6 +59,27 @@ class Prefab {
   Variables get vars => root.vars;
   Style get style => root.style;
   Triggers get on => root.on;
+
+  /// The variable an entity is handed in: the root's first that holds one.
+  String? get entityVar => vars.entries
+      .where((entry) => entry.value.type == VarType.entity)
+      .firstOrNull
+      ?.key;
+
+  /// An instance handed [entityId], at its size; null if it takes no
+  /// entity.
+  Component? instance(String entityId, {required String id}) =>
+      switch (entityVar) {
+        final variable? => Component.of(
+          entityId,
+          id: id,
+          prefab: this.id,
+          variable: variable,
+          w: root.w,
+          h: root.h,
+        ),
+        null => null,
+      };
 
   /// Every non-pane descendant of the root.
   Iterable<Component> get parts =>
@@ -91,6 +122,8 @@ class Prefab {
     name: name ?? this.name,
     root: root ?? this.root,
     variants: variants ?? this.variants,
+    template: template,
+    card: card,
   );
 
   /// Replaces the descendant [id] with what [change] returns.
@@ -127,6 +160,11 @@ class Prefab {
                     when key is String)
                   key: variant,
           },
+          template: json['template'] == true,
+          card: switch (json['card']) {
+            final String card => card,
+            _ => null,
+          },
         );
       } on FormatException {
         return null;
@@ -149,6 +187,8 @@ class Prefab {
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
+    if (template) 'template': true,
+    'card': ?card,
     'root': root.toJson(),
     if (variants.isNotEmpty)
       'variants': {

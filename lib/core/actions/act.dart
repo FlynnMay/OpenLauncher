@@ -19,9 +19,6 @@ enum Trigger {
 /// The argument naming the entity that does an action. Every act has one.
 const entityArg = 'entity';
 
-/// [entityArg] for the entity a tile's `source` variable holds.
-const sourceEntity = '{{source.id}}';
-
 /// One saved action: either an entity's action by name, with the
 /// [entityArg] that defines and does it and its other arguments
 /// (`{"do": "open", "entity": "..."}`), or an address called directly with

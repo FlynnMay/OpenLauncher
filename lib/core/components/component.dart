@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/components/component_registry.dart';
-import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
@@ -90,6 +89,7 @@ class Component {
     this.hidden = false,
     this.children = const [],
     this.overrides = const {},
+    this.template,
   });
 
   /// A pane. [rules] are extra options such as `spacing`, `rowHeight`, `gap`.
@@ -116,6 +116,7 @@ class Component {
        keep = false,
        hidden = false,
        overrides = const {},
+       template = null,
        options = {
          if (title.isNotEmpty) 'title': title,
          'mode': mode.name,
@@ -124,11 +125,12 @@ class Component {
          if (prefabRules.isNotEmpty) 'prefabRules': prefabRules,
        };
 
-  /// An instance of [prefab] whose `source` variable is [entityId].
+  /// An instance of [prefab] handed [entityId] in its [variable].
   Component.of(
     String entityId, {
     required this.id,
-    String this.prefab = cardPrefabId,
+    required String this.prefab,
+    required String variable,
     this.w = 1,
     this.h = 1,
     this.x,
@@ -139,12 +141,13 @@ class Component {
     this.on = const {},
   }) : kind = '',
        options = const {},
-       vars = {sourceVar: Variable(entityId, type: VarType.entity)},
+       vars = {variable: Variable(entityId, type: VarType.entity)},
        flex = null,
        aspect = null,
        keep = false,
        hidden = false,
-       children = const [];
+       children = const [],
+       template = null;
 
   static const defaultColumns = 5;
 
@@ -192,10 +195,6 @@ class Component {
 
   static const scrollbars = ['thumb', 'progress'];
 
-  /// The variable name the built-in prefabs use for their entity. Nothing
-  /// else gives this name special meaning.
-  static const sourceVar = 'source';
-
   /// Unique in the layout, or within its prefab.
   final String id;
 
@@ -238,6 +237,9 @@ class Component {
 
   /// An instance's differences from its prefab's children.
   final Overrides overrides;
+
+  /// The template a pane was copied from, if any.
+  final String? template;
 
   bool get isPane => kind == paneKind;
   bool get isInstance => prefab != null;
@@ -463,26 +465,13 @@ class Component {
       },
       children: children,
       overrides: overrides,
+      template: template,
     );
   }
 
   /// Sets option [key]; null removes it.
   Component withOption(String key, Object? value) => copyWith(
     options: {...options, key: value}..removeWhere((_, value) => value == null),
-  );
-
-  /// Sets a pane up as a new sidebar: small rows, row-layout cards.
-  Component asBar() => copyWith(
-    options: {
-      ...options,
-      'rowHeight': barRowHeight,
-      'itemW': 1,
-      'itemH': 1,
-      'prefabRules': const {
-        cardPrefabId: {'variant': 'row'},
-        folderPrefabId: {'variant': 'row'},
-      },
-    },
   );
 
   /// This pane and every pane inside it.
@@ -533,12 +522,15 @@ class Component {
           ]),
         );
 
-  /// A readable id for an instance of [entityId]: the package slug for an
-  /// app, else from the device [name].
-  static String autoId(String entityId, [String? name]) =>
-      entityId.startsWith(Entity.appId(''))
-      ? packageSlug(entityId.substring(Entity.appId('').length))
-      : slugOf(name ?? '', slugOf(entityId.split(RegExp('[:/.]')).last));
+  /// A readable id for an instance of [entityId]: from the dotted name its
+  /// id ends in (an app's package), else from its [name], else from the end
+  /// of its id.
+  static String autoId(String entityId, [String? name]) {
+    final tail = entityId.split(RegExp('[:/]')).last;
+    return tail.contains('.')
+        ? packageSlug(tail)
+        : slugOf(name ?? '', slugOf(tail));
+  }
 
   /// A null [w] or [h] keeps the current one.
   Component copyWith({
@@ -555,6 +547,7 @@ class Component {
     bool? hidden,
     List<Component>? children,
     Overrides? overrides,
+    String? template,
   }) => Component(
     id: id ?? this.id,
     kind: kind ?? this.kind,
@@ -574,6 +567,7 @@ class Component {
     hidden: hidden ?? this.hidden,
     children: children ?? this.children,
     overrides: overrides ?? this.overrides,
+    template: template ?? this.template,
   );
 
   /// Sets or clears the variant (copyWith cannot clear).
@@ -596,6 +590,7 @@ class Component {
     hidden: hidden,
     children: children,
     overrides: overrides,
+    template: template,
   );
 
   /// Sets size and position; omitted [x] and [y] are cleared.
@@ -618,6 +613,7 @@ class Component {
     hidden: hidden,
     children: children,
     overrides: overrides,
+    template: template,
   );
 
   /// Throws [FormatException] on malformed JSON.
@@ -647,6 +643,7 @@ class Component {
       hidden: json['hidden'] == true,
       children: jsonList(json, 'children', Component.fromJson),
       overrides: overridesFromJson(json['overrides']),
+      template: jsonOptional<String>(json, 'template'),
     );
   }
 
@@ -672,11 +669,8 @@ class Component {
       if (style.isNotEmpty) 'style': style,
       if (on.isNotEmpty) 'on': triggersToJson(on),
       if (overrides.isNotEmpty) 'overrides': overrides,
+      'template': ?template,
       if (isPane) 'children': [for (final child in children) child.toJson()],
     };
   }
 }
-
-/// The built-in card prefabs.
-const cardPrefabId = 'system:app-card';
-const folderPrefabId = 'system:folder-card';

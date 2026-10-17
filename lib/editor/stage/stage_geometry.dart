@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/resize_handles.dart';
@@ -56,7 +55,8 @@ Drop dropAt(
 
 /// The open rect of the sidebar on [edge], or a strip [thickness] thick.
 Rect barRect(Layout layout, String edge, {double? thickness}) {
-  final pane = barOn(layout, edge) ?? sidebarPane(edge, edge);
+  final pane =
+      barOn(layout, edge) ?? Component.pane(id: edge).withOption('dock', edge);
   final Size(:width, :height) = TvScreen.size;
   final across = pane.opensAcross;
   final w = across && thickness != null

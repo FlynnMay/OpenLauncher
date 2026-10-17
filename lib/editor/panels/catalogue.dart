@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -19,13 +18,6 @@ class Catalogue extends ConsumerStatefulWidget {
   @override
   ConsumerState<Catalogue> createState() => _CatalogueState();
 }
-
-/// Headings of the categories with more than one entity.
-const _categoryLabels = {
-  inputCategory: 'Inputs',
-  appCategory: 'Apps',
-  launcherCategory: 'Launcher',
-};
 
 class _CatalogueState extends ConsumerState<Catalogue> {
   String _query = '';
@@ -46,8 +38,9 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         ?.writeState(context, {..._closed}, identifier: _memory);
   }
 
-  /// The offers, by heading.
-  Map<String, List<_Offer>> _offers(LauncherConfig config) {
+  /// The headings and what is under them: the primitives, each pack's, and
+  /// the user's.
+  List<_Group> _groups(LauncherConfig config) {
     // New ids are free in what is being edited; a prefab holds no sidebar or
     // new folder, nor itself.
     final open = ref.watch(editedPrefabProvider);
@@ -62,19 +55,12 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         if (entity.prefab != null) entity,
     ];
     final own = {for (final entity in config.entities) entity.id};
-    // Generated entities per category; one alone is a system prefab.
-    final sizes = <String, int>{};
-    for (final entity in all) {
-      if (!own.contains(entity.id)) {
-        sizes[entity.category] = (sizes[entity.category] ?? 0) + 1;
-      }
-    }
-    bool alone(Entity entity) => sizes[entity.category] == 1;
     // A pack's ids start with its own; the user's have none.
     String? packOf(String id) => switch (id.indexOf(':')) {
       -1 => null,
       final at => id.substring(0, at),
     };
+    final categories = ref.watch(categoriesProvider);
     final packNames = {
       for (final pack in ref.watch(packsProvider).value ?? const <Pack>[])
         pack.id: pack.name,
@@ -96,22 +82,63 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
             prefab: prefab,
           );
-    // Named and given its final id when placed.
-    final folder = folderPane(
-      layout.paneIdFor('Folder', 'folder'),
-      title: 'Folder',
-    );
-    _Offer entity(Entity entity) => _Offer(
-      Dragged(
-        item: instanceFor(entity, layout, prefabs),
-        label: entity.label,
-        picture: EntityArt(entity: entity, padding: 4),
-      ),
-      backed: !EntityArt.isBare(entity),
-      count: counts[entity.id] ?? 0,
-    );
-    List<_Offer> entities(bool Function(Entity entity) which) {
-      final offers = all.where(which).map(entity).toList();
+    // A new sidebar or folder, copied from the template; named and given
+    // its final id when placed.
+    _Offer? templateOffer(Prefab template) {
+      if (open != null) return null;
+      final tooltip = 'Made from the ${template.name} template';
+      if (makesSidebars(template)) {
+        return _Offer(
+          Dragged.sidebar(
+            label: template.name,
+            picture: const SymbolArt(Icons.view_sidebar_outlined),
+            template: template,
+          ),
+          prefab: template,
+          tooltip: tooltip,
+        );
+      }
+      final folder = folderFrom(
+        template,
+        layout.paneIdFor(template.name, 'folder'),
+        title: template.name,
+        used: layout.itemIds,
+      );
+      // The folder comes with a card that opens it.
+      final card = prefabs[template.card]?.instance(
+        folder.id,
+        id: layout.itemIdFor(folder.title),
+      );
+      if (card == null) return null;
+      return _Offer(
+        Dragged(
+          item: card,
+          folder: folder,
+          label: template.name,
+          picture: const SymbolArt(Icons.create_new_folder_outlined),
+        ),
+        prefab: template,
+        tooltip: tooltip,
+      );
+    }
+
+    _Offer? offerOf(Prefab prefab) =>
+        prefab.template ? templateOffer(prefab) : prefabOffer(prefab);
+    _Offer? entity(Entity entity) =>
+        switch (instanceFor(entity, layout, prefabs)) {
+          final item? => _Offer(
+            Dragged(
+              item: item,
+              label: entity.label,
+              picture: EntityArt(entity: entity, padding: 4),
+            ),
+            backed: !EntityArt.isBare(entity),
+            count: counts[entity.id] ?? 0,
+          ),
+          null => null,
+        };
+    List<_Offer> entities(Iterable<Entity> which) {
+      final offers = [for (final one in which) ?entity(one)];
       // Unplaced first.
       return [
         ...offers.where((offer) => offer.count == 0),
@@ -119,8 +146,52 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       ];
     }
 
-    return {
-      'Primitives': [
+    // A pack's templates, prefabs and entities; entities by category, those
+    // alone in theirs together.
+    _Group packGroup(String pack) {
+      final made = [
+        for (final entity in all)
+          if (!own.contains(entity.id) && packOf(entity.id) == pack) entity,
+      ];
+      final sizes = <String, int>{};
+      for (final entity in made) {
+        sizes[entity.category] = (sizes[entity.category] ?? 0) + 1;
+      }
+      final mine = [
+        for (final prefab in prefabs.values)
+          if (packOf(prefab.id) == pack) prefab,
+      ];
+      return _Group(packNames[pack] ?? pack, const [], [
+        _Group('Templates', [
+          for (final prefab in mine)
+            if (prefab.template) ?templateOffer(prefab),
+        ]),
+        _Group('Prefabs', [
+          for (final prefab in mine)
+            if (!prefab.template) ?prefabOffer(prefab),
+        ]),
+        _Group(
+          'Entities',
+          entities(made.where((entity) => sizes[entity.category] == 1)),
+        ),
+        for (final MapEntry(key: category, value: size) in sizes.entries)
+          if (size > 1)
+            _Group(
+              categories[category] ?? category,
+              entities(made.where((entity) => entity.category == category)),
+            ),
+      ]);
+    }
+
+    return [
+      _Group('Primitives', [
+        _Offer(
+          Dragged(
+            item: Component.pane(id: layout.paneIdFor(), w: 6, h: 3),
+            label: 'Pane',
+            picture: const SymbolArt(Icons.dashboard_outlined),
+          ),
+        ),
         for (final component in components)
           _Offer(
             Dragged(
@@ -135,80 +206,94 @@ class _CatalogueState extends ConsumerState<Catalogue> {
               picture: const SymbolArt(Icons.widgets_outlined),
             ),
           ),
-      ],
-      'Layout': [
-        _Offer(
-          Dragged(
-            item: Component.pane(id: layout.paneIdFor(), w: 6, h: 3),
-            label: 'Pane',
-            picture: const SymbolArt(Icons.dashboard_outlined),
-          ),
-        ),
-        if (open == null) ...[
-          _Offer(
-            Dragged.sidebar(
-              label: 'Sidebar',
-              picture: const SymbolArt(Icons.view_sidebar_outlined),
-            ),
-          ),
-          _Offer(
-            Dragged(
-              item: Component.of(
-                folder.id,
-                prefab: folderPrefabId,
-                id: layout.itemIdFor(folder.title),
-              ),
-              folder: folder,
-              label: 'New folder',
-              picture: const SymbolArt(Icons.create_new_folder_outlined),
-            ),
-          ),
-        ],
-      ],
-      // Each pack's: its prefabs, and its entities there is one of.
+      ]),
       for (final pack in {
         for (final prefab in prefabs.values) ?packOf(prefab.id),
         for (final entity in all)
-          if (!own.contains(entity.id) && alone(entity)) ?packOf(entity.id),
+          if (!own.contains(entity.id)) ?packOf(entity.id),
       })
-        '${packNames[pack] ?? pack} prefabs': [
-          ...entities(
-            (entity) =>
-                !own.contains(entity.id) &&
-                alone(entity) &&
-                packOf(entity.id) == pack,
-          ),
-          for (final prefab in prefabs.values)
-            if (packOf(prefab.id) == pack) ?prefabOffer(prefab),
-        ],
-      'User prefabs': [
+        packGroup(pack),
+      _Group('User prefabs', [
+        // A card for each folder, as its template has it.
         for (final pane in config.layout.docked)
           if (pane.hovers)
-            _Offer(
-              Dragged(
-                item: Component.of(
-                  pane.id,
-                  prefab: folderPrefabId,
-                  id: layout.itemIdFor(
-                    pane.title.isEmpty ? 'folder' : pane.title,
-                  ),
+            if (prefabs[(prefabs[pane.template] ??
+                            templateFor(pane.dock!, prefabs))
+                        ?.card]
+                    ?.instance(
+                      pane.id,
+                      id: layout.itemIdFor(
+                        pane.title.isEmpty ? 'folder' : pane.title,
+                      ),
+                    )
+                case final card?)
+              _Offer(
+                Dragged(
+                  item: card,
+                  label: pane.title.isEmpty ? 'Folder' : pane.title,
+                  picture: const SymbolArt(Icons.folder_outlined),
                 ),
-                label: pane.title.isEmpty ? 'Folder' : pane.title,
-                picture: const SymbolArt(Icons.folder_outlined),
               ),
-            ),
         for (final prefab in prefabs.values)
-          if (packOf(prefab.id) == null) ?prefabOffer(prefab),
-        ...entities((entity) => own.contains(entity.id)),
-      ],
-      for (final category in {
-        for (final entity in all)
-          if (!own.contains(entity.id) && !alone(entity)) entity.category,
-      })
-        _categoryLabels[category] ?? category: entities(
-          (entity) => entity.category == category && !own.contains(entity.id),
+          if (packOf(prefab.id) == null) ?offerOf(prefab),
+        ...entities(
+          all.where(
+            (entity) => own.contains(entity.id) || packOf(entity.id) == null,
+          ),
         ),
-    };
+      ]),
+    ];
+  }
+
+  /// [group]'s heading under [path], and while open what is under it.
+  List<Widget> _slivers(
+    _Group group,
+    String query,
+    Drop inbox, {
+    String path = '',
+    int depth = 0,
+  }) {
+    final key = path.isEmpty ? group.title : '$path/${group.title}';
+    // A search shows every match.
+    final open = query.isNotEmpty || !_closed.contains(key);
+    return [
+      SliverToBoxAdapter(
+        child: SectionHeader(
+          group.title,
+          open: open,
+          depth: depth,
+          onTap: query.isEmpty ? () => _toggle(key) : null,
+        ),
+      ),
+      if (open && group.offers.isNotEmpty)
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          sliver: SliverGrid(
+            gridDelegate: pictureTileGrid,
+            delegate: SliverChildListDelegate([
+              for (final offer in group.offers)
+                _OfferTile(
+                  offer,
+                  onOpen: switch (offer.prefab) {
+                    null => null,
+                    final prefab => () => openPrefab(ref, prefab.id),
+                  },
+                  // A sidebar goes to an edge, not a pane.
+                  onTap: () => offer.dragged.sidebar
+                      ? addBarSomewhere(
+                          context,
+                          ref,
+                          template: offer.dragged.template,
+                        )
+                      : placeDragged(context, ref, offer.dragged, inbox),
+                ),
+            ]),
+          ),
+        ),
+      if (open)
+        for (final inner in group.groups)
+          ..._slivers(inner, query, inbox, path: key, depth: depth + 1),
+    ];
   }
 
   @override
@@ -218,12 +303,9 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     final config = ref.watch(configProvider).value;
     if (config == null) return const SizedBox.shrink();
     final layout = ref.watch(editedLayoutProvider) ?? config.layout;
-    final offers = _offers(config).map(
-      (heading, offers) => MapEntry(heading, [
-        for (final offer in offers)
-          if (offer.dragged.label.toLowerCase().contains(query)) offer,
-      ]),
-    )..removeWhere((_, offers) => offers.isEmpty);
+    final groups = [
+      for (final group in _groups(config)) ?group.matching(query),
+    ];
     final inbox = Drop(layout.inbox);
     return DragTarget<Dragged>(
       onWillAcceptWithDetails: (details) => details.data.placed,
@@ -249,43 +331,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                   ),
                 ),
               ),
-              for (final MapEntry(key: heading, value: offers)
-                  in offers.entries) ...[
-                SliverToBoxAdapter(
-                  child: SectionHeader(
-                    heading,
-                    // A search shows every match.
-                    open: query.isNotEmpty || !_closed.contains(heading),
-                    onTap: query.isEmpty ? () => _toggle(heading) : null,
-                  ),
-                ),
-                if (query.isNotEmpty || !_closed.contains(heading))
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    sliver: SliverGrid(
-                      gridDelegate: pictureTileGrid,
-                      delegate: SliverChildListDelegate([
-                        for (final offer in offers)
-                          _OfferTile(
-                            offer,
-                            onOpen: switch (offer.prefab) {
-                              null => null,
-                              final prefab => () => openPrefab(ref, prefab.id),
-                            },
-                            // A sidebar goes to an edge, not a pane.
-                            onTap: () => offer.dragged.sidebar
-                                ? addBarSomewhere(context, ref)
-                                : placeDragged(
-                                    context,
-                                    ref,
-                                    offer.dragged,
-                                    inbox,
-                                  ),
-                          ),
-                      ]),
-                    ),
-                  ),
-              ],
+              for (final group in groups) ..._slivers(group, query, inbox),
               const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
             ],
           ),
@@ -307,17 +353,42 @@ class _CatalogueState extends ConsumerState<Catalogue> {
   }
 }
 
+/// A heading: what is under it, then the headings under it.
+class _Group {
+  const _Group(this.title, [this.offers = const [], this.groups = const []]);
+
+  final String title;
+  final List<_Offer> offers;
+  final List<_Group> groups;
+
+  /// What matches [query], without headings left empty; null if nothing.
+  _Group? matching(String query) {
+    final offers = [
+      for (final offer in this.offers)
+        if (offer.dragged.label.toLowerCase().contains(query)) offer,
+    ];
+    final groups = [for (final group in this.groups) ?group.matching(query)];
+    return offers.isEmpty && groups.isEmpty
+        ? null
+        : _Group(title, offers, groups);
+  }
+}
+
 class _Offer {
   const _Offer(
     this.dragged, {
     this.backed = false,
     this.count = 0,
     this.prefab,
+    this.tooltip,
   });
+
+  /// Says where it comes from, in place of its name.
+  final String? tooltip;
 
   final Dragged dragged;
 
-  /// The user's prefab it is a bare instance of, which can be opened.
+  /// The prefab it is a bare instance or copy of, which can be opened.
   final Prefab? prefab;
 
   /// Whether the picture gets a card background.
@@ -348,7 +419,8 @@ class _OfferTile extends StatelessWidget {
           1 => 'on TV',
           final count => '×$count',
         },
-        tooltip: offer.count == 0 ? label : '$label (on the TV)',
+        tooltip:
+            offer.tooltip ?? (offer.count == 0 ? label : '$label (on the TV)'),
         onTap: onTap,
         corner: onOpen == null
             ? null

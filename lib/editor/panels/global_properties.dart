@@ -78,7 +78,9 @@ class _RevertLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pack = ref.watch(packNameProvider(startingLayoutId));
+    final pack = ref.watch(
+      packNameProvider(ref.watch(startingLayoutProvider).value?.id ?? ''),
+    );
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton(

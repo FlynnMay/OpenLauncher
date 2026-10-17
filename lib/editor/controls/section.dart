@@ -56,16 +56,51 @@ class _SectionState extends State<Section> {
 }
 
 /// The row heading a collapsible group. Without [onTap] it cannot be closed.
+/// One at a [depth] below another is drawn as a branch of a tree: indented,
+/// its arrow before it.
 class SectionHeader extends StatelessWidget {
-  const SectionHeader(this.title, {super.key, required this.open, this.onTap});
+  const SectionHeader(
+    this.title, {
+    super.key,
+    required this.open,
+    this.onTap,
+    this.depth = 0,
+  });
 
   final String title;
   final bool open;
   final VoidCallback? onTap;
+  final int depth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (depth > 0) {
+      return InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(4.0 + 16 * depth, 6, 12, 6),
+          child: Row(
+            spacing: 4,
+            children: [
+              Icon(
+                open ? Icons.expand_more : Icons.chevron_right,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,

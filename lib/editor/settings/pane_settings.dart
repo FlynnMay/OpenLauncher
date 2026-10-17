@@ -33,7 +33,8 @@ class PaneSettings extends StatelessWidget {
   /// Whether the title is editable.
   final bool named;
 
-  /// Prefabs for the rules section; empty hides it.
+  /// Prefabs for the rules section, and the templates a new dock takes
+  /// from; empty hides the rules.
   final Map<String, Prefab> prefabs;
 
   /// Whether it can be docked; a layer's root cannot.
@@ -81,7 +82,7 @@ class PaneSettings extends StatelessWidget {
         Section(
           'Dock',
           open: panes.single.isDocked,
-          dockFields(panes.single, onChanged),
+          dockFields(panes.single, onChanged, prefabs),
         ),
       if (panes.length == 1 && panes.single.isDocked)
         TriggerSettings(
@@ -109,7 +110,7 @@ class PaneSettings extends StatelessWidget {
       ],
       json: panes.first.options,
       onChanged: (key, value) =>
-          onChanged((pane) => withRule(pane, key, value)),
+          onChanged((pane) => withRule(pane, key, value, prefabs: prefabs)),
     ),
     ...children,
   ]);

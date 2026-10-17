@@ -63,9 +63,7 @@ extension LayoutRepair on Layout {
           }
           return;
         }
-      } else if (item.kind.isEmpty && !item.isInstance ||
-          // A folder card whose folder is gone.
-          item.prefab == folderPrefabId && !item.handed.any(docked.contains)) {
+      } else if (item.kind.isEmpty && !item.isInstance) {
         return;
       }
       // A docked pane starts the count again and takes no cells.
@@ -176,10 +174,11 @@ extension LayoutRepair on Layout {
 
   /// Matches the layout to the entities that exist. Instances of missing
   /// entities are dropped ([known] defaults to [entityIds]). Unplaced
-  /// [entityIds] not in [removed] are appended to the [inbox], with ids from
-  /// [names].
+  /// [entityIds] not in [removed] are appended to the [inbox] as made by
+  /// [instance], given ids from [names]; one it makes nothing of is left out.
   Layout withEntities(
     Iterable<String> entityIds, {
+    required Component? Function(String entityId, String id) instance,
     Map<String, String> names = const {},
     Set<String>? known,
   }) {
@@ -205,7 +204,7 @@ extension LayoutRepair on Layout {
 
     final unplaced = [
       for (final id in entityIds)
-        if (placed.add(id)) Component.of(id, id: autoId(id)),
+        if (placed.add(id)) ?instance(id, autoId(id)),
     ];
     return kept.rebuild(
       (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,

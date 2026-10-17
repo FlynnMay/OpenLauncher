@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+
+import '../support/packs.dart';
 
 Component entity(
   String id, {
@@ -162,7 +165,7 @@ void main() {
     test('a new folder brings its pane with it, docked on the home layer', () {
       final dropped = dropItem(
         flow,
-        Component.of('f', id: 'i', prefab: folderPrefabId),
+        cardOf('f', id: 'i', prefab: folderPrefabId),
         const Drop('p'),
         folder: folderPane('f', title: 'Games'),
       );
@@ -406,7 +409,7 @@ void main() {
         id: 'p',
         children: [
           entity('a'),
-          Component.of('f', id: 'opens', prefab: folderPrefabId),
+          cardOf('f', id: 'opens', prefab: folderPrefabId),
           folderPane('f').copyWith(
             children: [
               entity('b'),
@@ -448,14 +451,126 @@ void main() {
     expect(placedCounts(layout), {'system:app/a': 2});
   });
 
+  group('templates', () {
+    final folder = systemPrefab(folderTemplateId);
+    final sidebar = systemPrefab(sidebarTemplateId);
+
+    test('any pack\'s template is read from its data alone', () {
+      // Another pack's: a drawer down the right, and across the bottom.
+      final drawer = Prefab(
+        id: 'acme:drawer',
+        name: 'Drawer',
+        template: true,
+        root: Component.pane(
+          id: 'root',
+          rules: const {'dock': 'right', 'closed': 40},
+        ),
+        variants: {
+          'down': const PrefabVariant('Down'),
+          'shelf': const PrefabVariant('Shelf', {
+            'root': {
+              'options': {'dock': 'bottom', 'columns': 9},
+            },
+          }),
+        },
+      );
+      final prefabs = {...systemPrefabMap, drawer.id: drawer}
+        ..remove(sidebarTemplateId);
+      expect(makesSidebars(drawer), isTrue);
+      expect(templateFor('top', prefabs), drawer);
+      expect(templateFor('center', prefabs)?.id, folderTemplateId);
+      // The variant that docks there, else on the same side of the axis.
+      expect(variantFor(drawer, 'right'), 'down');
+      expect(variantFor(drawer, 'left'), 'down');
+      expect(variantFor(drawer, 'top'), 'shelf');
+      final made = sidebarFrom(drawer, 'bar', 'top');
+      expect((made.dock, made.columns, made.template), ('top', 9, drawer.id));
+      final layout = homeLayout().withPane(
+        'home/root',
+        (root) => root.copyWith(children: [...root.children, made]),
+      );
+      expect(madeBy(drawer, layout).single.id, 'bar');
+      expect(madeBy(systemPrefab(sidebarTemplateId), layout), isEmpty);
+    });
+
+    test('make plain copies, not instances', () {
+      final made = folderFrom(folder, 'games', title: 'Games');
+      expect(
+        (made.isPane, made.isInstance, made.title),
+        (true, false, 'Games'),
+      );
+      expect(made.style, folder.root.style);
+      expect(made.on, folder.root.on);
+      // It records what it was copied from.
+      expect(made.template, folderTemplateId);
+      expect(Component.fromJson(made.toJson()).template, folderTemplateId);
+      // Down a side it is a column of rows; across, a row.
+      final left = sidebarFrom(sidebar, 'l', 'left');
+      final top = sidebarFrom(sidebar, 't', 'bottom');
+      expect((left.dock, left.columns, left.closed), ('left', 1, 96));
+      expect(left.prefabRules.keys, [cardPrefabId, folderPrefabId]);
+      expect((top.dock, top.columns, top.closed), ('bottom', 8, 0));
+      // With no template there is still a pane, docked and nothing more.
+      expect(folderFrom(null, 'f').toJson(), {
+        'id': 'f',
+        'kind': 'pane',
+        'options': {'mode': 'flow', 'columns': 5, 'dock': 'center'},
+        'children': <Object?>[],
+      });
+    });
+
+    test('give what they made their look, keeping what is in it', () {
+      final restyled = folder.copyWith(
+        root: folder.root.copyWith(
+          style: const {'background': '#ff0000ff'},
+          options: {...folder.root.options, 'opening': 'fade'},
+        ),
+      );
+      final layout = homeLayout().withPane(
+        'home/root',
+        (root) => root.copyWith(
+          children: [
+            ...root.children,
+            folderPane(
+              'games',
+              title: 'Games',
+            ).copyWith(children: [entity('a')]),
+            withDock(folderPane('near'), Component.inline),
+            sidebarPane('left', 'left'),
+          ],
+        ),
+      );
+      expect(madeBy(restyled, layout).map((pane) => pane.id), [
+        'games',
+        'near',
+      ]);
+      final applied = withTemplateApplied(layout, restyled);
+      final games = applied.pane('games')!;
+      expect(games.style, {'background': '#ff0000ff'});
+      expect(dockRule(games, 'opening'), 'fade');
+      expect((games.title, games.children.single.id), ('Games', 'a'));
+      // One opened in place still needs no layer, and stays in place.
+      final near = applied.pane('near')!;
+      expect(near.dock, Component.inline);
+      expect(near.on.keys, isNot(contains(Trigger.reveal)));
+      // A sidebar is not a folder.
+      expect(applied.pane('left')!.toJson(), layout.pane('left')!.toJson());
+    });
+  });
+
   group('sidebars from the catalogue', () {
     test('an edge is free with no sidebar, or with an empty one', () {
-      final layout = withBar(Layout.fromJson(const {}).normalised(), 'top');
+      final template = systemPrefab(sidebarTemplateId);
+      final layout = withBar(
+        Layout.fromJson(const {}).normalised(),
+        'top',
+        template,
+      );
       final top = barOn(layout, 'top')!;
       expect((top.id, top.dock, top.closed), ('top', 'top', 0));
       // Asked for again, it is the one there is.
       expect(withBar(layout, 'top'), same(layout));
-      final full = withBar(layout, 'left').withPane(
+      final full = withBar(layout, 'left', template).withPane(
         'left',
         (pane) => pane.copyWith(
           children: const [
@@ -484,14 +599,16 @@ void main() {
       // Any pane can be docked: it becomes a sidebar there, and undocked it
       // is as it was, back on the cells.
       final plain = Component.pane(id: 'p', columns: 3, w: 4, x: 1, y: 2);
-      final docked = withRule(plain, 'dock', 'top');
+      // What docking adds comes from the templates.
+      final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
+      final docked = withRule(plain, 'dock', 'top', prefabs: prefabs);
       expect(
         (docked.edge, docked.closed, docked.hovers),
         (BarEdge.top, 0, false),
       );
       expect(docked.on, barTriggers());
       expect((docked.columns, docked.w, docked.x), (3, 4, 1));
-      expect(withRule(docked, 'dock', 'left').closed, 0);
+      expect(withRule(docked, 'dock', 'left', prefabs: prefabs).closed, 0);
       final back = withRule(withRule(docked, 'width', 300), 'dock', null);
       expect(back.toJson(), plain.toJson());
       // Only a pane with a strip can be undocked; a folder's cards name it.
@@ -501,9 +618,17 @@ void main() {
 
       // A folder moved into what opens it needs no layer; moved out, it
       // has one again.
-      final inPlace = withRule(folder, 'dock', Component.inline);
+      final inPlace = withRule(
+        folder,
+        'dock',
+        Component.inline,
+        prefabs: prefabs,
+      );
       expect(inPlace.on, isEmpty);
-      expect(withRule(inPlace, 'dock', 'center').on, folderTriggers());
+      expect(
+        withRule(inPlace, 'dock', 'center', prefabs: prefabs).on,
+        folderTriggers(),
+      );
       expect(
         withRule(folder, 'width', Component.fill).dockWidth,
         Component.fill,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
@@ -13,6 +12,7 @@ import 'package:openlauncher/editor/editing/prefab_actions.dart';
 import 'package:openlauncher/editor/editing/prefab_edit.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
+import 'package:openlauncher/editor/editing/templates.dart';
 
 /// Changes what is being edited, the layout or the open prefab, through the
 /// config controller, which updates the screen and sends it to the TV.
@@ -97,13 +97,17 @@ Future<void> placeDragged(
   if (folder != null) {
     final name = await askName(context, folder.title);
     if (name == null || !context.mounted) return;
-    folder = folderPane(layout.paneIdFor(name, 'folder'), title: name);
+    folder = folder
+        .copyWith(id: layout.paneIdFor(name, 'folder'))
+        .withOption('title', name);
     // Point the card at the folder's final id.
     item = item.copyWith(
       id: freeId(slugOf(name), {...layout.itemIds, folder.id}),
       vars: {
-        ...item.vars,
-        Component.sourceVar: Variable(folder.id, type: VarType.entity),
+        for (final MapEntry(key: name, value: variable) in item.vars.entries)
+          name: variable.type == VarType.entity
+              ? Variable(folder.id, type: VarType.entity)
+              : variable,
       },
     );
   }
@@ -114,9 +118,16 @@ Future<void> placeDragged(
   );
 }
 
-/// Adds a sidebar on [edge] if missing and selects it, which holds it open.
-Future<void> addBar(BuildContext context, WidgetRef ref, String edge) async {
-  await changeLayout(context, ref, (layout) => withBar(layout, edge));
+/// Adds a sidebar on [edge] if missing, made from [template] or the first
+/// template that makes sidebars, and selects it, which holds it open.
+Future<void> addBar(
+  BuildContext context,
+  WidgetRef ref,
+  String edge, {
+  Prefab? template,
+}) async {
+  final made = template ?? templateFor(edge, ref.read(prefabsProvider));
+  await changeLayout(context, ref, (layout) => withBar(layout, edge, made));
   if (!context.mounted) return;
   final layout = ref.read(configProvider).value?.layout;
   final selection = ref.read(selectionProvider.notifier);
@@ -129,11 +140,15 @@ Future<void> addBar(BuildContext context, WidgetRef ref, String edge) async {
 }
 
 /// Adds a sidebar on the first free edge.
-Future<void> addBarSomewhere(BuildContext context, WidgetRef ref) async {
+Future<void> addBarSomewhere(
+  BuildContext context,
+  WidgetRef ref, {
+  Prefab? template,
+}) async {
   final layout = ref.read(configProvider).value?.layout;
   if (layout == null) return;
   if (freeEdges(layout).firstOrNull case final edge?) {
-    await addBar(context, ref, edge);
+    await addBar(context, ref, edge, template: template);
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Every edge has a sidebar already.')),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 
@@ -87,15 +88,17 @@ class ExtentBox extends StatelessWidget {
 /// Where a pane is docked and, once it is, its size and how it opens.
 List<Widget> dockFields(
   Component pane,
-  void Function(Component Function(Component pane) how) change,
-) {
+  void Function(Component Function(Component pane) how) change, [
+  Map<String, Prefab> prefabs = const {},
+]) {
   // The dock's defaults.
   final defaults = Component.pane(id: '', rules: {'dock': pane.dock});
   final [dock, ...rest] = dockRules(pane);
   List<Widget> fields(List<ComponentOption> options) => ruleFields(
     options: options,
     json: pane.options,
-    onChanged: (key, value) => change((pane) => withRule(pane, key, value)),
+    onChanged: (key, value) =>
+        change((pane) => withRule(pane, key, value, prefabs: prefabs)),
   );
   return [
     ...fields([dock]),

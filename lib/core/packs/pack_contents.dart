@@ -23,6 +23,7 @@ class PackContents {
     this.generators = const {},
     this.prefabs = const [],
     this.layouts = const {},
+    this.start,
   });
 
   static const folders = [
@@ -44,6 +45,10 @@ class PackContents {
 
   /// Whole screens to start from, by id.
   final Map<String, Layout> layouts;
+
+  /// The layout of its marked `"start": true`, if any: what a new home screen
+  /// is.
+  final String? start;
 
   /// Whether [path] is one of the files read here.
   static bool reads(String path) =>
@@ -72,6 +77,7 @@ class PackContents {
     final generators = <String, Generator>{};
     final prefabs = <Prefab>[];
     final layouts = <String, Layout>{};
+    String? start;
     for (final MapEntry(key: path, value: json) in decoded.entries) {
       final [folder, file] = path.split('/');
       final name = file.substring(0, file.length - '.json'.length);
@@ -104,6 +110,7 @@ class PackContents {
               case {'id': final String id} &&
                   final Map<Object?, Object?> json) {
             layouts[id] = Layout.fromJson(json).normalised();
+            if (json['start'] == true) start ??= id;
           } else {
             throw FormatException('$path needs an "id"');
           }
@@ -145,9 +152,15 @@ class PackContents {
       generators: generators,
       prefabs: prefabs,
       layouts: layouts,
+      start: start,
     );
   }
 }
+
+/// What the installed packs call entity categories, in their order.
+final categoriesProvider = Provider<Map<String, String>>(
+  (ref) => Pack.categoriesOf(ref.watch(packsProvider).value ?? const []),
+);
 
 /// What every installed pack holds; packs that cannot be read are left out.
 final packContentsProvider = FutureProvider<List<PackContents>>((ref) async {
@@ -221,8 +234,8 @@ class _Glue {
   /// bracket or comparison, and before a step, space, pipe or the end.
   static final _root = RegExp(r'(^|[\s(!=<>?:])([A-Za-z][\w-]*)(?=[.\s|\[]|$)');
 
-  /// [json] with its prefabs, entity variables, act entities and template
-  /// roots in full.
+  /// [json] with its prefabs (named as instances, cards, templates or in
+  /// rules), entity variables, act entities and template roots in full.
   Object? _tree(Object? json) => switch (json) {
     final String text => _text(text),
     final List<Object?> list => [for (final item in list) _tree(item)],
@@ -230,7 +243,9 @@ class _Glue {
       for (final MapEntry(:key, :value) in map.entries)
         if (key is String)
           key: switch ((key, value)) {
-            ('prefab', final String prefab) => _ref(prefab),
+            ('prefab' || 'card' || 'template', final String prefab) => _ref(
+              prefab,
+            ),
             ('vars', final Map<Object?, Object?> vars) => {
               for (final MapEntry(key: name, value: variable) in vars.entries)
                 '$name': switch (variable) {
@@ -242,6 +257,10 @@ class _Glue {
                 },
             },
             ('entity', final String entity) => _ref(entity),
+            ('prefabRules', final Map<Object?, Object?> rules) => {
+              for (final MapEntry(:key, :value) in rules.entries)
+                if (key is String) _ref(key): _tree(value),
+            },
             _ => _tree(value),
           },
     },
