@@ -4,7 +4,7 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/resize_handles.dart';
 import 'package:openlauncher/editor/stage/snapping.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// [id]'s placement in [pane], as drawn.
 Placement placementIn(Node pane, String id) =>

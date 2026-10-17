@@ -6,9 +6,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/node_view.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// The open prefab alone on the TV's screen: its root at its default size,
 /// enlarged to fill the screen. A docked one is shown open where it docks.

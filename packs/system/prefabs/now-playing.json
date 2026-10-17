@@ -47,7 +47,12 @@
       "sizing": {
         "w": 2
       },
-      "focus": {}
+      "style": {
+        "padding": 8
+      },
+      "focus": {
+        "scale": 104
+      }
     },
     "children": [
       {

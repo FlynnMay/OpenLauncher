@@ -42,7 +42,8 @@
       },
       "focus": {
         "target": "picture",
-        "bare": "{{source.shape == 'line'}}"
+        "bare": "{{source.shape == 'line'}}",
+        "scale": 108
       }
     },
     "children": [
@@ -94,6 +95,9 @@
             "layout": {
               "mode": "row",
               "gap": 12
+            },
+            "focus": {
+              "scale": 104
             }
           }
         },

@@ -5,13 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/node_view.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/tile_actions.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// Docked panes to keep open and shown even when empty. Used by the editor.
 class DockHold extends InheritedWidget {
@@ -22,6 +21,25 @@ class DockHold extends InheritedWidget {
   @override
   bool updateShouldNotify(DockHold oldWidget) =>
       !ids.containsAll(oldWidget.ids) || !oldWidget.ids.containsAll(ids);
+}
+
+/// The folder docked in place that [node] opens, while it is open, unless
+/// its own chain moved it to a layer. [node] is then drawn as that folder.
+Node? openedInPlace(WidgetRef ref, Node node) {
+  final handed = node.handed.firstOrNull;
+  if (!node.isPane || !node.mode.inLine || handed == null) return null;
+  return switch (ref.watch(layoutViewProvider).value?.pane(handed)) {
+    final folder?
+        when folder.dock == DockModule.inline &&
+            layerOf(ref.watch(layersProvider), folder.id) == null &&
+            ref.watch(
+              runtimeVarsProvider.select(
+                (all) => all[folder.id]?[openVar] == true,
+              ),
+            ) =>
+      folder,
+    _ => null,
+  };
 }
 
 /// A docked pane, on an edge, in the middle or in what opens it. It is open
@@ -173,10 +191,10 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   Widget _contentsOf(Node shown, Alignment from, {bool shrink = false}) {
     final pane = _pane;
     final popup = pane.closeOnPress ? pane.id : null;
-    final box = PaneBox(
+    final box = NodeView(
+      component: shown,
       screen: true,
-      pane: shown,
-      shrink: shrink,
+      tall: shrink,
       placeholder: 'Nothing here yet. Add things from the web page.',
       tile: (component) => _appearing(
         NodeView(component: component, focus: _first, popup: popup),

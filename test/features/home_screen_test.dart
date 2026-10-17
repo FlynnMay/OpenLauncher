@@ -11,14 +11,17 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/node_view.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/pane_scrollbar.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
 
 import '../support/packs.dart';
+
+/// Panes drawn as nodes, nearest first.
+final _panel = find.byWidgetPredicate(
+  (widget) => widget is NodeView && widget.component.isPane,
+);
 
 void main() {
   testWidgets('shows app entities and launches with the D-pad', (tester) async {
@@ -213,6 +216,58 @@ void main() {
       await tester.pumpAndSettle();
       expect(platform.launched, ['pkg.a']);
       expect(find.text('Start it'), findsNothing);
+    });
+
+    testWidgets('children of a node that draws are placed over it', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        LauncherConfig(
+          layout: Layout(
+            inbox: 'main',
+            layers: [
+              home([
+                Node.pane(
+                  id: 'main',
+                  children: [
+                    drawn(
+                      'cover',
+                      pictureModule.name,
+                      values: const {'alt': 'Cover'},
+                      w: 2,
+                      h: 2,
+                    ).copyWith(
+                      children: const [
+                        Node(
+                          id: 'tag',
+                          transform: NodeTransform(minX: 0.5, minY: 0.5),
+                          modules: {
+                            'text': {'text': 'NEW'},
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ]),
+            ],
+          ).normalised(),
+        ),
+      );
+      final cover = tester.getRect(
+        find.byWidgetPredicate(
+          (widget) => widget is NodeView && widget.component.id == 'cover',
+        ),
+      );
+      final tag = tester.getRect(
+        find.byWidgetPredicate(
+          (widget) => widget is NodeView && widget.component.id == 'tag',
+        ),
+      );
+      expect(find.text('Cover'), findsOneWidget);
+      expect(tag.topLeft, cover.center);
+      expect(tag.bottomRight, cover.bottomRight);
     });
 
     testWidgets('a folder opens a popup that closes when an entity is opened', (
@@ -445,9 +500,7 @@ void main() {
             .first,
       );
       Rect box(String name) => tester.getRect(
-        find
-            .ancestor(of: find.text(name).first, matching: find.byType(PaneBox))
-            .first,
+        find.ancestor(of: find.text(name).first, matching: _panel).first,
       );
       // Beta's pane has a background and an outline; Alpha's has neither.
       // Each entity is the same size, the same distance in from its pane.
@@ -505,7 +558,7 @@ void main() {
         ),
       );
       Rect of(Finder finder) => tester.getRect(finder.first);
-      final pane = of(find.byType(PaneBox));
+      final pane = of(_panel);
       Rect tile(String name) => of(
         find.ancestor(
           of: find.text(name),
@@ -571,7 +624,7 @@ void main() {
       Iterable<Axis> scrolls() => tester
           .widgetList<SingleChildScrollView>(
             find.descendant(
-              of: find.byType(PaneBox),
+              of: _panel,
               matching: find.byType(SingleChildScrollView),
             ),
           )
@@ -589,7 +642,7 @@ void main() {
       await pump(const {'across': true});
       await tester.pumpAndSettle();
       expect(scrolls(), [Axis.horizontal]);
-      final pane = of(find.byType(PaneBox));
+      final pane = of(_panel);
       expect(tile('Alpha').size, cell);
       expect(tile('Gamma').top, tile('Alpha').top);
       expect(tile('Gamma').left, greaterThan(pane.right - 20));
@@ -863,7 +916,7 @@ void main() {
         ),
       );
       final line = find.byWidgetPredicate(
-        (widget) => widget is LinePane && widget.pane.id == 'line',
+        (widget) => widget is NodeView && widget.component.id == 'line',
       );
       Finder scroll() => find.descendant(
         of: line,
@@ -884,7 +937,7 @@ void main() {
       // At the end of the row, with only its focused growth past the box.
       expect(
         tester.getRect(find.text('four')).right,
-        lessThan(box.right + PaneBox.overhang),
+        lessThan(box.right + overhang),
       );
       expect(tester.getRect(find.text('one')).right, lessThan(box.left));
     });

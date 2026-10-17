@@ -5,6 +5,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/features/modules/focus_drawer.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 
 /// [act] with the templates in its arguments read in [scope].
@@ -71,6 +72,18 @@ class TileActions {
   final String? popup;
 
   bool has(Trigger trigger) => triggers[trigger]?.isNotEmpty ?? false;
+
+  /// What the remote does to a focusable node: press, hold, and focus or
+  /// blur, each only if it has a chain.
+  RemoteCalls get remote => (
+    press: () => fire(Trigger.press),
+    hold: has(Trigger.hold)
+        ? (bool held) => fire(Trigger.hold, held: held)
+        : null,
+    focus: has(Trigger.focus) || has(Trigger.blur)
+        ? (bool focused) => fire(focused ? Trigger.focus : Trigger.blur)
+        : null,
+  );
 
   Future<void> fire(Trigger trigger, {bool held = false}) async {
     final acts = triggers[trigger] ?? const [];

@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/features/home/styled_box.dart';
+import 'package:openlauncher/features/modules/style_drawer.dart';
 
 /// Where a scroll bar's track and thumb go in a box of [size]. Null when
 /// there is nothing to scroll. [progress] fills from the start instead of

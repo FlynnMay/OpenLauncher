@@ -9,8 +9,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/features/components/marquee.dart';
-import 'package:openlauncher/features/components/primitives.dart';
-import 'package:openlauncher/features/home/styled_box.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
@@ -430,20 +429,18 @@ void main() {
           home: Column(
             children: [
               Expanded(
-                child: TextComponent(
-                  options: {
+                child: TextVisual(
+                  values: {
                     'text': '{{motto}} there',
                     'style': {'color': '#ff0000'},
                   },
                 ),
               ),
               Expanded(
-                child: PictureComponent(options: {'source': '{{motto.no}}'}),
+                child: PictureVisual(values: {'source': '{{motto.no}}'}),
               ),
               Expanded(
-                child: MeterComponent(
-                  options: {'value': '{{level}}', 'max': 60},
-                ),
+                child: MeterVisual(values: {'value': '{{level}}', 'max': 60}),
               ),
             ],
           ),
@@ -455,7 +452,7 @@ void main() {
     expect(text.style?.color, const Color(0xFFFF0000));
     // No picture to show: the mark of an empty one.
     expect(find.byIcon(Icons.image_outlined), findsOneWidget);
-    expect(find.byType(MeterComponent), findsOneWidget);
+    expect(find.byType(MeterVisual), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -470,8 +467,8 @@ void main() {
             child: SizedBox(
               width: 200,
               height: 60,
-              child: TextComponent(
-                options: {
+              child: TextVisual(
+                values: {
                   'style': {'fontSize': 20},
                   ...options,
                 },
@@ -529,10 +526,10 @@ void main() {
               const {'color': '#ffd700', 'fontSize': 20, 'padding': 40},
               const Column(
                 children: [
-                  Expanded(child: TextComponent(options: {'text': 'Plain'})),
+                  Expanded(child: TextVisual(values: {'text': 'Plain'})),
                   Expanded(
-                    child: TextComponent(
-                      options: {
+                    child: TextVisual(
+                      values: {
                         'text': 'Own',
                         'style': {'color': '#ff0000', 'fontWeight': 'bold'},
                       },
@@ -542,8 +539,8 @@ void main() {
                   Expanded(
                     child: TemplateScope(
                       values: {'tint': '#00ff00', 'big': 30},
-                      child: TextComponent(
-                        options: {
+                      child: TextVisual(
+                        values: {
                           'text': 'Read',
                           'style': {'color': '{{tint}}', 'fontSize': '{{big}}'},
                         },

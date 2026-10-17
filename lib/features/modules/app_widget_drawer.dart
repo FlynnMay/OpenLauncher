@@ -30,11 +30,11 @@ final widgetCleanupProvider = Provider<void>((ref) {
 /// A widget from an installed app, drawn by Android inside the layout. It is
 /// shown but cannot be focused with the remote.
 ///
-/// Options: `provider`, the id of the `WidgetProvider` to show.
-class AppWidgetView extends ConsumerWidget {
-  const AppWidgetView({super.key, required this.item});
+/// Values: `provider`, the id of the `WidgetProvider` to show.
+class AppWidgetVisual extends ConsumerWidget {
+  const AppWidgetVisual({super.key, required this.node});
 
-  final Node item;
+  final Node node;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -45,10 +45,10 @@ class AppWidgetView extends ConsumerWidget {
         style: const TextStyle(color: Colors.white70, fontSize: 13),
       ),
     );
-    final provider = item.values(appWidgetModule.name)?['provider'];
+    final provider = node.values(appWidgetModule.name)?['provider'];
     if (provider is! String) return note('Choose a widget on the web page');
     final id = ref.watch(
-      _widgetIdProvider((itemId: item.id, provider: provider)),
+      _widgetIdProvider((itemId: node.id, provider: provider)),
     );
     return switch (id) {
       AsyncData(:final value?)

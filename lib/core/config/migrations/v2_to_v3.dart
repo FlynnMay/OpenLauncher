@@ -700,8 +700,17 @@ Json _node(
     if (framed(node) case final part?) {
       modules['focus'] = {
         'target': part['id'],
-        'bare': ?_json(part['options'])['bare'],
+        'bare': _json(part['options'])['bare'] ?? false,
       };
+    } else {
+      // How a whole tile showed its focus: grown less, and a row or column
+      // padded inside its frame.
+      final focus = modules['focus']!;
+      if (kind != 'pane') focus['scale'] = 103;
+      if (layoutMode == 'row') focus['scale'] = 104;
+      if (inLine && ownStyle['padding'] == null) {
+        modules['style'] = {...ownStyle, 'padding': 8};
+      }
     }
   }
 

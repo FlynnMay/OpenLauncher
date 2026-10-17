@@ -12,9 +12,8 @@ import 'package:openlauncher/editor/stage/stage_geometry.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/node_view.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// The TV's screen, or the open prefab on it. While [editing], components are
 /// selectable and draggable and the screen is a drop target; otherwise it is
@@ -94,7 +93,7 @@ class _StageState extends ConsumerState<Stage> {
           // Outlined so a pane with no background can be seen and grabbed.
           _Selectable(
             id: item.id,
-            shape: PaneBox.shapeOf(item),
+            shape: shapeOf(item),
             resting: Colors.white24,
             child: tile,
           ),

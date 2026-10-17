@@ -723,6 +723,59 @@ void main() {
       expect(cells['modules'].containsKey('focus'), isFalse);
     });
 
+    test('how a pressed node showed its focus is written out', () {
+      final press = {
+        'press': [
+          {'do': 'open', 'entity': 'system:app/a'},
+        ],
+      };
+      final save = converted(
+        home({
+          'id': 'root',
+          'kind': 'pane',
+          'children': [
+            {'id': 'leaf', 'kind': 'text', 'on': press},
+            {
+              'id': 'row',
+              'kind': 'pane',
+              'options': {'mode': 'row'},
+              'on': press,
+            },
+            {
+              'id': 'column',
+              'kind': 'pane',
+              'options': {'mode': 'column'},
+              'style': {'padding': 4},
+              'on': press,
+            },
+            {
+              'id': 'framed',
+              'kind': 'pane',
+              'options': {'mode': 'column'},
+              'on': press,
+              'children': [
+                {
+                  'id': 'art',
+                  'kind': 'picture',
+                  'options': {'frame': true},
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      final root =
+          ((save['layout']! as Json)['layers'] as List).single['root'] as Json;
+      final [leaf, row, column, framed] = children(root);
+      expect(leaf['modules']['focus'], {'scale': 103});
+      expect(leaf['modules'].containsKey('style'), isFalse);
+      expect(row['modules']['focus'], {'scale': 104});
+      expect(row['modules']['style'], {'padding': 8});
+      expect(column['modules']['focus'], isEmpty);
+      expect(column['modules']['style'], {'padding': 4});
+      expect(framed['modules']['focus'], {'target': 'art', 'bare': false});
+    });
+
     test('a prefab\'s variants are overrides of its own nodes', () {
       final save = converted(home({'id': 'root', 'kind': 'pane'}), [
         {
