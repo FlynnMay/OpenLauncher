@@ -10,6 +10,7 @@ import 'package:openlauncher/core/modules/prefab_rules_module.dart';
 import 'package:openlauncher/core/modules/preview_module.dart';
 import 'package:openlauncher/core/modules/scroll_module.dart';
 import 'package:openlauncher/core/modules/sizing_module.dart';
+import 'package:openlauncher/core/modules/slot_module.dart';
 import 'package:openlauncher/core/modules/style_module.dart';
 import 'package:openlauncher/core/modules/text_module.dart';
 import 'package:openlauncher/core/modules/triggers_module.dart';
@@ -26,6 +27,7 @@ const moduleTypes = <ModuleType>[
   previewModule,
   styleModule,
   layoutModule,
+  slotModule,
   sizingModule,
   scrollModule,
   dockModule,

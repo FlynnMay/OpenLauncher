@@ -78,7 +78,7 @@ void main() {
                             // [on] over what a new sidebar comes with.
                             sidebarPane('left', 'left')
                                 .triggered({...barTriggers(), ...on})
-                                .copyWith(
+                                .holds(
                                   children: [cardOf('system:app/b', id: 'b')],
                                 ),
                           ],
@@ -170,9 +170,10 @@ void main() {
                         id: 'main',
                         children: [
                           cardOf('games', id: 'f', prefab: folderPrefabId),
-                          folderPane('games', title: 'Games').copyWith(
-                            children: [cardOf('system:app/b', id: 'b')],
-                          ),
+                          folderPane(
+                            'games',
+                            title: 'Games',
+                          ).holds(children: [cardOf('system:app/b', id: 'b')]),
                         ],
                       ),
                     ),

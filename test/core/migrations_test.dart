@@ -4,7 +4,11 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
+
+import '../support/packs.dart';
 
 void main() {
   test('the release named in the code is the one in pubspec.yaml', () {
@@ -359,7 +363,7 @@ void main() {
     ]);
   });
 
-  test('2 to 3: folders and sidebars record the System pack\'s template', () {
+  test('2 to 3: folders and sidebars are the System pack\'s instances', () {
     final next = migrate({
       'v': 2,
       'layout': {
@@ -390,7 +394,7 @@ void main() {
     });
     final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
     expect(
-      [for (final Map pane in root['children']) pane['template']],
+      [for (final Map pane in root['children']) pane['prefab']],
       [null, 'system:folder', 'system:sidebar'],
     );
   });
@@ -429,13 +433,16 @@ void main() {
         },
       ],
     });
-    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    // Drawn, the folder closes on a press as its prefab does; the one
+    // opened in place and the sidebar do not.
+    final layout = Layout.fromJson(next['layout']! as Map);
+    final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
     expect(
       [
-        for (final Map pane in root['children'])
-          pane['modules']['dock']?['closeOnPress'],
+        for (final pane in layout.home.root.children)
+          resolved(pane, prefabs).closeOnPress,
       ],
-      [null, true, null, null],
+      [false, true, false, false],
     );
     final menu = (next['prefabs']! as List).single as Map;
     expect(menu['root']['modules']['dock']['closeOnPress'], isTrue);
@@ -774,6 +781,111 @@ void main() {
       expect(column['modules']['focus'], isEmpty);
       expect(column['modules']['style'], {'padding': 4});
       expect(framed['modules']['focus'], {'target': 'art', 'bare': false});
+    });
+
+    test('a copy of a template is an instance holding what was in it', () {
+      final card = {
+        'id': 'tv',
+        'prefab': 'system:app-card',
+        'modules': {
+          'variables': {
+            'source': {'value': 'system:input/tv', 'type': 'entity'},
+          },
+        },
+      };
+      final save = <String, Object?>{
+        'layout': home({
+          'id': 'root',
+          'children': [
+            {
+              'id': 'right',
+              'template': 'system:sidebar',
+              'modules': {
+                'layout': {
+                  'mode': 'grid',
+                  'columns': 1,
+                  'rowHeight': 16,
+                  'itemW': 1,
+                  'itemH': 1,
+                },
+                'prefabRules': {
+                  'system:app-card': {'variant': 'row'},
+                  'system:folder-card': {'variant': 'row'},
+                },
+                'dock': {'position': 'right', 'closed': 64},
+                'scroll': {'down': true},
+              },
+              'children': [card],
+            },
+            // A user's own template is linked too, and becomes a prefab.
+            {
+              'id': 'shelf',
+              'name': 'Games',
+              'template': 'shelf',
+              'modules': {
+                'layout': {'mode': 'flow'},
+                'dock': {'position': 'bottom'},
+              },
+            },
+            // One whose template is gone stays a plain pane.
+            {'id': 'lost', 'template': 'acme:gone'},
+          ],
+        }),
+        'prefabs': [
+          {
+            'id': 'shelf',
+            'name': 'Shelf',
+            'template': true,
+            'root': {
+              'id': 'root',
+              'modules': {
+                'layout': {'mode': 'flow'},
+                'dock': {'position': 'bottom'},
+              },
+            },
+          },
+        ],
+      };
+      templatesLinked(save, Device.unknown);
+      final root =
+          ((save['layout']! as Json)['layers'] as List).single['root'] as Json;
+      final [right, shelf, lost] = children(root);
+      // Nearest the variant down a side; only what differs is its own, and
+      // where it docks always is. The chains it was made without stay unset.
+      expect(right, {
+        'id': 'right',
+        'prefab': 'system:sidebar',
+        'variant': 'side',
+        'modules': {
+          'layout': {'mode': 'grid', 'rowHeight': 16},
+          'dock': {'position': 'right', 'closed': 64},
+          'triggers': {
+            'focus': null,
+            'blur': null,
+            'reveal': null,
+            'hide': null,
+          },
+          'variables': {
+            'content': [card],
+          },
+        },
+      });
+      expect(shelf, {
+        'id': 'shelf',
+        'name': 'Games',
+        'prefab': 'shelf',
+        'modules': {
+          'dock': {'position': 'bottom'},
+          'variables': {'content': <Object?>[]},
+        },
+      });
+      expect(lost, {'id': 'lost'});
+      final dynamic prefab = (save['prefabs']! as List).single;
+      expect((prefab as Map).containsKey('template'), isFalse);
+      expect(prefab['root']['modules']['slot'], {'variable': 'content'});
+      expect(prefab['root']['modules']['variables'], {
+        'content': {'value': null, 'type': 'nodes'},
+      });
     });
 
     test('a prefab\'s variants are overrides of its own nodes', () {

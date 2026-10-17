@@ -13,7 +13,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/editor/editing/templates.dart';
+import 'package:openlauncher/editor/editing/docked_prefabs.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
@@ -69,8 +69,8 @@ Layout homeLayout([List<String> order = const []]) {
 // What the System pack names, as tests write it.
 const cardPrefabId = 'system:app-card';
 const folderPrefabId = 'system:folder-card';
-const folderTemplateId = 'system:folder';
-const sidebarTemplateId = 'system:sidebar';
+const folderId = 'system:folder';
+const sidebarId = 'system:sidebar';
 const appCategory = 'app';
 const inputCategory = 'input';
 const launcherCategory = 'launcher';
@@ -144,20 +144,41 @@ Node drawn(
 /// [cardOf] as `withEntities` places an entity.
 Node? placedCard(String entityId, String id) => cardOf(entityId, id: id);
 
-/// A new folder, as the editor makes it from the System pack's template.
-Node folderPane(String id, {String title = ''}) =>
-    paneFrom(systemPrefab(folderTemplateId), id).copyWith(name: title);
+/// [instance] holding [nodes] in its slot [slot].
+Node holding(Node instance, List<Node> nodes, {String slot = 'content'}) =>
+    instance.copyWith(
+      children: [
+        for (final holder in instance.children)
+          holder.slotVariable == slot
+              ? holder.copyWith(children: nodes)
+              : holder,
+      ],
+    );
 
-/// A new sidebar on [edge], as the editor makes it from the System pack's
-/// template.
-Node sidebarPane(String id, String edge) =>
-    paneFrom(systemPrefab(sidebarTemplateId), id, dock: edge);
+/// A new folder holding [children], as the editor makes it from the System
+/// pack's prefab.
+Node folderPane(
+  String id, {
+  String title = '',
+  List<Node> children = const [],
+}) => holding(
+  dockedInstance(systemPrefab(folderId), id),
+  children,
+).copyWith(name: title);
 
-/// The chains of a sidebar made from the System pack's template.
-Triggers barTriggers() => systemPrefab(sidebarTemplateId).root.on;
+/// A new sidebar on [edge] holding [children], as the editor makes it from
+/// the System pack's prefab.
+Node sidebarPane(String id, String edge, {List<Node> children = const []}) =>
+    holding(dockedInstance(systemPrefab(sidebarId), id, dock: edge), children);
 
-/// The chains of a folder made from the System pack's template.
-Triggers folderTriggers() => systemPrefab(folderTemplateId).root.on;
+/// [instance] as the launcher draws it: a plain pane.
+Node drawnPane(Node instance) => resolved(instance, systemPrefabMap);
+
+/// The chains of the System pack's sidebar.
+Triggers barTriggers() => systemPrefab(sidebarId).root.on;
+
+/// The chains of the System pack's folder.
+Triggers folderTriggers() => systemPrefab(folderId).root.on;
 
 /// A new config, as the store gives it: the starting layout, not the user's.
 LauncherConfig get startingConfig =>
@@ -268,4 +289,9 @@ class BundledPacks extends CachingAssetBundle {
     if (zips[id] case final zip?) return ByteData.sublistView(zip);
     throw FlutterError('No asset $key');
   }
+}
+
+extension Holds on Node {
+  /// This instance holding [children] in its `content` slot.
+  Node holds({required List<Node> children}) => holding(this, children);
 }

@@ -170,8 +170,11 @@ void main() {
     await drag(screen.centerLeft + const Offset(10, 0));
     // Selected, so it is held open and its settings show.
     expect(ref.read(selectionProvider), {'left'});
-    final left = layout().pane('left')!;
-    expect((left.dock, left.hiddenWhenClosed), ('left', false));
+    // An instance of the System pack's sidebar.
+    final left = layout().all.singleWhere((node) => node.id == 'left');
+    expect(left.prefab, sidebarId);
+    final drawn = drawnPane(left);
+    expect((drawn.dock, drawn.hiddenWhenClosed), ('left', false));
 
     // It is an object like any other: let go of, the launcher's settings
     // show, which have no section for sidebars; picked out of the list, its
@@ -182,7 +185,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), isEmpty);
     expect(find.text('Sidebars'), findsNothing);
-    await tester.tap(inTree('Left pane'));
+    await tester.tap(inTree('Sidebar · Left'));
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), {'left'});
     expect(find.text('Dock'), findsOneWidget);
@@ -256,7 +259,6 @@ void main() {
     const headings = [
       'Primitives',
       'System',
-      'Templates',
       'Prefabs',
       'Entities',
       'Apps',
@@ -282,9 +284,8 @@ void main() {
     // A button is the System pack's prefab, not a primitive.
     expect(over('Button'), 'Prefabs');
     expect(over('Pane'), 'Primitives');
-    expect(over('Sidebar'), 'Templates');
-    expect(over('Folder'), 'Templates');
-    expect(find.byTooltip('Made from the Folder template'), findsOneWidget);
+    expect(over('Sidebar'), 'Prefabs');
+    expect(over('Folder'), 'Prefabs');
     // The only one of its category.
     expect(over('Clock'), 'Entities');
     expect(over('Edited clock'), 'Prefabs');

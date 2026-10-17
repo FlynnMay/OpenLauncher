@@ -74,7 +74,10 @@ enum VarType {
 
   /// An entity or component id. The variable stands for it, so
   /// `{{name.label}}` works; this is how an entity is passed to children.
-  entity('Entity');
+  entity('Entity'),
+
+  /// Nodes an instance puts in a slot of its prefab; never read as a value.
+  nodes('Nodes');
 
   const VarType(this.label);
 

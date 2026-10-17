@@ -308,7 +308,7 @@ void main() {
                 _item('games', ref: 'system:app/x'),
                 pane('in-rail', children: [_item('b')]),
                 // A folder: docked, so off the cells of the pane it is in.
-                folderPane('games', title: 'Games')
+                drawnPane(folderPane('games', title: 'Games'))
                     .withValue(layoutModule.name, 'mode', 'grid')
                     .copyWith(
                       children: [
@@ -380,6 +380,23 @@ void main() {
       expect((free.x, free.y, free.w, free.h), (3.6, 0.3, 1.5, 0.1));
       // Kept inside the pane, in whole cells.
       expect((grid.x, grid.y, grid.w, grid.h), (2, 0, 2, 1));
+    });
+
+    test('repair leaves what an instance does not set to its prefab', () {
+      final bar = sidebarPane(
+        'right',
+        'right',
+        children: [_item('a')],
+      ).withValue(layoutModule.name, 'mode', 'grid');
+      final layout = Layout(
+        inbox: 'main',
+        layers: [
+          _home(Node.pane(id: 'root', children: [bar])),
+        ],
+      ).normalised();
+      final repaired = layout.all.singleWhere((node) => node.id == 'right');
+      expect(repaired.values(layoutModule.name), {'mode': 'grid'});
+      expect(drawnPane(repaired).columns, 1);
     });
 
     test('rejects what is not a layout', () {
@@ -511,14 +528,20 @@ void main() {
                   folderPane(
                     'games',
                     title: 'Games',
-                  ).copyWith(children: [_item('system:app/b')]),
+                    children: [_item('system:app/b')],
+                  ),
                 ],
               ),
             ),
           ],
         ),
       );
-      final view = layoutWith(config.layout, entities, systemPrefabMap);
+      // As the launcher draws it, with what docks resolved.
+      final view = layoutWith(
+        withDockedInstances(config.layout, systemPrefabMap),
+        entities,
+        systemPrefabMap,
+      );
       final [folder, clock, pane, games] = view.home.root.children;
 
       // Handed a folder, not an entity.
@@ -569,8 +592,8 @@ void main() {
 
   group('sidebars and what panes decide', () {
     test('a sidebar is a pane docked to an edge, with its usual size', () {
-      final left = sidebarPane('left', 'left');
-      final top = sidebarPane('top', 'top');
+      final left = drawnPane(sidebarPane('left', 'left'));
+      final top = drawnPane(sidebarPane('top', 'top'));
       expect((left.isDocked, left.hiddenWhenClosed), (true, false));
       expect(
         (left.edge, left.openWidth, left.openHeight, left.closed),
@@ -587,7 +610,7 @@ void main() {
       expect(left.on.keys, Trigger.values.skip(2));
       // A folder is hidden while closed; in the middle it is as tall as what
       // is in it.
-      final folder = folderPane('games');
+      final folder = drawnPane(folderPane('games'));
       expect(
         (
           folder.hiddenWhenClosed,
@@ -611,15 +634,15 @@ void main() {
 
     test('sizes are written, read back and kept within bounds', () {
       final layout = holding([
-        sidebarPane('right', 'right')
+        drawnPane(sidebarPane('right', 'right'))
             .withValue(dockModule.name, 'width', 'fill')
             .withValue(dockModule.name, 'height', 300)
             .withValue(dockModule.name, 'closed', 0),
-        sidebarPane('bottom', 'bottom')
+        drawnPane(sidebarPane('bottom', 'bottom'))
             .withValue(dockModule.name, 'height', 5000)
             .withValue(dockModule.name, 'closed', -3),
         // One off an edge has no strip to show.
-        folderPane('games').withValue(dockModule.name, 'closed', 40),
+        drawnPane(folderPane('games')).withValue(dockModule.name, 'closed', 40),
       ]);
       final copy = Layout.fromJson(layout.toJson());
       final right = copy.pane('right')!;
@@ -634,7 +657,7 @@ void main() {
     });
 
     test('how one opens is written and read back, the usual left out', () {
-      final usual = sidebarPane('left', 'left');
+      final usual = drawnPane(sidebarPane('left', 'left'));
       expect(
         (
           usual.valueOf(dockModule, 'opening'),

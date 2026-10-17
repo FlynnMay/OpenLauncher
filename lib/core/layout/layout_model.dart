@@ -55,7 +55,9 @@ class Layout {
   /// The folder [item] opens, if it is an instance handed one.
   String? folderOf(Node item) => !item.isInstance
       ? null
-      : item.handed.where((id) => pane(id)?.isDocked ?? false).firstOrNull;
+      : item.handed
+            .where((id) => docked.any((pane) => pane.id == id))
+            .firstOrNull;
 
   /// The `iconOverrides` key for a folder's picture.
   static String iconKey(String paneId) => 'folder:$paneId';
@@ -109,7 +111,7 @@ class Layout {
         : pane.copyWith(
             children: [
               for (final child in pane.children)
-                child.isPane ? mapped(child) : child,
+                child.isPane || child.isInstance ? mapped(child) : child,
             ],
           );
     return copyWith(

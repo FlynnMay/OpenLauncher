@@ -37,17 +37,13 @@ class Prefab {
     required this.name,
     required this.root,
     this.variants = const {},
-    this.template = false,
     this.card,
   });
 
   final String id, name;
 
-  /// Whether new panes are made as copies of it rather than instances.
-  /// One with a [card] is placed as that card; one without goes to an edge.
-  final bool template;
-
-  /// The prefab whose instance opens a pane made from this template.
+  /// The prefab whose instance opens an instance of this one, for one that
+  /// docks and is opened from a card.
   final String? card;
 
   /// The component. Its size is what a new instance starts with.
@@ -79,6 +75,26 @@ class Prefab {
     ),
     null => null,
   };
+
+  /// The names of the root's nodes variables: the slots an instance fills.
+  Iterable<String> get slots => vars.entries
+      .where((entry) => entry.value.type == VarType.nodes)
+      .map((entry) => entry.key);
+
+  /// A new instance of id [id], at its size, holding nothing in its slots.
+  Node blank(String id) => Node(
+    id: id,
+    prefab: this.id,
+    children: [
+      for (final slot in slots)
+        Node(
+          id: slotHolderId(id, slot),
+          modules: {
+            slotModule.name: {'variable': slot},
+          },
+        ),
+    ],
+  ).sized(root.w, root.h);
 
   /// Every non-pane descendant of the root.
   Iterable<Node> get parts =>
@@ -120,7 +136,6 @@ class Prefab {
     name: name ?? this.name,
     root: root ?? this.root,
     variants: variants ?? this.variants,
-    template: template,
     card: card,
   );
 
@@ -158,7 +173,6 @@ class Prefab {
                     when key is String)
                   key: variant,
           },
-          template: json['template'] == true,
           card: switch (json['card']) {
             final String card => card,
             _ => null,
@@ -185,7 +199,6 @@ class Prefab {
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
-    if (template) 'template': true,
     'card': ?card,
     'root': root.toJson(),
     if (variants.isNotEmpty)
@@ -230,34 +243,49 @@ Node resolved(Node instance, Map<String, Prefab> prefabs, [int depth = 0]) {
     prefab.variants[prefab.variantOf(instance)]?.overrides ?? const {},
     instance.overrides,
   );
+  // What the instance puts in each slot, by its variable; the first part
+  // naming one takes its nodes, after its own children.
+  final slots = {
+    for (final holder in instance.children)
+      ?holder.slotVariable: holder.children,
+  };
+  Node slotted(Node part, List<Node> children) {
+    final name = part.slotVariable;
+    final nodes = name == null ? null : slots.remove(name);
+    if (nodes == null) return part.copyWith(children: children);
+    return part
+        .withValue(slotModule.name, 'holder', slotHolderId(instance.id, name!))
+        .copyWith(children: [...children, ...nodes]);
+  }
+
   // Child ids are prefixed with the instance id to keep them unique.
-  Node part(Node child) => child
-      .overridden(set[child.id])
-      .copyWith(
-        id: '${instance.id}/${child.id}',
-        children: [for (final inner in child.children) part(inner)],
-      );
+  Node part(Node child) => slotted(
+    child.overridden(set[child.id]).copyWith(id: '${instance.id}/${child.id}'),
+    [for (final inner in child.children) part(inner)],
+  );
   // A prefab's root may itself be an instance.
   final base = depth < Node.maxDepth
       ? resolved(prefab.root, prefabs, depth + 1)
       : prefab.root;
   final root = base.overridden(set[prefab.root.id]);
-  return Node(
-    id: instance.id,
-    name: instance.name.isNotEmpty ? instance.name : root.name,
-    transform: instance.transform,
-    modules: {
-      for (final MapEntry(key: name, :value) in root.modules.entries)
-        if (!owned.contains(name)) name: value,
-      for (final MapEntry(key: name, :value) in instance.modules.entries)
-        name: owned.contains(name) || !root.has(name)
-            ? value
-            : (moduleNamed(name)?.merge ?? mergeValues)(
-                root.modules[name]!,
-                value,
-              ),
-    },
-    hidden: instance.hidden,
-    children: [for (final child in root.children) part(child)],
+  return slotted(
+    Node(
+      id: instance.id,
+      name: instance.name.isNotEmpty ? instance.name : root.name,
+      transform: instance.transform,
+      modules: {
+        for (final MapEntry(key: name, :value) in root.modules.entries)
+          if (!owned.contains(name)) name: value,
+        for (final MapEntry(key: name, :value) in instance.modules.entries)
+          name: owned.contains(name) || !root.has(name)
+              ? value
+              : (moduleNamed(name)?.merge ?? mergeValues)(
+                  root.modules[name]!,
+                  value,
+                ),
+      },
+      hidden: instance.hidden,
+    ),
+    [for (final child in root.children) part(child)],
   );
 }

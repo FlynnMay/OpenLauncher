@@ -1,13 +1,15 @@
 {
   "id": "sidebar",
   "name": "Sidebar",
-  "template": true,
   "root": {
     "id": "root",
     "modules": {
       "layout": {
         "mode": "flow",
         "columns": 8
+      },
+      "slot": {
+        "variable": "content"
       },
       "dock": {
         "position": "top",
@@ -48,6 +50,12 @@
             "run": "launcher://layers/close"
           }
         ]
+      },
+      "variables": {
+        "content": {
+          "value": null,
+          "type": "nodes"
+        }
       }
     }
   },

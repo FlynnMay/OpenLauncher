@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/editing/templates.dart';
+import 'package:openlauncher/editor/editing/docked_prefabs.dart';
 
 /// A drop target: [pane], and either before child [before] (in order), at
 /// cell [x], [y] (a grid) or covering [rect] of a pane of [size] (no
@@ -44,15 +44,24 @@ Node placedAt(Node item, Rect rect, Size size) => item.copyWith(
 /// depth counted from that, or from the layer's root (1).
 typedef FoundPane = ({Layer layer, Node pane, Node? dock, int depth});
 
+/// An instance's id finds the node holding its first slot.
 FoundPane? findPane(Layout layout, String id) {
   FoundPane? inside(Layer layer, Node pane, Node? dock, int depth) {
     if (pane.isDocked) (dock, depth) = (pane, 1);
+    if (pane.id == id && pane.isInstance) {
+      return switch (pane.children.firstOrNull) {
+        final holder? => (layer: layer, pane: holder, dock: dock, depth: depth),
+        null => null,
+      };
+    }
     if (pane.id == id) {
       return (layer: layer, pane: pane, dock: dock, depth: depth);
     }
     for (final inner in pane.children) {
-      if (!inner.isPane) continue;
-      if (inside(layer, inner, dock, depth + 1) case final found?) return found;
+      if (!inner.isPane && !inner.isInstance) continue;
+      // What an instance holds is as deep as the instance.
+      final deeper = pane.isInstance ? depth : depth + 1;
+      if (inside(layer, inner, dock, deeper) case final found?) return found;
     }
     return null;
   }
@@ -248,9 +257,12 @@ Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
 Layout removeItem(Layout layout, String id) {
   final gone = [
     for (final item in layout.all)
-      if (item.id == id) ...item.isPane ? item.contents : [item],
+      if (item.id == id) ...[
+        if (!item.isPane) item,
+        if (item.isPane || item.isInstance) ...item.contents,
+      ],
   ];
-  final docked = layout.pane(id)?.isDocked ?? false;
+  final docked = layout.docked.any((pane) => pane.id == id);
   final rest = _rebuilt(
     layout,
     (_, items) => [
@@ -290,6 +302,12 @@ List<Found> findItems(Layout layout, Set<String> ids) {
     }
     for (final item in pane.children) {
       if (item.isPane) under(layer, item, inside);
+      // What an instance holds is found in the node holding its slot.
+      if (item.isInstance) {
+        for (final holder in item.children) {
+          under(layer, holder, item.isDocked ? item : inside);
+        }
+      }
     }
   }
 
@@ -520,8 +538,8 @@ const barEdges = ['left', 'right', 'top', 'bottom'];
 Node? barOn(Layout layout, String edge) =>
     layout.docked.where((pane) => pane.dock == edge).firstOrNull;
 
-/// Adds a pane made from [template] docked to [edge], if none is.
-Layout withBar(Layout layout, String edge, Prefab template) =>
+/// Adds an instance of [prefab] docked to [edge], if none is.
+Layout withBar(Layout layout, String edge, Prefab prefab) =>
     barOn(layout, edge) != null
     ? layout
     : layout.withPane(
@@ -529,12 +547,7 @@ Layout withBar(Layout layout, String edge, Prefab template) =>
         (root) => root.copyWith(
           children: [
             ...root.children,
-            paneFrom(
-              template,
-              layout.paneIdFor(edge),
-              dock: edge,
-              used: layout.itemIds,
-            ),
+            dockedInstance(prefab, layout.paneIdFor(edge), dock: edge),
           ],
         ),
       );
@@ -542,7 +555,7 @@ Layout withBar(Layout layout, String edge, Prefab template) =>
 /// Edges with no pane docked, or an empty one.
 List<String> freeEdges(Layout layout) => [
   for (final edge in barEdges)
-    if (barOn(layout, edge)?.children.isEmpty ?? true) edge,
+    if (barOn(layout, edge)?.isEmpty ?? true) edge,
 ];
 
 /// The edge of [among] nearest to ([x], [y]), if within [reach].

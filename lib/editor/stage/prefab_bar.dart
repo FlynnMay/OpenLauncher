@@ -178,63 +178,6 @@ class PrefabBar extends ConsumerWidget {
         ],
       ),
     );
-    return !prefab.template
-        ? bar
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [bar, _TemplateNote(prefab)],
-          );
-  }
-}
-
-/// Says that a template is copied, not followed, and offers to give what it
-/// already made its look.
-class _TemplateNote extends ConsumerWidget {
-  const _TemplateNote(this.template);
-
-  final Prefab template;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final layout = ref.watch(configProvider).value?.layout;
-    final count = layout == null ? 0 : madeBy(template, layout).length;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 12, 0),
-      child: Wrap(
-        spacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 8,
-            children: [
-              Icon(
-                Icons.info_outline,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              Flexible(
-                child: Text(
-                  'Template: panes you make from now on start like this. '
-                  'Panes already on your screen keep their own look.',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-            ],
-          ),
-          if (count > 0)
-            TextButton(
-              onPressed: () => applyTemplate(context, ref, template),
-              child: Text(
-                count == 1
-                    ? 'Apply to 1 existing pane'
-                    : 'Apply to $count existing panes',
-              ),
-            ),
-        ],
-      ),
-    );
+    return bar;
   }
 }

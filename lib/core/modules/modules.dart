@@ -14,6 +14,7 @@ export 'prefab_rules_module.dart';
 export 'preview_module.dart';
 export 'scroll_module.dart';
 export 'sizing_module.dart';
+export 'slot_module.dart';
 export 'style_module.dart';
 export 'text_module.dart';
 export 'triggers_module.dart';

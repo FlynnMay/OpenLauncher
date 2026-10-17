@@ -71,6 +71,7 @@ Scope scopeOf(
   );
   final own = {...outer}, inner = {...outer}, public = <String, Object?>{};
   for (final MapEntry(key: name, value: variable) in variables.entries) {
+    if (variable.type == VarType.nodes) continue;
     final raw = runtime.containsKey(name)
         ? runtime[name]
         : variable.result((template) => readTemplate(watch, template, own));

@@ -57,6 +57,36 @@ Layout withDockedInstances(Layout layout, Map<String, Prefab> prefabs) =>
       ],
     );
 
+/// [instance] with the nodes holding its slots taking how their slots lay
+/// out what is in them. For editing; it is not saved.
+Node withSlotLayouts(Node instance, Map<String, Prefab> prefabs) {
+  if (!instance.isInstance || instance.children.isEmpty) return instance;
+  final parts = {
+    for (final part in resolved(instance, prefabs).all) ?part.slotHolder: part,
+  };
+  const lent = [layoutModule, scrollModule, prefabRulesModule];
+  return instance.copyWith(
+    children: [
+      for (final holder in instance.children)
+        switch (parts[holder.id]) {
+          final part? => holder.copyWith(
+            modules: {
+              for (final type in lent) type.name: ?part.values(type.name),
+              slotModule.name: ?holder.values(slotModule.name),
+            },
+          ),
+          null => holder,
+        },
+    ],
+  );
+}
+
+/// [layout] with every instance's slots laid out as their prefabs say.
+Layout withSlotLayoutsIn(Layout layout, Map<String, Prefab> prefabs) =>
+    layout.rebuild(
+      (_, items) => [for (final item in items) withSlotLayouts(item, prefabs)],
+    );
+
 /// The layout as drawn, kept current with the device and config.
 final layoutViewProvider = FutureProvider<Layout>((ref) async {
   final prefabs = ref.watch(prefabsProvider);

@@ -49,8 +49,9 @@ class _StageState extends ConsumerState<Stage> {
         _ => null,
       };
 
+  /// A slot's grid goes by the node holding what is put in it.
   Widget _grid(Node pane, Widget grid) => KeyedSubtree(
-    key: _grids.putIfAbsent(pane.id, GlobalKey.new),
+    key: _grids.putIfAbsent(pane.slotHolder ?? pane.id, GlobalKey.new),
     child: grid,
   );
 
@@ -150,13 +151,15 @@ class _StageState extends ConsumerState<Stage> {
     var pane = layout.home.root;
     String? bar;
     for (final dock in layout.docked) {
-      final grid = _grids[dock.id];
-      if (_box(grid) == null) continue;
+      // What an instance holds goes in its slot.
+      final into = dock.isInstance ? dock.children.firstOrNull : dock;
+      final grid = _grids[into?.id];
+      if (into == null || _box(grid) == null) continue;
       final showing = grid?.currentContext
           ?.getInheritedWidgetOfExactType<FocusBounds>()
           ?.visible();
       if (showing?.contains(pointer) ?? false) {
-        pane = dock;
+        pane = into;
         bar = dock.id;
       }
     }
@@ -363,7 +366,7 @@ class _StageState extends ConsumerState<Stage> {
             _mark(null);
             if (_over != null) setState(() => _over = null);
             if (target?.bar case final bar?) {
-              addBar(context, ref, bar, details.data.template!);
+              addBar(context, ref, bar, details.data.docks!);
             } else if (target?.drop case final drop?) {
               placeDragged(context, ref, details.data, drop);
             }

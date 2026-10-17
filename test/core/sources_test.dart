@@ -204,21 +204,25 @@ void main() {
       expect(pane.vars.keys, ['source']);
     });
 
-    test('has templates for a new folder and a new sidebar', () {
+    test('has a folder and a sidebar that hold what is put in them', () {
       expect(
         [
           for (final prefab in systemPrefabs)
-            if (prefab.template) (prefab.id, prefab.card),
+            if (prefab.slots.isNotEmpty)
+              (prefab.id, prefab.card, prefab.slots.join()),
         ],
-        [('system:folder', 'system:folder-card'), ('system:sidebar', null)],
+        [
+          ('system:folder', 'system:folder-card', 'content'),
+          ('system:sidebar', null, 'content'),
+        ],
       );
-      final sidebar = systemPrefab(sidebarTemplateId);
+      final sidebar = systemPrefab(sidebarId);
       // Prefab rules name prefabs, given in full like any other name.
       expect(sidebar.rootAs('side').prefabRules.keys, [
         'system:app-card',
         'system:folder-card',
       ]);
-      expect(Prefab.fromJson(sidebar.toJson())!.template, isTrue);
+      expect(Prefab.fromJson(sidebar.toJson())!.toJson(), sidebar.toJson());
     });
 
     test('has a picture for every kind of input', () {

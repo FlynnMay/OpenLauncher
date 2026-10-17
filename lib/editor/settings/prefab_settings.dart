@@ -50,17 +50,20 @@ class InstanceSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     final prefab = prefabs[item.prefab];
     final theme = Theme.of(context);
-    // As drawn, and as it would be without its own overrides.
+    // As drawn, and as it would be without its own overrides. Its parts go
+    // by its id; what it holds in its slots is not among them.
+    final own = '${item.id}/';
     final parts = {
       for (final part in resolved(item, prefabs).all.skip(1))
-        if (!part.isPane) part.id.substring(item.id.length + 1): part,
+        if (!part.isPane && part.id.startsWith(own))
+          part.id.substring(own.length): part,
     };
     final base = {
       for (final part in resolved(
         item.copyWith(overrides: const {}),
         prefabs,
       ).all.skip(1))
-        part.id.substring(item.id.length + 1): part,
+        if (part.id.startsWith(own)) part.id.substring(own.length): part,
     };
     return Section('Prefab', [
       Padding(
@@ -225,9 +228,8 @@ class OverrideList extends StatelessWidget {
   }
 }
 
-/// How many instances [prefab] has, in words; what a template is for.
+/// How many instances [prefab] has, in words.
 String _used(WidgetRef ref, Prefab prefab) {
-  if (prefab.template) return 'Template for new panes';
   final config = ref.watch(configProvider).value;
   final count = config == null
       ? 0

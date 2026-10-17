@@ -19,8 +19,9 @@ String paneName(Node pane) {
   };
 }
 
-/// A node's display name: its entity's or folder's for an instance, else its
-/// prefab's; its own name, else what it draws.
+/// A node's display name: for an instance its own, else its entity's or the
+/// folder's it opens, else its prefab's and where it docks; for others their
+/// own name, else what they draw.
 String objectName(
   Node item,
   Layout? layout,
@@ -28,12 +29,18 @@ String objectName(
   Map<String, Prefab> prefabs = const {},
 }) {
   if (item.isInstance) {
+    if (item.name.isNotEmpty && !item.name.contains('{{')) return item.name;
     final handed = item.handed.firstOrNull;
-    return entities.byId(handed)?.label ??
-        switch (layout?.pane(handed ?? '')) {
-          null => prefabs[item.prefab]?.name ?? 'Prefab',
-          final folder => paneName(folder),
-        };
+    final opened = layout?.docked.where((pane) => pane.id == handed);
+    if (entities.byId(handed)?.label case final label?) return label;
+    if (opened?.firstOrNull case final folder?) {
+      return objectName(folder, layout, entities, prefabs: prefabs);
+    }
+    final name = prefabs[item.prefab]?.name ?? 'Prefab';
+    return switch (item.edge) {
+      final edge? => '$name · ${barName(edge.name)}',
+      null => name,
+    };
   }
   if (item.isPane) return paneName(item);
   return item.name.isNotEmpty && !item.name.contains('{{')
@@ -74,7 +81,8 @@ class ObjectTree extends ConsumerWidget {
     final real = ref.watch(configProvider).value?.layout;
     final theme = Theme.of(context);
 
-    List<TreeNode<String>> under(Node pane) => [
+    late List<TreeNode<String>> Function(Node pane) under;
+    List<TreeNode<String>> listed(Node pane) => [
       for (final item in pane.children)
         TreeNode(
           id: item.id,
@@ -107,6 +115,10 @@ class ObjectTree extends ConsumerWidget {
           children: under(item),
         ),
     ];
+    // An instance lists what it holds; a node per slot only with several.
+    under = (pane) => pane.isInstance && pane.children.length == 1
+        ? listed(pane.children.single)
+        : listed(pane);
 
     if (prefab != null) {
       return ListView(

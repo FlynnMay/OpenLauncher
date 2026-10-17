@@ -227,6 +227,85 @@ void main() {
     expect(resolved(loud, all).children.last.style['fontSize'], 40);
   });
 
+  test('an instance puts its own nodes in its prefab\'s slot', () {
+    // A box with a heading, and a slot after it.
+    final boxed = Prefab(
+      id: 'boxed',
+      name: 'Boxed',
+      root: Node(
+        id: 'root',
+        modules: {
+          layoutModule.name: const {'mode': 'column'},
+          variablesModule.name: variablesToJson(const {
+            'content': Variable(null, type: VarType.nodes),
+          }),
+        },
+        children: const [
+          Node(
+            id: 'heading',
+            modules: {
+              'text': {'text': 'Hello'},
+            },
+          ),
+          Node(
+            id: 'body',
+            modules: {
+              'layout': {'mode': 'flow'},
+              'slot': {'variable': 'content'},
+            },
+            children: [
+              Node(
+                id: 'first',
+                modules: {
+                  'text': {'text': 'Always'},
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    final saved = {
+      'id': 'mine',
+      'prefab': 'boxed',
+      'modules': {
+        'variables': {
+          'content': [plain.toJson(), cardOf('system:app/b', id: 'b').toJson()],
+        },
+      },
+    };
+    final instance = Node.fromJson(saved);
+    // Held under the instance while in memory, saved as its variable.
+    expect(instance.children.single.id, 'mine#content');
+    expect(instance.vars, isEmpty);
+    expect(instance.toJson(), saved);
+    expect(instance.all.map((node) => node.id), [
+      'mine',
+      'mine#content',
+      'a',
+      'b',
+    ]);
+    // A layout sees them, and can change them.
+    final layout = Layout(
+      inbox: 'home/root',
+      layers: [
+        Layer(
+          id: Layout.homeId,
+          root: Node.pane(id: 'home/root', children: [instance]),
+        ),
+      ],
+    );
+    expect(layout.items.map((item) => item.id), containsAll(['a', 'b']));
+    final fewer = layout.without({'system:app/b'});
+    expect(fewer.items.map((item) => item.id), isNot(contains('b')));
+    // Drawn after the slot's own children, with their own ids.
+    final drawn = resolved(instance, {...prefabs, 'boxed': boxed});
+    final body = drawn.children.last;
+    expect(body.id, 'mine/body');
+    expect(body.children.map((node) => node.id), ['mine/first', 'a', 'b']);
+    expect(body.slotHolder, 'mine#content');
+  });
+
   test('a card works out how its picture sits from the sort it was handed', () {
     Object? read(String template, Map<String, Object?> source) =>
         Template.parse(template).evaluate((root) => {'source': source}[root]);

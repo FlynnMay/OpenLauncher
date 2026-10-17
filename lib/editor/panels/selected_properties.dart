@@ -132,6 +132,9 @@ class SelectedProperties extends ConsumerWidget {
             own: single.vars,
             onChanged: (vars) => each((item) => item.withVars(vars)),
           ),
+          // Where it docks is its own; shown as its prefab and it say.
+          if (resolved(single, prefabs) case final drawn when drawn.isDocked)
+            Section('Dock', dockFields(drawn, each)),
         ],
         if (single != null && !single.isPane)
           VariablesSettings(

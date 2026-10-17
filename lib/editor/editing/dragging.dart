@@ -12,31 +12,31 @@ class Dragged {
     required this.picture,
     this.opens,
     this.placed = false,
-  }) : template = null;
+  }) : docks = null;
 
-  /// A new pane made from [template]. It can only go to a free screen edge,
-  /// where it docks.
+  /// A new instance of [docks]. It can only go to a free screen edge, where
+  /// it docks.
   const Dragged.docking({
     required this.label,
     required this.picture,
-    required Prefab this.template,
+    required Prefab this.docks,
   }) : item = const Node(id: 'docking'),
        opens = null,
        placed = false;
 
   final Node item;
 
-  /// The new docked pane that [item] opens, if any.
+  /// The new docked instance that [item] opens, if any.
   final Node? opens;
 
   /// Whether [item] is already in the layout.
   final bool placed;
 
-  /// What a new pane going to an edge is made from; [item] is then a
+  /// The prefab of a new instance going to an edge; [item] is then a
   /// placeholder.
-  final Prefab? template;
+  final Prefab? docks;
 
-  bool get docking => template != null;
+  bool get docking => docks != null;
 
   final String label;
   final Widget picture;

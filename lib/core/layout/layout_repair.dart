@@ -106,11 +106,14 @@ extension LayoutRepair on Layout {
         final columns = pane.columns.clamp(1, LayoutModule.maxColumns);
         double? cells(double? value, num most) =>
             within(value, 1, most)?.roundToDouble();
+        // An instance's values are overrides: what it leaves out is its
+        // prefab's, not filled in.
+        final partial = pane.isInstance;
         sound = sound.withModule(
           layoutModule.name,
           _kept(layout, {
-            'mode': pane.mode.name,
-            'columns': columns,
+            if (!partial || layout.containsKey('mode')) 'mode': pane.mode.name,
+            if (!partial || layout.containsKey('columns')) 'columns': columns,
             'spacing': within(pane.spacing, 0, LayoutModule.maxSpacing),
             'rowHeight': within(
               pane.rowHeight,

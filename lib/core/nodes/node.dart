@@ -103,7 +103,6 @@ class Node {
     this.hidden = false,
     this.children = const [],
     this.overrides = const {},
-    this.template,
   });
 
   /// A node that holds others: laid out as [mode] ([PaneMode.free] for no
@@ -223,9 +222,6 @@ class Node {
   /// An instance's differences from its prefab's nodes.
   final Overrides overrides;
 
-  /// The template a pane was copied from, if any.
-  final String? template;
-
   bool get isInstance => prefab != null;
 
   /// The values of [module], if it has it.
@@ -278,7 +274,6 @@ class Node {
       },
       children: children,
       overrides: overrides,
-      template: template,
     );
   }
 
@@ -310,7 +305,6 @@ class Node {
     bool? hidden,
     List<Node>? children,
     Overrides? overrides,
-    String? template,
   }) => Node(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -321,7 +315,6 @@ class Node {
     hidden: hidden ?? this.hidden,
     children: children ?? this.children,
     overrides: overrides ?? this.overrides,
-    template: template ?? this.template,
   );
 
   /// Sets or clears the variant (copyWith cannot clear).
@@ -335,34 +328,96 @@ class Node {
     hidden: hidden,
     children: children,
     overrides: overrides,
-    template: template,
   );
 
-  /// Throws [FormatException] on malformed JSON.
-  factory Node.fromJson(Map<Object?, Object?> json) => Node(
-    id: jsonRequired<String>(json, 'id'),
-    name: jsonOptional<String>(json, 'name') ?? '',
-    prefab: jsonOptional<String>(json, 'prefab'),
-    variant: jsonOptional<String>(json, 'variant'),
-    transform: NodeTransform.fromJson(json['transform']),
-    modules: modulesFromJson(json['modules']),
-    hidden: json['hidden'] == true,
-    children: jsonList(json, 'children', Node.fromJson),
-    overrides: overridesFromJson(json['overrides']),
-    template: jsonOptional<String>(json, 'template'),
-  );
+  /// Throws [FormatException] on malformed JSON. An instance's nodes
+  /// variables become its children: one node per slot, holding its nodes.
+  factory Node.fromJson(Map<Object?, Object?> json) {
+    final id = jsonRequired<String>(json, 'id');
+    final prefab = jsonOptional<String>(json, 'prefab');
+    var modules = modulesFromJson(json['modules']);
+    final holders = <Node>[];
+    if (prefab != null) {
+      final vars = modules[variablesModule.name] ?? const {};
+      for (final MapEntry(key: name, :value) in vars.entries) {
+        final nodes = switch (value) {
+          final List<Object?> list => list,
+          {'value': final List<Object?> list} => list,
+          _ => null,
+        };
+        if (nodes == null ||
+            !nodes.every((node) => node is Map && node['id'] is String)) {
+          continue;
+        }
+        holders.add(
+          Node(
+            id: slotHolderId(id, name),
+            modules: {
+              slotModule.name: {'variable': name},
+            },
+            children: [
+              for (final node in nodes)
+                Node.fromJson(node! as Map<Object?, Object?>),
+            ],
+          ),
+        );
+      }
+      if (holders.isNotEmpty) {
+        final rest = {
+          for (final MapEntry(:key, :value) in vars.entries)
+            if (!holders.any((holder) => holder.slotVariable == key))
+              key: value,
+        };
+        modules = {
+          for (final MapEntry(:key, :value) in modules.entries)
+            if (key != variablesModule.name) key: value,
+          if (rest.isNotEmpty) variablesModule.name: rest,
+        };
+      }
+    }
+    return Node(
+      id: id,
+      name: jsonOptional<String>(json, 'name') ?? '',
+      prefab: prefab,
+      variant: jsonOptional<String>(json, 'variant'),
+      transform: NodeTransform.fromJson(json['transform']),
+      modules: modules,
+      hidden: json['hidden'] == true,
+      children: [...jsonList(json, 'children', Node.fromJson), ...holders],
+      overrides: overridesFromJson(json['overrides']),
+    );
+  }
 
-  Map<String, Object?> toJson() => {
-    'id': id,
-    if (name.isNotEmpty) 'name': name,
-    'prefab': ?prefab,
-    'variant': ?variant,
-    if (!transform.isFill) 'transform': transform.toJson(),
-    if (hidden) 'hidden': true,
-    if (modules.isNotEmpty) 'modules': modules,
-    if (overrides.isNotEmpty) 'overrides': overrides,
-    'template': ?template,
-    if (children.isNotEmpty)
-      'children': [for (final child in children) child.toJson()],
-  };
+  Map<String, Object?> toJson() {
+    final holders = isInstance
+        ? children.where((child) => child.holdsSlot).toList()
+        : const <Node>[];
+    final saved = holders.isEmpty
+        ? modules
+        : {
+            ...modules,
+            variablesModule.name: {
+              ...?modules[variablesModule.name],
+              for (final holder in holders)
+                holder.slotVariable!: [
+                  for (final node in holder.children) node.toJson(),
+                ],
+            },
+          };
+    final own = [
+      for (final child in children)
+        if (!holders.contains(child)) child,
+    ];
+    return {
+      'id': id,
+      if (name.isNotEmpty) 'name': name,
+      'prefab': ?prefab,
+      'variant': ?variant,
+      if (!transform.isFill) 'transform': transform.toJson(),
+      if (hidden) 'hidden': true,
+      if (saved.isNotEmpty) 'modules': saved,
+      if (overrides.isNotEmpty) 'overrides': overrides,
+      if (own.isNotEmpty) 'children': [for (final child in own) child.toJson()],
+    };
+  }
 }

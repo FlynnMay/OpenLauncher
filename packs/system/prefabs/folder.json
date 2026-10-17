@@ -1,7 +1,6 @@
 {
   "id": "folder",
   "name": "Folder",
-  "template": true,
   "card": "folder-card",
   "root": {
     "id": "root",
@@ -10,6 +9,9 @@
       "layout": {
         "mode": "flow",
         "columns": 4
+      },
+      "slot": {
+        "variable": "content"
       },
       "dock": {
         "position": "center",
@@ -42,6 +44,12 @@
             "run": "launcher://layers/close"
           }
         ]
+      },
+      "variables": {
+        "content": {
+          "value": null,
+          "type": "nodes"
+        }
       }
     }
   }

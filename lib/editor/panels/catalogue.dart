@@ -81,46 +81,44 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
             prefab: prefab,
           );
-    // A new docked pane copied from the template. With a card it comes as
-    // that card, named and given its final id when placed; without, it goes
-    // to an edge.
-    _Offer? templateOffer(Prefab template) {
+    // A new instance that docks. With a card it comes as that card, opening
+    // it, named and given its final id when placed; without, it goes to an
+    // edge.
+    _Offer? dockedOffer(Prefab prefab) {
       if (open != null) return null;
-      final tooltip = 'Made from the ${template.name} template';
-      final card = prefabs[template.card];
+      final card = prefabs[prefab.card];
       if (card == null) {
         return _Offer(
           Dragged.docking(
-            label: template.name,
+            label: prefab.name,
             picture: const SymbolArt(Icons.view_sidebar_outlined),
-            template: template,
+            docks: prefab,
           ),
-          prefab: template,
-          tooltip: tooltip,
+          prefab: prefab,
         );
       }
-      final pane = paneFrom(
-        template,
-        layout.paneIdFor(template.name, 'pane'),
-        used: layout.itemIds,
+      final opens = dockedInstance(
+        prefab,
+        layout.paneIdFor(prefab.name, 'pane'),
       );
-      final title = pane.name.isEmpty ? template.name : pane.name;
-      final item = card.instance(pane.id, id: layout.itemIdFor(title));
+      final item = card.instance(opens.id, id: layout.itemIdFor(prefab.name));
       if (item == null) return null;
       return _Offer(
         Dragged(
           item: item,
-          opens: pane.copyWith(name: title),
-          label: template.name,
+          opens: opens.copyWith(name: prefab.name),
+          label: prefab.name,
           picture: const SymbolArt(Icons.create_new_folder_outlined),
         ),
-        prefab: template,
-        tooltip: tooltip,
+        prefab: prefab,
       );
     }
 
+    // One that docks on an edge, or is opened by a card, is placed apart.
     _Offer? offerOf(Prefab prefab) =>
-        prefab.template ? templateOffer(prefab) : prefabOffer(prefab);
+        prefab.card != null || prefab.root.edge != null
+        ? dockedOffer(prefab)
+        : prefabOffer(prefab);
     _Offer? entity(Entity entity) =>
         switch (instanceFor(entity, layout, prefabs)) {
           final item? => _Offer(
@@ -159,14 +157,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           if (packOf(prefab.id) == pack) prefab,
       ];
       return _Group(packNames[pack] ?? pack, const [], [
-        _Group('Templates', [
-          for (final prefab in mine)
-            if (prefab.template) ?templateOffer(prefab),
-        ]),
-        _Group('Prefabs', [
-          for (final prefab in mine)
-            if (!prefab.template) ?prefabOffer(prefab),
-        ]),
+        _Group('Prefabs', [for (final prefab in mine) ?offerOf(prefab)]),
         _Group(
           'Entities',
           entities(made.where((entity) => sizes[entity.category] == 1)),
@@ -208,9 +199,9 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       })
         packGroup(pack),
       _Group('User prefabs', [
-        // A card for each docked pane, as its template has it.
-        for (final pane in config.layout.docked)
-          if (prefabs[prefabs[pane.template]?.card]?.instance(
+        // A card for each instance a card opens.
+        for (final pane in config.layout.all)
+          if (prefabs[prefabs[pane.prefab]?.card]?.instance(
                 pane.id,
                 id: layout.itemIdFor(pane.name.isEmpty ? 'pane' : pane.name),
               )
@@ -266,8 +257,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                     null => null,
                     final prefab => () => openPrefab(ref, prefab.id),
                   },
-                  // A new docked pane goes to an edge, not a pane.
-                  onTap: () => switch (offer.dragged.template) {
+                  // A new docked instance goes to an edge, not a pane.
+                  onTap: () => switch (offer.dragged.docks) {
                     final template? => addBarSomewhere(context, ref, template),
                     null => placeDragged(context, ref, offer.dragged, inbox),
                   },
@@ -365,15 +356,11 @@ class _Offer {
     this.backed = false,
     this.count = 0,
     this.prefab,
-    this.tooltip,
   });
-
-  /// Says where it comes from, in place of its name.
-  final String? tooltip;
 
   final Dragged dragged;
 
-  /// The prefab it is a bare instance or copy of, which can be opened.
+  /// The prefab it is an instance of, which can be opened.
   final Prefab? prefab;
 
   /// Whether the picture gets a card background.
@@ -404,8 +391,7 @@ class _OfferTile extends StatelessWidget {
           1 => 'on TV',
           final count => '×$count',
         },
-        tooltip:
-            offer.tooltip ?? (offer.count == 0 ? label : '$label (on the TV)'),
+        tooltip: offer.count == 0 ? label : '$label (on the TV)',
         onTap: onTap,
         corner: onOpen == null
             ? null

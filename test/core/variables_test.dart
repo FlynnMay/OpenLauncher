@@ -234,11 +234,10 @@ void main() {
     test("the launcher's own prefabs are made the same way", () {
       Prefab prefab(String id) =>
           systemPrefabs.firstWhere((prefab) => prefab.id == id);
-      // What each is drawn from is a variable like any other; a template
-      // draws nothing given to it, and a button is given words, not an
-      // entity.
+      // What each is drawn from is a variable like any other; one with a
+      // slot is given nodes, and a button is given words, not an entity.
       for (final own in systemPrefabs) {
-        if (own.id != folderPrefabId && !own.template) {
+        if (own.id != folderPrefabId && own.slots.isEmpty) {
           expect(
             own.vars.keys,
             contains(own.id == 'system:button' ? 'label' : 'source'),
@@ -338,7 +337,8 @@ void main() {
                   folderPane(
                     'games',
                     title: 'Games',
-                  ).copyWith(children: [cardOf('system:app/a', id: 'g')]),
+                    children: [cardOf('system:app/a', id: 'g')],
+                  ),
                 ],
               ),
             ),

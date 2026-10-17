@@ -182,7 +182,7 @@ void main() {
                       .withVars(const {
                         'target': Variable(null, type: VarType.entity),
                       })
-                      .copyWith(
+                      .holds(
                         children: [
                           button('Start it', 'open'),
                           button('Play it', 'playPause'),
@@ -313,7 +313,7 @@ void main() {
                   folderPane('games', title: 'Games')
                       .withValue(dockModule.name, 'position', 'bottom')
                       .withValue(dockModule.name, 'height', 270)
-                      .copyWith(children: [entity('pkg.b')]),
+                      .holds(children: [entity('pkg.b')]),
                 ],
               ),
             ],
@@ -955,7 +955,7 @@ void main() {
                   sidebarPane(
                     'left',
                     'left',
-                  ).copyWith(children: [entity('pkg.c')]),
+                  ).holds(children: [entity('pkg.c')]),
                 ],
               ),
             ],
@@ -1006,7 +1006,7 @@ void main() {
                       sidebarPane('left', 'left')
                           .withValue(dockModule.name, 'opening', opening)
                           .withValue(dockModule.name, 'reveal', reveal)
-                          .copyWith(children: [entity('pkg.c')]),
+                          .holds(children: [entity('pkg.c')]),
                     ],
                   ),
                 ],
@@ -1051,10 +1051,7 @@ void main() {
               home(
                 [Node.pane(id: 'main')],
                 [
-                  sidebarPane(
-                    'top',
-                    'top',
-                  ).copyWith(children: [entity('pkg.c')]),
+                  sidebarPane('top', 'top').holds(children: [entity('pkg.c')]),
                 ],
               ),
             ],

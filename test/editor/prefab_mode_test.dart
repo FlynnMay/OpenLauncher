@@ -228,9 +228,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a template says it is copied, and can restyle its copies', (
-    tester,
-  ) async {
+  testWidgets('a folder is an instance its prefab reaches', (tester) async {
     final ref = await pump(
       tester,
       config: LauncherConfig(
@@ -239,10 +237,7 @@ void main() {
           (root) => root.copyWith(
             children: [
               ...root.children,
-              folderPane(
-                'games',
-                title: 'Games',
-              ).styled(const {'background': '#ff0000ff'}),
+              folderPane('games', title: 'Games'),
             ],
           ),
         ),
@@ -255,21 +250,18 @@ void main() {
         matching: find.text('Prefabs'),
       ),
     );
-    // The folder and the sidebar.
-    expect(find.text('Template for new panes · System'), findsNWidgets(2));
-
+    expect(find.text('1 instance · System'), findsWidgets);
     openPrefab(ref, 'system:folder');
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('Template: panes you make from now on'),
-      findsOneWidget,
-    );
-    await press(tester, find.text('Apply to 1 existing pane'));
-    expect(find.text('Apply "Folder" to the pane on the screen?'), findsOne);
-    await press(tester, find.widgetWithText(FilledButton, 'Apply'));
-    final games = ref.read(configProvider).value!.layout.pane('games')!;
-    expect(games.style, systemPrefab(folderTemplateId).root.style);
-    expect(games.name, 'Games');
+    expect(find.textContaining('Template'), findsNothing);
+    final games = ref
+        .read(configProvider)
+        .value!
+        .layout
+        .all
+        .singleWhere((node) => node.id == 'games');
+    expect(drawnPane(games).style, systemPrefab(folderId).root.style);
+    expect(drawnPane(games).name, 'Games');
     expect(tester.takeException(), isNull);
   });
 

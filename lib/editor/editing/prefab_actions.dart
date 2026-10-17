@@ -9,12 +9,10 @@ import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
-import 'package:openlauncher/editor/editing/actions.dart';
 import 'package:openlauncher/editor/editing/layout_edit.dart';
 import 'package:openlauncher/editor/editing/prefab_edit.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
-import 'package:openlauncher/editor/editing/templates.dart';
 
 /// Marks a prefab or an instance of one wherever it is shown.
 const prefabIcon = Icons.view_in_ar_outlined;
@@ -96,17 +94,18 @@ void openPrefab(WidgetRef ref, String prefabId, {Node? from}) {
   final at = trail.indexWhere((mode) => mode.id == prefabId);
   if (nested && at >= 0) return backPrefab(ref, at + 1);
   final entities = ref.read(entitiesProvider).value ?? const <Entity>[];
-  final docked = ref.read(configProvider).value?.layout.docked ?? const [];
+  final placed = ref.read(configProvider).value?.layout.all ?? const [];
   final prefabs = ref.read(prefabsProvider);
-  // A template's card is shown with a pane made from that template.
-  final opensPanes = prefabs.values.any(
-    (template) => template.template && template.card == prefabId,
-  );
+  // A card that opens instances of a prefab is shown with one of them.
+  final opensPanes = prefabs.values.any((opened) => opened.card == prefabId);
   final sample =
       entities.where((entity) => entity.prefab == prefabId).firstOrNull?.id ??
       (opensPanes
-          ? docked
-                .where((pane) => prefabs[pane.template]?.card == prefabId)
+          ? placed
+                .where(
+                  (node) =>
+                      node.isInstance && prefabs[node.prefab]?.card == prefabId,
+                )
                 .firstOrNull
                 ?.id
           : entities.where((entity) => entity.placed).firstOrNull?.id);
@@ -246,10 +245,7 @@ Future<void> deletePrefab(
     if (!await confirm(
       context,
       'Revert "${prefab.name}" to $pack?',
-      prefab.template
-          ? 'Your changes to it are lost. New panes start like $pack\'s '
-                'again; panes you have already made are not changed.'
-          : 'Your changes to it are lost. Its instances follow $pack\'s again.',
+      'Your changes to it are lost. Its instances follow $pack\'s again.',
       'Revert',
     )) {
       return;
@@ -472,32 +468,5 @@ Future<void> revertOverride(
         ),
       },
     ),
-  );
-}
-
-/// Gives what [template] makes its look and chains, once confirmed.
-Future<void> applyTemplate(
-  BuildContext context,
-  WidgetRef ref,
-  Prefab template,
-) async {
-  final layout = ref.read(configProvider).value?.layout;
-  if (layout == null || !template.template) return;
-  final count = madeBy(template, layout).length;
-  final what = count == 1 ? 'the pane' : 'all $count panes';
-  if (!await confirm(
-    context,
-    'Apply "${template.name}" to $what on the screen?',
-    'Their style, how they open and their triggers become the template\'s. '
-        'What is in them and their titles stay. Undo puts them back.',
-    'Apply',
-  )) {
-    return;
-  }
-  if (!context.mounted) return;
-  await changeConfig(
-    context,
-    ref,
-    (controller) => controller.setLayout(withTemplateApplied(layout, template)),
   );
 }

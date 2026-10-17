@@ -104,6 +104,7 @@ class InstanceVariables extends ConsumerWidget {
   static Set<String> shown(Variables declared, Variables own) => {
     for (final MapEntry(key: name, value: variable) in declared.entries)
       if (variable.exposed &&
+          variable.type != VarType.nodes &&
           !variable.isConditional &&
           !(own[name]?.isConditional ?? false))
         name,
