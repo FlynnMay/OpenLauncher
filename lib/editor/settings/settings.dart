@@ -1,12 +1,11 @@
 export 'access_note.dart';
-export 'component_settings.dart';
 export 'devices_settings.dart';
 export 'dock_settings.dart';
-export 'layout_settings.dart';
 export 'picture_settings.dart';
 export 'place_search.dart';
 export 'prefab_settings.dart';
 export 'style_settings.dart';
+export 'transform_settings.dart';
 export 'trigger_settings.dart';
 export 'update_settings.dart';
 export 'values_settings.dart';

@@ -4,9 +4,27 @@ import 'package:openlauncher/core/nodes/field.dart';
 /// A module's saved values: field key -> value.
 typedef ModuleValues = Map<String, Object?>;
 
+/// The key that switches a module off when false. Reserved in every module,
+/// so no variable, trigger or prefab rule may be called this.
+const enabledKey = 'enabled';
+
+/// Whether [values] are switched off.
+bool switchedOff(ModuleValues? values) => values?[enabledKey] == false;
+
 /// [over] merged onto [under], key by key; null removes a key.
 ModuleValues mergeValues(ModuleValues under, ModuleValues over) =>
     {...under, ...over}..removeWhere((_, value) => value == null);
+
+/// Where a module means something.
+enum ModuleUse {
+  anywhere,
+
+  /// On a prefab's part.
+  inPrefab,
+
+  /// On the screen, outside any prefab.
+  onScreen,
+}
 
 /// Machinery a node takes on: what it draws, how it arranges its children,
 /// how it is styled, docked, focused or pressed. A node's modules decide what
@@ -22,6 +40,9 @@ class ModuleType {
     this.instanceOwned = false,
     this.size = (1, 1),
     this.starter = const {},
+    this.needs = const [],
+    this.use = ModuleUse.anywhere,
+    this.inLayout = false,
   });
 
   /// Its key in a node's `modules`.
@@ -46,6 +67,14 @@ class ModuleType {
 
   /// Values a new one starts with.
   final ModuleValues starter;
+
+  /// Modules it works through, by name; adding it adds them.
+  final List<String> needs;
+
+  final ModuleUse use;
+
+  /// Only means something on a child of a node with a Layout.
+  final bool inLayout;
 
   /// [under] (a prefab's) with [over] (an instance's or an override's)
   /// applied.

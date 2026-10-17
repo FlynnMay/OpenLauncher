@@ -11,7 +11,7 @@ bool _hasBar(Map<String, Object?> values) =>
 /// Lets its Layout's children run past its box, scrolled to keep the focus
 /// in view, with a bar to show how far.
 class ScrollModule extends ModuleType {
-  const ScrollModule() : super('scroll', 'Scroll');
+  const ScrollModule() : super('scroll', 'Scroll', needs: const ['layout']);
 
   static const bars = ['thumb', 'progress'];
 

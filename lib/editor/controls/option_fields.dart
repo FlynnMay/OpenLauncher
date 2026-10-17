@@ -14,13 +14,16 @@ import 'package:openlauncher/editor/controls/template_field.dart';
 import 'package:openlauncher/editor/controls/tick_box.dart';
 
 /// Generated fields for [options] showing [values]. Reports the whole value
-/// map; a value reset to its default is removed. [mixed] keys show as mixed.
+/// map; a value reset to its default is removed. [mixed] keys show as mixed;
+/// [marked] keys as set over what they inherit, with [onRevert] to undo that.
 List<Widget> optionFields({
   required List<Field> options,
   required Map<String, Object?> values,
   required void Function(Map<String, Object?> values) onChanged,
   double corner = 10,
   Set<String> mixed = const {},
+  Set<String> marked = const {},
+  void Function(String key)? onRevert,
 }) {
   void set(Field option, Object? value) => onChanged(
     {...values, option.key: value == option.defaultValue ? null : value}
@@ -140,8 +143,47 @@ List<Widget> optionFields({
 
   return [
     for (final option in options)
-      if (option.when?.call(values) ?? true) field(option),
+      if (option.when?.call(values) ?? true)
+        marked.contains(option.key)
+            ? Overridden(
+                onRevert: onRevert == null ? null : () => onRevert(option.key),
+                child: field(option),
+              )
+            : field(option),
   ];
+}
+
+/// A field set over what it inherits: a bar beside it and a revert.
+class Overridden extends StatelessWidget {
+  const Overridden({super.key, required this.child, this.onRevert});
+
+  final Widget child;
+  final VoidCallback? onRevert;
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = Theme.of(context).colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: colour, width: 2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Row(
+          children: [
+            Expanded(child: child),
+            if (onRevert != null)
+              IconButton(
+                tooltip: 'Revert to prefab',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.undo, size: 18),
+                onPressed: onRevert,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// The same for a thing saved as [json]: reports one key and its new value,
@@ -152,11 +194,15 @@ List<Widget> ruleFields({
   required void Function(String key, Object? value) onChanged,
   double corner = 10,
   Set<String> mixed = const {},
+  Set<String> marked = const {},
+  void Function(String key)? onRevert,
 }) => optionFields(
   options: options,
   values: json,
   corner: corner,
   mixed: mixed,
+  marked: marked,
+  onRevert: onRevert,
   onChanged: (next) {
     for (final option in options) {
       // Two options may share a key, each applying at a different time.

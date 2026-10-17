@@ -67,11 +67,13 @@ void main() {
       home: Scaffold(
         body: SingleChildScrollView(
           child: StatefulBuilder(
-            builder: (context, setState) => StyleSettings(
-              keys: keys,
-              style: style,
-              onChanged: (key, value) =>
-                  setState(() => style = withStyle(style, {key: value})),
+            builder: (context, setState) => Column(
+              children: styleFields(
+                keys: keys,
+                style: style,
+                onChanged: (key, value) =>
+                    setState(() => style = withStyle(style, {key: value})),
+              ),
             ),
           ),
         ),

@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/modules/modules.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
 /// Launcher-wide settings, shown when nothing is selected.
@@ -22,30 +21,20 @@ class GlobalProperties extends ConsumerWidget {
       children: [
         const WallpaperSettings(),
         if (config.ownLayout) const _RevertLayout(),
-        // The screen's root container.
-        LayoutSettings(
-          title: 'Screen',
-          prefabs: ref.watch(prefabsProvider),
-          named: false,
-          dockable: false,
-          containers: [config.layout.home.root],
+        // The home screen's root.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text('Screen', style: Theme.of(context).textTheme.titleSmall),
+        ),
+        ModuleSections(
+          nodes: [config.layout.home.root],
+          parents: const [],
           onChanged: (how) => changeLayout(
             context,
             ref,
             (layout) => layout.withContainer(layout.home.root.id, how),
           ),
-        ),
-        StyleSettings(
-          keys: const ['padding', ...textStyle],
-          style: config.layout.home.root.style,
-          onChanged: (key, value) => changeLayout(
-            context,
-            ref,
-            (layout) => layout.withContainer(
-              layout.home.root.id,
-              (root) => root.styled(withStyle(root.style, {key: value})),
-            ),
-          ),
+          onLayout: (how) => changeLayout(context, ref, how),
         ),
         ValuesSettings(
           entities: config.entities,

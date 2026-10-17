@@ -79,6 +79,9 @@ Overrides overridesOver(Overrides under, Overrides over) {
   return result;
 }
 
+/// Module values without [enabledKey], by the values they came from.
+final _bare = Expando<ModuleValues>();
+
 /// The modules of a node: module name -> its values.
 typedef Modules = Map<String, ModuleValues>;
 
@@ -224,25 +227,47 @@ class Node {
 
   bool get isInstance => prefab != null;
 
-  /// The values of [module], if it has it.
-  ModuleValues? values(String module) => modules[module];
+  /// The values of [module], if it has it switched on.
+  ModuleValues? values(String module) => switch (modules[module]) {
+    final values? when switchedOff(values) => null,
+    final values? when values.containsKey(enabledKey) => _bare[values] ??= {
+      ...values,
+    }..remove(enabledKey),
+    final values => values,
+  };
 
-  bool has(String module) => modules.containsKey(module);
+  /// Whether it has [module] switched on.
+  bool has(String module) => values(module) != null;
 
-  /// With [module] set to [values]; null removes it.
-  Node withModule(String module, ModuleValues? values) => copyWith(
+  /// Whether it has [module], switched on or off.
+  bool added(String module) => modules.containsKey(module);
+
+  /// Whether it has [module] switched off.
+  bool isOff(String module) => switchedOff(modules[module]);
+
+  /// With [module] set to [values]; null removes it. It stays switched on or
+  /// off unless [values] says.
+  Node withModule(String module, ModuleValues? values) => _put(
+    module,
+    values == null
+        ? null
+        : ({enabledKey: modules[module]?[enabledKey], ...values}
+            ..removeWhere((key, value) => key == enabledKey && value == null)),
+  );
+
+  /// With [key] of [module] set, adding the module if it has none; null
+  /// removes the key.
+  Node withValue(String module, String key, Object? value) => _put(
+    module,
+    {...?modules[module], key: value}..removeWhere((_, value) => value == null),
+  );
+
+  Node _put(String module, ModuleValues? values) => copyWith(
     modules: {
       for (final MapEntry(:key, :value) in modules.entries)
         if (key != module) key: value,
       module: ?values,
     },
-  );
-
-  /// With [key] of [module] set, adding the module if it has none; null
-  /// removes the key.
-  Node withValue(String module, String key, Object? value) => withModule(
-    module,
-    {...?modules[module], key: value}..removeWhere((_, value) => value == null),
   );
 
   /// This node with one [Overrides] entry applied.

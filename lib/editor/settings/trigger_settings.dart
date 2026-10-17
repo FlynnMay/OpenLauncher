@@ -23,7 +23,6 @@ class TriggerSettings extends ConsumerStatefulWidget {
       Trigger.focus,
       Trigger.blur,
     ],
-    this.title = 'Actions',
   });
 
   /// The stored chains, and its prefab's.
@@ -33,7 +32,6 @@ class TriggerSettings extends ConsumerStatefulWidget {
   final Variables scope;
 
   final List<Trigger> triggers;
-  final String title;
   final void Function(Triggers set) onChanged;
 
   @override
@@ -413,31 +411,34 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       for (final trigger in widget.triggers)
         if (!shown.contains(trigger)) trigger,
     ];
-    return Section(widget.title, open: false, [
-      if (shown.isEmpty)
-        Text('No triggers', style: Theme.of(context).textTheme.bodySmall),
-      for (final trigger in shown) ..._trigger(trigger, entities, targets),
-      if (shown.isNotEmpty && addable.isNotEmpty) const Divider(height: 16),
-      if (addable.isNotEmpty)
-        Align(
-          alignment: Alignment.centerLeft,
-          child: PopupMenuButton<Trigger>(
-            tooltip: 'Add trigger',
-            onSelected: (trigger) => setState(() => _drafts.add(trigger)),
-            itemBuilder: (context) => [
-              for (final trigger in addable)
-                PopupMenuItem(value: trigger, child: Text(trigger.label)),
-            ],
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: 6,
-                children: [Icon(Icons.add, size: 18), Text('Add trigger')],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (shown.isEmpty)
+          Text('No triggers', style: Theme.of(context).textTheme.bodySmall),
+        for (final trigger in shown) ..._trigger(trigger, entities, targets),
+        if (shown.isNotEmpty && addable.isNotEmpty) const Divider(height: 16),
+        if (addable.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: PopupMenuButton<Trigger>(
+              tooltip: 'Add trigger',
+              onSelected: (trigger) => setState(() => _drafts.add(trigger)),
+              itemBuilder: (context) => [
+                for (final trigger in addable)
+                  PopupMenuItem(value: trigger, child: Text(trigger.label)),
+              ],
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 6,
+                  children: [Icon(Icons.add, size: 18), Text('Add trigger')],
+                ),
               ),
             ),
           ),
-        ),
-    ]);
+      ],
+    );
   }
 }

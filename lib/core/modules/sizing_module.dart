@@ -12,7 +12,8 @@ double? _positive(double? value) => value != null && value > 0 ? value : null;
 /// How a child sizes inside its parent's Layout: cells it spans and where
 /// (on cells), or its share and shape (in a row or column).
 class SizingModule extends ModuleType {
-  const SizingModule() : super('sizing', 'Sizing', instanceOwned: true);
+  const SizingModule()
+    : super('sizing', 'Sizing', instanceOwned: true, inLayout: true);
 
   /// What an override says to take a value away; once applied it is gone.
   static bool _none(String key, Object? value) => switch (key) {

@@ -4,6 +4,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/stage/anchor_marks.dart';
 import 'package:openlauncher/editor/stage/layer_stack.dart';
 import 'package:openlauncher/editor/stage/prefab_screen.dart';
 import 'package:openlauncher/editor/stage/resize_handles.dart';
@@ -23,11 +24,30 @@ class Stage extends ConsumerStatefulWidget {
 
   final bool editing;
 
+  /// The size of the box [id] places its children in, in its own pixels, if
+  /// it is drawn.
+  static Size? sizeOf(String id) =>
+      _StageState._box(_StageState._current?._grids[id])?.size;
+
   @override
   ConsumerState<Stage> createState() => _StageState();
 }
 
 class _StageState extends ConsumerState<Stage> {
+  static _StageState? _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = this;
+  }
+
+  @override
+  void dispose() {
+    if (_current == this) _current = null;
+    super.dispose();
+  }
+
   final _screen = GlobalKey();
 
   /// Keys for each container's grid, and for the box of each nested container
@@ -92,7 +112,11 @@ class _StageState extends ConsumerState<Stage> {
     if (item.isContainer) {
       return boxed(
         handle(
-          item.name.isEmpty ? 'Layout' : item.name,
+          item.name.isNotEmpty
+              ? item.name
+              : item.has(layoutModule.name)
+              ? 'Layout'
+              : 'Empty',
           const SymbolArt(Icons.dashboard_outlined),
           // Outlined so a container with no background can be seen and grabbed.
           _Selectable(
@@ -261,7 +285,14 @@ class _StageState extends ConsumerState<Stage> {
 
   /// The single selected node, if its place can be found: its rect and what
   /// resizing needs.
-  ({Found found, Placement placed, CellMetrics metrics, Rect rect, Size size})?
+  ({
+    Found found,
+    Placement placed,
+    CellMetrics metrics,
+    Rect rect,
+    Size size,
+    Rect parent,
+  })?
   _picked() {
     final layout = ref.read(editedLayoutProvider);
     final ids = ref.read(selectionProvider);
@@ -281,6 +312,10 @@ class _StageState extends ConsumerState<Stage> {
         grid.getTransformTo(screen),
         rectIn(container, found.item.id, metrics, grid.size),
       ),
+      parent: MatrixUtils.transformRect(
+        grid.getTransformTo(screen),
+        Offset.zero & grid.size,
+      ),
     );
   }
 
@@ -292,7 +327,7 @@ class _StageState extends ConsumerState<Stage> {
     final picked = _picked();
     final layout = ref.read(editedLayoutProvider);
     if (picked == null || layout == null) return;
-    final (:found, :placed, :metrics, :size, rect: _) = picked;
+    final (:found, :placed, :metrics, :size, rect: _, parent: _) = picked;
     final container = found.parent;
     final grid = _box(_grids[container.id]), screen = _box(_screen);
     if (grid == null || screen == null) return;
@@ -396,10 +431,26 @@ class _StageState extends ConsumerState<Stage> {
                     read: _picked,
                     same: (a, b) =>
                         a?.rect == b?.rect &&
+                        a?.parent == b?.parent &&
+                        a?.found.item.transform == b?.found.item.transform &&
                         a?.found.item.id == b?.found.item.id &&
                         a?.found.parent.mode == b?.found.parent.mode,
                     builder: (context, picked) => Stack(
                       children: [
+                        // Where its anchors are in its parent.
+                        if (picked != null &&
+                            picked.found.parent.mode == LayoutMode.free &&
+                            !picked.found.item.isDocked)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: AnchorMarks(
+                                  parent: picked.parent,
+                                  transform: picked.found.item.transform,
+                                ),
+                              ),
+                            ),
+                          ),
                         if (picked != null)
                           ResizeHandles(
                             // While resizing, around the new rect.

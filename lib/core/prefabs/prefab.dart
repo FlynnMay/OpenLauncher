@@ -236,7 +236,7 @@ Node resolved(Node instance, Map<String, Prefab> prefabs, [int depth = 0]) {
     return Node(
       id: instance.id,
       transform: instance.transform,
-      modules: {for (final name in owned) name: ?instance.values(name)},
+      modules: {for (final name in owned) name: ?instance.modules[name]},
     );
   }
   final set = overridesOver(
@@ -277,7 +277,7 @@ Node resolved(Node instance, Map<String, Prefab> prefabs, [int depth = 0]) {
         for (final MapEntry(key: name, :value) in root.modules.entries)
           if (!owned.contains(name)) name: value,
         for (final MapEntry(key: name, :value) in instance.modules.entries)
-          name: owned.contains(name) || !root.has(name)
+          name: owned.contains(name) || !root.added(name)
               ? value
               : (moduleNamed(name)?.merge ?? mergeValues)(
                   root.modules[name]!,

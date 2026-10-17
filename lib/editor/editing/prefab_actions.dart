@@ -182,9 +182,7 @@ Future<String?> saveEdited(WidgetRef ref, Prefab prefab, Layout edited) async {
 Future<void> newPrefab(BuildContext context, WidgetRef ref) async {
   final name = await askName(context, 'Prefab', title: 'Prefab name');
   if (name == null || name.isEmpty) return;
-  final id = freeId(slugOf(name, 'prefab'), {
-    ...ref.read(prefabsProvider).keys,
-  });
+  final id = _freePrefabId(ref, name);
   await _put(
     ref,
     Prefab(
@@ -207,13 +205,7 @@ Future<void> duplicatePrefab(
     title: 'Prefab name',
   );
   if (name == null || name.isEmpty) return;
-  await _put(
-    ref,
-    prefab.copyWith(
-      id: freeId(slugOf(name, 'prefab'), {...ref.read(prefabsProvider).keys}),
-      name: name,
-    ),
-  );
+  await _put(ref, prefab.copyWith(id: _freePrefabId(ref, name), name: name));
 }
 
 Future<void> renamePrefab(
@@ -306,7 +298,7 @@ Future<void> createPrefab(
   if (name == null || name.isEmpty) return;
   final made = asPrefab(
     found.item,
-    freeId(slugOf(name, 'prefab'), {...ref.read(prefabsProvider).keys}),
+    _freePrefabId(ref, name),
     name,
     // Placed by its transform: its size on the TV's screen.
     size: found.parent.mode == LayoutMode.free
@@ -470,3 +462,10 @@ Future<void> revertOverride(
     ),
   );
 }
+
+/// A new prefab's id from [name]. Prefab rules are keyed by it, so never the
+/// reserved [enabledKey].
+String _freePrefabId(WidgetRef ref, String name) => freeId(
+  slugOf(name, 'prefab'),
+  {enabledKey, ...ref.read(prefabsProvider).keys},
+);

@@ -65,7 +65,7 @@ String _shape(Node node, {required bool root}) {
   return jsonEncode({
     ...json,
     for (final module in [..._fixedModules, if (root) sizingModule.name])
-      module: node.values(module),
+      module: node.modules[module],
   });
 }
 
@@ -90,16 +90,17 @@ Overrides? overridesBetween(Node base, Node edited) {
     // An override can add a module but not take one away.
     if (_shape(was, root: root) != _shape(now, root: root) ||
         was.children.length != now.children.length ||
-        !was.modules.keys.every(now.has)) {
+        !was.modules.keys.every(now.added)) {
       return false;
     }
     final modules = {
       for (final MapEntry(key: name, value: values) in now.modules.entries)
-        if (!was.has(name) && !_fixedModules.contains(name)) name: values,
+        if (!was.added(name) && !_fixedModules.contains(name)) name: values,
       for (final MapEntry(key: name, value: values) in was.modules.entries)
         if (!_fixedModules.contains(name) &&
             !(root && name == sizingModule.name))
-          if (_changed(values, now.values(name) ?? const {}, (key) {
+          if (_changed(values, now.modules[name] ?? const {}, (key) {
+                if (key == enabledKey) return true;
                 // An override cannot remove; the default says the same.
                 if (name == styleModule.name) return null;
                 if (name == sizingModule.name) return _sizingUnset[key];
@@ -379,7 +380,7 @@ const prefabCellWidth = 150.0;
   int cells(double length, double cell, double gap) =>
       max(1, ((length + gap) / (cell + gap)).round());
   final (w, h) = switch (size) {
-    final size? when !item.has(sizingModule.name) => (
+    final size? when !item.added(sizingModule.name) => (
       cells(size.width, prefabCellWidth, LayoutModule.defaultSpacingX) * 1.0,
       cells(size.height, prefabCellWidth / 1.45, LayoutModule.defaultSpacingY) *
           1.0,
@@ -398,7 +399,7 @@ const prefabCellWidth = 150.0;
       id: item.id,
       prefab: id,
       transform: item.transform,
-      modules: {sizingModule.name: ?item.values(sizingModule.name)},
+      modules: {sizingModule.name: ?item.modules[sizingModule.name]},
       hidden: item.hidden,
     ),
   );

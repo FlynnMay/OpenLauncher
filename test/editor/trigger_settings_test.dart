@@ -51,8 +51,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Actions'));
-    await tester.pumpAndSettle();
   }
 
   Future<void> choose(WidgetTester tester, Finder box, String label) async {
@@ -177,8 +175,6 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Variables'));
     await tester.pumpAndSettle();
 
     // A number has a box with a step either side, and may have a fraction.

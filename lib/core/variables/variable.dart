@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/modules/module.dart';
 import 'package:openlauncher/core/nodes/field.dart';
 
 /// Who can read a variable.
@@ -325,13 +326,15 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
     },
 ];
 
-/// Variables from form rows. Names are reduced to `[A-Za-z0-9_]`; empty and
-/// duplicate names are skipped.
+/// Variables from form rows. Names are reduced to `[A-Za-z0-9_]`; empty,
+/// reserved and duplicate names are skipped.
 Variables variablesFromForm(List<Map<String, Object?>> form) {
   final variables = <String, Variable>{};
   for (final one in form) {
     final name = '${one['name'] ?? ''}'.replaceAll(RegExp('[^A-Za-z0-9_]'), '');
-    if (name.isEmpty || variables.containsKey(name)) continue;
+    if (name.isEmpty || name == enabledKey || variables.containsKey(name)) {
+      continue;
+    }
     final conditional = _conditional(one);
     variables[name] = Variable(
       conditional ? null : typedValue('${one['value'] ?? ''}'),

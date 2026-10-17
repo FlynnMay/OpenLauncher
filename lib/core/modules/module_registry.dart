@@ -49,7 +49,9 @@ extension NodeModules on Node {
   /// What it draws, if anything.
   ModuleType? get visual {
     for (final name in modules.keys) {
-      if (_byName[name] case final type? when type.visual) return type;
+      if (_byName[name] case final type? when type.visual && has(name)) {
+        return type;
+      }
     }
     return null;
   }

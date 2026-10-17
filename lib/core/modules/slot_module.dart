@@ -7,6 +7,7 @@ import 'package:openlauncher/core/nodes/node.dart';
 const slotModule = ModuleType(
   'slot',
   'Slot',
+  use: ModuleUse.inPrefab,
   fields: [Field('variable', 'Variable', FieldKind.text)],
 );
 

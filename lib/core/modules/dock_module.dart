@@ -22,6 +22,7 @@ class DockModule extends ModuleType {
     : super(
         'dock',
         'Dock',
+        use: ModuleUse.onScreen,
         fields: const [
           Field(
             'position',

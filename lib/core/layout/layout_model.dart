@@ -50,7 +50,7 @@ class Layout {
   Iterable<Node> get docked => all.where((container) => container.isDocked);
 
   Node? container(String id) => all
-      .where((container) => container.isContainer && container.id == id)
+      .where((container) => !container.isInstance && container.id == id)
       .firstOrNull;
 
   /// The node of id [id] that holds or draws others, if any: what an
@@ -111,10 +111,7 @@ class Layout {
     Node mapped(Node container) => container.id == id
         ? change(container)
         : container.copyWith(
-            children: [
-              for (final child in container.children)
-                child.isContainer || child.isInstance ? mapped(child) : child,
-            ],
+            children: [for (final child in container.children) mapped(child)],
           );
     return copyWith(
       layers: [for (final layer in layers) layer.withRoot(mapped(layer.root))],

@@ -15,7 +15,8 @@ String containerName(Node container) {
   if (title.isNotEmpty) return title;
   return switch (container.dock) {
     final dock? => '${barName(dock)} dock',
-    null => 'Layout',
+    null when container.has(layoutModule.name) => 'Layout',
+    null => 'Empty',
   };
 }
 

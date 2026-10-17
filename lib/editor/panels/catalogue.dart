@@ -173,11 +173,13 @@ class _CatalogueState extends ConsumerState<Catalogue> {
 
     return [
       _Group('Primitives', [
+        // A node with no modules, to hold others; it takes what it needs
+        // from Add module.
         _Offer(
           Dragged(
-            item: Node.layout(id: layout.containerIdFor(), w: 6, h: 3),
-            label: 'Layout',
-            picture: const SymbolArt(Icons.dashboard_outlined),
+            item: Node(id: layout.itemIdFor('empty')).sized(6, 3),
+            label: 'Empty',
+            picture: const SymbolArt(Icons.check_box_outline_blank),
           ),
         ),
         for (final visual in visuals)

@@ -31,8 +31,18 @@ class _SearchBoxState extends State<SearchBox> {
     return '';
   }
 
+  final _focus = FocusNode();
+
+  @override
+  void didUpdateWidget(SearchBox old) {
+    super.didUpdateWidget(old);
+    // Its label may arrive after it does.
+    if (!_focus.hasFocus && _text.text != _label) _text.text = _label;
+  }
+
   @override
   void dispose() {
+    _focus.dispose();
     _text.dispose();
     super.dispose();
   }
@@ -41,6 +51,7 @@ class _SearchBoxState extends State<SearchBox> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Focus(
+      focusNode: _focus,
       // What was typed and not picked is dropped.
       onFocusChange: (focused) {
         if (!focused && _text.text != _label) _text.text = _label;

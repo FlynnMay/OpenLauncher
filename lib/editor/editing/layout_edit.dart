@@ -47,6 +47,22 @@ Node placedAt(Node item, Rect rect, Size size) => item.copyWith(
       : item.transform.covering(rect, size),
 );
 
+/// [item] anchored at [x] and [y] (each axis's min and max) in a parent of
+/// [size], staying where it is.
+Node withAnchors(
+  Node item,
+  (double, double) x,
+  (double, double) y,
+  Size size,
+) => item.copyWith(
+  transform: NodeTransform(
+    minX: x.$1,
+    maxX: x.$2,
+    minY: y.$1,
+    maxY: y.$2,
+  ).covering(item.transform.rectIn(size), size),
+);
+
 /// A container with its layer, the docked container it is or is in (if any),
 /// and its depth counted from that, or from the layer's root (1).
 typedef FoundContainer = ({Layer layer, Node container, Node? dock, int depth});
@@ -70,7 +86,6 @@ FoundContainer? findContainer(Layout layout, String id) {
       return (layer: layer, container: container, dock: dock, depth: depth);
     }
     for (final inner in container.children) {
-      if (!inner.isContainer && !inner.isInstance) continue;
       // What an instance holds is as deep as the instance.
       final deeper = container.isInstance ? depth : depth + 1;
       if (inside(layer, inner, dock, deeper) case final found?) return found;
@@ -271,10 +286,7 @@ Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
 Layout removeItem(Layout layout, String id) {
   final gone = [
     for (final item in layout.all)
-      if (item.id == id) ...[
-        if (!item.isContainer) item,
-        if (item.isContainer || item.isInstance) ...item.contents,
-      ],
+      if (item.id == id) ...[if (!item.isContainer) item, ...item.contents],
   ];
   final handed = layout.node(id) != null;
   final rest = _rebuilt(
@@ -315,7 +327,7 @@ List<Found> findItems(Layout layout, Set<String> ids) {
       }
     }
     for (final item in container.children) {
-      if (item.isContainer) under(layer, item, inside);
+      if (!item.isInstance) under(layer, item, inside);
       // What an instance holds is found in the node holding its slot.
       if (item.isInstance) {
         for (final holder in item.children) {
@@ -626,12 +638,13 @@ Map<String, int> placedCounts(Layout layout) {
 /// [item] with [on] as its triggers, and the Focus module that a press or a
 /// hold needs to be felt.
 Node withPressable(Node item, Triggers on) {
-  final next = item.triggered(on);
+  // Kept when it has none, so the module stays.
+  final next = item.withModule(triggersModule.name, triggersToJson(on));
   final presses = [
     Trigger.press,
     Trigger.hold,
   ].any((trigger) => on[trigger]?.isNotEmpty ?? false);
-  return presses && !next.focusable
+  return presses && !next.added(focusModule.name)
       ? next.withModule(focusModule.name, const {})
       : next;
 }

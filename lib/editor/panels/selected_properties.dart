@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
@@ -9,6 +7,7 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/modules/modules.dart';
 import 'package:openlauncher/editor/panels/entity_picker.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
@@ -43,23 +42,8 @@ class SelectedProperties extends ConsumerWidget {
         : prefab.variants[prefab.variantNamed(shown)];
     final isRoot = prefab != null && single?.id == prefab.root.id;
     final prefabs = ref.watch(prefabsProvider);
-    final declared =
-        prefabs[single?.prefab]?.root.vars ?? const <String, Variable>{};
-    final fielded = single != null && single.isInstance
-        ? InstanceVariables.shown(declared, single.vars)
-        : const <String>{};
-
-    final allContainers = items.every((item) => item.isContainer);
     final handed = ref.watch(selectedHandedProvider);
 
-    final transform = {
-      'w': [for (final item in items) item.w],
-      'h': [for (final item in items) item.h],
-      'x': [for (final item in items) item.x],
-      'y': [for (final item in items) item.y],
-      'flex': [for (final item in items) item.flex],
-      'aspect': [for (final item in items) item.aspect],
-    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -91,14 +75,34 @@ class SelectedProperties extends ConsumerWidget {
               (layout) => layout.withContainer(handed.keys.single, how),
             ),
           ),
-        if (single != null && !single.isInstance && !single.isContainer)
-          ComponentSettings(
-            item: single,
-            onChanged: (values) => each(
-              (item) => item.visual == null
-                  ? item
-                  : item.withModule(item.visual!.name, values),
+        Section('Node', [
+          if (single != null)
+            CommitField(
+              label: 'Name',
+              value: single.name,
+              onChanged: (name) => each((item) => item.copyWith(name: name)),
             ),
+          TickBox(
+            label: 'Visible',
+            value: !(shared(items.map((item) => item.hidden)) ?? false),
+            onChanged: (visible) =>
+                each((item) => item.copyWith(hidden: !visible)),
+          ),
+        ]),
+        if (single != null)
+          TransformSettings(
+            node: single,
+            parentSize: () =>
+                Stage.sizeOf(found.single.parent.id) ?? const Size(960, 540),
+            placedBy: switch (found.single.parent) {
+              _ when resolved(single, prefabs).isDocked => 'its Dock',
+              _ when isRoot => 'each instance',
+              final parent when parent.has(layoutModule.name) =>
+                "its parent's Layout",
+              _ => null,
+            },
+            onChanged: (transform) =>
+                each((item) => item.copyWith(transform: transform)),
           ),
         if (single != null && single.isInstance) ...[
           if (found.single.parent.prefabRules.containsKey(single.prefab))
@@ -121,129 +125,23 @@ class SelectedProperties extends ConsumerWidget {
               (layout) => withUnpacked(layout, single.id, prefabs),
             ),
           ),
-          InstanceVariables(
-            declared: declared,
-            own: single.vars,
-            onChanged: (vars) => each((item) => item.withVars(vars)),
-          ),
-          // Where it docks is its own; shown as its prefab and it say.
-          if (resolved(single, prefabs) case final drawn when drawn.isDocked)
-            Section('Dock', dockFields(drawn, each)),
         ],
-        if (single != null && !single.isContainer)
-          VariablesSettings(
-            // An instance's own, besides those it has fields for.
-            variables: {
-              for (final MapEntry(key: name, :value) in single.vars.entries)
-                if (!fielded.contains(name)) name: value,
-            },
-            note: single.isInstance
-                ? 'Its own, besides the prefab\'s. One named as a prefab '
-                      'variable overrides it.'
-                : null,
-            exposable: isRoot,
-            onChanged: (vars) => each(
-              (item) => item.withVars({
-                for (final MapEntry(key: name, :value) in item.vars.entries)
-                  if (fielded.contains(name)) name: value,
-                ...vars,
-              }),
-            ),
-          ),
-        // A row or column with actions is a tile.
-        if (single != null &&
-            (!single.isContainer || single.mode.inLine && !single.isDocked))
-          TriggerSettings(
-            set: single.on,
-            defaults: {...?prefabs[single.prefab]?.on},
-            // Its own variables over what the containers around it hand down.
-            scope: {
+        ModuleSections(
+          nodes: items,
+          parents: [for (final one in found) one.parent],
+          onChanged: each,
+          onLayout: change,
+          inPrefab: prefab != null,
+          exposable: isRoot,
+          inDock: found.any((one) => one.dock != null),
+          // What the nodes around it hand down.
+          scope: {
+            if (single != null)
               for (final container in [?found.single.dock, found.single.parent])
                 for (final MapEntry(:key, :value) in container.vars.entries)
                   if (value.access != VarAccess.private) key: value,
-              ...variablesOf(single, prefabs),
-            },
-            onChanged: (on) => each((item) => withPressable(item, on)),
-          ),
-        // A prefab's part is hidden, not removed, where a variant lacks it.
-        if (single != null && prefab != null && !isRoot)
-          Section('Visibility', [
-            TickBox(
-              label: 'Visible',
-              value: !single.hidden,
-              onChanged: (visible) =>
-                  each((item) => item.copyWith(hidden: !visible)),
-            ),
-            if (found.single.parent.mode.inLine)
-              TickBox(
-                label: 'Keep space when hidden',
-                value: single.keep,
-                onChanged: (keep) => each(
-                  (item) => item.withValue(sizingModule.name, 'keep', keep),
-                ),
-              ),
-          ]),
-        // A docked container has no cells, nor what has no layout around it.
-        if (!items.any((item) => item.isDocked) &&
-            found.every((one) => one.parent.mode != LayoutMode.free))
-          Section(
-            'Sizing',
-            ruleFields(
-              options: SizingModule.fieldsIn([
-                for (final one in found) one.parent,
-              ], found.map((one) => one.parent.reach).reduce(min)),
-              json: {
-                for (final MapEntry(:key, :value) in transform.entries)
-                  key: ?shared<double?>(value),
-              },
-              mixed: {
-                for (final MapEntry(:key, :value) in transform.entries)
-                  if (value.toSet().length > 1) key,
-              },
-              onChanged: (key, value) => change(
-                (layout) => transformItems(
-                  layout,
-                  ids,
-                  key,
-                  (value as num?)?.toDouble(),
-                ),
-              ),
-            ),
-          ),
-        // Only style keys common to all.
-        StyleSettings(
-          keys: items
-              .map((item) => item.styleKeys.toSet())
-              .reduce((all, own) => all.intersection(own)),
-          style: items.first.style,
-          onChanged: (key, value) =>
-              each((item) => item.styled(withStyle(item.style, {key: value}))),
+          },
         ),
-        if (allContainers)
-          LayoutSettings(
-            title: 'Layout',
-            prefabs: prefabs,
-            containers: items,
-            onChanged: each,
-            dockable: prefab == null,
-            exposable: isRoot,
-            children: [
-              // Not in a docked container or a prefab.
-              if (single != null &&
-                  prefab == null &&
-                  found.single.dock == null &&
-                  !single.isDocked)
-                TickBox(
-                  label: 'New apps go here',
-                  value: ref.watch(inboxProvider) == single.id,
-                  onChanged: (here) {
-                    if (here) {
-                      change((layout) => withInbox(layout, single.id));
-                    }
-                  },
-                ),
-            ],
-          ),
         if (!isRoot)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),

@@ -78,6 +78,25 @@ class LayoutModule extends ModuleType {
             },
             when: _inLine,
           ),
+          // Forced on every instance directly in it.
+          Field(
+            'itemW',
+            'Item width (cells)',
+            FieldKind.number,
+            min: 1,
+            max: maxColumns,
+            unset: 'Each its own',
+            when: _onCells,
+          ),
+          Field(
+            'itemH',
+            'Item height (cells)',
+            FieldKind.number,
+            min: 1,
+            max: 60,
+            unset: 'Each its own',
+            when: _onCells,
+          ),
         ],
       );
 

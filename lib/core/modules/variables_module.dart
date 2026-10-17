@@ -12,7 +12,9 @@ class VariablesModule extends ModuleType {
   ModuleValues merge(ModuleValues under, ModuleValues over) => {
     ...under,
     for (final MapEntry(key: name, :value) in over.entries)
-      if (value != null)
+      if (name == enabledKey)
+        name: value
+      else if (value != null)
         name: Variable.fromJson(value)
             .over(
               under.containsKey(name) ? Variable.fromJson(under[name]) : null,

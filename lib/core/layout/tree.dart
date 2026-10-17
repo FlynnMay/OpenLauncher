@@ -5,26 +5,18 @@ import 'package:openlauncher/core/nodes/node.dart';
 /// What comes of a node's modules together: the containers in it, whether it
 /// scrolls, what its children are drawn as.
 extension NodeTree on Node {
-  /// This container and every container inside it, the nodes holding an
-  /// instance's slots among them.
+  /// This node and every node inside it that can hold others: any but an
+  /// instance, whose slots' nodes are among them.
   Iterable<Node> get containers sync* {
-    if (isContainer) {
-      yield this;
-    } else if (!isInstance) {
-      return;
-    }
+    if (!isInstance) yield this;
     for (final child in children) {
       yield* child.containers;
     }
   }
 
-  /// This container and the containers on its cells, skipping docked ones.
+  /// The same, skipping docked ones.
   Iterable<Node> get cellContainers sync* {
-    if (isContainer) {
-      yield this;
-    } else if (!isInstance) {
-      return;
-    }
+    if (!isInstance) yield this;
     for (final child in children) {
       if (!child.isDocked) yield* child.cellContainers;
     }
@@ -55,7 +47,7 @@ extension NodeTree on Node {
         children: [for (final holder in children) holder.rebuild(change)],
       );
     }
-    return !isContainer
+    return isInstance
         ? this
         : copyWith(
             children: change(this, [

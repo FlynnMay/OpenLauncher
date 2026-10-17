@@ -141,7 +141,7 @@ void main() {
     await tester.tap(onStage('Alpha').last, warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), {'name'});
-    expect(find.text('Visibility'), findsOneWidget);
+    expect(find.text('Visible'), findsOneWidget);
     // A press on the prefab did not open the app.
     expect(tester.takeException(), isNull);
 

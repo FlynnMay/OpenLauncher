@@ -59,30 +59,33 @@ class _VariablesSettingsState extends ConsumerState<VariablesSettings> {
   @override
   Widget build(BuildContext context) {
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    return Section('Variables', open: false, [
-      if (widget.note case final note?)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(note, style: Theme.of(context).textTheme.bodySmall),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.note case final note?)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(note, style: Theme.of(context).textTheme.bodySmall),
+          ),
+        ListField(
+          option: variableOptions(
+            entities: {for (final entity in entities) entity.id: entity.label},
+            exposable: widget.exposable,
+          ),
+          records: [
+            for (final one in variablesToForm(widget.variables))
+              _expressions.contains(one['name'])
+                  ? {
+                      ...one,
+                      'expression': true,
+                      if (one['value'] case final value?) 'value': '$value',
+                    }
+                  : one,
+          ],
+          onChanged: _take,
         ),
-      ListField(
-        option: variableOptions(
-          entities: {for (final entity in entities) entity.id: entity.label},
-          exposable: widget.exposable,
-        ),
-        records: [
-          for (final one in variablesToForm(widget.variables))
-            _expressions.contains(one['name'])
-                ? {
-                    ...one,
-                    'expression': true,
-                    if (one['value'] case final value?) 'value': '$value',
-                  }
-                : one,
-        ],
-        onChanged: _take,
-      ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -185,20 +188,23 @@ class InstanceVariables extends ConsumerWidget {
             ),
       }),
     );
-    return Section('Prefab variables', [
-      for (final (index, name) in names.indexed)
-        Row(
-          children: [
-            Expanded(child: fields[index]),
-            if (own.containsKey(name))
-              IconButton(
-                tooltip: 'Revert to prefab',
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.undo, size: 18),
-                onPressed: () => onChanged(without(name)),
-              ),
-          ],
-        ),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, name) in names.indexed)
+          Row(
+            children: [
+              Expanded(child: fields[index]),
+              if (own.containsKey(name))
+                IconButton(
+                  tooltip: 'Revert to prefab',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.undo, size: 18),
+                  onPressed: () => onChanged(without(name)),
+                ),
+            ],
+          ),
+      ],
+    );
   }
 }

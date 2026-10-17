@@ -178,7 +178,7 @@ void main() {
 
     // It is an object like any other: let go of, the launcher's settings
     // show, which have no section for sidebars; picked out of the list, its
-    // own do, as a container's with where it is docked.
+    // own do, with where it is docked.
     await tester.tap(find.text('Objects'));
     await tester.pumpAndSettle();
     await tester.tap(inTree('Home screen'));
@@ -191,7 +191,9 @@ void main() {
     expect(find.text('Dock'), findsOneWidget);
     expect(find.text('Position'), findsOneWidget);
     expect(find.text('Collapsed size'), findsOneWidget);
-    expect(find.text('Transform'), findsNothing);
+    // Its dock places it, so where it sits is shown but not changed here.
+    expect(find.text('Placed by its Dock.'), findsOneWidget);
+    expect(find.text('Sizing'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -283,7 +285,9 @@ void main() {
     expect(over('Icon'), 'Primitives');
     // A button is the System pack's prefab, not a primitive.
     expect(over('Button'), 'Prefabs');
-    expect(over('Layout'), 'Primitives');
+    expect(over('Empty'), 'Primitives');
+    // A Layout is a module, added to a node.
+    expect(offered('Layout'), findsNothing);
     expect(over('Section'), 'Prefabs');
     expect(over('Sidebar'), 'Prefabs');
     expect(over('Folder'), 'Prefabs');
