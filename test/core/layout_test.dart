@@ -17,13 +17,14 @@ Component _item(
   double? x,
   double? y,
 }) => kind == null
-    ? Component.of(ref ?? id, id: id, w: w, h: h, x: x, y: y)
+    ? cardOf(ref ?? id, id: id, w: w, h: h, x: x, y: y)
     : Component(id: id, kind: kind, w: w, h: h, x: x, y: y);
 
 Entity _entity(String name) => Entity(
   id: 'system:app/$name',
   category: appCategory,
   label: name,
+  prefab: cardPrefabId,
   placed: true,
 );
 
@@ -279,7 +280,7 @@ void main() {
         'system:app/b',
         'system:app/c',
         'system:app/new',
-      ]);
+      ], instance: placedCard);
       final inner = shown.pane('inner')!;
       expect(inner.children.map((i) => i.handed.firstOrNull), [
         'system:app/c',
@@ -324,16 +325,7 @@ void main() {
                       children: [
                         _item('a', x: 9, y: 2, w: 2, h: 99),
                         _item('half', x: 1),
-                        Component.of(
-                          'missing',
-                          id: 'gone',
-                          prefab: folderPrefabId,
-                        ),
-                        Component.of(
-                          'games',
-                          id: 'open',
-                          prefab: folderPrefabId,
-                        ),
+                        cardOf('games', id: 'open', prefab: folderPrefabId),
                         const Component(id: 'empty'),
                         nest(2),
                       ],
@@ -426,7 +418,7 @@ void main() {
   group('a new layout', () {
     test('a new home screen is one pane as tall as the screen', () {
       final layout = homeLayout(['system:app/b', 'system:app/gone'])
-          .withEntities(['system:app/a', 'system:app/b']);
+          .withEntities(['system:app/a', 'system:app/b'], instance: placedCard);
       // The quick actions come after it, an instance of the System pack's.
       final [item, menu] = layout.home.root.children;
       expect(menu.prefab, 'system:quick-actions');
@@ -465,7 +457,14 @@ void main() {
     expect((panes[2].spacingX, panes[2].spacingY), (0, 0));
     final json = layout.toJson();
     expect(Layout.fromJson(json).toJson(), json);
-    expect(layout.withEntities(['system:app/x']).home.root.spacing, 4);
+    expect(
+      layout
+          .withEntities(['system:app/x'], instance: placedCard)
+          .home
+          .root
+          .spacing,
+      4,
+    );
   });
 
   test('a pane keeps the padding it is given, within reason', () {
@@ -509,7 +508,7 @@ void main() {
               Component.pane(
                 id: 'global',
                 children: [
-                  Component.of('games', id: 'folder', prefab: folderPrefabId),
+                  cardOf('games', id: 'folder', prefab: folderPrefabId),
                   _item('system:clock', kind: 'system:clock'),
                   Component.pane(id: 'main'),
                   folderPane(
@@ -522,7 +521,7 @@ void main() {
           ],
         ),
       );
-      final view = layoutWith(config.layout, entities);
+      final view = layoutWith(config.layout, entities, systemPrefabMap);
       final [folder, clock, pane, games] = view.home.root.children;
 
       // Handed a folder, not an entity.
@@ -560,6 +559,7 @@ void main() {
       final entries = layoutWith(
         config.layout,
         entities,
+        systemPrefabMap,
       ).home.root.children.where((e) => e.isInstance);
       expect(entries.map((e) => e.handed.firstOrNull), [
         'system:app/a',
@@ -574,7 +574,7 @@ void main() {
     test('a sidebar is a pane docked to an edge, with its usual size', () {
       final left = sidebarPane('left', 'left');
       final top = sidebarPane('top', 'top');
-      expect((left.isDocked, left.hovers), (true, false));
+      expect((left.isDocked, left.hiddenWhenClosed), (true, false));
       expect(
         (left.edge, left.openWidth, left.openHeight, left.closed),
         (BarEdge.left, 260, Component.fill, 96),
@@ -592,7 +592,12 @@ void main() {
       // is in it.
       final folder = folderPane('games');
       expect(
-        (folder.hovers, folder.edge, folder.openWidth, folder.openHeight),
+        (
+          folder.hiddenWhenClosed,
+          folder.edge,
+          folder.openWidth,
+          folder.openHeight,
+        ),
         (true, null, 595, null),
       );
       // A word that is no dock leaves a pane on its parent's cells.
@@ -627,7 +632,7 @@ void main() {
       final bottom = copy.pane('bottom')!;
       expect((bottom.dockHeight, bottom.closed), (Component.maxExtent, 0));
       expect(bottom.dockWidth, isNull);
-      expect(copy.pane('games')!.hovers, isTrue);
+      expect(copy.pane('games')!.hiddenWhenClosed, isTrue);
     });
 
     test('how one opens is written and read back, the usual left out', () {
@@ -728,6 +733,7 @@ void main() {
           ],
         ),
         const [Entity(id: 'system:app/a', category: appCategory, label: 'A')],
+        systemPrefabMap,
       );
       expect(view.home.root.shown.first.variant, 'row');
     });

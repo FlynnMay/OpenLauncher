@@ -9,14 +9,15 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
-/// A pane's display name: a sidebar by its edge, a folder or pane by its
-/// title.
+/// A pane's display name: its title, else where it docks.
 String paneName(Component pane) {
-  if (pane.isDocked && !pane.hovers) return '${barName(pane.dock!)} sidebar';
   // A written title reads variables; it is not a name.
   final title = pane.title.contains('{{') ? '' : pane.title;
   if (title.isNotEmpty) return title;
-  return pane.isDocked ? 'Folder' : 'Pane';
+  return switch (pane.dock) {
+    final dock? => '${barName(dock)} pane',
+    null => 'Pane',
+  };
 }
 
 /// A component's display name: its entity's or folder's for an instance,
@@ -46,15 +47,15 @@ IconData objectIcon(Component item) => item.isInstance
     ? prefabIcon
     : !item.isPane
     ? Icons.widgets_outlined
-    : !item.isDocked
-    ? Icons.dashboard_outlined
-    : !item.hovers
+    : item.edge != null
     ? Icons.view_sidebar_outlined
-    : Icons.folder_open_outlined;
+    : item.isDocked
+    ? Icons.folder_open_outlined
+    : Icons.dashboard_outlined;
 
 /// What is being edited as a tree: each layer and what is on it, or the open
-/// prefab's parts by id. Clicking anything selects it; a sidebar or folder is
-/// held open on the screen while it or something in it is selected.
+/// prefab's parts by id. Clicking anything selects it; a docked pane is held
+/// open on the screen while it or something in it is selected.
 class ObjectTree extends ConsumerWidget {
   const ObjectTree({super.key});
 

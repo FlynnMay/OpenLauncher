@@ -344,6 +344,88 @@ void main() {
     ]);
   });
 
+  test('2 to 3: folders and sidebars record the System pack\'s template', () {
+    final next = migrate({
+      'v': 2,
+      'layout': {
+        'v': 2,
+        'layers': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'kind': 'pane',
+              'children': [
+                {'id': 'main', 'kind': 'pane'},
+                {
+                  'id': 'games',
+                  'kind': 'pane',
+                  'options': {'dock': 'center'},
+                },
+                {
+                  'id': 'left',
+                  'kind': 'pane',
+                  'options': {'dock': 'left', 'closed': 96},
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    expect(
+      [for (final Map pane in root['children']) pane['template']],
+      [null, 'system:folder', 'system:sidebar'],
+    );
+  });
+
+  test('2 to 3: a docked pane says whether a press closes it', () {
+    Map pane(String id, Map options) => {
+      'id': id,
+      'kind': 'pane',
+      'options': options,
+    };
+    final next = migrate({
+      'v': 2,
+      'layout': {
+        'v': 2,
+        'layers': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'kind': 'pane',
+              'children': [
+                {'id': 'main', 'kind': 'pane'},
+                pane('games', {'dock': 'center'}),
+                pane('near', {'dock': 'inline'}),
+                pane('left', {'dock': 'left', 'closed': 96}),
+              ],
+            },
+          },
+        ],
+      },
+      'prefabs': [
+        {
+          'id': 'menu',
+          'name': 'Menu',
+          'root': pane('root', {'dock': 'center'}),
+        },
+      ],
+    });
+    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    expect(
+      [
+        for (final Map pane in root['children'])
+          (pane['options'] as Map?)?['closeOnPress'],
+      ],
+      [null, true, null, null],
+    );
+    final menu = (next['prefabs']! as List).single as Map;
+    expect(menu['root']['options']['closeOnPress'], isTrue);
+  });
+
   test('1 to 2: force stop and automatic setup are taken out', () {
     Map<String, Object?> button(String id, List<Map<String, Object?>> acts) => {
       'id': id,

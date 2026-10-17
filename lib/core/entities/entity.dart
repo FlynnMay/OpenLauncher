@@ -1,10 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/entities/entity_action.dart';
 
-const appCategory = 'app';
-const inputCategory = 'input';
-const launcherCategory = 'launcher';
-
 /// Something with actions and readable values: an app, a TV input, the
 /// clock. It defines its own actions, and JSON is its one shape: saved (the
 /// user's own), generated on the TV, or sent to the editor.
@@ -57,10 +53,6 @@ class Entity {
   // Values of [shape]: full-frame artwork, or line art with no frame.
   // Anything else is a padded icon.
   static const banner = 'banner', lineArt = 'line';
-
-  // As the System pack makes them.
-  static String appId(String packageName) => 'system:app/$packageName';
-  static String inputId(String tvInputId) => 'system:input/$tvInputId';
 
   /// What an action's `{{self...}}` reads: [data] and what names it.
   Map<String, Object?> get self => {

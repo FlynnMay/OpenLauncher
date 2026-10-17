@@ -235,9 +235,10 @@ void main() {
     test("the launcher's own prefabs are made the same way", () {
       Prefab prefab(String id) =>
           systemPrefabs.firstWhere((prefab) => prefab.id == id);
-      // What each is drawn from is a variable like any other.
+      // What each is drawn from is a variable like any other; a template
+      // draws nothing given to it.
       for (final own in systemPrefabs) {
-        if (own.id != folderPrefabId) {
+        if (own.id != folderPrefabId && !own.template) {
           expect(own.vars.keys, contains('source'), reason: own.id);
         }
       }
@@ -261,7 +262,7 @@ void main() {
           artist: 'Band',
           playing: true,
         );
-      final item = Component.of(
+      final item = cardOf(
         'system:media',
         id: 'np',
         prefab: 'system:now-playing',
@@ -328,12 +329,12 @@ void main() {
                   'kept': Variable('x'),
                 },
                 children: [
-                  Component.of('system:app/a', id: 'a'),
+                  cardOf('system:app/a', id: 'a'),
                   // Docked: in the pane's tree, not among what it counts.
                   folderPane(
                     'games',
                     title: 'Games',
-                  ).copyWith(children: [Component.of('system:app/a', id: 'g')]),
+                  ).copyWith(children: [cardOf('system:app/a', id: 'g')]),
                 ],
               ),
             ),
@@ -397,13 +398,13 @@ void main() {
                     options: {'text': '{{greeting}} there'},
                     style: {'fontSize': 14},
                   ),
-                  Component.of('games', id: 'f', prefab: folderPrefabId),
+                  cardOf('games', id: 'f', prefab: folderPrefabId),
                   Component.pane(
                     id: 'games',
                     title: 'Games',
                     columns: 1,
                     rules: const {'dock': Component.inline, 'rowHeight': 60},
-                    children: [Component.of('system:app/a', id: 'g')],
+                    children: [cardOf('system:app/a', id: 'g')],
                   ),
                 ],
               ),

@@ -245,7 +245,7 @@ void main() {
           })
           .copyWith(
             children: [
-              Component.of('system:app/a', id: 'a', prefab: 'tile', w: 2),
+              cardOf('system:app/a', id: 'a', prefab: 'tile', w: 2),
               const Component(
                 id: 'b',
                 prefab: 'tile',

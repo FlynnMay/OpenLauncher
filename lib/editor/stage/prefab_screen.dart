@@ -11,8 +11,7 @@ import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// The open prefab alone on the TV's screen: its root at its default size,
-/// enlarged to fill the screen. A sidebar or folder is shown open where it
-/// docks.
+/// enlarged to fill the screen. A docked one is shown open where it docks.
 class PrefabScreen extends ConsumerWidget {
   const PrefabScreen({super.key});
 

@@ -73,12 +73,12 @@ void main() {
                           // leads here.
                           mode: PaneMode.grid,
                           children: [
-                            Component.of('system:app/a', id: 'a', x: 3, y: 0),
+                            cardOf('system:app/a', id: 'a', x: 3, y: 0),
                             // What it does when shown is written on it:
                             // [on] over what a new sidebar comes with.
                             sidebarPane('left', 'left').copyWith(
                               on: {...barTriggers(), ...on},
-                              children: [Component.of('system:app/b', id: 'b')],
+                              children: [cardOf('system:app/b', id: 'b')],
                             ),
                           ],
                         ),
@@ -168,13 +168,9 @@ void main() {
                       root: Component.pane(
                         id: 'main',
                         children: [
-                          Component.of(
-                            'games',
-                            id: 'f',
-                            prefab: folderPrefabId,
-                          ),
+                          cardOf('games', id: 'f', prefab: folderPrefabId),
                           folderPane('games', title: 'Games').copyWith(
-                            children: [Component.of('system:app/b', id: 'b')],
+                            children: [cardOf('system:app/b', id: 'b')],
                           ),
                         ],
                       ),

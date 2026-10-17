@@ -224,8 +224,9 @@ class OverrideList extends StatelessWidget {
   }
 }
 
-/// How many instances [prefab] has, in words.
+/// How many instances [prefab] has, in words; what a template is for.
 String _used(WidgetRef ref, Prefab prefab) {
+  if (prefab.template) return 'Template for new panes';
   final config = ref.watch(configProvider).value;
   final count = config == null
       ? 0

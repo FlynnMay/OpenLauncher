@@ -7,7 +7,7 @@ enum Trigger {
   focus('On focus'),
   blur('On blur'),
 
-  /// For things that are shown and hidden: a sidebar, a folder.
+  /// For things that are shown and hidden: a docked pane.
   reveal('On show'),
   hide('On hide');
 
@@ -18,9 +18,6 @@ enum Trigger {
 
 /// The argument naming the entity that does an action. Every act has one.
 const entityArg = 'entity';
-
-/// [entityArg] for the entity a tile's `source` variable holds.
-const sourceEntity = '{{source.id}}';
 
 /// One saved action: either an entity's action by name, with the
 /// [entityArg] that defines and does it and its other arguments

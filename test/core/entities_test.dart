@@ -51,12 +51,11 @@ void main() {
         category: inputCategory,
         label: 'HDMI 1',
       );
-      final entities = arrangeEntities([
-        _entity('Plex'),
-        _entity('alpha'),
-        hdmi,
-        _entity('Zed'),
-      ], LauncherConfig());
+      final entities = arrangeEntities(
+        [_entity('Plex'), _entity('alpha'), hdmi, _entity('Zed')],
+        LauncherConfig(),
+        order: systemPack.categories.keys,
+      );
       expect(entities.map((c) => c.label), ['HDMI 1', 'alpha', 'Plex', 'Zed']);
     });
 
@@ -235,7 +234,7 @@ void main() {
           final view = await container.read(layoutViewProvider.future);
           container
               .read(runtimeVarsProvider.notifier)
-              .set('quick-actions', Component.sourceVar, entity.id);
+              .set('quick-actions', 'source', entity.id);
           return [
             for (final item in offeredFor(
               view.pane('quick-actions')!,

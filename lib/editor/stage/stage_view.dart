@@ -42,7 +42,7 @@ class _StageState extends ConsumerState<Stage> {
   /// Where the dragged thing would land.
   Rect? _marker;
 
-  /// The sidebar being dragged over.
+  /// The docked pane being dragged over.
   String? _over;
 
   static RenderBox? _box(GlobalKey? key) =>
@@ -132,8 +132,8 @@ class _StageState extends ConsumerState<Stage> {
   ) {
     final layout = ref.read(editedLayoutProvider);
     if (layout == null) return null;
-    if (dragged.sidebar) {
-      // A sidebar only goes to a free edge.
+    if (dragged.docking) {
+      // A new docked pane only goes to a free edge.
       final screen = _box(_screen);
       if (screen == null) return null;
       final at = screen.globalToLocal(pointer);
@@ -148,18 +148,12 @@ class _StageState extends ConsumerState<Stage> {
       return (drop: null, bar: edge, marker: barRect(layout, edge));
     }
     final item = dragged.item;
-    // An open folder is the only target; else a visible sidebar; else the
-    // home screen.
+    // The last docked pane showing under the pointer, else the home screen.
     var pane = layout.home.root;
     String? bar;
     for (final dock in layout.docked) {
       final grid = _grids[dock.id];
       if (_box(grid) == null) continue;
-      if (dock.hovers) {
-        pane = dock;
-        bar = null;
-        break;
-      }
       final showing = grid?.currentContext
           ?.getInheritedWidgetOfExactType<FocusBounds>()
           ?.visible();
@@ -168,7 +162,7 @@ class _StageState extends ConsumerState<Stage> {
         bar = dock.id;
       }
     }
-    // A sidebar dragged over opens.
+    // A docked pane dragged over opens.
     if (bar != _over) setState(() => _over = bar);
     // The innermost pane under the pointer, excluding the dragged one.
     for (Component? inner = pane; inner != null;) {
@@ -202,7 +196,7 @@ class _StageState extends ConsumerState<Stage> {
     // The marker is computed from the resulting layout so it cannot disagree
     // with it.
     final after = findPane(
-      dropItem(layout, item, drop, folder: dragged.folder),
+      dropItem(layout, item, drop, opens: dragged.opens),
       pane.id,
     )!.pane;
     final rect = metrics.rectOf(placementIn(after, item.id));
@@ -363,7 +357,7 @@ class _StageState extends ConsumerState<Stage> {
             _mark(null);
             if (_over != null) setState(() => _over = null);
             if (target?.bar case final bar?) {
-              addBar(context, ref, bar);
+              addBar(context, ref, bar, details.data.template!);
             } else if (target?.drop case final drop?) {
               placeDragged(context, ref, details.data, drop);
             }
@@ -417,10 +411,10 @@ class _StageState extends ConsumerState<Stage> {
                     ),
                   ),
                 ),
-              // While a sidebar is dragged, the edges that would take it.
+              // While a new docked pane is dragged, the edges that would take it.
               if (layout != null &&
                   !prefab &&
-                  held.any((dragged) => dragged?.sidebar ?? false))
+                  held.any((dragged) => dragged?.docking ?? false))
                 for (final id in freeEdges(layout))
                   Positioned.fromRect(
                     rect: barRect(layout, id, thickness: 8),

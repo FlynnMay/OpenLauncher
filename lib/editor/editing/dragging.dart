@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 
 /// Something being dragged: a placed component or a new one from the
 /// catalogue.
@@ -9,27 +10,33 @@ class Dragged {
     required this.item,
     required this.label,
     required this.picture,
-    this.folder,
+    this.opens,
     this.placed = false,
-  }) : sidebar = false;
+  }) : template = null;
 
-  /// A new sidebar. It can only go to a free screen edge.
-  Dragged.sidebar({required this.label, required this.picture})
-    : item = const Component(id: 'sidebar'),
-      folder = null,
-      placed = false,
-      sidebar = true;
+  /// A new pane made from [template]. It can only go to a free screen edge,
+  /// where it docks.
+  const Dragged.docking({
+    required this.label,
+    required this.picture,
+    required Prefab this.template,
+  }) : item = const Component(id: 'docking'),
+       opens = null,
+       placed = false;
 
   final Component item;
 
-  /// The new folder that comes with [item], if any.
-  final Component? folder;
+  /// The new docked pane that [item] opens, if any.
+  final Component? opens;
 
   /// Whether [item] is already in the layout.
   final bool placed;
 
-  /// A new sidebar; [item] is a placeholder.
-  final bool sidebar;
+  /// What a new pane going to an edge is made from; [item] is then a
+  /// placeholder.
+  final Prefab? template;
+
+  bool get docking => template != null;
 
   final String label;
   final Widget picture;

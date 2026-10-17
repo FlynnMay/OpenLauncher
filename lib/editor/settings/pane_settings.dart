@@ -42,10 +42,10 @@ class PaneSettings extends StatelessWidget {
   /// It is a prefab's root, whose variables instances can show.
   final bool exposable;
 
-  /// The chains a docked pane runs: when it is shown and hidden, and for one
-  /// with a closed strip, when the focus comes and goes.
-  static List<Trigger> _chains(Component pane) => [
-    if (!pane.hovers) ...[Trigger.focus, Trigger.blur],
+  /// The chains a docked pane runs.
+  static const _chains = [
+    Trigger.focus,
+    Trigger.blur,
     Trigger.reveal,
     Trigger.hide,
   ];
@@ -86,7 +86,7 @@ class PaneSettings extends StatelessWidget {
       if (panes.length == 1 && panes.single.isDocked)
         TriggerSettings(
           scope: panes.single.vars,
-          triggers: _chains(panes.single),
+          triggers: _chains,
           set: panes.single.on,
           onChanged: (on) => onChanged((pane) => pane.copyWith(on: on)),
         ),

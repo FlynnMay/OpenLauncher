@@ -5,13 +5,15 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 
-/// Display name of a screen edge.
-String barName(String edge) => switch (edge) {
+/// Display name of a dock.
+String barName(String dock) => switch (dock) {
   'left' => 'Left',
   'right' => 'Right',
   'top' => 'Top',
   'bottom' => 'Bottom',
-  _ => edge,
+  'center' => 'Centre',
+  Component.inline => 'Inline',
+  _ => dock,
 };
 
 /// A size that is automatic, fill, or a number of TV pixels.
@@ -113,9 +115,9 @@ List<Widget> dockFields(
         onChanged: (height) =>
             change((pane) => withRule(pane, 'height', height)),
       ),
-      ...fields(rest),
-      const _Replay(),
     ],
+    ...fields(rest),
+    if (pane.isDocked && pane.dock != Component.inline) const _Replay(),
   ];
 }
 

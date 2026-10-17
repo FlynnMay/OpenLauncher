@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 
@@ -20,21 +19,8 @@ class TvScreen extends StatelessWidget {
         final context => ProviderScope.containerOf(context),
       };
 
-  static void closePopups() {
-    final launcher = _launcher;
-    if (launcher == null) return;
-    final vars = launcher.read(runtimeVarsProvider.notifier);
-    final layout = launcher.read(layoutViewProvider).value;
-    for (final MapEntry(key: id, value: set)
-        in launcher.read(runtimeVarsProvider).entries) {
-      if (set[openVar] == true && (layout?.pane(id)?.hovers ?? false)) {
-        vars.set(id, openVar, false);
-      }
-    }
-  }
-
-  /// Opens folder [id] by setting its `open` variable.
-  static void openPopup(String id) =>
+  /// Opens docked pane [id] by setting its `open` variable.
+  static void openPane(String id) =>
       _launcher?.read(runtimeVarsProvider.notifier).set(id, openVar, true);
 
   @override

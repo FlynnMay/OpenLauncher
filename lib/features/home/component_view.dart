@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/component_registry.dart';
-import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/component_tile.dart';
 import 'package:openlauncher/features/components/primitives.dart';
-import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
@@ -121,8 +119,7 @@ class ComponentView extends ConsumerWidget {
   /// Gives the initial focus to the first focusable component.
   final FirstFocus? focus;
 
-  /// The hovering folder it is in, which closes when something in it is
-  /// opened.
+  /// The docked pane it is in, if a press closes it.
   final String? popup;
 
   /// It is a child of a row or column pane.
@@ -150,11 +147,7 @@ class ComponentView extends ConsumerWidget {
     final scope = scopeOf(ref.watch, c.id, c.vars, TemplateScope.of(context));
     final look = readStyle(ref.watch, c.style, scope.own);
     final box = BoxStyle.of(look);
-    // The entity it was handed, if any.
     final handed = c.handed.firstOrNull;
-    final entity = handed == null
-        ? null
-        : ref.watch(entitiesProvider.select((all) => all.value?.byId(handed)));
     final does = TileActions(
       context,
       ref,
@@ -162,9 +155,6 @@ class ComponentView extends ConsumerWidget {
       c.on,
       scope: scope.own,
       popup: popup,
-      // An entity's tile, or a button of an entity's menu.
-      closes:
-          popup != null && (entity != null || subjectOf(ref, popup!) != null),
     );
     void press() => does.fire(Trigger.press);
     final hold = does.has(Trigger.hold)

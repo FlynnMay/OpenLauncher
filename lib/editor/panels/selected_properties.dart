@@ -233,7 +233,7 @@ class SelectedProperties extends ConsumerWidget {
             dockable: prefab == null,
             exposable: isRoot,
             children: [
-              // Not in a sidebar, folder or prefab.
+              // Not in a docked pane or a prefab.
               if (single != null &&
                   prefab == null &&
                   found.single.dock == null &&
@@ -262,7 +262,7 @@ class SelectedProperties extends ConsumerWidget {
                 spacing: 8,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () => TvScreen.openPopup(folders.keys.single),
+                    onPressed: () => TvScreen.openPane(folders.keys.single),
                     icon: const Icon(Icons.folder_open_outlined),
                     label: const Text('Open'),
                   ),

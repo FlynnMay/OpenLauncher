@@ -269,3 +269,52 @@ void quickActionsAsPrefab(Json save, Device device) {
     if (layer['root'] case final Json root) walk(root);
   }
 }
+
+/// A new folder or sidebar records the template it was copied from: the
+/// saved ones were the launcher's, now the System pack's. One docked with a
+/// strip is a sidebar; any other docked pane, a folder.
+void templatesRecorded(Json save, Device device) {
+  void walk(Json pane) {
+    final children = objectsIn(pane, 'children');
+    for (final child in children) {
+      if (child
+          case {
+            'kind': 'pane',
+            'options': {'dock': final String _} && final Json options,
+          }
+          when !child.containsKey('template')) {
+        child['template'] = options.containsKey('closed')
+            ? 'system:sidebar'
+            : 'system:folder';
+      }
+      walk(child);
+    }
+  }
+
+  for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {
+    if (layer['root'] case final Json root) walk(root);
+  }
+}
+
+/// A docked pane says itself whether a press closes it: the launcher closed
+/// one with no strip, unless it was opened in place.
+void closeOnPressRecorded(Json save, Device device) {
+  void walk(Json pane) {
+    if (pane
+        case {
+          'kind': 'pane',
+          'options': {'dock': final String dock} && final Json options,
+        }
+        when dock != 'inline' && !options.containsKey('closed')) {
+      options.putIfAbsent('closeOnPress', () => true);
+    }
+    objectsIn(pane, 'children').forEach(walk);
+  }
+
+  for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {
+    if (layer['root'] case final Json root) walk(root);
+  }
+  for (final prefab in objectsIn(save, 'prefabs')) {
+    if (prefab['root'] case final Json root) walk(root);
+  }
+}
