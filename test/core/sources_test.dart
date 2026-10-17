@@ -189,13 +189,13 @@ void main() {
       // Drawn, the instance is a folder in the middle, holding the prefab's
       // buttons.
       await c.read(packContentsProvider.future);
-      final pane = withDockedInstances(
+      final menuNode = withDockedInstances(
         start,
         c.read(prefabsProvider),
       ).container('quick-actions')!;
-      expect((pane.dock, pane.hiddenWhenClosed), ('center', true));
+      expect((menuNode.dock, menuNode.hiddenWhenClosed), ('center', true));
       // Under a heading, a list of buttons.
-      final list = pane.children.last;
+      final list = menuNode.children.last;
       expect(list.children.map((button) => button.vars['label']?.value), [
         'Open',
         'App info',
@@ -203,7 +203,7 @@ void main() {
         'Remove',
       ]);
       expect(list.children.first.id, 'quick-actions/open');
-      expect(pane.vars.keys, ['source']);
+      expect(menuNode.vars.keys, ['source']);
     });
 
     test('has a folder, a section and a sidebar that hold what is put in '

@@ -57,7 +57,7 @@ Rect focusRect(FocusNode node) {
   );
 }
 
-/// Moves the focus using [navigate] (same pane first, then inside, around,
+/// Moves the focus using [navigate] (same container first, then inside, around,
 /// anywhere). It does not scroll to the target; [FocusTile] does that itself.
 class TileTraversal extends StatelessWidget {
   const TileTraversal({super.key, required this.child});

@@ -20,7 +20,7 @@ void main() {
       id: 'big-entity',
       name: 'Big entity',
     );
-    var pane = Node.layout(id: 'p');
+    var container = Node.layout(id: 'p');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -35,13 +35,14 @@ void main() {
             body: SingleChildScrollView(
               child: StatefulBuilder(
                 builder: (context, setState) => LayoutSettings(
-                  title: 'Pane',
+                  title: 'Layout',
                   prefabs: {
                     for (final prefab in [...systemPrefabs, own])
                       prefab.id: prefab,
                   },
-                  containers: [pane],
-                  onChanged: (how) => setState(() => pane = how(pane)),
+                  containers: [container],
+                  onChanged: (how) =>
+                      setState(() => container = how(container)),
                 ),
               ),
             ),
@@ -55,20 +56,20 @@ void main() {
     expect(find.text('App card'), findsOneWidget);
     expect(find.text('Folder card'), findsOneWidget);
     expect(find.text('Big entity'), findsNothing);
-    expect(pane.prefabRules, isEmpty);
+    expect(container.prefabRules, isEmpty);
 
     await tester.tap(find.text('Add rule'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Big entity').last);
     await tester.pumpAndSettle();
-    expect(pane.prefabRules, {
+    expect(container.prefabRules, {
       'big-entity': {'variant': 'stacked'},
     });
     expect(find.text('Add rule'), findsNothing);
 
     await tester.tap(find.text('Remove rule for Big entity'));
     await tester.pumpAndSettle();
-    expect(pane.prefabRules, isEmpty);
+    expect(container.prefabRules, isEmpty);
     expect(find.text('Add rule'), findsOneWidget);
     // The launcher's own cannot be taken away, only left to each entity.
     expect(find.textContaining('Remove rule for App card'), findsNothing);
@@ -78,7 +79,7 @@ void main() {
     tester.view.physicalSize = const Size(500, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    var pane = Node.layout(id: 'p');
+    var container = Node.layout(id: 'p');
     var changes = 0;
     late StateSetter redraw;
     await tester.pumpWidget(
@@ -97,11 +98,11 @@ void main() {
                 builder: (context, setState) {
                   redraw = setState;
                   return LayoutSettings(
-                    title: 'Pane',
-                    containers: [pane],
+                    title: 'Layout',
+                    containers: [container],
                     onChanged: (how) => setState(() {
                       changes++;
-                      pane = how(pane);
+                      container = how(container);
                     }),
                   );
                 },
@@ -114,7 +115,7 @@ void main() {
     bool? ticked(String label) => tester
         .widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, label))
         .value;
-    // A new pane on cells scrolls down.
+    // A new container on cells scrolls down.
     expect(
       (ticked('Horizontal scroll'), ticked('Vertical scroll')),
       (false, true),
@@ -124,12 +125,12 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
-    expect((pane.scrollsAcross, pane.scrollsDown), (true, false));
-    expect(pane.scroll, containsPair('down', false));
+    expect((container.scrollsAcross, container.scrollsDown), (true, false));
+    expect(container.scroll, containsPair('down', false));
     expect(changes, 2);
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
-    expect(pane.scroll, containsPair('down', true));
+    expect(container.scroll, containsPair('down', true));
 
     // A scroll bar is chosen, then its look has a section of its own.
     expect(find.text('Thickness'), findsNothing);
@@ -137,7 +138,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Progress').last);
     await tester.pumpAndSettle();
-    expect(pane.scrollbar, 'progress');
+    expect(container.scrollbar, 'progress');
     expect(find.text('Show scroll bar'), findsOneWidget);
     for (final prop in stylePropsOf(scrollbarStyle)) {
       expect(find.text(prop.label), findsOneWidget, reason: prop.key);
@@ -149,38 +150,38 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(pane.scroll, containsPair('scrollbarSize', 7));
+    expect(container.scroll, containsPair('scrollbarSize', 7));
     // One that scrolls neither way has none to show.
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
-    expect(pane.scrollsDown, isFalse);
+    expect(container.scrollsDown, isFalse);
     await tester.tap(find.text('Horizontal scroll'));
     await tester.pump();
-    expect(pane.scrollbar, isNull);
+    expect(container.scrollbar, isNull);
     expect(find.text('Scroll bar'), findsNothing);
     expect(find.text('Thickness'), findsNothing);
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
-    expect(pane.scrollbar, 'progress');
+    expect(container.scrollbar, 'progress');
 
     // A row or a column does not scroll until ticked, and only along
     // itself.
-    redraw(() => pane = Node.layout(id: 'p', mode: LayoutMode.row));
+    redraw(() => container = Node.layout(id: 'p', mode: LayoutMode.row));
     await tester.pump();
     expect(
       (ticked('Horizontal scroll'), ticked('Vertical scroll')),
       (false, false),
     );
 
-    redraw(() => pane = Node.layout(id: 'p', mode: LayoutMode.column));
+    redraw(() => container = Node.layout(id: 'p', mode: LayoutMode.column));
     await tester.pump();
     changes = 0;
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
-    expect((pane.scroll['down'], pane.scrollsDown), (true, true));
+    expect((container.scroll['down'], container.scrollsDown), (true, true));
     expect(changes, 1);
     await tester.tap(find.text('Horizontal scroll'));
     await tester.pump();
-    expect(pane.scrollsAcross, isFalse);
+    expect(container.scrollsAcross, isFalse);
   });
 }

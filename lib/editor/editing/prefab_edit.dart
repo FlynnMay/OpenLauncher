@@ -5,11 +5,11 @@ import 'dart:ui';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 
-/// The pane a prefab's root sits in while it is edited as a layout.
+/// The container a prefab's root sits in while it is edited as a layout.
 const prefabStageId = 'prefab/stage';
 
 /// [prefab] as a layout the editing tools work on: its root, as [variant]
-/// has it, alone in a pane, whose rows are [rowHeight] high if given.
+/// has it, alone in a container, whose rows are [rowHeight] high if given.
 Layout prefabAsLayout(Prefab prefab, [String? variant, double? rowHeight]) =>
     Layout(
       inbox: prefab.root.id,
@@ -269,8 +269,8 @@ bool hasBlank(Node component) => component.vars.values.any(
       (variable.value == null || variable.value == ''),
 );
 
-/// [pane] with its instances of [prefabId] unpacked, as the pane's rules
-/// show them, and its rule for the prefab dropped.
+/// [container] with its instances of [prefabId] unpacked, as the container's
+/// rules show them, and its rule for the prefab dropped.
 Node _unpackedIn(
   Node component,
   String prefabId,
@@ -302,12 +302,12 @@ Node _unpackedIn(
 Layout withUnpacked(Layout layout, String id, Map<String, Prefab> prefabs) {
   final used = layout.itemIds;
   return layout.rebuild(
-    (pane, items) => [
+    (container, items) => [
       for (final (index, item) in items.indexed)
         item.id == id && item.isInstance
-            // As the pane's rules show it.
+            // As the container's rules show it.
             ? unpacked(
-                pane.copyWith(children: items).shown[index],
+                container.copyWith(children: items).shown[index],
                 prefabs,
                 used,
               )

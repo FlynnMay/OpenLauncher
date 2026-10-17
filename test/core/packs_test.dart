@@ -282,9 +282,9 @@ void main() {
           .setLayout(
             home.withContainer(
               home.home.root.id,
-              (pane) => pane.copyWith(
+              (container) => container.copyWith(
                 children: [
-                  ...pane.children,
+                  ...container.children,
                   drawn(
                     'b',
                     iconModule.name,

@@ -7,7 +7,7 @@ enum Trigger {
   focus('On focus'),
   blur('On blur'),
 
-  /// For things that are shown and hidden: a docked pane.
+  /// For things that are shown and hidden: a docked container.
   reveal('On show'),
   hide('On hide');
 

@@ -61,9 +61,9 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
         c.copyWith(layout: c.layout.without({id}, layer: layer).normalised()),
   );
 
-  /// Adds [item] to pane [pane].
-  Future<void> addItem(Node item, String pane) => _update(
-    (c) => c.copyWith(layout: c.layout.withAdded(item, pane).normalised()),
+  /// Adds [item] to container [container].
+  Future<void> addItem(Node item, String container) => _update(
+    (c) => c.copyWith(layout: c.layout.withAdded(item, container).normalised()),
   );
 
   Future<void> setWallpapers(List<String> paths) =>

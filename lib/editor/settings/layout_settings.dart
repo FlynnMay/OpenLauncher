@@ -11,7 +11,7 @@ import 'package:openlauncher/editor/settings/style_settings.dart';
 import 'package:openlauncher/editor/settings/trigger_settings.dart';
 import 'package:openlauncher/editor/settings/variables_settings.dart';
 
-/// Settings of one or more containers, including the screen's root pane.
+/// Settings of one or more containers, including the screen's root container.
 class LayoutSettings extends StatelessWidget {
   const LayoutSettings({
     super.key,
@@ -28,8 +28,8 @@ class LayoutSettings extends StatelessWidget {
   final String title;
   final List<Node> containers;
 
-  /// Called with a function to apply to each pane.
-  final void Function(Node Function(Node pane) change) onChanged;
+  /// Called with a function to apply to each container.
+  final void Function(Node Function(Node container) change) onChanged;
 
   /// Whether the title is editable.
   final bool named;
@@ -43,7 +43,7 @@ class LayoutSettings extends StatelessWidget {
   /// It is a prefab's root, whose variables instances can show.
   final bool exposable;
 
-  /// The chains a docked pane runs.
+  /// The chains a docked container runs.
   static const _chains = [
     Trigger.focus,
     Trigger.blur,
@@ -59,14 +59,14 @@ class LayoutSettings extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _arrangement,
-      if (containers.every((pane) => pane.scrollbar != null))
+      if (containers.every((container) => container.scrollbar != null))
         Section(
           'Scroll bar',
           styleFields(
             keys: scrollbarStyle,
             style: containers.first.scroll,
             onChanged: (key, value) => onChanged(
-              (pane) => pane.withValue(scrollModule.name, key, value),
+              (container) => container.withValue(scrollModule.name, key, value),
             ),
           ),
         ),
@@ -76,7 +76,7 @@ class LayoutSettings extends StatelessWidget {
           builder: (context, ref, _) =>
               _rules(ref.watch(shippedPrefabsProvider).keys.toSet()),
         ),
-      // One pane at a time.
+      // One container at a time.
       if (dockable && containers.length == 1)
         Section(
           'Dock',
@@ -88,26 +88,27 @@ class LayoutSettings extends StatelessWidget {
           scope: containers.single.vars,
           triggers: _chains,
           set: containers.single.on,
-          onChanged: (on) => onChanged((pane) => pane.triggered(on)),
+          onChanged: (on) => onChanged((container) => container.triggered(on)),
         ),
       if (containers.length == 1)
         VariablesSettings(
           variables: containers.single.vars,
           exposable: exposable,
-          onChanged: (vars) => onChanged((pane) => pane.withVars(vars)),
+          onChanged: (vars) =>
+              onChanged((container) => container.withVars(vars)),
         ),
     ],
   );
 
-  /// With several containers the first one's values show and a change applies to
-  /// all.
+  /// With several containers the first one's values show and a change applies
+  /// to all.
   Widget get _arrangement => Section(title, [
     if (named && containers.length == 1)
       ...ruleFields(
         options: const [Field('name', 'Name', FieldKind.text)],
         json: {'name': containers.single.name},
         onChanged: (_, name) =>
-            onChanged((pane) => pane.copyWith(name: '${name ?? ''}')),
+            onChanged((container) => container.copyWith(name: '${name ?? ''}')),
       ),
     for (final module in [layoutModule, scrollModule])
       ...ruleFields(
@@ -116,30 +117,32 @@ class LayoutSettings extends StatelessWidget {
             if (!scrollbarStyle.contains(field.key)) field,
         ],
         json: containers.first.values(module.name) ?? const {},
-        onChanged: (key, value) =>
-            onChanged((pane) => withRule(pane, module.name, key, value)),
+        onChanged: (key, value) => onChanged(
+          (container) => withRule(container, module.name, key, value),
+        ),
       ),
     ...children,
   ]);
 
-  /// Sets [key] of the pane's rule for [prefab]; null removes it, and an
+  /// Sets [key] of the container's rule for [prefab]; null removes it, and an
   /// empty rule is dropped.
-  static Node _ruled(Node pane, String prefab, String key, Object? value) {
-    final rule = {...?pane.prefabRules[prefab], key: value}
+  static Node _ruled(Node container, String prefab, String key, Object? value) {
+    final rule = {...?container.prefabRules[prefab], key: value}
       ..removeWhere((_, value) => value == null);
     final rules = {
-      for (final MapEntry(:key, :value) in pane.prefabRules.entries)
+      for (final MapEntry(:key, :value) in container.prefabRules.entries)
         if (key != prefab) key: value,
       if (rule.isNotEmpty) prefab: rule,
     };
-    return pane.withPrefabRules(rules);
+    return container.withPrefabRules(rules);
   }
 
-  /// Rules for instances directly in the pane. Prefabs packs ship are
+  /// Rules for instances directly in the container. Prefabs packs ship are
   /// always listed; a user prefab's rule appears once added.
   Widget _rules(Set<String> shipped) {
-    bool ruled(Prefab prefab) =>
-        containers.any((pane) => pane.prefabRules.containsKey(prefab.id));
+    bool ruled(Prefab prefab) => containers.any(
+      (container) => container.prefabRules.containsKey(prefab.id),
+    );
     final shown = [
       for (final prefab in prefabs.values)
         if (shipped.contains(prefab.id) || ruled(prefab)) prefab,
@@ -165,8 +168,8 @@ class LayoutSettings extends StatelessWidget {
             tooltip: 'Add a prefab rule',
             // A rule starts with the prefab's first variant.
             onSelected: (prefab) => onChanged(
-              (pane) => _ruled(
-                pane,
+              (container) => _ruled(
+                container,
                 prefab.id,
                 'variant',
                 prefab.variants.keys.first,
@@ -196,26 +199,29 @@ class LayoutSettings extends StatelessWidget {
       ChoiceBox<String>(
         value: shared(
           containers.map(
-            (pane) => switch (pane.prefabRules[prefab.id]?['variant']) {
-              final String variant when prefab.variants.containsKey(variant) =>
-                variant,
-              _ => _each,
-            },
+            (container) =>
+                switch (container.prefabRules[prefab.id]?['variant']) {
+                  final String variant
+                      when prefab.variants.containsKey(variant) =>
+                    variant,
+                  _ => _each,
+                },
           ),
         ),
         choices: {
           // A pack's may leave the variant to each instance.
           if (shipped ||
               containers.any(
-                (pane) => pane.prefabRules[prefab.id]?['variant'] == null,
+                (container) =>
+                    container.prefabRules[prefab.id]?['variant'] == null,
               ))
             _each: 'Per instance',
           for (final MapEntry(:key, :value) in prefab.variants.entries)
             key: value.label.isEmpty ? key : value.label,
         },
         onChanged: (variant) => onChanged(
-          (pane) => _ruled(
-            pane,
+          (container) => _ruled(
+            container,
             prefab.id,
             'variant',
             variant == _each ? null : variant,
@@ -229,8 +235,8 @@ class LayoutSettings extends StatelessWidget {
         ChoiceBox<String>(
           value: shared(
             containers.map(
-              (pane) => switch (overridesFromJson(
-                pane.prefabRules[prefab.id]?['overrides'],
+              (container) => switch (overridesFromJson(
+                container.prefabRules[prefab.id]?['overrides'],
               )[part.id]?['hidden']) {
                 true => 'hidden',
                 false => 'shown',
@@ -243,9 +249,9 @@ class LayoutSettings extends StatelessWidget {
             'shown': 'Shown',
             'hidden': 'Hidden',
           },
-          onChanged: (shown) => onChanged((pane) {
+          onChanged: (shown) => onChanged((container) {
             final overrides = withOverride(
-              overridesFromJson(pane.prefabRules[prefab.id]?['overrides']),
+              overridesFromJson(container.prefabRules[prefab.id]?['overrides']),
               part.id,
               {
                 'hidden': switch (shown) {
@@ -256,7 +262,7 @@ class LayoutSettings extends StatelessWidget {
               },
             );
             return _ruled(
-              pane,
+              container,
               prefab.id,
               'overrides',
               overrides.isEmpty ? null : overrides,
@@ -268,12 +274,13 @@ class LayoutSettings extends StatelessWidget {
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
-          onPressed: () => onChanged((pane) {
+          onPressed: () => onChanged((container) {
             final rules = {
-              for (final MapEntry(:key, :value) in pane.prefabRules.entries)
+              for (final MapEntry(:key, :value)
+                  in container.prefabRules.entries)
                 if (key != prefab.id) key: value,
             };
-            return pane.withPrefabRules(rules);
+            return container.withPrefabRules(rules);
           }),
           icon: const Icon(Icons.delete_outline, size: 18),
           label: Text('Remove rule for ${prefab.name}'),
@@ -284,45 +291,50 @@ class LayoutSettings extends StatelessWidget {
   Widget get _entities => Section('Item size', open: false, [
     TickBox(
       label: 'Same size for all',
-      value: shared(containers.map((pane) => pane.itemW != null)),
+      value: shared(containers.map((container) => container.itemW != null)),
       onChanged: (same) => onChanged(
-        (pane) => pane
+        (container) => container
             .withValue(
               layoutModule.name,
               'itemW',
-              same ? pane.itemW ?? 1 : null,
+              same ? container.itemW ?? 1 : null,
             )
             .withValue(
               layoutModule.name,
               'itemH',
-              same ? pane.itemH ?? 1 : null,
+              same ? container.itemH ?? 1 : null,
             ),
       ),
     ),
-    if (containers.every((pane) => pane.itemW != null)) ...[
+    if (containers.every((container) => container.itemW != null)) ...[
       NumberField(
         label: 'Width (cells)',
-        value: shared(containers.map((pane) => pane.itemW!)),
-        mixed: containers.map((pane) => pane.itemW).toSet().length > 1,
+        value: shared(containers.map((container) => container.itemW!)),
+        mixed:
+            containers.map((container) => container.itemW).toSet().length > 1,
         min: 1,
         max: containers
-            .map((pane) => pane.reach)
+            .map((container) => container.reach)
             .reduce((a, b) => a < b ? a : b),
-        onChanged: (w) =>
-            onChanged((pane) => pane.withValue(layoutModule.name, 'itemW', w)),
+        onChanged: (w) => onChanged(
+          (container) => container.withValue(layoutModule.name, 'itemW', w),
+        ),
       ),
       NumberField(
         label: 'Height (cells)',
-        value: shared(containers.map((pane) => pane.itemH ?? 1)),
-        mixed: containers.map((pane) => pane.itemH ?? 1).toSet().length > 1,
+        value: shared(containers.map((container) => container.itemH ?? 1)),
+        mixed:
+            containers.map((container) => container.itemH ?? 1).toSet().length >
+            1,
         min: 1,
         max: SizingModule.maxRows,
-        onChanged: (h) =>
-            onChanged((pane) => pane.withValue(layoutModule.name, 'itemH', h)),
+        onChanged: (h) => onChanged(
+          (container) => container.withValue(layoutModule.name, 'itemH', h),
+        ),
       ),
     ],
   ]);
 
-  /// The "not decided by the pane" choice.
+  /// The "not decided by the container" choice.
   static const _each = 'each';
 }

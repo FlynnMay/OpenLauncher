@@ -207,7 +207,7 @@ void main() {
   test('state offers the layout and what there is to choose from', () async {
     final page = await state();
     // Nothing has been arranged yet, so every entity is in the one section.
-    // It sits in the screen's global pane.
+    // It sits in the screen's global container.
     final section = page['layout']['layers'][0]['root']['children'].first;
     expect(page['layout']['inbox'], section['id']);
     expect(
@@ -516,7 +516,7 @@ void main() {
     final [top, rest, games] = saved.home.root.children;
     expect((top.mode, top.columns), (LayoutMode.grid, 4));
     expect((top.name, saved.inbox), ('Favourites', rest.id));
-    // Too wide for the pane. A card for a folder that does not exist is
+    // Too wide for the container. A card for a folder that does not exist is
     // kept, but not drawn.
     expect(top.children.map((i) => i.id), ['i1', 'i2', 'i3', 'i4']);
     expect((top.children.first.w, top.children.first.x), (4, 0));
@@ -527,7 +527,7 @@ void main() {
     expect((games.dock, games.hiddenWhenClosed), ('bottom', true));
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
-    // which was placed nowhere, in the pane for new entities.
+    // which was placed nowhere, in the container for new entities.
     expect(await onTv(), ['system:app/b', 'system:input/tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
     expect(view.all.map((item) => item.id), isNot(contains('i3')));

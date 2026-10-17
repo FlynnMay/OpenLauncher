@@ -16,10 +16,10 @@ Act actIn(Act act, Watch watch, Map<String, Object?> scope) => Act(act.name, {
         : value,
 });
 
-/// [pane] without the nodes in it whose press cannot be done as its
+/// [container] without the nodes in it whose press cannot be done as its
 /// variables stand.
-Node offeredIn(Node pane, Watch watch, Iterable<Entity> entities) {
-  final scope = scopeOf(watch, pane.id, pane.vars, const {}).inner;
+Node offeredIn(Node container, Watch watch, Iterable<Entity> entities) {
+  final scope = scopeOf(watch, container.id, container.vars, const {}).inner;
   bool proper(Node node) => (node.on[Trigger.press] ?? const []).every(
     (act) => isProper(actIn(act, watch, scope), entities),
   );
@@ -29,16 +29,17 @@ Node offeredIn(Node pane, Watch watch, Iterable<Entity> entities) {
         if (proper(child)) pruned(child),
     ],
   );
-  return pruned(pane);
+  return pruned(container);
 }
 
-/// What can be pressed in [pane], of what [offeredIn] leaves.
-List<Node> offeredFor(Node pane, Watch watch, Iterable<Entity> entities) => [
-  for (final node in offeredIn(pane, watch, entities).all.skip(1))
-    if (node.on[Trigger.press]?.isNotEmpty ?? false) node,
-];
+/// What can be pressed in [container], of what [offeredIn] leaves.
+List<Node> offeredFor(Node container, Watch watch, Iterable<Entity> entities) =>
+    [
+      for (final node in offeredIn(container, watch, entities).all.skip(1))
+        if (node.on[Trigger.press]?.isNotEmpty ?? false) node,
+    ];
 
-/// Runs a pane's chain [acts] in order; a declined one is reported.
+/// Runs a container's chain [acts] in order; a declined one is reported.
 Future<void> runChain(
   BuildContext context,
   WidgetRef ref,
@@ -78,7 +79,7 @@ class TileActions {
 
   final String? component;
 
-  /// The docked pane the tile is in, if a press closes it.
+  /// The docked container the tile is in, if a press closes it.
   final String? popup;
 
   bool has(Trigger trigger) => triggers[trigger]?.isNotEmpty ?? false;

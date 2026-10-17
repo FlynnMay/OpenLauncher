@@ -41,12 +41,12 @@ Node? instanceFor(Entity entity, Layout layout, Map<String, Prefab> prefabs) =>
       null => null,
     };
 
-/// [item] as the pane it resolves to, if that is docked: an instance of a
+/// [item] as the container it resolves to, if that is docked: an instance of a
 /// docked prefab docks like one.
 Node? dockedForm(Node item, Map<String, Prefab> prefabs) {
   if (!item.isInstance) return null;
-  final pane = resolved(item, prefabs);
-  return pane.isDocked ? pane : null;
+  final container = resolved(item, prefabs);
+  return container.isDocked ? container : null;
 }
 
 /// [layout] with its instances of docked containers resolved.

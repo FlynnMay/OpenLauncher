@@ -21,9 +21,9 @@ class PrefabScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pane = ref.watch(editedLayoutProvider)?.home.root;
-    final root = pane?.children.firstOrNull;
-    if (pane == null || root == null) {
+    final container = ref.watch(editedLayoutProvider)?.home.root;
+    final root = container?.children.firstOrNull;
+    if (container == null || root == null) {
       return SizedBox.fromSize(size: TvScreen.size);
     }
     if (root.isDocked) {
@@ -34,15 +34,16 @@ class PrefabScreen extends ConsumerWidget {
           child: TileTraversal(
             child: DockHold(
               ids: {root.id},
-              child: DockedNode(pane: root),
+              child: DockedNode(container: root),
             ),
           ),
         ),
       );
     }
     final width =
-        pane.columns * prefabCellWidth + (pane.columns - 1) * pane.spacingX;
-    final metrics = CellMetrics(pane, width);
+        container.columns * prefabCellWidth +
+        (container.columns - 1) * container.spacingX;
+    final metrics = CellMetrics(container, width);
     final w = metrics.across(root.w), h = metrics.down(root.h);
     final Size(width: across, height: down) = TvScreen.size;
     final scale = min(
@@ -65,7 +66,7 @@ class PrefabScreen extends ConsumerWidget {
                   scale: scale,
                   alignment: Alignment.topLeft,
                   child: ChildrenLayout(
-                    pane: pane,
+                    container: container,
                     tile: (component) => NodeView(component: component),
                   ),
                 ),

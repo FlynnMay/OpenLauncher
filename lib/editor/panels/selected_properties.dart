@@ -158,8 +158,8 @@ class SelectedProperties extends ConsumerWidget {
             defaults: {...?prefabs[single.prefab]?.on},
             // Its own variables over what the containers around it hand down.
             scope: {
-              for (final pane in [?found.single.dock, found.single.parent])
-                for (final MapEntry(:key, :value) in pane.vars.entries)
+              for (final container in [?found.single.dock, found.single.parent])
+                for (final MapEntry(:key, :value) in container.vars.entries)
                   if (value.access != VarAccess.private) key: value,
               ...variablesOf(single, prefabs),
             },
@@ -183,7 +183,7 @@ class SelectedProperties extends ConsumerWidget {
                 ),
               ),
           ]),
-        // A docked pane has no cells, nor what has no layout around it.
+        // A docked container has no cells, nor what has no layout around it.
         if (!items.any((item) => item.isDocked) &&
             found.every((one) => one.parent.mode != LayoutMode.free))
           Section(
@@ -228,7 +228,7 @@ class SelectedProperties extends ConsumerWidget {
             dockable: prefab == null,
             exposable: isRoot,
             children: [
-              // Not in a docked pane or a prefab.
+              // Not in a docked container or a prefab.
               if (single != null &&
                   prefab == null &&
                   found.single.dock == null &&
@@ -256,7 +256,8 @@ class SelectedProperties extends ConsumerWidget {
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('Remove'),
                 ),
-                // A pane or primitive on the screen can be saved for reuse.
+                // A container or primitive on the screen can be saved for
+                // reuse.
                 if (single != null &&
                     prefab == null &&
                     !single.isInstance &&

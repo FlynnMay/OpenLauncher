@@ -18,11 +18,11 @@ import 'package:openlauncher/server/config_server.dart';
 
 import '../support/packs.dart';
 
-/// Panes drawn as nodes, nearest first.
-/// The box a pane on cells was given before it was a Style's own.
+/// Containers drawn as nodes, nearest first.
+/// The box a container on cells was given before it was a Style's own.
 const _boxed = {'padding': 16, 'clip': true};
 
-final _panel = find.byWidgetPredicate(
+final _container = find.byWidgetPredicate(
   (widget) => widget is NodeView && widget.component.isContainer,
 );
 
@@ -87,8 +87,8 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// A home layer of [containers] one under another, each five rows tall, with
-    /// room on the left for a sidebar, and [docked] on it.
+    /// A home layer of [containers] one under another, each five rows tall,
+    /// with room on the left for a sidebar, and [docked] on it.
     Layer home(List<Node> containers, [List<Node> docked = const []]) => Layer(
       id: Layout.homeId,
       root: Node.layout(
@@ -96,16 +96,16 @@ void main() {
         mode: LayoutMode.grid,
         columns: 12,
         children: [
-          for (final (index, pane) in containers.indexed)
-            pane.sized(10, 5, x: 2, y: index * 5.0),
+          for (final (index, container) in containers.indexed)
+            container.sized(10, 5, x: 2, y: index * 5.0),
           ...docked,
         ],
       ),
     );
 
-    /// The docked pane [id] as drawn.
+    /// The docked container [id] as drawn.
     Finder dock(String id) => find.byWidgetPredicate(
-      (widget) => widget is DockedNode && widget.pane.id == id,
+      (widget) => widget is DockedNode && widget.container.id == id,
     );
 
     Node entity(String package) =>
@@ -384,7 +384,7 @@ void main() {
           end = gradient.end as Alignment;
       expect((begin.x, end.x), (-1, 1));
       expect(begin.y, closeTo(0, 1e-9));
-      // The outline is painted over the pane, by a decoration of its own.
+      // The outline is painted over the container, by a decoration of its own.
       expect(
         decorations.map((d) => d.border?.top.color),
         contains(const Color(0x55FFFFFF)),
@@ -463,10 +463,10 @@ void main() {
       expect(platform.launched, ['pkg.a']);
     });
 
-    testWidgets('a pane pads the same with or without a background', (
+    testWidgets('a container pads the same with or without a background', (
       tester,
     ) async {
-      Node pane(String id, String package, Style style) => Node.layout(
+      Node container(String id, String package, Style style) => Node.layout(
         id: id,
         columns: 2,
         style: {...style, 'padding': 16},
@@ -480,8 +480,8 @@ void main() {
             removed: const {'system:app/pkg.c', 'system:settings'},
             layers: [
               home([
-                pane('plain', 'pkg.a', const {}),
-                pane('painted', 'pkg.b', const {
+                container('plain', 'pkg.a', const {}),
+                container('painted', 'pkg.b', const {
                   'background': '#224466',
                   'borderColor': '#ffffff',
                 }),
@@ -502,23 +502,23 @@ void main() {
             .first,
       );
       Rect box(String name) => tester.getRect(
-        find.ancestor(of: find.text(name).first, matching: _panel).first,
+        find.ancestor(of: find.text(name).first, matching: _container).first,
       );
-      // Beta's pane has a background and an outline; Alpha's has neither.
-      // Each entity is the same size, the same distance in from its pane.
+      // Beta's container has a background and an outline; Alpha's has neither.
+      // Each entity is the same size, the same distance in from its container.
       final alpha = tile('Alpha'), beta = tile('Beta');
       expect(beta.width, closeTo(alpha.width, 1e-6));
       expect(beta.height, closeTo(alpha.height, 1e-6));
-      for (final (entity, pane) in [
+      for (final (entity, container) in [
         (alpha, box('Alpha')),
         (beta, box('Beta')),
       ]) {
-        expect(entity.left - pane.left, closeTo(16, 1e-6));
-        expect(entity.top - pane.top, closeTo(16, 1e-6));
+        expect(entity.left - container.left, closeTo(16, 1e-6));
+        expect(entity.top - container.top, closeTo(16, 1e-6));
       }
     });
 
-    testWidgets('a pane too short for its entities shows their tops', (
+    testWidgets('a container too short for its entities shows their tops', (
       tester,
     ) async {
       await pumpApp(
@@ -555,7 +555,7 @@ void main() {
         ),
       );
       Rect of(Finder finder) => tester.getRect(finder.first);
-      final pane = of(_panel);
+      final container = of(_container);
       Rect tile(String name) => of(
         find.ancestor(
           of: find.text(name),
@@ -564,12 +564,12 @@ void main() {
           ),
         ),
       );
-      expect(tile('Alpha').height, greaterThan(pane.height));
-      // Whichever has the focus, its top is inside the pane with room to
+      expect(tile('Alpha').height, greaterThan(container.height));
+      // Whichever has the focus, its top is inside the container with room to
       // spare for the outline; it is the bottom that is cut.
       final resting = tile('Alpha').top;
-      expect(resting - pane.top, greaterThanOrEqualTo(12));
-      // Moving along the row, in either direction, the pane holds still
+      expect(resting - container.top, greaterThanOrEqualTo(12));
+      // Moving along the row, in either direction, the container holds still
       // from the first frame to the last: no jump to the bottom and back.
       for (final key in [
         LogicalKeyboardKey.arrowRight,
@@ -589,7 +589,7 @@ void main() {
       expect(platform.launched, ['pkg.b']);
     });
 
-    testWidgets('a pane scrolls the ways it is set to', (tester) async {
+    testWidgets('a container scrolls the ways it is set to', (tester) async {
       Future<void> pump([Map<String, Object?>? scroll]) => pumpApp(
         tester,
         LauncherConfig(
@@ -622,7 +622,7 @@ void main() {
       Iterable<Axis> scrolls() => tester
           .widgetList<SingleChildScrollView>(
             find.descendant(
-              of: _panel,
+              of: _container,
               matching: find.byType(SingleChildScrollView),
             ),
           )
@@ -640,16 +640,16 @@ void main() {
       await pump(const {'across': true});
       await tester.pumpAndSettle();
       expect(scrolls(), [Axis.horizontal]);
-      final pane = of(_panel);
+      final container = of(_container);
       expect(tile('Alpha').size, cell);
       expect(tile('Gamma').top, tile('Alpha').top);
-      expect(tile('Gamma').left, greaterThan(pane.right - 20));
+      expect(tile('Gamma').left, greaterThan(container.right - 20));
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      expect(tile('Gamma').right, lessThan(pane.right));
-      expect(tile('Alpha').left, lessThan(pane.left));
+      expect(tile('Gamma').right, lessThan(container.right));
+      expect(tile('Alpha').left, lessThan(container.left));
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       expect(platform.launched, ['pkg.c']);
@@ -661,27 +661,30 @@ void main() {
       expect(tile('Gamma').top, greaterThan(tile('Alpha').top));
     });
 
-    test('cells measure the same from the whole grid as from the pane', () {
-      final pane = Node.layout(
-        id: 'p',
-        columns: 2,
-        scroll: const {'across': true},
-        children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
-      );
-      final shown = CellMetrics.shown(pane, 400);
-      // The editor has only the grid's own box, three columns wide here.
-      final whole = CellMetrics(pane, shown.across(3));
-      expect(whole.cellWidth, closeTo(shown.cellWidth, 1e-9));
-      expect(
-        shown.cellWidth,
-        CellMetrics(
-          pane.withValue(scrollModule.name, 'across', null),
-          400,
-        ).cellWidth,
-      );
-    });
+    test(
+      'cells measure the same from the whole grid as from the container',
+      () {
+        final container = Node.layout(
+          id: 'p',
+          columns: 2,
+          scroll: const {'across': true},
+          children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
+        );
+        final shown = CellMetrics.shown(container, 400);
+        // The editor has only the grid's own box, three columns wide here.
+        final whole = CellMetrics(container, shown.across(3));
+        expect(whole.cellWidth, closeTo(shown.cellWidth, 1e-9));
+        expect(
+          shown.cellWidth,
+          CellMetrics(
+            container.withValue(scrollModule.name, 'across', null),
+            400,
+          ).cellWidth,
+        );
+      },
+    );
 
-    test('a scroll bar is placed by how far the pane is scrolled', () {
+    test('a scroll bar is placed by how far the container is scrolled', () {
       ScrollMetrics at(
         double pixels, [
         AxisDirection direction = AxisDirection.down,
@@ -750,7 +753,7 @@ void main() {
       );
     });
 
-    testWidgets('a pane draws the scroll bar it is given', (tester) async {
+    testWidgets('a container draws the scroll bar it is given', (tester) async {
       Future<void> pump(
         Map<String, Object?> rules, [
         Map<String, Object?> style = const {},

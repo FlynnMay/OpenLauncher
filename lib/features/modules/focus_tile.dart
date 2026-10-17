@@ -66,7 +66,7 @@ class _FocusTileState extends State<FocusTile> {
   /// Margin kept around a tile when scrolling to it, for its focused size.
   static const _overhang = 12.0;
 
-  /// Scrolls the tile into view. A layer's root centres it; a pane scrolls
+  /// Scrolls the tile into view. A layer's root centres it; a container scrolls
   /// as little as needed, showing the top of a tile taller than itself.
   void _reveal() {
     final object = context.findRenderObject();
@@ -96,7 +96,7 @@ class _FocusTileState extends State<FocusTile> {
       final top = viewport.getOffsetToReveal(object, 0).offset - _overhang;
       final bottom = viewport.getOffsetToReveal(object, 1).offset + _overhang;
       final fits = bottom <= top;
-      // How far down the pane the tile starts, as things are.
+      // How far down the container the tile starts, as things are.
       final from = top + _overhang - position.pixels;
       final target = top < position.pixels
           ? top

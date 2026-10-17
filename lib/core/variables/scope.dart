@@ -94,11 +94,12 @@ Scope scopeOf(
 Variables variablesOf(Node item, Map<String, Prefab> prefabs) =>
     resolved(item, prefabs).vars;
 
-/// The variable that says a docked pane is showing.
+/// The variable that says a docked container is showing.
 const openVar = 'open';
 
-/// What `{{<id>...}}` reads for a component: its public variables. A pane
-/// adds `label`, `title` and `count`; a docked one adds `open`. Null if there is nothing to read.
+/// What `{{<id>...}}` reads for a component: its public variables. A container
+/// adds `label`, `title` and `count`; a docked one adds `open`. Null if there
+/// is nothing to read.
 final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   ref,
   id,
@@ -133,7 +134,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
     'label': label,
     'title': found.name,
     'count': held.length,
-    // An empty pane with no picture is drawn as an outline.
+    // An empty container with no picture is drawn as an outline.
     'bare':
         held.isEmpty &&
         !ref.watch(

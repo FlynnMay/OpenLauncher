@@ -34,7 +34,7 @@ extension LayoutRepair on Layout {
     ];
 
     // Cards name a docked node by its id, so those keep theirs.
-    final docked = {for (final pane in this.docked) pane.id};
+    final docked = {for (final container in this.docked) container.id};
     final reserved = {...docked};
     // Containers and other nodes share one id space.
     final ids = <String>{};
@@ -57,7 +57,7 @@ extension LayoutRepair on Layout {
         }
         return;
       }
-      // A docked pane starts the count again and takes no cells.
+      // A docked container starts the count again and takes no cells.
       if (item.isDocked) {
         yield repair(item, 1);
         return;
@@ -91,45 +91,51 @@ extension LayoutRepair on Layout {
         ? size.clamp(least, DockModule.maxExtent).toDouble()
         : null;
 
-    repair = (pane, depth) {
-      // Claim the pane's id before its children's.
-      var sound = pane.withId(fresh(pane.id, 'pane', docked: pane.isDocked));
+    repair = (container, depth) {
+      // Claim the container's id before its children's.
+      var sound = container.withId(
+        fresh(container.id, 'layout', docked: container.isDocked),
+      );
       // Clamps a measure; null if invalid.
       double? within(double? value, num low, num high) =>
           value != null && value.isFinite
           ? value.clamp(low, high).toDouble()
           : null;
-      if (pane.values(layoutModule.name) case final layout?) {
-        final columns = pane.columns.clamp(1, LayoutModule.maxColumns);
+      if (container.values(layoutModule.name) case final layout?) {
+        final columns = container.columns.clamp(1, LayoutModule.maxColumns);
         double? cells(double? value, num most) =>
             within(value, 1, most)?.roundToDouble();
         // An instance's values are overrides: what it leaves out is its
         // prefab's, not filled in.
-        final partial = pane.isInstance;
+        final partial = container.isInstance;
         sound = sound.withModule(
           layoutModule.name,
           _kept(layout, {
-            if (!partial || layout.containsKey('mode')) 'mode': pane.mode.name,
+            if (!partial || layout.containsKey('mode'))
+              'mode': container.mode.name,
             if (!partial || layout.containsKey('columns')) 'columns': columns,
-            'spacing': within(pane.spacing, 0, LayoutModule.maxSpacing),
+            'spacing': within(container.spacing, 0, LayoutModule.maxSpacing),
             'rowHeight': within(
-              pane.rowHeight,
+              container.rowHeight,
               LayoutModule.minRowHeight,
               LayoutModule.maxRowHeight,
             ),
-            'itemW': cells(pane.itemW, columns),
-            'itemH': cells(pane.itemH, SizingModule.maxRows),
+            'itemW': cells(container.itemW, columns),
+            'itemH': cells(container.itemH, SizingModule.maxRows),
           }),
         );
       }
-      if (pane.values(dockModule.name) case final dock? when pane.isDocked) {
+      if (container.values(dockModule.name) case final dock?
+          when container.isDocked) {
         sound = sound.withModule(
           dockModule.name,
           _kept(dock, {
-            'width': extent(pane.dockWidth, 40),
-            'height': extent(pane.dockHeight, 40),
+            'width': extent(container.dockWidth, 40),
+            'height': extent(container.dockHeight, 40),
             // Only one on an edge has a closed strip.
-            'closed': pane.edge == null ? null : extent(pane.closed, 0),
+            'closed': container.edge == null
+                ? null
+                : extent(container.closed, 0),
             // Drop unknown choice values.
             for (final field in dockModule.fields)
               if (field.kind == FieldKind.choice &&
@@ -141,7 +147,8 @@ extension LayoutRepair on Layout {
       }
       return sound.copyWith(
         children: [
-          for (final child in pane.children) ...fitted(child, sound, depth),
+          for (final child in container.children)
+            ...fitted(child, sound, depth),
         ],
       );
     };
@@ -158,7 +165,7 @@ extension LayoutRepair on Layout {
     return Layout(
       layers: result,
       removed: removed.difference(placed),
-      inbox: home.root.cellContainers.any((pane) => pane.id == inbox)
+      inbox: home.root.cellContainers.any((container) => container.id == inbox)
           ? inbox
           : home.root.id,
     );
@@ -203,7 +210,8 @@ extension LayoutRepair on Layout {
         if (placed.add(id)) ?instance(id, autoId(id)),
     ];
     return kept.rebuild(
-      (pane, items) => pane.id == inbox ? [...items, ...unplaced] : items,
+      (container, items) =>
+          container.id == inbox ? [...items, ...unplaced] : items,
     );
   }
 }

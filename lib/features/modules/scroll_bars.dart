@@ -57,27 +57,30 @@ import 'package:openlauncher/features/modules/style_drawer.dart';
   );
 }
 
-/// Draws [pane]'s scroll bars over [child], which holds its scroll views.
+/// Draws [container]'s scroll bars over [child], which holds its scroll views.
 class ScrollBars extends StatefulWidget {
   const ScrollBars({
     super.key,
-    required this.pane,
+    required this.container,
     required this.style,
     required this.child,
   });
 
-  final Node pane;
+  final Node container;
 
   /// Its Scroll module's values, templates read: the bar's look.
   final Map<String, Object?> style;
   final Widget child;
 
-  /// [child] under [pane]'s scroll bars, if it has any, which look as [style]
-  /// (its Scroll module's values, templates read) says.
-  static Widget over(Node pane, Map<String, Object?> style, Widget child) =>
-      pane.scrollbar == null
+  /// [child] under [container]'s scroll bars, if it has any, which look as
+  /// [style] (its Scroll module's values, templates read) says.
+  static Widget over(
+    Node container,
+    Map<String, Object?> style,
+    Widget child,
+  ) => container.scrollbar == null
       ? child
-      : ScrollBars(pane: pane, style: style, child: child);
+      : ScrollBars(container: container, style: style, child: child);
 
   /// How long one that hides stays after the last movement, fade included.
   static const linger = Duration(milliseconds: 1200);
@@ -101,11 +104,11 @@ class _ScrollBarsState extends State<ScrollBars>
   @override
   void didUpdateWidget(ScrollBars old) {
     super.didUpdateWidget(old);
-    final pane = widget.pane;
-    if (!pane.scrollsDown) _down.value = null;
-    if (!pane.scrollsAcross) _across.value = null;
+    final container = widget.container;
+    if (!container.scrollsDown) _down.value = null;
+    if (!container.scrollsAcross) _across.value = null;
     // A change to its look shows it.
-    if (pane.scrollbarHides != old.pane.scrollbarHides ||
+    if (container.scrollbarHides != old.container.scrollbarHides ||
         !mapEquals(widget.style, old.style)) {
       _flash();
     }
@@ -114,7 +117,7 @@ class _ScrollBarsState extends State<ScrollBars>
   /// Shows it; one that hides then fades after a while.
   void _flash() {
     _shown.value = 1;
-    if (widget.pane.scrollbarHides) {
+    if (widget.container.scrollbarHides) {
       _shown.animateBack(
         0,
         duration: ScrollBars.linger,
@@ -135,12 +138,13 @@ class _ScrollBarsState extends State<ScrollBars>
         return false;
     }
     // Its own scroll views only: the one across is inside the one down.
-    final pane = widget.pane;
+    final container = widget.container;
     if (metrics.axis == Axis.vertical) {
-      if (!pane.scrollsDown || depth != 0) return false;
+      if (!container.scrollsDown || depth != 0) return false;
       _down.value = metrics;
     } else {
-      if (!pane.scrollsAcross || depth != (pane.scrollsDown ? 1 : 0)) {
+      if (!container.scrollsAcross ||
+          depth != (container.scrollsDown ? 1 : 0)) {
         return false;
       }
       _across.value = metrics;
@@ -175,7 +179,7 @@ class _ScrollBarsState extends State<ScrollBars>
                     look,
                     _down,
                     _across,
-                    progress: widget.pane.scrollbar == 'progress',
+                    progress: widget.container.scrollbar == 'progress',
                   ),
                 ),
               ),

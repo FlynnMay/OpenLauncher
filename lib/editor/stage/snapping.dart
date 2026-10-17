@@ -16,10 +16,10 @@ class Snap extends Notifier<bool> {
 /// Step for snapped placement without a layout, in TV pixels.
 const freeStep = 8.0;
 
-/// The placement step in [pane]: whole cells, or without a layout TV pixels,
-/// [freeStep] apart while [snap] is on.
-double stepIn(Node pane, {required bool snap}) =>
-    pane.mode == LayoutMode.free && snap ? freeStep : 1;
+/// The placement step in [container]: whole cells, or without a layout TV
+/// pixels, [freeStep] apart while [snap] is on.
+double stepIn(Node container, {required bool snap}) =>
+    container.mode == LayoutMode.free && snap ? freeStep : 1;
 
 /// [value] rounded to a multiple of [step], to two decimals.
 double snapTo(double value, double step) =>

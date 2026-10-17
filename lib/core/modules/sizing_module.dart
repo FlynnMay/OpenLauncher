@@ -34,7 +34,7 @@ class SizingModule extends ModuleType {
   /// The fields for nodes whose parents are [parents]; only what applies in
   /// all of them.
   static List<Field> fieldsIn(Iterable<Node> parents, int reach) {
-    if (parents.every((pane) => pane.mode.inLine)) {
+    if (parents.every((container) => container.mode.inLine)) {
       return const [
         Field('flex', 'Flex', FieldKind.number, max: 12, unset: 'Auto'),
         Field(
@@ -55,7 +55,7 @@ class SizingModule extends ModuleType {
         min: 1,
         max: maxRows,
       ),
-      if (parents.every((pane) => pane.mode != LayoutMode.flow)) ...[
+      if (parents.every((container) => container.mode != LayoutMode.flow)) ...[
         Field(
           'x',
           'Column',

@@ -155,9 +155,9 @@ void main() {
     final home = homeLayout(['system:app/a']);
     final using = home.withContainer(
       home.home.root.id,
-      (pane) => pane.copyWith(
+      (container) => container.copyWith(
         children: [
-          ...pane.children,
+          ...container.children,
           drawn('b', iconModule.name, values: const {'icon': 'mdi:lamp'}),
         ],
       ),

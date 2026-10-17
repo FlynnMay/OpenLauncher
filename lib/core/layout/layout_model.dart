@@ -25,7 +25,7 @@ class Layout {
 
   final List<Layer> layers;
 
-  /// The pane that receives unplaced entities, e.g. new apps.
+  /// The container that receives unplaced entities, e.g. new apps.
   final String inbox;
 
   /// Entities the user removed; they are not put back in the [inbox].
@@ -43,14 +43,15 @@ class Layout {
   /// Every component of every layer.
   Iterable<Node> get all => layers.expand((layer) => layer.root.all);
 
-  /// Everything that is not a pane.
+  /// Everything that is not a container.
   Iterable<Node> get items => all.where((item) => !item.isContainer);
 
   /// The docked containers.
-  Iterable<Node> get docked => all.where((pane) => pane.isDocked);
+  Iterable<Node> get docked => all.where((container) => container.isDocked);
 
-  Node? container(String id) =>
-      all.where((pane) => pane.isContainer && pane.id == id).firstOrNull;
+  Node? container(String id) => all
+      .where((container) => container.isContainer && container.id == id)
+      .firstOrNull;
 
   /// The node of id [id] that holds or draws others, if any: what an
   /// instance can be handed as well as an entity.
@@ -88,9 +89,10 @@ class Layout {
         removed: removed ?? this.removed,
       );
 
-  /// Rebuilds every pane's children with [change]; only [layer]'s if given.
+  /// Rebuilds every container's children with [change]; only [layer]'s if
+  /// given.
   Layout rebuild(
-    List<Node> Function(Node pane, List<Node> items) change, {
+    List<Node> Function(Node container, List<Node> items) change, {
     Set<String>? removed,
     String? layer,
   }) => copyWith(
@@ -103,13 +105,14 @@ class Layout {
     ],
   );
 
-  /// Replaces pane [id], a layer's root included, with what [change] returns.
-  Layout withContainer(String id, Node Function(Node pane) change) {
-    Node mapped(Node pane) => pane.id == id
-        ? change(pane)
-        : pane.copyWith(
+  /// Replaces container [id], a layer's root included, with what [change]
+  /// returns.
+  Layout withContainer(String id, Node Function(Node container) change) {
+    Node mapped(Node container) => container.id == id
+        ? change(container)
+        : container.copyWith(
             children: [
-              for (final child in pane.children)
+              for (final child in container.children)
                 child.isContainer || child.isInstance ? mapped(child) : child,
             ],
           );
@@ -129,9 +132,10 @@ class Layout {
     removed: {...removed, ...entityIds},
   );
 
-  /// Adds [item] to pane [paneId].
-  Layout withAdded(Node item, String paneId) => rebuild(
-    (pane, items) => pane.id == paneId ? [...items, item] : items,
+  /// Adds [item] to container [containerId].
+  Layout withAdded(Node item, String containerId) => rebuild(
+    (container, items) =>
+        container.id == containerId ? [...items, item] : items,
     removed: {...removed}..removeAll(item.handed),
   );
 }

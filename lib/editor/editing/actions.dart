@@ -54,9 +54,9 @@ Future<void> changeConfig(
   }
 }
 
-/// Why [dragged] cannot go into pane [paneId] of what is being edited, or
-/// null.
-String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {
+/// Why [dragged] cannot go into container [containerId] of what is being
+/// edited, or null.
+String? whyNot(WidgetRef ref, Dragged dragged, String containerId) {
   final layout = ref.read(editedLayoutProvider);
   if (layout == null) return 'Nothing to add it to.';
   final prefab = ref.read(editedPrefabProvider);
@@ -64,7 +64,7 @@ String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {
     if (dragged.docking || dragged.opens != null) {
       return 'A prefab cannot hold something new that docks.';
     }
-    if (paneId == prefabStageId && dragged.item.id != prefab.root.id) {
+    if (containerId == prefabStageId && dragged.item.id != prefab.root.id) {
       return 'Drop it inside the prefab.';
     }
     final prefabs = ref.read(prefabsProvider);
@@ -75,7 +75,7 @@ String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {
       return 'A prefab cannot contain itself.';
     }
   }
-  return refusal(layout, dragged.item, paneId);
+  return refusal(layout, dragged.item, containerId);
 }
 
 /// Places what was dragged, or reports why it cannot go there. A new
@@ -88,7 +88,7 @@ Future<void> placeDragged(
 ) async {
   final layout = ref.read(editedLayoutProvider);
   if (layout == null) return;
-  if (whyNot(ref, dragged, drop.pane) case final reason?) {
+  if (whyNot(ref, dragged, drop.container) case final reason?) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
     return;
   }
@@ -97,7 +97,7 @@ Future<void> placeDragged(
     final name = await askName(context, opens.name);
     if (name == null || !context.mounted) return;
     opens = opens
-        .withId(layout.containerIdFor(name, 'pane'))
+        .withId(layout.containerIdFor(name, 'layout'))
         .copyWith(name: name);
     // Point the card at its final id.
     item = item
@@ -116,7 +116,7 @@ Future<void> placeDragged(
   );
 }
 
-/// Docks a pane made from [template] to [edge] if none is, and selects it,
+/// Docks a container made from [template] to [edge] if none is, and selects it,
 /// which holds it open.
 Future<void> addBar(
   BuildContext context,
@@ -136,7 +136,7 @@ Future<void> addBar(
   }
 }
 
-/// Docks a pane made from [template] to the first free edge.
+/// Docks a container made from [template] to the first free edge.
 Future<void> addBarSomewhere(
   BuildContext context,
   WidgetRef ref,

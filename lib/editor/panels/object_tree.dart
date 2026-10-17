@@ -8,12 +8,12 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
-/// A pane's display name: its name, else where it docks.
-String containerName(Node pane) {
+/// A container's display name: its name, else where it docks.
+String containerName(Node container) {
   // A written name reads variables; it is not one to show.
-  final title = pane.name.contains('{{') ? '' : pane.name;
+  final title = container.name.contains('{{') ? '' : container.name;
   if (title.isNotEmpty) return title;
-  return switch (pane.dock) {
+  return switch (container.dock) {
     final dock? => '${barName(dock)} dock',
     null => 'Layout',
   };
@@ -58,8 +58,8 @@ IconData objectIcon(Node item) => item.isInstance
     : Icons.dashboard_outlined;
 
 /// What is being edited as a tree: each layer and what is on it, or the open
-/// prefab's parts by id. Clicking anything selects it; a docked pane is held
-/// open on the screen while it or something in it is selected.
+/// prefab's parts by id. Clicking anything selects it; a docked container is
+/// held open on the screen while it or something in it is selected.
 class ObjectTree extends ConsumerWidget {
   const ObjectTree({super.key});
 
@@ -80,9 +80,9 @@ class ObjectTree extends ConsumerWidget {
     final real = ref.watch(configProvider).value?.layout;
     final theme = Theme.of(context);
 
-    late List<TreeNode<String>> Function(Node pane) under;
-    List<TreeNode<String>> listed(Node pane) => [
-      for (final item in pane.children)
+    late List<TreeNode<String>> Function(Node container) under;
+    List<TreeNode<String>> listed(Node container) => [
+      for (final item in container.children)
         TreeNode(
           id: item.id,
           value: item.id,
@@ -115,9 +115,10 @@ class ObjectTree extends ConsumerWidget {
         ),
     ];
     // An instance lists what it holds; a node per slot only with several.
-    under = (pane) => pane.isInstance && pane.children.length == 1
-        ? listed(pane.children.single)
-        : listed(pane);
+    under = (container) =>
+        container.isInstance && container.children.length == 1
+        ? listed(container.children.single)
+        : listed(container);
 
     if (prefab != null) {
       return ListView(

@@ -15,7 +15,7 @@ class NavSpot<T> {
   final List<String> containers;
 }
 
-/// How a spot's pane relates to the focused one, in order of preference.
+/// How a spot's container relates to the focused one, in order of preference.
 enum NavKinship { same, child, parent, other }
 
 NavKinship navKinship(List<String> from, List<String> to) {
@@ -36,16 +36,17 @@ NavKinship navKinship(List<String> from, List<String> to) {
 ///
 /// Only spots lying in that direction count. Among them:
 ///
-/// 1. What is in the same pane always comes first.
+/// 1. What is in the same container always comes first.
 /// 2. Then what is in line with where the focus is (overlapping it across
 ///    the direction of travel) beats what is off to the side.
-/// 3. Then the pane decides (see [NavKinship]): a pane inside, the pane
-///    around, any other.
+/// 3. Then the container decides (see [NavKinship]): a container inside,
+///    the container around, any other.
 /// 4. Then the nearest wins.
 ///
-/// Being in line is put before the kind of pane so that, leaving a pane, the
-/// focus goes to what is straight ahead rather than to something of the pane
-/// around it that happens to lie far off to one side.
+/// Being in line is put before the kind of container so that, leaving a
+/// container, the focus goes to what is straight ahead rather than to
+/// something of the container around it that happens to lie far off to one
+/// side.
 NavSpot<T>? navigate<T>(
   NavSpot<T> from,
   Iterable<NavSpot<T>> spots,

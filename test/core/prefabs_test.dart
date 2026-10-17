@@ -159,7 +159,7 @@ void main() {
     expect(back.overrides.keys, ['picture']);
   });
 
-  test("a pane's rule counts over what an instance says", () {
+  test("a container's rule counts over what an instance says", () {
     final item = plain
         .withVariant('row')
         .copyWith(
@@ -200,7 +200,7 @@ void main() {
   });
 
   test('a prefab can be made of containers, and of other prefabs', () {
-    // The weather keeps its lines in a pane of their own.
+    // The weather keeps its lines in a container of their own.
     final weather = cardOf('system:weather', id: 'w', prefab: 'system:weather');
     final drawn = resolved(weather, prefabs);
     expect(drawn.children.map((part) => (part.id, part.isContainer)), [

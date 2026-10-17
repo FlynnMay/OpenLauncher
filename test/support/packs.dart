@@ -60,7 +60,7 @@ final _systemContents = PackContents.parse(systemPack, {
 Layout homeLayout([List<String> order = const []]) {
   final home = _systemContents.layouts[_systemContents.start]!;
   return home.rebuild(
-    (pane, items) => pane.id != home.inbox
+    (container, items) => container.id != home.inbox
         ? items
         : [...items, for (final id in order) cardOf(id, id: Node.autoId(id))],
   );
@@ -186,7 +186,7 @@ Node section(
 Node sidebarOf(String id, String edge, {List<Node> children = const []}) =>
     holding(dockedInstance(systemPrefab(sidebarId), id, dock: edge), children);
 
-/// [instance] as the launcher draws it: a plain pane.
+/// [instance] as the launcher draws it: a plain container.
 Node drawnInstance(Node instance) => resolved(instance, systemPrefabMap);
 
 /// The chains of the System pack's sidebar.

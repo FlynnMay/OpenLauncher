@@ -87,7 +87,7 @@ const styleProps = [
     inherits: true,
     choices: {'left': 'Left', 'center': 'Centre', 'right': 'Right'},
   ),
-  // A pane's scroll bar. Read by `ScrollbarStyle.of`.
+  // A container's scroll bar. Read by `ScrollbarStyle.of`.
   StyleProp(
     'scrollbarSide',
     'Position',
@@ -207,7 +207,7 @@ const boxStyle = [
   'shadow',
 ];
 
-/// Properties of a pane's scroll bar.
+/// Properties of a container's scroll bar.
 const scrollbarStyle = [
   'scrollbarSide',
   'scrollbarSize',

@@ -121,7 +121,7 @@ void main() {
     final own = [card];
     final layout = homeLayout().withContainer(
       'main',
-      (pane) => pane
+      (container) => container
           .withPrefabRules({
             cardPrefabId: {
               'variant': 'row',
@@ -244,7 +244,7 @@ void main() {
     final all = {...prefabs, 'tile': tile, 'holder': holder};
     final layout = homeLayout().withContainer(
       'main',
-      (pane) => pane
+      (container) => container
           .withPrefabRules({
             'tile': {'variant': 'loud'},
           })
@@ -276,14 +276,15 @@ void main() {
     final main = after.layout.container('main')!;
     expect(main.prefabRules, isEmpty);
     final [a, b, _] = main.children;
-    // A plain pane where it stood, at its size, holding what it was handed.
+    // A plain container where it stood, at its size, holding what it was
+    // handed.
     expect(
       (a.isInstance, a.isContainer, a.mode, a.w),
       (false, true, LayoutMode.column, 2),
     );
     expect(a.handed, ['system:app/a']);
     expect(a.vars['tint']!.value, '#ff0000ff');
-    // The pane's rule is baked in, and ids stay unique.
+    // The container's rule is baked in, and ids stay unique.
     expect(a.children.single.id, 'a-label-2');
     expect(a.children.single.style['fontSize'], 30);
     expect(a.children.single.values('text')?['text'], '{{source.label}}');
@@ -311,7 +312,7 @@ void main() {
   });
 
   test('a node is made a prefab and an instance takes its place', () {
-    final pane = Node.layout(
+    final container = Node.layout(
       id: 'weather-box',
       x: 2,
       y: 3,
@@ -320,7 +321,7 @@ void main() {
       vars: const {'city': Variable('Perth')},
       children: [drawn('root', textModule.name)],
     );
-    final made = asPrefab(pane, 'box', 'Box');
+    final made = asPrefab(container, 'box', 'Box');
     expect((made.prefab.id, made.prefab.name), ('box', 'Box'));
     // Its root has an id of its own among its parts, and no position.
     expect(made.prefab.root.id, 'root-2');

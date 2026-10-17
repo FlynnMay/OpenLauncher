@@ -65,7 +65,7 @@ final selectedProvider = Provider<List<Found>>((ref) {
   return layout == null || ids.isEmpty ? const [] : findItems(layout, ids);
 });
 
-/// Briefly lets go of the selected docked pane to preview its opening.
+/// Briefly lets go of the selected docked container to preview its opening.
 final barReplayProvider = NotifierProvider<BarReplay, bool>(BarReplay.new);
 
 class BarReplay extends Notifier<bool> {

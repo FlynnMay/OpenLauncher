@@ -24,7 +24,7 @@ void main() {
             id: 'home/root',
             children: [
               _entity('youtube', 'system:app/yt'),
-              Node.layout(id: 'pane'),
+              Node.layout(id: 'layout'),
               folderOf('games', title: 'Games'),
             ],
           ),
@@ -33,8 +33,8 @@ void main() {
     );
     expect(layout.itemIdFor('YouTube'), 'youtube-2');
     expect(layout.itemIdFor('Netflix'), 'netflix');
-    expect(layout.containerIdFor(), 'pane-2');
-    // A folder is a pane: one id space for everything.
+    expect(layout.containerIdFor(), 'layout-2');
+    // A folder is a container: one id space for everything.
     expect(layout.containerIdFor('Games', 'folder'), 'games-2');
     expect(layout.containerIdFor('', 'folder'), 'folder');
     // Nothing can take the id of the home layer, there or not.

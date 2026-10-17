@@ -19,7 +19,7 @@ class TvScreen extends StatelessWidget {
         final context => ProviderScope.containerOf(context),
       };
 
-  /// Opens docked pane [id] by setting its `open` variable.
+  /// Opens docked container [id] by setting its `open` variable.
   static void openDocked(String id) =>
       _launcher?.read(runtimeVarsProvider.notifier).set(id, openVar, true);
 

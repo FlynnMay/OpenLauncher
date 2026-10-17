@@ -178,7 +178,7 @@ void main() {
 
     // It is an object like any other: let go of, the launcher's settings
     // show, which have no section for sidebars; picked out of the list, its
-    // own do, as a pane's with where it is docked.
+    // own do, as a container's with where it is docked.
     await tester.tap(find.text('Objects'));
     await tester.pumpAndSettle();
     await tester.tap(inTree('Home screen'));

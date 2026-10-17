@@ -43,7 +43,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
   /// the user's.
   List<_Group> _groups(LauncherConfig config) {
     // New ids are free in what is being edited; a prefab holds no new docked
-    // pane, nor itself.
+    // container, nor itself.
     final open = ref.watch(editedPrefabProvider);
     final layout = ref.watch(editedLayoutProvider) ?? config.layout;
     final visuals = ref.watch(tvStateProvider).value?.visuals ?? const [];
@@ -99,7 +99,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       }
       final opens = dockedInstance(
         prefab,
-        layout.containerIdFor(prefab.name, 'pane'),
+        layout.containerIdFor(prefab.name, 'layout'),
       );
       final item = card.instance(opens.id, id: layout.itemIdFor(prefab.name));
       if (item == null) return null;
@@ -200,16 +200,18 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         packGroup(pack),
       _Group('User prefabs', [
         // A card for each instance a card opens.
-        for (final pane in config.layout.all)
-          if (prefabs[prefabs[pane.prefab]?.card]?.instance(
-                pane.id,
-                id: layout.itemIdFor(pane.name.isEmpty ? 'pane' : pane.name),
+        for (final container in config.layout.all)
+          if (prefabs[prefabs[container.prefab]?.card]?.instance(
+                container.id,
+                id: layout.itemIdFor(
+                  container.name.isEmpty ? 'layout' : container.name,
+                ),
               )
               case final card?)
             _Offer(
               Dragged(
                 item: card,
-                label: containerName(pane),
+                label: containerName(container),
                 picture: const SymbolArt(Icons.folder_outlined),
               ),
             ),
@@ -257,7 +259,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                     null => null,
                     final prefab => () => openPrefab(ref, prefab.id),
                   },
-                  // A new docked instance goes to an edge, not a pane.
+                  // A new docked instance goes to an edge, not a container.
                   onTap: () => switch (offer.dragged.docks) {
                     final template? => addBarSomewhere(context, ref, template),
                     null => placeDragged(context, ref, offer.dragged, inbox),

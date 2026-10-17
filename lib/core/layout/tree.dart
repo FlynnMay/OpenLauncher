@@ -5,8 +5,8 @@ import 'package:openlauncher/core/nodes/node.dart';
 /// What comes of a node's modules together: the containers in it, whether it
 /// scrolls, what its children are drawn as.
 extension NodeTree on Node {
-  /// This pane and every pane inside it, the nodes holding an instance's
-  /// slots among them.
+  /// This container and every container inside it, the nodes holding an
+  /// instance's slots among them.
   Iterable<Node> get containers sync* {
     if (isContainer) {
       yield this;
@@ -18,7 +18,7 @@ extension NodeTree on Node {
     }
   }
 
-  /// This pane and the containers on its cells, skipping docked ones.
+  /// This container and the containers on its cells, skipping docked ones.
   Iterable<Node> get cellContainers sync* {
     if (isContainer) {
       yield this;
@@ -30,24 +30,26 @@ extension NodeTree on Node {
     }
   }
 
-  /// Every node in this pane and the containers inside it that is not a pane, or
-  /// an instance that docks.
+  /// Every node in this container and the containers inside it that is not a
+  /// container, or an instance that docks.
   Iterable<Node> get contents => containers
-      .expand((pane) => pane.children)
+      .expand((container) => container.children)
       .where((child) => !child.isContainer && !child.isDocked);
 
   /// The same, skipping what is in docked containers.
   Iterable<Node> get ownContents => cellContainers
-      .expand((pane) => pane.children)
+      .expand((container) => container.children)
       .where((child) => !child.isContainer && !child.isDocked);
 
   /// True if it holds nothing but empty containers.
   bool get isEmpty =>
       children.every((child) => child.isContainer && child.isEmpty);
 
-  /// Rebuilds every pane's children with [change], innermost first. What an
-  /// instance holds in its slots is rebuilt too, but not the instance.
-  Node rebuild(List<Node> Function(Node pane, List<Node> children) change) {
+  /// Rebuilds every container's children with [change], innermost first. What
+  /// an instance holds in its slots is rebuilt too, but not the instance.
+  Node rebuild(
+    List<Node> Function(Node container, List<Node> children) change,
+  ) {
     if (isInstance && children.isNotEmpty) {
       return copyWith(
         children: [for (final holder in children) holder.rebuild(change)],

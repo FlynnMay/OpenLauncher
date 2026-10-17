@@ -53,6 +53,6 @@ extension LayoutIds on Layout {
   /// A new component id from [name].
   String itemIdFor(String name) => freeId(slugOf(name), itemIds);
 
-  String containerIdFor([String title = '', String fallback = 'pane']) =>
+  String containerIdFor([String title = '', String fallback = 'layout']) =>
       freeId(slugOf(title, fallback), itemIds);
 }

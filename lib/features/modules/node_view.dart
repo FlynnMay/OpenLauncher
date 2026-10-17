@@ -57,7 +57,7 @@ class NodeView extends ConsumerWidget {
   /// Gives the initial focus to the first focusable node.
   final FirstFocus? focus;
 
-  /// The docked pane it is in, if a press closes it.
+  /// The docked container it is in, if a press closes it.
   final String? popup;
 
   /// It is a child of a row or column.
@@ -66,7 +66,7 @@ class NodeView extends ConsumerWidget {
   /// Take its natural size where it can.
   final bool shrink;
 
-  /// It is a whole screen of tiles, a docked pane: it is not framed by the
+  /// It is a whole screen of tiles, a docked container: it is not framed by the
   /// editor, and it centres the focused tile as it scrolls.
   final bool screen;
 
@@ -121,13 +121,13 @@ class NodeView extends ConsumerWidget {
             values: scope.inner,
             child: node.mode.inLine
                 ? LineLayout(
-                    pane: node,
+                    container: node,
                     inner: inLine,
                     hug: tall,
                     tile: (child, {required shrink}) =>
                         _child(child, inLine: true, shrink: shrink),
                   )
-                : ChildrenLayout(pane: node, tile: _child),
+                : ChildrenLayout(container: node, tile: _child),
           );
     Widget content = switch ((visual, children)) {
       (final visual?, final children?) => Stack(

@@ -317,7 +317,7 @@ void main() {
       expect(packIcon('material:play_arrow'), findsOneWidget);
     });
 
-    test('a pane and a folder are read by their ids', () async {
+    test('a container and a folder are read by their ids', () async {
       final c = container(
         Layout(
           inbox: 'main',
@@ -333,7 +333,7 @@ void main() {
                 },
                 children: [
                   cardOf('system:app/a', id: 'a'),
-                  // Docked: in the pane's tree, not among what it counts.
+                  // Docked: in the container's tree, not among what it counts.
                   folderOf(
                     'games',
                     title: 'Games',
@@ -379,7 +379,7 @@ void main() {
       expect(reads("{{games.open == true ? 'open' : 'shut'}}"), 'open');
     });
 
-    testWidgets('what is in a pane reads the pane', (tester) async {
+    testWidgets('what is in a container reads the container', (tester) async {
       final platform = FakeLauncherPlatform([
         InstalledApp(packageName: 'a', label: 'Alpha', isBanner: true),
       ], const []);

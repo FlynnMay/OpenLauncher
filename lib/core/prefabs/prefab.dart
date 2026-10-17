@@ -96,7 +96,7 @@ class Prefab {
     ],
   ).sized(root.w, root.h);
 
-  /// Every non-pane descendant of the root.
+  /// Every non-container descendant of the root.
   Iterable<Node> get parts =>
       root.all.skip(1).where((component) => !component.isContainer);
 

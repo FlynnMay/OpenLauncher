@@ -34,7 +34,7 @@ class Placement {
 /// unplaced or colliding items take the first free space. Without a layout
 /// there are no cells.
 ///
-/// A docked pane takes no cells: it gets an empty placement.
+/// A docked container takes no cells: it gets an empty placement.
 List<Placement> placeItems(List<Node> items, int columns, LayoutMode mode) {
   if (items.any((item) => item.isDocked)) {
     final rest = placeItems(
@@ -110,16 +110,17 @@ List<Placement> placeItems(List<Node> items, int columns, LayoutMode mode) {
   return placed.cast();
 }
 
-/// [pane]'s children placed as drawn.
-List<Placement> placementsOf(Node pane) =>
-    placeItems(pane.shown, pane.reach, pane.mode);
+/// [container]'s children placed as drawn.
+List<Placement> placementsOf(Node container) =>
+    placeItems(container.shown, container.reach, container.mode);
 
-/// The columns of [pane]'s grid: its own, and as many more as its children
+/// The columns of [container]'s grid: its own, and as many more as its children
 /// reach when it scrolls across.
-int columnsOf(Node pane, [List<Placement>? placements]) => !pane.scrollsAcross
-    ? pane.columns
-    : (placements ?? placementsOf(pane)).fold(
-        pane.columns,
+int columnsOf(Node container, [List<Placement>? placements]) =>
+    !container.scrollsAcross
+    ? container.columns
+    : (placements ?? placementsOf(container)).fold(
+        container.columns,
         (columns, p) => max(columns, (p.x + p.w).ceil()),
       );
 

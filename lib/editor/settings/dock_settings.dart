@@ -85,14 +85,14 @@ class ExtentBox extends StatelessWidget {
   }
 }
 
-/// Where a pane is docked and, once it is, its size and how it opens.
+/// Where a container is docked and, once it is, its size and how it opens.
 List<Widget> dockFields(
-  Node pane,
-  void Function(Node Function(Node pane) how) change,
+  Node container,
+  void Function(Node Function(Node container) how) change,
 ) {
   // The dock's defaults.
-  final defaults = Node.layout(id: '', dock: {'position': ?pane.dock});
-  final values = pane.values(dockModule.name) ?? const {};
+  final defaults = Node.layout(id: '', dock: {'position': ?container.dock});
+  final values = container.values(dockModule.name) ?? const {};
   final [dock, ...rest] = [
     for (final field in dockModule.fields)
       if (field.when?.call(values) ?? true) field,
@@ -101,32 +101,35 @@ List<Widget> dockFields(
     options: options,
     json: values,
     onChanged: (key, value) =>
-        change((pane) => withRule(pane, dockModule.name, key, value)),
+        change((container) => withRule(container, dockModule.name, key, value)),
   );
   return [
     ...fields([dock]),
-    if (pane.isDocked) ...[
+    if (container.isDocked) ...[
       ExtentBox(
         label: 'Width',
-        value: pane.dockWidth,
+        value: container.dockWidth,
         defaultValue: defaults.openWidth,
-        onChanged: (width) =>
-            change((pane) => withRule(pane, dockModule.name, 'width', width)),
+        onChanged: (width) => change(
+          (container) => withRule(container, dockModule.name, 'width', width),
+        ),
       ),
       ExtentBox(
         label: 'Height',
-        value: pane.dockHeight,
+        value: container.dockHeight,
         defaultValue: defaults.openHeight,
-        onChanged: (height) =>
-            change((pane) => withRule(pane, dockModule.name, 'height', height)),
+        onChanged: (height) => change(
+          (container) => withRule(container, dockModule.name, 'height', height),
+        ),
       ),
     ],
     ...fields(rest),
-    if (pane.isDocked) const _Replay(),
+    if (container.isDocked) const _Replay(),
   ];
 }
 
-/// Lets go of the selected docked pane for a moment, so it closes and opens.
+/// Lets go of the selected docked container for a moment, so it closes and
+/// opens.
 class _Replay extends ConsumerWidget {
   const _Replay();
 

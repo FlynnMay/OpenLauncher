@@ -7,46 +7,50 @@ import 'package:openlauncher/features/modules/free_layout.dart';
 import 'package:openlauncher/features/modules/style_drawer.dart';
 import 'package:openlauncher/features/modules/variables_drawer.dart';
 
-/// Wraps every pane's grid. Unused on the TV; the editor uses it to locate
+/// Wraps every container's grid. Unused on the TV; the editor uses it to locate
 /// containers.
 class LayoutFrame extends InheritedWidget {
   const LayoutFrame({super.key, required this.wrap, required super.child});
 
-  final Widget Function(Node pane, Widget grid) wrap;
+  final Widget Function(Node container, Widget grid) wrap;
 
   @override
   bool updateShouldNotify(LayoutFrame oldWidget) => wrap != oldWidget.wrap;
 }
 
-/// Lays a pane's children out on its cells, or by their transforms when it
+/// Lays a container's children out on its cells, or by their transforms when it
 /// has no Layout. Its children read its variables and inherit its style.
 class ChildrenLayout extends StatelessWidget {
-  const ChildrenLayout({super.key, required this.pane, required this.tile});
+  const ChildrenLayout({
+    super.key,
+    required this.container,
+    required this.tile,
+  });
 
-  final Node pane;
+  final Node container;
   final Widget Function(Node child) tile;
 
   @override
   Widget build(BuildContext context) {
-    final pane = this.pane;
-    final grid = pane.mode == LayoutMode.free
-        ? FreeLayout(node: pane, tile: tile)
-        : CellsLayout(pane: pane, tile: tile);
-    final scoped = pane.vars.isEmpty
+    final container = this.container;
+    final grid = container.mode == LayoutMode.free
+        ? FreeLayout(node: container, tile: tile)
+        : CellsLayout(container: container, tile: tile);
+    final scoped = container.vars.isEmpty
         ? grid
         : Consumer(
             builder: (context, ref, child) => TemplateScope(
               values: scopeOf(
                 ref.watch,
-                pane.id,
-                pane.vars,
+                container.id,
+                container.vars,
                 TemplateScope.of(context),
               ).inner,
               child: child!,
             ),
             child: grid,
           );
-    return StyleScope.under(context, pane.style, scoped);
+    return StyleScope.under(context, container.style, scoped);
   }
 }
 

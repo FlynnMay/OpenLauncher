@@ -17,7 +17,7 @@ class LayoutOperationsManager implements OperationsManager {
     Operation(
       name: 'launcher://layout/add',
       label: 'Add an entity to a layer',
-      // `what` is an entity id; `to` a pane on the layer, else the inbox.
+      // `what` is an entity id; `to` a container on the layer, else the inbox.
       args: const {'layer': [], 'what': [], 'to': []},
       run: (run) async {
         final entities = await _ref.read(entitiesProvider.future);

@@ -22,7 +22,7 @@ class GlobalProperties extends ConsumerWidget {
       children: [
         const WallpaperSettings(),
         if (config.ownLayout) const _RevertLayout(),
-        // The screen's root pane.
+        // The screen's root container.
         LayoutSettings(
           title: 'Screen',
           prefabs: ref.watch(prefabsProvider),

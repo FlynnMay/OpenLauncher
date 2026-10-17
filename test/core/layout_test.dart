@@ -106,7 +106,7 @@ void main() {
       );
     });
 
-    test('a pane that scrolls across keeps its children on one row', () {
+    test('a container that scrolls across keeps its children on one row', () {
       final items = [_item('a'), _item('b', w: 2), _item('c'), _item('d')];
       final wraps = Node.layout(id: 'p', columns: 3, children: items);
       expect(rowCount(placementsOf(wraps)), 2);
@@ -126,103 +126,109 @@ void main() {
 
     test('it scrolls the ways its Scroll module asks and its layout lets '
         'it', () {
-      Node pane(
+      Node container(
         LayoutMode mode, [
         Map<String, Object?>? scroll,
         Map<String, Object?> layout = const {},
       ]) => Node.layout(id: 'p', mode: mode, scroll: scroll, layout: layout);
       const both = {'across': true, 'down': true};
       for (final mode in [LayoutMode.flow, LayoutMode.grid]) {
-        // A new pane on cells scrolls down.
+        // A new container on cells scrolls down.
         expect(
-          (pane(mode).scrollsAcross, pane(mode).scrollsDown),
+          (container(mode).scrollsAcross, container(mode).scrollsDown),
           (false, true),
         );
-        expect(pane(mode, const {}).scrollsDown, isFalse);
-        expect(pane(mode, both).scrollsAcross, isTrue);
+        expect(container(mode, const {}).scrollsDown, isFalse);
+        expect(container(mode, both).scrollsAcross, isTrue);
       }
       // Without a layout nothing scrolls.
       expect(
         (
-          pane(LayoutMode.free, both).scrollsAcross,
-          pane(LayoutMode.free, both).scrollsDown,
+          container(LayoutMode.free, both).scrollsAcross,
+          container(LayoutMode.free, both).scrollsDown,
         ),
         (false, false),
       );
       // A row scrolls along itself only, and so does a column.
-      expect(pane(LayoutMode.row).scrollsAcross, isFalse);
-      expect(pane(LayoutMode.column).scrollsDown, isFalse);
+      expect(container(LayoutMode.row).scrollsAcross, isFalse);
+      expect(container(LayoutMode.column).scrollsDown, isFalse);
       expect(
         (
-          pane(LayoutMode.row, both).scrollsAcross,
-          pane(LayoutMode.row, both).scrollsDown,
+          container(LayoutMode.row, both).scrollsAcross,
+          container(LayoutMode.row, both).scrollsDown,
         ),
         (true, false),
       );
       expect(
         (
-          pane(LayoutMode.column, both).scrollsAcross,
-          pane(LayoutMode.column, both).scrollsDown,
+          container(LayoutMode.column, both).scrollsAcross,
+          container(LayoutMode.column, both).scrollsDown,
         ),
         (false, true),
       );
       // Scaled to its box, there is nothing to scroll.
       expect(
-        pane(LayoutMode.row, both, const {'fit': true}).scrollsAcross,
+        container(LayoutMode.row, both, const {'fit': true}).scrollsAcross,
         isFalse,
       );
     });
 
-    test('a scroll bar is for a pane that scrolls, and reads its look', () {
-      final pane = Node.layout(
-        id: 'p',
-        scroll: const {'down': true, 'bar': 'thumb'},
-      );
-      Node set(String key, Object value) =>
-          pane.withValue(scrollModule.name, key, value);
-      expect((pane.scrollbar, pane.scrollbarHides), ('thumb', false));
-      expect(set('down', false).scrollbar, isNull);
-      expect(set('bar', 'spinner').scrollbar, isNull);
-      expect(set('show', 'auto').scrollbarHides, isTrue);
+    test(
+      'a scroll bar is for a container that scrolls, and reads its look',
+      () {
+        final container = Node.layout(
+          id: 'p',
+          scroll: const {'down': true, 'bar': 'thumb'},
+        );
+        Node set(String key, Object value) =>
+            container.withValue(scrollModule.name, key, value);
+        expect(
+          (container.scrollbar, container.scrollbarHides),
+          ('thumb', false),
+        );
+        expect(set('down', false).scrollbar, isNull);
+        expect(set('bar', 'spinner').scrollbar, isNull);
+        expect(set('show', 'auto').scrollbarHides, isTrue);
 
-      const plain = ScrollbarStyle();
-      final unset = ScrollbarStyle.of(const {});
-      expect(
-        (unset.size, unset.margin, unset.length, unset.opacity, unset.start),
-        (plain.size, plain.margin, plain.length, plain.opacity, plain.start),
-      );
-      expect(unset.thumb.colors, isEmpty);
-      final look = ScrollbarStyle.of(const {
-        'scrollbarSide': 'start',
-        'scrollbarSize': 10,
-        'scrollbarLength': 50,
-        'scrollbarOpacity': 80,
-        // More than leaves any thumb.
-        'scrollbarInset': 20,
-        'scrollbarThumb': {
-          'colors': ['#ff0000', '#0000ff'],
-          'angle': 90,
-        },
-        'scrollbarThumbRadius': 2,
-        'scrollbarTrack': '#00000080',
-        'scrollbarTrackBorder': '#ffffff',
-        'scrollbarTrackBorderWidth': 'thick',
-      });
-      expect(
-        (look.start, look.size, look.length, look.opacity),
-        (true, 10, 0.5, 0.8),
-      );
-      expect(look.inset, 4.5);
-      expect((look.thumb.colors.length, look.thumb.angle), (2, 90));
-      expect(look.thumb.corners, [2, 2, 2, 2]);
-      expect(look.track.colors, [0x80000000]);
-      expect((look.track.border, look.track.borderWidth), (0xFFFFFFFF, 2));
-      expect(look.track.corners, isNull);
-    });
+        const plain = ScrollbarStyle();
+        final unset = ScrollbarStyle.of(const {});
+        expect(
+          (unset.size, unset.margin, unset.length, unset.opacity, unset.start),
+          (plain.size, plain.margin, plain.length, plain.opacity, plain.start),
+        );
+        expect(unset.thumb.colors, isEmpty);
+        final look = ScrollbarStyle.of(const {
+          'scrollbarSide': 'start',
+          'scrollbarSize': 10,
+          'scrollbarLength': 50,
+          'scrollbarOpacity': 80,
+          // More than leaves any thumb.
+          'scrollbarInset': 20,
+          'scrollbarThumb': {
+            'colors': ['#ff0000', '#0000ff'],
+            'angle': 90,
+          },
+          'scrollbarThumbRadius': 2,
+          'scrollbarTrack': '#00000080',
+          'scrollbarTrackBorder': '#ffffff',
+          'scrollbarTrackBorderWidth': 'thick',
+        });
+        expect(
+          (look.start, look.size, look.length, look.opacity),
+          (true, 10, 0.5, 0.8),
+        );
+        expect(look.inset, 4.5);
+        expect((look.thumb.colors.length, look.thumb.angle), (2, 90));
+        expect(look.thumb.corners, [2, 2, 2, 2]);
+        expect(look.track.colors, [0x80000000]);
+        expect((look.track.border, look.track.borderWidth), (0xFFFFFFFF, 2));
+        expect(look.track.corners, isNull);
+      },
+    );
   });
 
   group('containers', () {
-    Node pane(
+    Node container(
       String id, {
       LayoutMode mode = LayoutMode.flow,
       List<Node>? children,
@@ -234,22 +240,25 @@ void main() {
     );
 
     test('nest, and are found with what is in them', () {
-      final root = pane(
+      final root = container(
         'global',
         mode: LayoutMode.free,
         children: [
           _item('loose', ref: 'system:app/a'),
-          pane(
+          container(
             'outer',
             children: [
               _item('in-outer', ref: 'system:app/b'),
-              pane('inner', children: [_item('in-inner', ref: 'system:app/c')]),
+              container(
+                'inner',
+                children: [_item('in-inner', ref: 'system:app/c')],
+              ),
             ],
           ).sized(3, 2.5, x: 0.5, y: 1),
         ],
       );
       expect(root.containers.map((p) => p.id), ['global', 'outer', 'inner']);
-      // An entity can sit in the global pane, outside every other.
+      // An entity can sit in the global container, outside every other.
       expect(root.contents.map((i) => i.handed.firstOrNull), [
         'system:app/a',
         'system:app/b',
@@ -275,7 +284,7 @@ void main() {
         'system:app/c',
         'system:app/new',
       ]);
-      // Removing an entity takes it out of every pane.
+      // Removing an entity takes it out of every container.
       expect(
         shown
             .without({'system:app/b', 'system:app/c'})
@@ -287,7 +296,7 @@ void main() {
     });
 
     test('normalised repairs what is wrong and keeps what is right', () {
-      Node nest(int depth) => pane(
+      Node nest(int depth) => container(
         'p$depth',
         children: [
           _item('entity$depth', ref: 'system:app/$depth'),
@@ -306,8 +315,8 @@ void main() {
                 _item('a', w: 3),
                 // Something with a folder's id gives way to the folder.
                 _item('games', ref: 'system:app/x'),
-                pane('in-rail', children: [_item('b')]),
-                // A folder: docked, so off the cells of the pane it is in.
+                container('in-rail', children: [_item('b')]),
+                // A folder: docked, so off the cells of the container it is in.
                 drawnInstance(folderOf('games', title: 'Games'))
                     .withValue(layoutModule.name, 'mode', 'grid')
                     .withValue(layoutModule.name, 'columns', 4)
@@ -328,8 +337,8 @@ void main() {
         ],
       ).normalised();
 
-      // Home was missing: it comes first, with a root pane that becomes the
-      // inbox.
+      // Home was missing: it comes first, with a root container that becomes
+      // the inbox.
       expect(layout.layers.map((l) => l.id), ['home', 'over']);
       expect(layout.inbox, layout.home.root.id);
       expect(layout.home.root.mode, LayoutMode.grid);
@@ -348,8 +357,8 @@ void main() {
       expect((a.x, a.y, a.w, a.h), (2, 2, 2, SizingModule.maxRows));
       expect((half.x, half.y), (null, null));
       expect(open.handed.firstOrNull, 'games');
-      // Panes deeper than allowed give their contents to the last that is.
-      // A docked pane starts the count again.
+      // Containers deeper than allowed give their contents to the last that is.
+      // A docked container starts the count again.
       expect(nested.containers, hasLength(Node.maxDepth - 1));
       expect(nested.contents.map((i) => i.handed.firstOrNull), [
         for (var depth = 2; depth <= 6; depth++) 'system:app/$depth',
@@ -370,7 +379,7 @@ void main() {
         inbox: 'f',
         layers: [
           _home(
-            pane(
+            container(
               'global',
               children: [of('f', LayoutMode.free), of('g', LayoutMode.grid)],
             ),
@@ -379,7 +388,7 @@ void main() {
       ).normalised();
       final [free, grid] = layout.home.root.contents.toList();
       expect((free.x, free.y, free.w, free.h), (3.6, 0.3, 1.5, 0.1));
-      // Kept inside the pane, in whole cells.
+      // Kept inside the container, in whole cells.
       expect((grid.x, grid.y, grid.w, grid.h), (2, 0, 2, 1));
     });
 
@@ -425,7 +434,7 @@ void main() {
   });
 
   group('a new layout', () {
-    test('a new home screen is one pane as tall as the screen', () {
+    test('a new home screen is one container as tall as the screen', () {
       final layout = homeLayout(['system:app/b', 'system:app/gone'])
           .withEntities(['system:app/a', 'system:app/b'], instance: placedCard);
       // The quick actions come after it, an instance of the System pack's.
@@ -445,8 +454,8 @@ void main() {
     });
   });
 
-  test('a pane keeps the spacing it is given, within reason', () {
-    Node pane(String id, double? spacing) => Node.layout(
+  test('a container keeps the spacing it is given, within reason', () {
+    Node container(String id, double? spacing) => Node.layout(
       id: id,
       layout: {'spacing': ?spacing},
       children: [_item('$id-a')],
@@ -458,7 +467,11 @@ void main() {
           Node.layout(
             id: 'global',
             layout: const {'spacing': 4},
-            children: [pane('a', null), pane('b', 0), pane('c', 500)],
+            children: [
+              container('a', null),
+              container('b', 0),
+              container('c', 500),
+            ],
           ),
         ),
       ],
@@ -485,7 +498,7 @@ void main() {
     );
   });
 
-  test('a pane keeps the padding it is given, within reason', () {
+  test('a container keeps the padding it is given, within reason', () {
     final layout = Layout.fromJson(const {
       'v': saveVersion,
       'layers': [
@@ -552,14 +565,14 @@ void main() {
         entities,
         systemPrefabMap,
       );
-      final [folder, clock, pane, games] = view.home.root.children;
+      final [folder, clock, container, games] = view.home.root.children;
 
       // Handed a node, not an entity.
       expect(config.layout.node(folder.handed.single)?.id, 'games');
       expect(clock.visual, textModule);
-      // The entity placed nowhere turns up in the inbox pane; the removed
+      // The entity placed nowhere turns up in the inbox container; the removed
       // one does not.
-      expect(pane.children.single.handed.firstOrNull, 'system:app/a');
+      expect(container.children.single.handed.firstOrNull, 'system:app/a');
       // Under the folder's heading.
       expect(
         games.children.last.children.single.handed.firstOrNull,
@@ -605,7 +618,7 @@ void main() {
   });
 
   group('sidebars and what containers decide', () {
-    test('a sidebar is a pane docked to an edge, with its usual size', () {
+    test('a sidebar is a container docked to an edge, with its usual size', () {
       final left = drawnInstance(sidebarOf('left', 'left'));
       final top = drawnInstance(sidebarOf('top', 'top'));
       expect((left.isDocked, left.hiddenWhenClosed), (true, false));
@@ -634,7 +647,7 @@ void main() {
         ),
         (true, null, 595, null),
       );
-      // A word that is no dock leaves a pane on its parent's cells.
+      // A word that is no dock leaves a container on its parent's cells.
       expect(
         Node.layout(id: 'p', dock: const {'position': 'sky'}).isDocked,
         isFalse,
@@ -705,46 +718,49 @@ void main() {
       );
     });
 
-    test('a pane decides for its entities without changing what they say', () {
-      const rules = {
-        cardPrefabId: {
-          'variant': 'row',
-          'overrides': {
-            'name': {'hidden': true},
+    test(
+      'a container decides for its entities without changing what they say',
+      () {
+        const rules = {
+          cardPrefabId: {
+            'variant': 'row',
+            'overrides': {
+              'name': {'hidden': true},
+            },
           },
-        },
-      };
-      final pane = Node.layout(
-        id: 'p',
-        layout: const {'itemW': 2},
-        prefabRules: rules,
-        children: [
-          _item('a', w: 3, h: 2),
-          _item('time', kind: textModule.name, w: 4),
-          Node.layout(id: 'inner', w: 5),
-        ],
-      );
-      final [entity, widget, inner] = pane.shown;
-      expect((entity.w, entity.h), (2, 2));
-      expect(entity.variant, 'row');
-      expect(entity.overrides, {
-        'name': {'hidden': true},
-      });
-      // Only entities and folders are decided for.
-      expect((widget.w, inner.w), (4, 5));
-      // What the entity says is still there for when the pane stops.
-      expect(pane.children.first.w, 3);
-      expect(pane.children.first.overrides, isEmpty);
-      expect(Node.layout(id: 'p').decides, isFalse);
-      // And all of it survives being written and read.
-      final copy = Node.fromJson(
-        pane.withValue(layoutModule.name, 'rowHeight', 40).toJson(),
-      );
-      expect(copy.prefabRules, rules);
-      expect((copy.itemW, copy.rowHeight), (2, 40));
-    });
+        };
+        final container = Node.layout(
+          id: 'p',
+          layout: const {'itemW': 2},
+          prefabRules: rules,
+          children: [
+            _item('a', w: 3, h: 2),
+            _item('time', kind: textModule.name, w: 4),
+            Node.layout(id: 'inner', w: 5),
+          ],
+        );
+        final [entity, widget, inner] = container.shown;
+        expect((entity.w, entity.h), (2, 2));
+        expect(entity.variant, 'row');
+        expect(entity.overrides, {
+          'name': {'hidden': true},
+        });
+        // Only entities and folders are decided for.
+        expect((widget.w, inner.w), (4, 5));
+        // What the entity says is still there for when the container stops.
+        expect(container.children.first.w, 3);
+        expect(container.children.first.overrides, isEmpty);
+        expect(Node.layout(id: 'p').decides, isFalse);
+        // And all of it survives being written and read.
+        final copy = Node.fromJson(
+          container.withValue(layoutModule.name, 'rowHeight', 40).toJson(),
+        );
+        expect(copy.prefabRules, rules);
+        expect((copy.itemW, copy.rowHeight), (2, 40));
+      },
+    );
 
-    test('a pane keeps its look through being written and read', () {
+    test('a container keeps its look through being written and read', () {
       const style = {
         'background': '#101820cc',
         'radius': [0, 8, 20, 4],
@@ -760,7 +776,7 @@ void main() {
       expect(read.box.corners, [0, 8, 20, 4]);
     });
 
-    test('what is drawn is what the pane decides', () {
+    test('what is drawn is what the container decides', () {
       final view = layoutWith(
         Layout(
           inbox: 'main',

@@ -18,7 +18,7 @@ class Layer {
     this.holds = const {},
   });
 
-  /// A layer with an empty root pane.
+  /// A layer with an empty root container.
   Layer.empty(this.id, {this.blur = 0, this.dim = 0, this.modal = false})
     : root = _emptyRoot(id),
       holds = const {};
@@ -70,7 +70,7 @@ class Layer {
     return Layer(
       id: id,
       root: switch (jsonOptional<Map<Object?, Object?>>(json, 'root')) {
-        final pane? => Node.fromJson(pane),
+        final container? => Node.fromJson(container),
         null => _emptyRoot(id),
       },
       blur: (jsonOptional<num>(json, 'blur') ?? 0).clamp(0, 40).toDouble(),

@@ -265,69 +265,73 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a pane is made a prefab; deleting it unpacks the instance', (
-    tester,
-  ) async {
-    final ref = await pump(tester);
-    LauncherConfig config() => ref.read(configProvider).value!;
-    await press(tester, find.text('Objects'));
-    await press(tester, inTree('Layout'));
-    await press(tester, find.text('Create prefab'));
-    await tester.enterText(find.byType(TextField).last, 'Shelf');
-    await press(tester, find.widgetWithText(FilledButton, 'Add'));
-    expect(config().prefabs.single.id, 'shelf');
-    expect(config().prefabs.single.root.children.single.handed, [
-      'system:app/a',
-    ]);
-    final instance = config().layout.all.singleWhere(
-      (item) => item.prefab == 'shelf',
-    );
-    expect((instance.id, instance.prefab), ('main', 'shelf'));
-    // What it holds is not put back on the screen beside it.
-    expect(config().layout.removed, {'system:app/a'});
+  testWidgets(
+    'a container is made a prefab; deleting it unpacks the instance',
+    (tester) async {
+      final ref = await pump(tester);
+      LauncherConfig config() => ref.read(configProvider).value!;
+      await press(tester, find.text('Objects'));
+      await press(tester, inTree('Layout'));
+      await press(tester, find.text('Create prefab'));
+      await tester.enterText(find.byType(TextField).last, 'Shelf');
+      await press(tester, find.widgetWithText(FilledButton, 'Add'));
+      expect(config().prefabs.single.id, 'shelf');
+      expect(config().prefabs.single.root.children.single.handed, [
+        'system:app/a',
+      ]);
+      final instance = config().layout.all.singleWhere(
+        (item) => item.prefab == 'shelf',
+      );
+      expect((instance.id, instance.prefab), ('main', 'shelf'));
+      // What it holds is not put back on the screen beside it.
+      expect(config().layout.removed, {'system:app/a'});
 
-    // In the list it is marked as an instance, as the quick actions are,
-    // and says of what; which prefab that is cannot be swapped from its
-    // settings.
-    expect(
-      find.descendant(
-        of: find.byType(ObjectTree),
-        matching: find.byIcon(prefabIcon),
-      ),
-      findsNWidgets(2),
-    );
-    expect(find.byTooltip('Prefab: Shelf'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(InstanceSettings),
-        matching: find.text('Shelf'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byType(InstanceSettings),
-        matching: find.byType(ChoiceBox<String>),
-      ),
-      findsNothing,
-    );
+      // In the list it is marked as an instance, as the quick actions are,
+      // and says of what; which prefab that is cannot be swapped from its
+      // settings.
+      expect(
+        find.descendant(
+          of: find.byType(ObjectTree),
+          matching: find.byIcon(prefabIcon),
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.byTooltip('Prefab: Shelf'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSettings),
+          matching: find.text('Shelf'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSettings),
+          matching: find.byType(ChoiceBox<String>),
+        ),
+        findsNothing,
+      );
 
-    // Its instance shows the prefab and can open it.
-    expect(find.byTooltip('Rename'), findsNothing);
-    await press(tester, find.widgetWithText(OutlinedButton, 'Open'));
-    expect(ref.read(prefabModeProvider)?.id, 'shelf');
-    expect(find.text('1 instance'), findsOneWidget);
+      // Its instance shows the prefab and can open it.
+      expect(find.byTooltip('Rename'), findsNothing);
+      await press(tester, find.widgetWithText(OutlinedButton, 'Open'));
+      expect(ref.read(prefabModeProvider)?.id, 'shelf');
+      expect(find.text('1 instance'), findsOneWidget);
 
-    await press(tester, find.text('Delete'));
-    expect(find.textContaining('1 instance will be unpacked'), findsOneWidget);
-    await press(tester, find.widgetWithText(FilledButton, 'Delete'));
-    expect(ref.read(prefabModeProvider), isNull);
-    expect(config().prefabs, isEmpty);
-    final back = config().layout.container('main')!;
-    expect(back.children.single.handed, ['system:app/a']);
-    expect(config().layout.removed, isEmpty);
-    expect(tester.takeException(), isNull);
-  });
+      await press(tester, find.text('Delete'));
+      expect(
+        find.textContaining('1 instance will be unpacked'),
+        findsOneWidget,
+      );
+      await press(tester, find.widgetWithText(FilledButton, 'Delete'));
+      expect(ref.read(prefabModeProvider), isNull);
+      expect(config().prefabs, isEmpty);
+      final back = config().layout.container('main')!;
+      expect(back.children.single.handed, ['system:app/a']);
+      expect(config().layout.removed, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('a prefab opened from inside another is on the trail back', (
     tester,

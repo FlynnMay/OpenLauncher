@@ -30,17 +30,17 @@ class Stage extends ConsumerStatefulWidget {
 class _StageState extends ConsumerState<Stage> {
   final _screen = GlobalKey();
 
-  /// Keys for each pane's grid, and for the box of each nested pane and of
-  /// each child of a row or column.
+  /// Keys for each container's grid, and for the box of each nested container
+  /// and of each child of a row or column.
   final _grids = <String, GlobalKey>{}, _boxes = <String, GlobalKey>{};
 
-  /// What is being edited: each component's parent pane, by id.
+  /// What is being edited: each component's parent container, by id.
   var _parents = const <String, Node>{};
 
   /// Where the dragged thing would land.
   Rect? _marker;
 
-  /// The docked pane being dragged over.
+  /// The docked container being dragged over.
   String? _over;
 
   static RenderBox? _box(GlobalKey? key) =>
@@ -50,8 +50,11 @@ class _StageState extends ConsumerState<Stage> {
       };
 
   /// A slot's grid goes by the node holding what is put in it.
-  Widget _grid(Node pane, Widget grid) => KeyedSubtree(
-    key: _grids.putIfAbsent(pane.slotHolder ?? pane.id, GlobalKey.new),
+  Widget _grid(Node container, Widget grid) => KeyedSubtree(
+    key: _grids.putIfAbsent(
+      container.slotHolder ?? container.id,
+      GlobalKey.new,
+    ),
     child: grid,
   );
 
@@ -91,7 +94,7 @@ class _StageState extends ConsumerState<Stage> {
         handle(
           item.name.isEmpty ? 'Layout' : item.name,
           const SymbolArt(Icons.dashboard_outlined),
-          // Outlined so a pane with no background can be seen and grabbed.
+          // Outlined so a container with no background can be seen and grabbed.
           _Selectable(
             id: item.id,
             shape: shapeOf(item),
@@ -132,7 +135,7 @@ class _StageState extends ConsumerState<Stage> {
     final layout = ref.read(editedLayoutProvider);
     if (layout == null) return null;
     if (dragged.docking) {
-      // A new docked pane only goes to a free edge.
+      // A new docked container only goes to a free edge.
       final screen = _box(_screen);
       if (screen == null) return null;
       final at = screen.globalToLocal(pointer);
@@ -147,8 +150,9 @@ class _StageState extends ConsumerState<Stage> {
       return (drop: null, bar: edge, marker: barRect(layout, edge));
     }
     final item = dragged.item;
-    // The last docked pane showing under the pointer, else the home screen.
-    var pane = layout.home.root;
+    // The last docked container showing under the pointer, else the home
+    // screen.
+    var container = layout.home.root;
     String? bar;
     for (final dock in layout.docked) {
       // What an instance holds goes in its slot.
@@ -159,17 +163,17 @@ class _StageState extends ConsumerState<Stage> {
           ?.getInheritedWidgetOfExactType<FocusBounds>()
           ?.visible();
       if (showing?.contains(pointer) ?? false) {
-        pane = into;
+        container = into;
         bar = dock.id;
       }
     }
-    // A docked pane dragged over opens.
+    // A docked container dragged over opens.
     if (bar != _over) setState(() => _over = bar);
-    // The innermost pane under the pointer, excluding the dragged one.
-    for (Node? inner = pane; inner != null;) {
-      pane = inner;
+    // The innermost container under the pointer, excluding the dragged one.
+    for (Node? inner = container; inner != null;) {
+      container = inner;
       inner = null;
-      for (final other in pane.children) {
+      for (final other in container.children) {
         final box = other.isContainer ? _box(_boxes[other.id]) : null;
         if (other.id != item.id &&
             box != null &&
@@ -178,29 +182,29 @@ class _StageState extends ConsumerState<Stage> {
         }
       }
     }
-    if (whyNot(ref, dragged, pane.id) != null) return null;
+    if (whyNot(ref, dragged, container.id) != null) return null;
     final screen = _box(_screen);
     if (screen == null) return null;
-    if (pane.mode.inLine) return _inLine(pane, pointer, item, screen);
-    final grid = _box(_grids[pane.id]);
+    if (container.mode.inLine) return _inLine(container, pointer, item, screen);
+    final grid = _box(_grids[container.id]);
     if (grid == null) return null;
 
-    final metrics = CellMetrics(pane, grid.size.width);
+    final metrics = CellMetrics(container, grid.size.width);
     final drop = dropAt(
-      pane,
+      container,
       metrics,
       grid.size,
       grid.globalToLocal(pointer),
       item,
-      stepIn(pane, snap: ref.read(snapProvider)),
+      stepIn(container, snap: ref.read(snapProvider)),
     );
 
     // The marker is computed from the resulting layout so it cannot disagree
     // with it.
     final after = findContainer(
       dropItem(layout, item, drop, opens: dragged.opens),
-      pane.id,
-    )!.pane;
+      container.id,
+    )!.container;
     final rect = rectIn(after, item.id, metrics, grid.size);
     return (
       drop: drop,
@@ -209,29 +213,29 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
-  /// The drop for [item] at [pointer] in the row or column [pane]: before the
-  /// first child whose middle is past the pointer. The marker is a bar
+  /// The drop for [item] at [pointer] in the row or column [container]: before
+  /// the first child whose middle is past the pointer. The marker is a bar
   /// between the two.
   ({Drop? drop, String? bar, Rect marker})? _inLine(
-    Node pane,
+    Node container,
     Offset pointer,
     Node item,
     RenderBox screen,
   ) {
-    final box = _box(_boxes[pane.id]);
+    final box = _box(_boxes[container.id]);
     if (box == null) return null;
     Rect on(RenderBox box) => MatrixUtils.transformRect(
       box.getTransformTo(screen),
       Offset.zero & box.size,
     );
-    final row = pane.mode == LayoutMode.row;
+    final row = container.mode == LayoutMode.row;
     final at = screen.globalToLocal(pointer);
     final whole = on(box);
     const thick = 4.0;
     String? before;
     // Where the bar goes along the line: the start, or after the last child.
     var along = row ? whole.left : whole.top;
-    for (final child in pane.children) {
+    for (final child in container.children) {
       final rect = switch (child.id == item.id
           ? null
           : _box(_boxes[child.id])) {
@@ -247,7 +251,7 @@ class _StageState extends ConsumerState<Stage> {
       along = row ? rect.right : rect.bottom;
     }
     return (
-      drop: Drop(pane.id, before: before),
+      drop: Drop(container.id, before: before),
       bar: null,
       marker: row
           ? Rect.fromLTWH(along - thick / 2, whole.top, thick, whole.height)
@@ -265,9 +269,9 @@ class _StageState extends ConsumerState<Stage> {
     final found = findItems(layout, ids).singleOrNull;
     final grid = _box(_grids[found?.parent.id]), screen = _box(_screen);
     if (found == null || grid == null || screen == null) return null;
-    final pane = found.parent;
-    final placed = placementIn(pane, found.item.id);
-    final metrics = CellMetrics(pane, grid.size.width);
+    final container = found.parent;
+    final placed = placementIn(container, found.item.id);
+    final metrics = CellMetrics(container, grid.size.width);
     return (
       found: found,
       placed: placed,
@@ -275,7 +279,7 @@ class _StageState extends ConsumerState<Stage> {
       size: grid.size,
       rect: MatrixUtils.transformRect(
         grid.getTransformTo(screen),
-        rectIn(pane, found.item.id, metrics, grid.size),
+        rectIn(container, found.item.id, metrics, grid.size),
       ),
     );
   }
@@ -289,14 +293,14 @@ class _StageState extends ConsumerState<Stage> {
     final layout = ref.read(editedLayoutProvider);
     if (picked == null || layout == null) return;
     final (:found, :placed, :metrics, :size, rect: _) = picked;
-    final pane = found.parent;
-    final grid = _box(_grids[pane.id]), screen = _box(_screen);
+    final container = found.parent;
+    final grid = _box(_grids[container.id]), screen = _box(_screen);
     if (grid == null || screen == null) return;
-    // In the pane's own pixels, which a prefab's are enlarged from.
+    // In the container's own pixels, which a prefab's are enlarged from.
     final by = moved / grid.getTransformTo(screen).getMaxScaleOnAxis();
-    final step = stepIn(pane, snap: ref.read(snapProvider));
+    final step = stepIn(container, snap: ref.read(snapProvider));
     final Layout next;
-    if (pane.mode == LayoutMode.free) {
+    if (container.mode == LayoutMode.free) {
       next = placeItem(
         layout,
         found.item.id,
@@ -304,7 +308,7 @@ class _StageState extends ConsumerState<Stage> {
         size,
       );
     } else {
-      final to = resizedTo(pane, placed, metrics, handle, by, step);
+      final to = resizedTo(container, placed, metrics, handle, by, step);
       next = reshapeItem(
         layout,
         found.item.id,
@@ -344,8 +348,8 @@ class _StageState extends ConsumerState<Stage> {
     final layout = ref.watch(editedLayoutProvider);
     final prefab = ref.watch(editedPrefabProvider) != null;
     _parents = {
-      for (final pane in layout?.all ?? const <Node>[])
-        for (final child in pane.children) child.id: pane,
+      for (final container in layout?.all ?? const <Node>[])
+        for (final child in container.children) child.id: container,
     };
     // The frames stay mounted so toggling editing keeps the launcher's state.
     final screen = LayoutFrame(
@@ -414,7 +418,8 @@ class _StageState extends ConsumerState<Stage> {
                     ),
                   ),
                 ),
-              // While a new docked pane is dragged, the edges that would take it.
+              // While a new docked container is dragged, the edges that would
+              // take it.
               if (layout != null &&
                   !prefab &&
                   held.any((dragged) => dragged?.docking ?? false))

@@ -6,13 +6,13 @@ import 'package:openlauncher/core/layout/layout.dart';
 class LineLayout extends StatelessWidget {
   const LineLayout({
     super.key,
-    required this.pane,
+    required this.container,
     required this.tile,
     this.inner = false,
     this.hug = false,
   });
 
-  final Node pane;
+  final Node container;
 
   /// Draws a child; [shrink] asks for its natural size.
   final Widget Function(Node child, {required bool shrink}) tile;
@@ -25,14 +25,15 @@ class LineLayout extends StatelessWidget {
   final bool hug;
 
   /// Whether it scrolls along its line.
-  bool get _scrolls =>
-      pane.mode == LayoutMode.row ? pane.scrollsAcross : pane.scrollsDown;
+  bool get _scrolls => container.mode == LayoutMode.row
+      ? container.scrollsAcross
+      : container.scrollsDown;
 
   Widget? _place(Node child) {
     if (child.isDocked || child.hidden && !child.keep) return null;
-    // Nothing is shared out when the pane is fitted or scrolls.
+    // Nothing is shared out when the container is fitted or scrolls.
     final flex = _scrolls ? null : child.flex;
-    final sized = !pane.fit && (flex != null || child.aspect != null);
+    final sized = !container.fit && (flex != null || child.aspect != null);
     Widget placed = KeyedSubtree(
       key: ValueKey(child.id),
       child: tile(child, shrink: !sized),
@@ -41,7 +42,7 @@ class LineLayout extends StatelessWidget {
     if (child.keep) {
       placed = Visibility.maintain(visible: !child.hidden, child: placed);
     }
-    if (pane.fit) return placed;
+    if (container.fit) return placed;
     if (child.aspect case final aspect?) {
       placed = AspectRatio(aspectRatio: aspect, child: placed);
     }
@@ -56,28 +57,28 @@ class LineLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final row = pane.mode == LayoutMode.row;
+    final row = container.mode == LayoutMode.row;
     final flex = Flex(
       direction: row ? Axis.horizontal : Axis.vertical,
-      mainAxisSize: pane.fit || inner || hug || _scrolls
+      mainAxisSize: container.fit || inner || hug || _scrolls
           ? MainAxisSize.min
           : MainAxisSize.max,
       mainAxisAlignment: inner
           ? MainAxisAlignment.center
           : MainAxisAlignment.start,
-      crossAxisAlignment: switch (pane.align) {
+      crossAxisAlignment: switch (container.align) {
         'start' => CrossAxisAlignment.start,
         'end' => CrossAxisAlignment.end,
         'center' => CrossAxisAlignment.center,
         'stretch' => CrossAxisAlignment.stretch,
         // A fitted row cannot stretch.
-        _ when row || pane.fit => CrossAxisAlignment.center,
+        _ when row || container.fit => CrossAxisAlignment.center,
         _ => CrossAxisAlignment.stretch,
       },
-      spacing: pane.gap,
-      children: [for (final child in pane.shown) ?_place(child)],
+      spacing: container.gap,
+      children: [for (final child in container.shown) ?_place(child)],
     );
     // Scaled to the box once, at the top level.
-    return pane.fit && !inner && !_scrolls ? FittedBox(child: flex) : flex;
+    return container.fit && !inner && !_scrolls ? FittedBox(child: flex) : flex;
   }
 }

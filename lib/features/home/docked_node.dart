@@ -10,7 +10,8 @@ import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 
-/// Docked containers to keep open and shown even when empty. Used by the editor.
+/// Docked containers to keep open and shown even when empty. Used by the
+/// editor.
 class DockHold extends InheritedWidget {
   const DockHold({super.key, required this.ids, required super.child});
 
@@ -21,14 +22,14 @@ class DockHold extends InheritedWidget {
       !ids.containsAll(oldWidget.ids) || !oldWidget.ids.containsAll(ids);
 }
 
-/// A docked pane, on an edge or in the middle. It is open
+/// A docked container, on an edge or in the middle. It is open
 /// while its `open` variable is set; closed, it shows its `closed` strip or
 /// is not there at all. On an edge it is laid out at its open size, so its
 /// contents do not move as it opens.
 class DockedNode extends ConsumerStatefulWidget {
-  const DockedNode({super.key, required this.pane});
+  const DockedNode({super.key, required this.container});
 
-  final Node pane;
+  final Node container;
 
   @override
   ConsumerState<DockedNode> createState() => _DockedNodeState();
@@ -44,7 +45,7 @@ class _DockedNodeState extends ConsumerState<DockedNode>
 
   final _box = GlobalKey(), _contents = GlobalKey();
 
-  /// 0 closed to 1 open, covering both the pane opening and its contents
+  /// 0 closed to 1 open, covering both the container opening and its contents
   /// appearing.
   late final _opened = AnimationController(vsync: this);
   bool _held = false;
@@ -56,10 +57,10 @@ class _DockedNodeState extends ConsumerState<DockedNode>
   /// then takes the focus.
   FirstFocus? _first;
 
-  Node get _pane => widget.pane;
+  Node get _container => widget.container;
 
-  Object? get _opening => _pane.valueOf(dockModule, 'opening');
-  Object? get _reveal => _pane.valueOf(dockModule, 'reveal');
+  Object? get _opening => _container.valueOf(dockModule, 'opening');
+  Object? get _reveal => _container.valueOf(dockModule, 'reveal');
 
   int get _barMs => switch (_opening) {
     'slide' || 'fade' => 200,
@@ -104,7 +105,7 @@ class _DockedNodeState extends ConsumerState<DockedNode>
     super.didChangeDependencies();
     _held =
         context.dependOnInheritedWidgetOfExactType<DockHold>()?.ids.contains(
-          _pane.id,
+          _container.id,
         ) ??
         false;
   }
@@ -143,21 +144,21 @@ class _DockedNodeState extends ConsumerState<DockedNode>
           },
         );
 
-  /// The pane as drawn: a menu opened for an entity leaves out what cannot
+  /// The container as drawn: a menu opened for an entity leaves out what cannot
   /// be done to it.
-  Node _offered() => subjectOf(ref, _pane.id) == null
-      ? _pane
+  Node _offered() => subjectOf(ref, _container.id) == null
+      ? _container
       : offeredIn(
-          _pane,
+          _container,
           ref.watch,
           ref.watch(entitiesProvider).value ?? const [],
         );
 
-  /// The pane [shown] in its box. Keyed so it keeps its state as what is
+  /// The container [shown] in its box. Keyed so it keeps its state as what is
   /// around it changes.
   Widget _contentsOf(Node shown, Alignment from, {bool shrink = false}) {
-    final pane = _pane;
-    final popup = pane.closeOnPress ? pane.id : null;
+    final container = _container;
+    final popup = container.closeOnPress ? container.id : null;
     final box = NodeView(
       component: shown,
       screen: true,
@@ -171,7 +172,7 @@ class _DockedNodeState extends ConsumerState<DockedNode>
       key: _contents,
       visible: _visible,
       // A strip on the right is mirrored, to keep its pictures at the edge.
-      child: pane.edge == BarEdge.right && pane.closed != null
+      child: container.edge == BarEdge.right && container.closed != null
           ? Directionality(textDirection: TextDirection.rtl, child: box)
           : box,
     );
@@ -186,8 +187,8 @@ class _DockedNodeState extends ConsumerState<DockedNode>
       runChain(
         context,
         ref,
-        _pane.on[inside ? Trigger.focus : Trigger.blur] ?? const [],
-        _pane.id,
+        _container.on[inside ? Trigger.focus : Trigger.blur] ?? const [],
+        _container.id,
       );
     },
     child: child,
@@ -195,17 +196,19 @@ class _DockedNodeState extends ConsumerState<DockedNode>
 
   @override
   Widget build(BuildContext context) {
-    final pane = _pane;
+    final container = _container;
     final shown = _offered();
     final open =
         _held ||
         ref.watch(
-          runtimeVarsProvider.select((all) => all[pane.id]?[openVar] == true),
+          runtimeVarsProvider.select(
+            (all) => all[container.id]?[openVar] == true,
+          ),
         );
     _sync(open);
-    // An empty pane has no closed strip.
-    if (pane.isEmpty && !open) return const SizedBox.shrink();
-    final edge = pane.edge;
+    // An empty container has no closed strip.
+    if (container.isEmpty && !open) return const SizedBox.shrink();
+    final edge = container.edge;
     final alignment = switch (edge) {
       BarEdge.left => Alignment.centerLeft,
       BarEdge.right => Alignment.centerRight,
@@ -216,8 +219,8 @@ class _DockedNodeState extends ConsumerState<DockedNode>
     return LayoutBuilder(
       builder: (context, screen) {
         // Clamped to the screen.
-        final width = pane.openWidth.clamp(0.0, screen.maxWidth);
-        final tall = pane.openHeight?.clamp(0.0, screen.maxHeight);
+        final width = container.openWidth.clamp(0.0, screen.maxWidth);
+        final tall = container.openHeight?.clamp(0.0, screen.maxHeight);
         if (edge == null) {
           // In the middle: it only fades. With no height of its own it is
           // as tall as what is in it.
@@ -248,9 +251,9 @@ class _DockedNodeState extends ConsumerState<DockedNode>
           );
         }
         final height = tall ?? screen.maxHeight;
-        final across = pane.opensAcross;
+        final across = container.opensAcross;
         final full = across ? width : height;
-        final closed = (pane.closed ?? 0).clamp(0.0, full);
+        final closed = (container.closed ?? 0).clamp(0.0, full);
         return Align(
           alignment: alignment,
           child: _watched(
@@ -260,11 +263,11 @@ class _DockedNodeState extends ConsumerState<DockedNode>
               builder: (context, contents) {
                 final open = _barOpen;
                 // Hidden while closed.
-                if (pane.hiddenWhenClosed && open == 0) {
+                if (container.hiddenWhenClosed && open == 0) {
                   return const SizedBox.shrink();
                 }
                 final fading = _opening == 'fade';
-                // A fading pane is at full size from the start.
+                // A fading container is at full size from the start.
                 final shown = fading
                     ? (open > 0 ? full : closed)
                     : closed + (full - closed) * open;
@@ -275,10 +278,10 @@ class _DockedNodeState extends ConsumerState<DockedNode>
                   width: across ? shown : width,
                   height: across ? height : shown,
                   clipBehavior: Clip.hardEdge,
-                  // A scrim towards the rest of the screen, unless the pane
-                  // has a background.
+                  // A scrim towards the rest of the screen, unless the
+                  // container has a background.
                   decoration: BoxDecoration(
-                    gradient: pane.box.isEmpty
+                    gradient: container.box.isEmpty
                         ? LinearGradient(
                             begin: alignment,
                             end: -alignment,
