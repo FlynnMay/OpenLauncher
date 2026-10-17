@@ -97,10 +97,10 @@ void openPrefab(WidgetRef ref, String prefabId, {Node? from}) {
   final placed = ref.read(configProvider).value?.layout.all ?? const [];
   final prefabs = ref.read(prefabsProvider);
   // A card that opens instances of a prefab is shown with one of them.
-  final opensPanes = prefabs.values.any((opened) => opened.card == prefabId);
+  final opensOthers = prefabs.values.any((opened) => opened.card == prefabId);
   final sample =
       entities.where((entity) => entity.prefab == prefabId).firstOrNull?.id ??
-      (opensPanes
+      (opensOthers
           ? placed
                 .where(
                   (node) =>
@@ -190,7 +190,7 @@ Future<void> newPrefab(BuildContext context, WidgetRef ref) async {
     Prefab(
       id: id,
       name: name,
-      root: Node.pane(id: 'root', mode: PaneMode.column),
+      root: Node.layout(id: 'root', mode: LayoutMode.column),
     ),
   );
   openPrefab(ref, id);
@@ -309,7 +309,7 @@ Future<void> createPrefab(
     freeId(slugOf(name, 'prefab'), {...ref.read(prefabsProvider).keys}),
     name,
     // Placed by its transform: its size on the TV's screen.
-    size: found.parent.mode == PaneMode.free
+    size: found.parent.mode == LayoutMode.free
         ? found.item.transform.rectIn(const Size(960, 540)).size
         : null,
   );
@@ -328,7 +328,7 @@ Future<void> createPrefab(
               for (final part in found.item.all)
                 if (part.isInstance)
                   for (final id in part.handed)
-                    if (layout.pane(id) == null) id,
+                    if (layout.container(id) == null) id,
             },
           )
           .normalised(),

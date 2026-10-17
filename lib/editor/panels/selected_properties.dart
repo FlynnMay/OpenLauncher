@@ -49,7 +49,7 @@ class SelectedProperties extends ConsumerWidget {
         ? InstanceVariables.shown(declared, single.vars)
         : const <String>{};
 
-    final allPanes = items.every((item) => item.isPane);
+    final allContainers = items.every((item) => item.isContainer);
     final handed = ref.watch(selectedHandedProvider);
 
     final transform = {
@@ -87,10 +87,11 @@ class SelectedProperties extends ConsumerWidget {
         if (single != null && handed.length == 1)
           _HandedNode(
             node: handed.values.single,
-            onChanged: (how) =>
-                change((layout) => layout.withPane(handed.keys.single, how)),
+            onChanged: (how) => change(
+              (layout) => layout.withContainer(handed.keys.single, how),
+            ),
           ),
-        if (single != null && !single.isInstance && !single.isPane)
+        if (single != null && !single.isInstance && !single.isContainer)
           ComponentSettings(
             item: single,
             onChanged: (values) => each(
@@ -104,7 +105,7 @@ class SelectedProperties extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
-                'Its pane has a rule for this prefab, which overrides '
+                'Its parent has a rule for this prefab, which overrides '
                 'what is set here.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -129,7 +130,7 @@ class SelectedProperties extends ConsumerWidget {
           if (resolved(single, prefabs) case final drawn when drawn.isDocked)
             Section('Dock', dockFields(drawn, each)),
         ],
-        if (single != null && !single.isPane)
+        if (single != null && !single.isContainer)
           VariablesSettings(
             // An instance's own, besides those it has fields for.
             variables: {
@@ -151,11 +152,11 @@ class SelectedProperties extends ConsumerWidget {
           ),
         // A row or column with actions is a tile.
         if (single != null &&
-            (!single.isPane || single.mode.inLine && !single.isDocked))
+            (!single.isContainer || single.mode.inLine && !single.isDocked))
           TriggerSettings(
             set: single.on,
             defaults: {...?prefabs[single.prefab]?.on},
-            // Its own variables over what the panes around it hand down.
+            // Its own variables over what the containers around it hand down.
             scope: {
               for (final pane in [?found.single.dock, found.single.parent])
                 for (final MapEntry(:key, :value) in pane.vars.entries)
@@ -184,7 +185,7 @@ class SelectedProperties extends ConsumerWidget {
           ]),
         // A docked pane has no cells, nor what has no layout around it.
         if (!items.any((item) => item.isDocked) &&
-            found.every((one) => one.parent.mode != PaneMode.free))
+            found.every((one) => one.parent.mode != LayoutMode.free))
           Section(
             'Sizing',
             ruleFields(
@@ -218,11 +219,11 @@ class SelectedProperties extends ConsumerWidget {
           onChanged: (key, value) =>
               each((item) => item.styled(withStyle(item.style, {key: value}))),
         ),
-        if (allPanes)
-          PaneSettings(
-            title: 'Pane',
+        if (allContainers)
+          LayoutSettings(
+            title: 'Layout',
             prefabs: prefabs,
-            panes: items,
+            containers: items,
             onChanged: each,
             dockable: prefab == null,
             exposable: isRoot,
@@ -403,7 +404,7 @@ class _HandedNode extends ConsumerWidget {
         children: [
           if (node.isDocked)
             OutlinedButton.icon(
-              onPressed: () => TvScreen.openPane(node.id),
+              onPressed: () => TvScreen.openDocked(node.id),
               icon: const Icon(Icons.open_in_new),
               label: const Text('Open'),
             ),

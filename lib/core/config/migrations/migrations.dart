@@ -64,7 +64,7 @@ const migrations = <Migration>[
         'docked panes say whether a press closes them; nodes with '
         'modules; folders and sidebars are instances holding what is in them; '
         'nothing docks inline; panes write out their box, and one with a '
-        'heading is a Pane',
+        'heading is a Section',
     rules: [
       operationsByAddress,
       feedsAsSources,

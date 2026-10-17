@@ -36,7 +36,7 @@ extension LayoutRepair on Layout {
     // Cards name a docked node by its id, so those keep theirs.
     final docked = {for (final pane in this.docked) pane.id};
     final reserved = {...docked};
-    // Panes and other components share one id space.
+    // Containers and other nodes share one id space.
     final ids = <String>{};
     String fresh(String wanted, String fallback, {bool docked = false}) {
       final id = docked && reserved.remove(wanted)
@@ -51,7 +51,7 @@ extension LayoutRepair on Layout {
     /// [item] fitted to [parent]: flattened if nested too deep.
     Iterable<Node> fitted(Node item, Node parent, int depth) sync* {
       // Too deep: children move up a level.
-      if (item.isPane && !item.isDocked && depth >= Node.maxDepth) {
+      if (item.isContainer && !item.isDocked && depth >= Node.maxDepth) {
         for (final child in item.children) {
           yield* fitted(child, parent, depth);
         }
@@ -62,11 +62,11 @@ extension LayoutRepair on Layout {
         yield repair(item, 1);
         return;
       }
-      final repaired = item.isPane
+      final repaired = item.isContainer
           ? repair(item, depth + 1)
           : item.withId(fresh(item.id, 'item'));
       // Only cells have sizes to fit.
-      if (parent.mode.inLine || parent.mode == PaneMode.free) {
+      if (parent.mode.inLine || parent.mode == LayoutMode.free) {
         yield repaired;
         return;
       }
@@ -158,7 +158,7 @@ extension LayoutRepair on Layout {
     return Layout(
       layers: result,
       removed: removed.difference(placed),
-      inbox: home.root.cellPanes.any((pane) => pane.id == inbox)
+      inbox: home.root.cellContainers.any((pane) => pane.id == inbox)
           ? inbox
           : home.root.id,
     );
@@ -178,7 +178,7 @@ extension LayoutRepair on Layout {
     final there = {
       ...known ?? entityIds,
       for (final node in all)
-        if (node.isPane || node.isInstance) node.id,
+        if (node.isContainer || node.isInstance) node.id,
     };
     final kept = rebuild(
       (_, items) => [

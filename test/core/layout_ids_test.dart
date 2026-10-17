@@ -20,12 +20,12 @@ void main() {
       layers: [
         Layer(
           id: 'home',
-          root: Node.pane(
+          root: Node.layout(
             id: 'home/root',
             children: [
               _entity('youtube', 'system:app/yt'),
-              Node.pane(id: 'pane'),
-              folderPane('games', title: 'Games'),
+              Node.layout(id: 'pane'),
+              folderOf('games', title: 'Games'),
             ],
           ),
         ),
@@ -33,12 +33,12 @@ void main() {
     );
     expect(layout.itemIdFor('YouTube'), 'youtube-2');
     expect(layout.itemIdFor('Netflix'), 'netflix');
-    expect(layout.paneIdFor(), 'pane-2');
+    expect(layout.containerIdFor(), 'pane-2');
     // A folder is a pane: one id space for everything.
-    expect(layout.paneIdFor('Games', 'folder'), 'games-2');
-    expect(layout.paneIdFor('', 'folder'), 'folder');
+    expect(layout.containerIdFor('Games', 'folder'), 'games-2');
+    expect(layout.containerIdFor('', 'folder'), 'folder');
     // Nothing can take the id of the home layer, there or not.
-    expect(layout.paneIdFor('Home'), 'home-2');
+    expect(layout.containerIdFor('Home'), 'home-2');
     expect(layout.itemIdFor('Quick actions'), 'quick-actions');
   });
 

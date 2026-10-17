@@ -10,7 +10,7 @@ import 'package:openlauncher/editor/stage/resize_handles.dart';
 import 'package:openlauncher/editor/stage/snapping.dart';
 import 'package:openlauncher/editor/stage/stage_geometry.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
-import 'package:openlauncher/features/home/docked_pane.dart';
+import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
@@ -75,7 +75,7 @@ class _StageState extends ConsumerState<Stage> {
             child: child,
           );
     // In a row or column its box is what a drop goes before or after.
-    Widget boxed(Widget child) => item.isPane || parent.mode.inLine
+    Widget boxed(Widget child) => item.isContainer || parent.mode.inLine
         ? KeyedSubtree(
             key: _boxes.putIfAbsent(item.id, GlobalKey.new),
             child: child,
@@ -86,10 +86,10 @@ class _StageState extends ConsumerState<Stage> {
       id: item.id,
       child: AbsorbPointer(child: tile),
     );
-    if (item.isPane) {
+    if (item.isContainer) {
       return boxed(
         handle(
-          item.name.isEmpty ? 'Pane' : item.name,
+          item.name.isEmpty ? 'Layout' : item.name,
           const SymbolArt(Icons.dashboard_outlined),
           // Outlined so a pane with no background can be seen and grabbed.
           _Selectable(
@@ -170,7 +170,7 @@ class _StageState extends ConsumerState<Stage> {
       pane = inner;
       inner = null;
       for (final other in pane.children) {
-        final box = other.isPane ? _box(_boxes[other.id]) : null;
+        final box = other.isContainer ? _box(_boxes[other.id]) : null;
         if (other.id != item.id &&
             box != null &&
             (Offset.zero & box.size).contains(box.globalToLocal(pointer))) {
@@ -185,7 +185,7 @@ class _StageState extends ConsumerState<Stage> {
     final grid = _box(_grids[pane.id]);
     if (grid == null) return null;
 
-    final metrics = PaneMetrics(pane, grid.size.width);
+    final metrics = CellMetrics(pane, grid.size.width);
     final drop = dropAt(
       pane,
       metrics,
@@ -197,7 +197,7 @@ class _StageState extends ConsumerState<Stage> {
 
     // The marker is computed from the resulting layout so it cannot disagree
     // with it.
-    final after = findPane(
+    final after = findContainer(
       dropItem(layout, item, drop, opens: dragged.opens),
       pane.id,
     )!.pane;
@@ -224,7 +224,7 @@ class _StageState extends ConsumerState<Stage> {
       box.getTransformTo(screen),
       Offset.zero & box.size,
     );
-    final row = pane.mode == PaneMode.row;
+    final row = pane.mode == LayoutMode.row;
     final at = screen.globalToLocal(pointer);
     final whole = on(box);
     const thick = 4.0;
@@ -257,7 +257,7 @@ class _StageState extends ConsumerState<Stage> {
 
   /// The single selected node, if its place can be found: its rect and what
   /// resizing needs.
-  ({Found found, Placement placed, PaneMetrics metrics, Rect rect, Size size})?
+  ({Found found, Placement placed, CellMetrics metrics, Rect rect, Size size})?
   _picked() {
     final layout = ref.read(editedLayoutProvider);
     final ids = ref.read(selectionProvider);
@@ -267,7 +267,7 @@ class _StageState extends ConsumerState<Stage> {
     if (found == null || grid == null || screen == null) return null;
     final pane = found.parent;
     final placed = placementIn(pane, found.item.id);
-    final metrics = PaneMetrics(pane, grid.size.width);
+    final metrics = CellMetrics(pane, grid.size.width);
     return (
       found: found,
       placed: placed,
@@ -296,7 +296,7 @@ class _StageState extends ConsumerState<Stage> {
     final by = moved / grid.getTransformTo(screen).getMaxScaleOnAxis();
     final step = stepIn(pane, snap: ref.read(snapProvider));
     final Layout next;
-    if (pane.mode == PaneMode.free) {
+    if (pane.mode == LayoutMode.free) {
       next = placeItem(
         layout,
         found.item.id,
@@ -348,7 +348,7 @@ class _StageState extends ConsumerState<Stage> {
         for (final child in pane.children) child.id: pane,
     };
     // The frames stay mounted so toggling editing keeps the launcher's state.
-    final screen = PaneFrame(
+    final screen = LayoutFrame(
       wrap: _grid,
       child: TileFrame(
         wrap: editing ? _editTile : _plainTile,

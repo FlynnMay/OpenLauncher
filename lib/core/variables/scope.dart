@@ -113,7 +113,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   if (saved == null) return null;
   final prefabs = ref.watch(prefabsProvider);
   final found = dockedForm(saved, prefabs) ?? saved;
-  if (!found.isPane) {
+  if (!found.isContainer) {
     final variables = variablesOf(found, prefabs);
     if (!variables.values.any((v) => v.access == VarAccess.public)) {
       return null;
@@ -124,7 +124,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   // What it holds, not the parts its prefab draws around that.
   final held = saved.ownContents;
   final label = switch (found.name) {
-    '' => 'Pane',
+    '' => 'Layout',
     final title => title,
   };
   return {

@@ -25,11 +25,11 @@ class LayoutOperationsManager implements OperationsManager {
         final layout = (await _ref.read(configProvider.future)).layout;
         final layer = layout.layer(run.arg('layer') ?? '');
         if (entity == null || layer == null) return null;
-        bool holds(String? id) => layer.root.panes.any((p) => p.id == id);
+        bool holds(String? id) => layer.root.containers.any((p) => p.id == id);
         final to =
             run.arg('to') ??
             (holds(layout.inbox) ? layout.inbox : layer.root.id);
-        if (!holds(to)) return 'There is no pane "$to" there.';
+        if (!holds(to)) return 'There is no layout "$to" there.';
         final item = instanceFor(entity, layout, _ref.read(prefabsProvider));
         if (item == null) return '${entity.label} has no card to show it.';
         await _ref.read(configProvider.notifier).addItem(item, to);

@@ -153,7 +153,7 @@ void main() {
     addTearDown(tester.view.reset);
     final tv = _Tv();
     final home = homeLayout(['system:app/a']);
-    final using = home.withPane(
+    final using = home.withContainer(
       home.home.root.id,
       (pane) => pane.copyWith(
         children: [

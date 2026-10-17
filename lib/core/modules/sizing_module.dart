@@ -55,7 +55,7 @@ class SizingModule extends ModuleType {
         min: 1,
         max: maxRows,
       ),
-      if (parents.every((pane) => pane.mode != PaneMode.flow)) ...[
+      if (parents.every((pane) => pane.mode != LayoutMode.flow)) ...[
         Field(
           'x',
           'Column',

@@ -280,7 +280,7 @@ void main() {
       await packs
           .read(configProvider.notifier)
           .setLayout(
-            home.withPane(
+            home.withContainer(
               home.home.root.id,
               (pane) => pane.copyWith(
                 children: [

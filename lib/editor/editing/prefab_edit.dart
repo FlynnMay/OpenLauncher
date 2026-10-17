@@ -16,7 +16,7 @@ Layout prefabAsLayout(Prefab prefab, [String? variant, double? rowHeight]) =>
       layers: [
         Layer(
           id: Layout.homeId,
-          root: Node.pane(
+          root: Node.layout(
             id: prefabStageId,
             columns: LayoutModule.globalColumns,
             layout: {'rowHeight': ?rowHeight},
@@ -154,7 +154,7 @@ Overrides _rekeyed(Overrides overrides, Map<String, String?> ids) => {
 
 /// [layout] and [prefabs] with the overrides naming [prefabId]'s children
 /// re-keyed by [ids] (old to new; null drops them): in its variants, its
-/// instances and panes' rules for it.
+/// instances and containers' rules for it.
 ({Layout layout, List<Prefab> prefabs}) withPartIds(
   Layout layout,
   List<Prefab> prefabs,
@@ -278,7 +278,7 @@ Node _unpackedIn(
   Set<String> used,
   void Function(Node plain) each,
 ) {
-  if (!component.isPane) return component;
+  if (!component.isContainer) return component;
   final shown = component.shown;
   final rules = {...component.prefabRules}..remove(prefabId);
   return component

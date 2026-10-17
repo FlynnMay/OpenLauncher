@@ -24,7 +24,7 @@ void main() {
     expect(read.toJson(), card.toJson());
     expect(read.variants.keys, ['stacked', 'row']);
     // It is made of components like any on the screen.
-    expect(read.root.isPane, isTrue);
+    expect(read.root.isContainer, isTrue);
     expect(read.root.children.map((part) => (part.id, part.visual?.name)), [
       ('picture', 'picture'),
       ('name', 'text'),
@@ -43,7 +43,7 @@ void main() {
       final tile = Prefab(
         id: 'acme:tile',
         name: 'Tile',
-        root: Node.pane(
+        root: Node.layout(
           id: 'root',
           w: 2,
           vars: const {
@@ -62,7 +62,7 @@ void main() {
         Prefab(
           id: 'x',
           name: 'X',
-          root: Node.pane(id: 'root'),
+          root: Node.layout(id: 'root'),
         ).instance('system:clock', id: 'c'),
         isNull,
       );
@@ -71,7 +71,10 @@ void main() {
 
   test('an instance is its prefab until it says otherwise', () {
     final drawn = resolved(plain, prefabs);
-    expect((drawn.id, drawn.isPane, drawn.mode), ('a', true, PaneMode.column));
+    expect(
+      (drawn.id, drawn.isContainer, drawn.mode),
+      ('a', true, LayoutMode.column),
+    );
     expect(part(plain, 'name').values('text')?['text'], '{{source.label}}');
     expect(drawn.all.every((part) => !part.hidden), isTrue);
     // Its variables and triggers are the prefab's, with its own over them.
@@ -110,7 +113,7 @@ void main() {
         )
         .triggered({Trigger.hold: const []});
     final drawn = resolved(item, prefabs);
-    expect(drawn.mode, PaneMode.row);
+    expect(drawn.mode, LayoutMode.row);
     // Its look is set over property by property: what the variant says of
     // the part still counts, and what the prefab does, under what it set.
     expect(part(item, 'name').style, {
@@ -175,7 +178,7 @@ void main() {
         'name': {'hidden': false},
       },
     });
-    expect(resolved(ruled, prefabs).mode, PaneMode.column);
+    expect(resolved(ruled, prefabs).mode, LayoutMode.column);
     expect(part(ruled, 'name').hidden, isFalse);
     // What the rule says nothing of is still the instance's.
     expect(part(ruled, 'name').style['fontSize'], 20);
@@ -196,11 +199,11 @@ void main() {
     expect(folder.handed.firstOrNull, 'games');
   });
 
-  test('a prefab can be made of panes, and of other prefabs', () {
+  test('a prefab can be made of containers, and of other prefabs', () {
     // The weather keeps its lines in a pane of their own.
     final weather = cardOf('system:weather', id: 'w', prefab: 'system:weather');
     final drawn = resolved(weather, prefabs);
-    expect(drawn.children.map((part) => (part.id, part.isPane)), [
+    expect(drawn.children.map((part) => (part.id, part.isContainer)), [
       ('w/icon', false),
       ('w/lines', true),
     ]);
@@ -291,7 +294,7 @@ void main() {
       layers: [
         Layer(
           id: Layout.homeId,
-          root: Node.pane(id: 'home/root', children: [instance]),
+          root: Node.layout(id: 'home/root', children: [instance]),
         ),
       ],
     );

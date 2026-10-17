@@ -141,7 +141,7 @@ class PrefabBar extends ConsumerWidget {
                       'Entities': {
                         for (final entity in entities) entity.id: entity.label,
                       },
-                      'Docked panes': {
+                      'Docked': {
                         for (final pane in docked)
                           pane.id: pane.name.isEmpty ? pane.id : pane.name,
                       },

@@ -131,7 +131,7 @@ void main() {
       layers: [
         Layer(
           id: Layout.homeId,
-          root: Node.pane(id: 'main', children: items),
+          root: Node.layout(id: 'main', children: items),
         ),
       ],
     );
@@ -324,7 +324,7 @@ void main() {
           layers: [
             Layer(
               id: Layout.homeId,
-              root: Node.pane(
+              root: Node.layout(
                 id: 'main',
                 name: 'Apps',
                 vars: const {
@@ -334,7 +334,7 @@ void main() {
                 children: [
                   cardOf('system:app/a', id: 'a'),
                   // Docked: in the pane's tree, not among what it counts.
-                  folderPane(
+                  folderOf(
                     'games',
                     title: 'Games',
                     children: [cardOf('system:app/a', id: 'g')],
@@ -389,7 +389,7 @@ void main() {
           layers: [
             Layer(
               id: Layout.homeId,
-              root: Node.pane(
+              root: Node.layout(
                 id: 'main',
                 columns: 2,
                 layout: const {'rowHeight': 200},

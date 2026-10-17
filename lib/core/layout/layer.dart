@@ -36,14 +36,14 @@ class Layer {
   /// Takes the focus; Back closes what is on it.
   final bool modal;
 
-  /// Ids of the docked panes moved to it. Not saved.
+  /// Ids of the docked containers moved to it. Not saved.
   final Set<String> holds;
 
   static String rootId(String layerId) => '$layerId/root';
 
-  static Node _emptyRoot(String id) => Node.pane(
+  static Node _emptyRoot(String id) => Node.layout(
     id: rootId(id),
-    mode: PaneMode.grid,
+    mode: LayoutMode.grid,
     columns: LayoutModule.globalColumns,
   );
 

@@ -11,12 +11,12 @@ import 'package:openlauncher/editor/settings/style_settings.dart';
 import 'package:openlauncher/editor/settings/trigger_settings.dart';
 import 'package:openlauncher/editor/settings/variables_settings.dart';
 
-/// Settings of one or more panes, including the screen's root pane.
-class PaneSettings extends StatelessWidget {
-  const PaneSettings({
+/// Settings of one or more containers, including the screen's root pane.
+class LayoutSettings extends StatelessWidget {
+  const LayoutSettings({
     super.key,
     required this.title,
-    required this.panes,
+    required this.containers,
     required this.onChanged,
     this.named = true,
     this.children = const [],
@@ -26,7 +26,7 @@ class PaneSettings extends StatelessWidget {
   });
 
   final String title;
-  final List<Node> panes;
+  final List<Node> containers;
 
   /// Called with a function to apply to each pane.
   final void Function(Node Function(Node pane) change) onChanged;
@@ -59,12 +59,12 @@ class PaneSettings extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _arrangement,
-      if (panes.every((pane) => pane.scrollbar != null))
+      if (containers.every((pane) => pane.scrollbar != null))
         Section(
           'Scroll bar',
           styleFields(
             keys: scrollbarStyle,
-            style: panes.first.scroll,
+            style: containers.first.scroll,
             onChanged: (key, value) => onChanged(
               (pane) => pane.withValue(scrollModule.name, key, value),
             ),
@@ -77,35 +77,35 @@ class PaneSettings extends StatelessWidget {
               _rules(ref.watch(shippedPrefabsProvider).keys.toSet()),
         ),
       // One pane at a time.
-      if (dockable && panes.length == 1)
+      if (dockable && containers.length == 1)
         Section(
           'Dock',
-          open: panes.single.isDocked,
-          dockFields(panes.single, onChanged),
+          open: containers.single.isDocked,
+          dockFields(containers.single, onChanged),
         ),
-      if (panes.length == 1 && panes.single.isDocked)
+      if (containers.length == 1 && containers.single.isDocked)
         TriggerSettings(
-          scope: panes.single.vars,
+          scope: containers.single.vars,
           triggers: _chains,
-          set: panes.single.on,
+          set: containers.single.on,
           onChanged: (on) => onChanged((pane) => pane.triggered(on)),
         ),
-      if (panes.length == 1)
+      if (containers.length == 1)
         VariablesSettings(
-          variables: panes.single.vars,
+          variables: containers.single.vars,
           exposable: exposable,
           onChanged: (vars) => onChanged((pane) => pane.withVars(vars)),
         ),
     ],
   );
 
-  /// With several panes the first one's values show and a change applies to
+  /// With several containers the first one's values show and a change applies to
   /// all.
   Widget get _arrangement => Section(title, [
-    if (named && panes.length == 1)
+    if (named && containers.length == 1)
       ...ruleFields(
         options: const [Field('name', 'Name', FieldKind.text)],
-        json: {'name': panes.single.name},
+        json: {'name': containers.single.name},
         onChanged: (_, name) =>
             onChanged((pane) => pane.copyWith(name: '${name ?? ''}')),
       ),
@@ -115,7 +115,7 @@ class PaneSettings extends StatelessWidget {
           for (final field in module.fields)
             if (!scrollbarStyle.contains(field.key)) field,
         ],
-        json: panes.first.values(module.name) ?? const {},
+        json: containers.first.values(module.name) ?? const {},
         onChanged: (key, value) =>
             onChanged((pane) => withRule(pane, module.name, key, value)),
       ),
@@ -139,7 +139,7 @@ class PaneSettings extends StatelessWidget {
   /// always listed; a user prefab's rule appears once added.
   Widget _rules(Set<String> shipped) {
     bool ruled(Prefab prefab) =>
-        panes.any((pane) => pane.prefabRules.containsKey(prefab.id));
+        containers.any((pane) => pane.prefabRules.containsKey(prefab.id));
     final shown = [
       for (final prefab in prefabs.values)
         if (shipped.contains(prefab.id) || ruled(prefab)) prefab,
@@ -152,7 +152,7 @@ class PaneSettings extends StatelessWidget {
       const Padding(
         padding: EdgeInsets.only(bottom: 8),
         child: Text(
-          'Applies to every prefab instance in this pane and overrides '
+          'Applies to every prefab instance in this layout and overrides '
           'the instance\'s own setting.',
         ),
       ),
@@ -195,7 +195,7 @@ class PaneSettings extends StatelessWidget {
       prefab.name,
       ChoiceBox<String>(
         value: shared(
-          panes.map(
+          containers.map(
             (pane) => switch (pane.prefabRules[prefab.id]?['variant']) {
               final String variant when prefab.variants.containsKey(variant) =>
                 variant,
@@ -206,7 +206,7 @@ class PaneSettings extends StatelessWidget {
         choices: {
           // A pack's may leave the variant to each instance.
           if (shipped ||
-              panes.any(
+              containers.any(
                 (pane) => pane.prefabRules[prefab.id]?['variant'] == null,
               ))
             _each: 'Per instance',
@@ -228,7 +228,7 @@ class PaneSettings extends StatelessWidget {
         '  ${part.id}',
         ChoiceBox<String>(
           value: shared(
-            panes.map(
+            containers.map(
               (pane) => switch (overridesFromJson(
                 pane.prefabRules[prefab.id]?['overrides'],
               )[part.id]?['hidden']) {
@@ -284,7 +284,7 @@ class PaneSettings extends StatelessWidget {
   Widget get _entities => Section('Item size', open: false, [
     TickBox(
       label: 'Same size for all',
-      value: shared(panes.map((pane) => pane.itemW != null)),
+      value: shared(containers.map((pane) => pane.itemW != null)),
       onChanged: (same) => onChanged(
         (pane) => pane
             .withValue(
@@ -299,20 +299,22 @@ class PaneSettings extends StatelessWidget {
             ),
       ),
     ),
-    if (panes.every((pane) => pane.itemW != null)) ...[
+    if (containers.every((pane) => pane.itemW != null)) ...[
       NumberField(
         label: 'Width (cells)',
-        value: shared(panes.map((pane) => pane.itemW!)),
-        mixed: panes.map((pane) => pane.itemW).toSet().length > 1,
+        value: shared(containers.map((pane) => pane.itemW!)),
+        mixed: containers.map((pane) => pane.itemW).toSet().length > 1,
         min: 1,
-        max: panes.map((pane) => pane.reach).reduce((a, b) => a < b ? a : b),
+        max: containers
+            .map((pane) => pane.reach)
+            .reduce((a, b) => a < b ? a : b),
         onChanged: (w) =>
             onChanged((pane) => pane.withValue(layoutModule.name, 'itemW', w)),
       ),
       NumberField(
         label: 'Height (cells)',
-        value: shared(panes.map((pane) => pane.itemH ?? 1)),
-        mixed: panes.map((pane) => pane.itemH ?? 1).toSet().length > 1,
+        value: shared(containers.map((pane) => pane.itemH ?? 1)),
+        mixed: containers.map((pane) => pane.itemH ?? 1).toSet().length > 1,
         min: 1,
         max: SizingModule.maxRows,
         onChanged: (h) =>

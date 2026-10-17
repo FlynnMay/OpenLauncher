@@ -20,7 +20,7 @@ Entity? _subject(
 /// The entity the menu [id] was opened for.
 Entity? subjectOf(WidgetRef ref, String id) {
   final pane = ref.watch(
-    layoutViewProvider.select((layout) => layout.value?.pane(id)),
+    layoutViewProvider.select((layout) => layout.value?.container(id)),
   );
   if (pane == null) return null;
   return _subject(
@@ -46,10 +46,10 @@ class _DockHostState extends ConsumerState<DockHost> {
   final _was = <String, bool>{};
 
   void _sync(Map<String, Map<String, Object?>> all) {
-    final panes = ref.read(layoutViewProvider).value?.docked;
-    if (panes == null || !mounted) return;
+    final containers = ref.read(layoutViewProvider).value?.docked;
+    if (containers == null || !mounted) return;
     final vars = ref.read(runtimeVarsProvider.notifier);
-    for (final pane in panes) {
+    for (final pane in containers) {
       final id = pane.id;
       final open = all[id]?[openVar] == true;
       if (open == (_was[id] ?? false)) continue;

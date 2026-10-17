@@ -2,24 +2,31 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// The panes the widgets below are in, outermost first; used by focus
+/// The containers the widgets below are in, outermost first; used by focus
 /// navigation.
-class PaneScope extends InheritedWidget {
-  const PaneScope({super.key, required this.panes, required super.child});
+class ContainerScope extends InheritedWidget {
+  const ContainerScope({
+    super.key,
+    required this.containers,
+    required super.child,
+  });
 
-  final List<String> panes;
+  final List<String> containers;
 
   static List<String> of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<PaneScope>()?.panes ??
+      context
+          .dependOnInheritedWidgetOfExactType<ContainerScope>()
+          ?.containers ??
       const [];
 
   /// The same without subscribing.
   static List<String> peek(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<PaneScope>()?.panes ?? const [];
+      context.getInheritedWidgetOfExactType<ContainerScope>()?.containers ??
+      const [];
 
   @override
-  bool updateShouldNotify(PaneScope oldWidget) =>
-      !listEquals(panes, oldWidget.panes);
+  bool updateShouldNotify(ContainerScope oldWidget) =>
+      !listEquals(containers, oldWidget.containers);
 }
 
 /// The visible part of the widgets below when it is less than their layout,
@@ -59,11 +66,11 @@ class TileTraversal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      FocusTraversalGroup(policy: _PanePolicy(), child: child);
+      FocusTraversalGroup(policy: _ContainerPolicy(), child: child);
 }
 
-class _PanePolicy extends ReadingOrderTraversalPolicy {
-  _PanePolicy() : super(requestFocusCallback: _focusOnly);
+class _ContainerPolicy extends ReadingOrderTraversalPolicy {
+  _ContainerPolicy() : super(requestFocusCallback: _focusOnly);
 
   static void _focusOnly(
     FocusNode node, {
@@ -76,7 +83,7 @@ class _PanePolicy extends ReadingOrderTraversalPolicy {
   static NavSpot<FocusNode> _spot(FocusNode node) =>
       NavSpot(node, focusRect(node), switch (node.context) {
         null => const [],
-        final context => PaneScope.peek(context),
+        final context => ContainerScope.peek(context),
       });
 
   @override

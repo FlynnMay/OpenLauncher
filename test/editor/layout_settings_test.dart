@@ -20,7 +20,7 @@ void main() {
       id: 'big-entity',
       name: 'Big entity',
     );
-    var pane = Node.pane(id: 'p');
+    var pane = Node.layout(id: 'p');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -34,13 +34,13 @@ void main() {
           home: Scaffold(
             body: SingleChildScrollView(
               child: StatefulBuilder(
-                builder: (context, setState) => PaneSettings(
+                builder: (context, setState) => LayoutSettings(
                   title: 'Pane',
                   prefabs: {
                     for (final prefab in [...systemPrefabs, own])
                       prefab.id: prefab,
                   },
-                  panes: [pane],
+                  containers: [pane],
                   onChanged: (how) => setState(() => pane = how(pane)),
                 ),
               ),
@@ -78,7 +78,7 @@ void main() {
     tester.view.physicalSize = const Size(500, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    var pane = Node.pane(id: 'p');
+    var pane = Node.layout(id: 'p');
     var changes = 0;
     late StateSetter redraw;
     await tester.pumpWidget(
@@ -96,9 +96,9 @@ void main() {
               child: StatefulBuilder(
                 builder: (context, setState) {
                   redraw = setState;
-                  return PaneSettings(
+                  return LayoutSettings(
                     title: 'Pane',
-                    panes: [pane],
+                    containers: [pane],
                     onChanged: (how) => setState(() {
                       changes++;
                       pane = how(pane);
@@ -165,14 +165,14 @@ void main() {
 
     // A row or a column does not scroll until ticked, and only along
     // itself.
-    redraw(() => pane = Node.pane(id: 'p', mode: PaneMode.row));
+    redraw(() => pane = Node.layout(id: 'p', mode: LayoutMode.row));
     await tester.pump();
     expect(
       (ticked('Horizontal scroll'), ticked('Vertical scroll')),
       (false, false),
     );
 
-    redraw(() => pane = Node.pane(id: 'p', mode: PaneMode.column));
+    redraw(() => pane = Node.layout(id: 'p', mode: LayoutMode.column));
     await tester.pump();
     changes = 0;
     await tester.tap(find.text('Vertical scroll'));

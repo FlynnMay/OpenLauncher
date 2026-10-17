@@ -91,7 +91,7 @@ List<Widget> dockFields(
   void Function(Node Function(Node pane) how) change,
 ) {
   // The dock's defaults.
-  final defaults = Node.pane(id: '', dock: {'position': ?pane.dock});
+  final defaults = Node.layout(id: '', dock: {'position': ?pane.dock});
   final values = pane.values(dockModule.name) ?? const {};
   final [dock, ...rest] = [
     for (final field in dockModule.fields)

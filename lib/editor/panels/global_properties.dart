@@ -23,16 +23,16 @@ class GlobalProperties extends ConsumerWidget {
         const WallpaperSettings(),
         if (config.ownLayout) const _RevertLayout(),
         // The screen's root pane.
-        PaneSettings(
+        LayoutSettings(
           title: 'Screen',
           prefabs: ref.watch(prefabsProvider),
           named: false,
           dockable: false,
-          panes: [config.layout.home.root],
+          containers: [config.layout.home.root],
           onChanged: (how) => changeLayout(
             context,
             ref,
-            (layout) => layout.withPane(layout.home.root.id, how),
+            (layout) => layout.withContainer(layout.home.root.id, how),
           ),
         ),
         StyleSettings(
@@ -41,7 +41,7 @@ class GlobalProperties extends ConsumerWidget {
           onChanged: (key, value) => changeLayout(
             context,
             ref,
-            (layout) => layout.withPane(
+            (layout) => layout.withContainer(
               layout.home.root.id,
               (root) => root.styled(withStyle(root.style, {key: value})),
             ),

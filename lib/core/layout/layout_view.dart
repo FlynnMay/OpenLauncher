@@ -49,7 +49,7 @@ Node? dockedForm(Node item, Map<String, Prefab> prefabs) {
   return pane.isDocked ? pane : null;
 }
 
-/// [layout] with its instances of docked panes resolved.
+/// [layout] with its instances of docked containers resolved.
 Layout withDockedInstances(Layout layout, Map<String, Prefab> prefabs) =>
     layout.rebuild(
       (_, items) => [

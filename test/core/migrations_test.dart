@@ -944,7 +944,7 @@ void main() {
     });
   });
 
-  group('2 to 3: panes', () {
+  group('2 to 3: containers', () {
     Json save(List<Json> children, {List<Json> prefabs = const []}) => {
       'layout': {
         'layers': [
@@ -992,7 +992,7 @@ void main() {
       });
     });
 
-    test('a pane writes out its box, and one with a heading is a Pane', () {
+    test('a pane writes out its box, and one with a heading is a Section', () {
       final next = save(
         [
           {
@@ -1046,7 +1046,7 @@ void main() {
       expect(apps, {
         'id': 'apps',
         'name': 'Apps',
-        'prefab': 'system:pane',
+        'prefab': 'system:section',
         'overrides': {
           'content': {
             'modules': {
@@ -1083,11 +1083,11 @@ void main() {
       final prefab = (next['prefabs']! as List).single as Map;
       expect(prefab['root']['modules']['style'], {'padding': 16, 'clip': true});
 
-      // Drawn, the Pane lays out what it holds as the pane did.
+      // Drawn, the Section lays out what it holds as the pane did.
       final drawn = resolved(Node.fromJson(apps as Json), systemPrefabMap);
       final [heading, content] = drawn.children;
       expect(heading.visual, textModule);
-      expect((content.mode, content.columns), (PaneMode.grid, 4));
+      expect((content.mode, content.columns), (LayoutMode.grid, 4));
       expect(content.scrollsDown, isFalse);
       expect(content.children.single.id, 'a');
       expect(drawn.style['radius'], 14);

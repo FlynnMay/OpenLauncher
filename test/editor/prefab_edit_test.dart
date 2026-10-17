@@ -119,7 +119,7 @@ void main() {
 
   test('renaming or removing a part takes what names it along', () {
     final own = [card];
-    final layout = homeLayout().withPane(
+    final layout = homeLayout().withContainer(
       'main',
       (pane) => pane
           .withPrefabRules({
@@ -159,7 +159,7 @@ void main() {
     final after = renamed.prefabs.single;
     expect(after.root.children.map((part) => part.id), ['picture', 'title']);
     expect(after.variants['row']!.overrides.keys, ['root', 'picture', 'title']);
-    final main = renamed.layout.pane('main')!;
+    final main = renamed.layout.container('main')!;
     expect(main.children.first.overrides.keys, ['title', 'picture']);
     expect(main.children.last.overrides.keys, ['name']);
     expect(
@@ -173,7 +173,7 @@ void main() {
       'root',
       'picture',
     ]);
-    final left = dropped.layout.pane('main')!;
+    final left = dropped.layout.container('main')!;
     expect(left.children.first.overrides.keys, ['picture']);
     expect(left.prefabRules[cardPrefabId], {'variant': 'row'});
   });
@@ -182,7 +182,7 @@ void main() {
     final inner = Prefab(
       id: 'inner',
       name: 'Inner',
-      root: Node.pane(
+      root: Node.layout(
         id: 'root',
         children: const [Node(id: 'card', prefab: cardPrefabId)],
       ),
@@ -190,7 +190,7 @@ void main() {
     final outer = Prefab(
       id: 'outer',
       name: 'Outer',
-      root: Node.pane(
+      root: Node.layout(
         id: 'root',
         children: const [Node(id: 'in', prefab: 'inner')],
       ),
@@ -217,9 +217,9 @@ void main() {
           },
         }),
       },
-      root: Node.pane(
+      root: Node.layout(
         id: 'root',
-        mode: PaneMode.column,
+        mode: LayoutMode.column,
         vars: const {
           'source': Variable(null, type: VarType.entity),
           'tint': Variable('#ff0000ff', type: VarType.colour),
@@ -236,13 +236,13 @@ void main() {
     final holder = Prefab(
       id: 'holder',
       name: 'Holder',
-      root: Node.pane(
+      root: Node.layout(
         id: 'root',
         children: const [Node(id: 'label', prefab: 'tile')],
       ),
     );
     final all = {...prefabs, 'tile': tile, 'holder': holder};
-    final layout = homeLayout().withPane(
+    final layout = homeLayout().withContainer(
       'main',
       (pane) => pane
           .withPrefabRules({
@@ -273,13 +273,13 @@ void main() {
     final after = withoutPrefab(layout, [tile, holder], all, 'tile');
     expect((after.instances, after.blank), (3, 2));
     expect(after.prefabs.map((prefab) => prefab.id), ['holder']);
-    final main = after.layout.pane('main')!;
+    final main = after.layout.container('main')!;
     expect(main.prefabRules, isEmpty);
     final [a, b, _] = main.children;
     // A plain pane where it stood, at its size, holding what it was handed.
     expect(
-      (a.isInstance, a.isPane, a.mode, a.w),
-      (false, true, PaneMode.column, 2),
+      (a.isInstance, a.isContainer, a.mode, a.w),
+      (false, true, LayoutMode.column, 2),
     );
     expect(a.handed, ['system:app/a']);
     expect(a.vars['tint']!.value, '#ff0000ff');
@@ -303,7 +303,7 @@ void main() {
 
     // One instance alone, the prefab kept.
     final one = withUnpacked(layout, 'b', all);
-    expect(one.pane('main')!.children.map((item) => item.isInstance), [
+    expect(one.container('main')!.children.map((item) => item.isInstance), [
       true,
       false,
       false,
@@ -311,7 +311,7 @@ void main() {
   });
 
   test('a node is made a prefab and an instance takes its place', () {
-    final pane = Node.pane(
+    final pane = Node.layout(
       id: 'weather-box',
       x: 2,
       y: 3,

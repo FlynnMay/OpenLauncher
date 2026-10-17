@@ -10,7 +10,7 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/docked_pane.dart';
+import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -23,7 +23,7 @@ import '../support/packs.dart';
 const _boxed = {'padding': 16, 'clip': true};
 
 final _panel = find.byWidgetPredicate(
-  (widget) => widget is NodeView && widget.component.isPane,
+  (widget) => widget is NodeView && widget.component.isContainer,
 );
 
 void main() {
@@ -87,16 +87,16 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// A home layer of [panes] one under another, each five rows tall, with
+    /// A home layer of [containers] one under another, each five rows tall, with
     /// room on the left for a sidebar, and [docked] on it.
-    Layer home(List<Node> panes, [List<Node> docked = const []]) => Layer(
+    Layer home(List<Node> containers, [List<Node> docked = const []]) => Layer(
       id: Layout.homeId,
-      root: Node.pane(
+      root: Node.layout(
         id: 'global',
-        mode: PaneMode.grid,
+        mode: LayoutMode.grid,
         columns: 12,
         children: [
-          for (final (index, pane) in panes.indexed)
+          for (final (index, pane) in containers.indexed)
             pane.sized(10, 5, x: 2, y: index * 5.0),
           ...docked,
         ],
@@ -105,7 +105,7 @@ void main() {
 
     /// The docked pane [id] as drawn.
     Finder dock(String id) => find.byWidgetPredicate(
-      (widget) => widget is DockedPane && widget.pane.id == id,
+      (widget) => widget is DockedNode && widget.pane.id == id,
     );
 
     Node entity(String package) =>
@@ -179,9 +179,9 @@ void main() {
             inbox: 'main',
             layers: [
               home(
-                [Node.pane(id: 'main')],
+                [Node.layout(id: 'main')],
                 [
-                  folderPane('pick')
+                  folderOf('pick')
                       .withVars(const {
                         'target': Variable(null, type: VarType.entity),
                       })
@@ -231,7 +231,7 @@ void main() {
             inbox: 'main',
             layers: [
               home([
-                Node.pane(
+                Node.layout(
                   id: 'main',
                   children: [
                     drawn(
@@ -284,7 +284,7 @@ void main() {
             layers: [
               home(
                 [
-                  headedPane(
+                  section(
                     'top',
                     'Favourites',
                     layout: const {'mode': 'grid', 'columns': 4},
@@ -309,10 +309,10 @@ void main() {
                       ),
                     ],
                   ),
-                  Node.pane(id: 'main'),
+                  Node.layout(id: 'main'),
                 ],
                 [
-                  folderPane('games', title: 'Games')
+                  folderOf('games', title: 'Games')
                       .withValue(dockModule.name, 'position', 'bottom')
                       .withValue(dockModule.name, 'height', 270)
                       .holds(children: [entity('pkg.b')]),
@@ -349,7 +349,7 @@ void main() {
             inbox: 'main',
             layers: [
               home([
-                Node.pane(
+                Node.layout(
                   id: 'main',
                   style: const {
                     'background': {
@@ -416,7 +416,7 @@ void main() {
             inbox: 'main',
             layers: [
               home([
-                Node.pane(
+                Node.layout(
                   id: 'main',
                   children: [
                     cardOf(
@@ -466,7 +466,7 @@ void main() {
     testWidgets('a pane pads the same with or without a background', (
       tester,
     ) async {
-      Node pane(String id, String package, Style style) => Node.pane(
+      Node pane(String id, String package, Style style) => Node.layout(
         id: id,
         columns: 2,
         style: {...style, 'padding': 16},
@@ -530,14 +530,14 @@ void main() {
             layers: [
               Layer(
                 id: Layout.homeId,
-                root: Node.pane(
+                root: Node.layout(
                   id: 'global',
-                  mode: PaneMode.grid,
+                  mode: LayoutMode.grid,
                   columns: 12,
                   children: [
                     // One row tall, but its two columns make entities far
                     // taller than that.
-                    Node.pane(
+                    Node.layout(
                       id: 'short',
                       columns: 2,
                       style: _boxed,
@@ -598,7 +598,7 @@ void main() {
             removed: const {'system:settings'},
             layers: [
               home([
-                Node.pane(
+                Node.layout(
                   id: 'p',
                   columns: 2,
                   style: _boxed,
@@ -662,19 +662,19 @@ void main() {
     });
 
     test('cells measure the same from the whole grid as from the pane', () {
-      final pane = Node.pane(
+      final pane = Node.layout(
         id: 'p',
         columns: 2,
         scroll: const {'across': true},
         children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
       );
-      final shown = PaneMetrics.shown(pane, 400);
+      final shown = CellMetrics.shown(pane, 400);
       // The editor has only the grid's own box, three columns wide here.
-      final whole = PaneMetrics(pane, shown.across(3));
+      final whole = CellMetrics(pane, shown.across(3));
       expect(whole.cellWidth, closeTo(shown.cellWidth, 1e-9));
       expect(
         shown.cellWidth,
-        PaneMetrics(
+        CellMetrics(
           pane.withValue(scrollModule.name, 'across', null),
           400,
         ).cellWidth,
@@ -765,7 +765,7 @@ void main() {
               removed: const {'system:settings'},
               layers: [
                 home([
-                  Node.pane(
+                  Node.layout(
                     id: 'p',
                     columns: 2,
                     scroll: {'across': true, ...rules, ...style},
@@ -782,7 +782,7 @@ void main() {
         );
       }
 
-      final bars = find.byType(PaneScrollbars);
+      final bars = find.byType(ScrollBars);
       final paint = find.descendant(
         of: bars,
         matching: find.byType(CustomPaint),
@@ -806,7 +806,7 @@ void main() {
       final view = tester.getSize(
         find.descendant(of: bars, matching: find.byType(SingleChildScrollView)),
       );
-      final grid = tester.getSize(find.byType(PaneScope).last);
+      final grid = tester.getSize(find.byType(ContainerScope).last);
       final thumb = track * view.width / grid.width;
       expect(thumb, closeTo(track * 2 / 3, 8));
       expect(paint, paints..rrect(rrect: bar(4, thumb), color: red));
@@ -887,14 +887,14 @@ void main() {
             layers: [
               Layer(
                 id: Layout.homeId,
-                root: Node.pane(
+                root: Node.layout(
                   id: 'global',
-                  mode: PaneMode.grid,
+                  mode: LayoutMode.grid,
                   columns: 12,
                   children: [
-                    Node.pane(
+                    Node.layout(
                       id: 'line',
-                      mode: PaneMode.row,
+                      mode: LayoutMode.row,
                       layout: const {'gap': 400},
                       scroll: rules,
                       children: [
@@ -948,12 +948,9 @@ void main() {
             inbox: 'main',
             layers: [
               home(
-                [Node.pane(id: 'main')],
+                [Node.layout(id: 'main')],
                 [
-                  sidebarPane(
-                    'left',
-                    'left',
-                  ).holds(children: [entity('pkg.c')]),
+                  sidebarOf('left', 'left').holds(children: [entity('pkg.c')]),
                 ],
               ),
             ],
@@ -999,9 +996,9 @@ void main() {
                 inbox: 'main',
                 layers: [
                   home(
-                    [Node.pane(id: 'main')],
+                    [Node.layout(id: 'main')],
                     [
-                      sidebarPane('left', 'left')
+                      sidebarOf('left', 'left')
                           .withValue(dockModule.name, 'opening', opening)
                           .withValue(dockModule.name, 'reveal', reveal)
                           .holds(children: [entity('pkg.c')]),
@@ -1048,9 +1045,9 @@ void main() {
             layers: [
               home(
                 // Padded, so what is in it sits below the bar's edge.
-                [Node.pane(id: 'main', style: _boxed)],
+                [Node.layout(id: 'main', style: _boxed)],
                 [
-                  sidebarPane('top', 'top').holds(children: [entity('pkg.c')]),
+                  sidebarOf('top', 'top').holds(children: [entity('pkg.c')]),
                 ],
               ),
             ],

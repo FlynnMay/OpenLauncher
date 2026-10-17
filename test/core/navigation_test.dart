@@ -3,19 +3,19 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// An entity one cell big at column [x], row [y], in [panes].
+/// An entity one cell big at column [x], row [y], in [containers].
 NavSpot<String> _at(
   String id,
   double x,
   double y, [
-  List<String> panes = const ['g'],
-]) => NavSpot(id, Rect.fromLTWH(x * 100, y * 100, 80, 60), panes);
+  List<String> containers = const ['g'],
+]) => NavSpot(id, Rect.fromLTWH(x * 100, y * 100, 80, 60), containers);
 
 String? _go(String from, NavDirection direction, List<NavSpot<String>> spots) =>
     navigate(spots.firstWhere((s) => s.id == from), spots, direction)?.id;
 
 void main() {
-  test('kinship of panes', () {
+  test('kinship of containers', () {
     expect(navKinship(['g', 'a'], ['g', 'a']), NavKinship.same);
     expect(navKinship(['g', 'a'], ['g', 'a', 'x']), NavKinship.child);
     expect(navKinship(['g', 'a'], ['g']), NavKinship.parent);
@@ -61,7 +61,7 @@ void main() {
     });
   });
 
-  group('between panes', () {
+  group('between containers', () {
     // A pane p on the global pane g, with a pane q inside it and a pane s
     // beside it. Everything is on one row, left to right:
     //   loose0  [p: p0  [q: q0]  p1]  [s: s0]  loose1
@@ -91,15 +91,12 @@ void main() {
       expect(_go('p1', NavDirection.right, noLoose), 's0');
     });
 
-    test(
-      'from the global pane, panes on it are entered at their nearest entity',
-      () {
-        // Its own pane first: the other loose entity, however far.
-        expect(_go('loose0', NavDirection.right, spots), 'loose1');
-        final alone = spots.where((s) => s.id != 'loose1').toList();
-        expect(_go('loose0', NavDirection.right, alone), 'p0');
-      },
-    );
+    test('from the global pane, containers on it are entered at their nearest entity', () {
+      // Its own pane first: the other loose entity, however far.
+      expect(_go('loose0', NavDirection.right, spots), 'loose1');
+      final alone = spots.where((s) => s.id != 'loose1').toList();
+      expect(_go('loose0', NavDirection.right, alone), 'p0');
+    });
 
     test('leaving a pane, straight ahead beats the pane around off to the side', () {
       // A row of entities in pane b, a pane a directly above it, and one entity

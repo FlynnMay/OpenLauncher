@@ -110,10 +110,10 @@ extension NodeLayout on Node {
     _ => null,
   };
 
-  /// How it arranges its children; [PaneMode.free] without a layout.
-  PaneMode get mode => !has(layoutModule.name)
-      ? PaneMode.free
-      : PaneMode.values.asNameMap()[_layout['mode']] ?? PaneMode.flow;
+  /// How it arranges its children; [LayoutMode.free] without a layout.
+  LayoutMode get mode => !has(layoutModule.name)
+      ? LayoutMode.free
+      : LayoutMode.values.asNameMap()[_layout['mode']] ?? LayoutMode.flow;
 
   int get columns => switch (_layout['columns']) {
     final num columns => columns.toInt(),

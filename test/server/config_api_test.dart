@@ -514,7 +514,7 @@ void main() {
 
     final saved = store.config.layout;
     final [top, rest, games] = saved.home.root.children;
-    expect((top.mode, top.columns), (PaneMode.grid, 4));
+    expect((top.mode, top.columns), (LayoutMode.grid, 4));
     expect((top.name, saved.inbox), ('Favourites', rest.id));
     // Too wide for the pane. A card for a folder that does not exist is
     // kept, but not drawn.
@@ -535,7 +535,7 @@ void main() {
     expect(folder.prefab, folderPrefabId);
     expect(
       view
-          .pane(folder.handed.firstOrNull!)!
+          .container(folder.handed.firstOrNull!)!
           .contents
           .map((entry) => entry.handed.firstOrNull),
       ['system:app/a'],

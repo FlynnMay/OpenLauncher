@@ -99,7 +99,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       }
       final opens = dockedInstance(
         prefab,
-        layout.paneIdFor(prefab.name, 'pane'),
+        layout.containerIdFor(prefab.name, 'pane'),
       );
       final item = card.instance(opens.id, id: layout.itemIdFor(prefab.name));
       if (item == null) return null;
@@ -175,8 +175,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       _Group('Primitives', [
         _Offer(
           Dragged(
-            item: Node.pane(id: layout.paneIdFor(), w: 6, h: 3),
-            label: 'Pane',
+            item: Node.layout(id: layout.containerIdFor(), w: 6, h: 3),
+            label: 'Layout',
             picture: const SymbolArt(Icons.dashboard_outlined),
           ),
         ),
@@ -209,7 +209,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             _Offer(
               Dragged(
                 item: card,
-                label: paneName(pane),
+                label: containerName(pane),
                 picture: const SymbolArt(Icons.folder_outlined),
               ),
             ),

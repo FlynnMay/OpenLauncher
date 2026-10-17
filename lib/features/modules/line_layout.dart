@@ -3,8 +3,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 
 /// Lays a row or column's children in a line, each sized by its flex, its
 /// aspect or its natural size. Its scroll is drawn around it.
-class LinePane extends StatelessWidget {
-  const LinePane({
+class LineLayout extends StatelessWidget {
+  const LineLayout({
     super.key,
     required this.pane,
     required this.tile,
@@ -26,7 +26,7 @@ class LinePane extends StatelessWidget {
 
   /// Whether it scrolls along its line.
   bool get _scrolls =>
-      pane.mode == PaneMode.row ? pane.scrollsAcross : pane.scrollsDown;
+      pane.mode == LayoutMode.row ? pane.scrollsAcross : pane.scrollsDown;
 
   Widget? _place(Node child) {
     if (child.isDocked || child.hidden && !child.keep) return null;
@@ -56,7 +56,7 @@ class LinePane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final row = pane.mode == PaneMode.row;
+    final row = pane.mode == LayoutMode.row;
     final flex = Flex(
       direction: row ? Axis.horizontal : Axis.vertical,
       mainAxisSize: pane.fit || inner || hug || _scrolls

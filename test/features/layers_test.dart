@@ -66,17 +66,17 @@ void main() {
                     layers: [
                       Layer(
                         id: Layout.homeId,
-                        root: Node.pane(
+                        root: Node.layout(
                           id: 'main',
                           // In line with the sidebar's row and clear of it
                           // when it is open, so that going right from it
                           // leads here.
-                          mode: PaneMode.grid,
+                          mode: LayoutMode.grid,
                           children: [
                             cardOf('system:app/a', id: 'a', x: 3, y: 0),
                             // What it does when shown is written on it:
                             // [on] over what a new sidebar comes with.
-                            sidebarPane('left', 'left')
+                            sidebarOf('left', 'left')
                                 .triggered({...barTriggers(), ...on})
                                 .holds(
                                   children: [cardOf('system:app/b', id: 'b')],
@@ -166,11 +166,11 @@ void main() {
                   layers: [
                     Layer(
                       id: Layout.homeId,
-                      root: Node.pane(
+                      root: Node.layout(
                         id: 'main',
                         children: [
                           cardOf('games', id: 'f', prefab: folderPrefabId),
-                          folderPane(
+                          folderOf(
                             'games',
                             title: 'Games',
                           ).holds(children: [cardOf('system:app/b', id: 'b')]),
@@ -196,7 +196,7 @@ void main() {
     await tester.pumpAndSettle();
     // What is in the folder, laid out only while it shows.
     final held = find.byWidgetPredicate(
-      (widget) => widget is PaneGrid && widget.pane.id == 'games/content',
+      (widget) => widget is ChildrenLayout && widget.pane.id == 'games/content',
     );
     expect(held, findsNothing);
 

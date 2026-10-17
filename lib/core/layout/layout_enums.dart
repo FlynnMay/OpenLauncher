@@ -1,5 +1,5 @@
 /// How a pane arranges its children.
-enum PaneMode {
+enum LayoutMode {
   /// In order, wrapping at the last column.
   flow,
 

@@ -1,6 +1,6 @@
 {
-  "id": "pane",
-  "name": "Pane",
+  "id": "section",
+  "name": "Section",
   "root": {
     "id": "root",
     "modules": {

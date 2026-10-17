@@ -232,12 +232,12 @@ void main() {
     final ref = await pump(
       tester,
       config: LauncherConfig(
-        layout: homeLayout(['system:app/a']).withPane(
+        layout: homeLayout(['system:app/a']).withContainer(
           'home/root',
           (root) => root.copyWith(
             children: [
               ...root.children,
-              folderPane('games', title: 'Games'),
+              folderOf('games', title: 'Games'),
             ],
           ),
         ),
@@ -260,8 +260,8 @@ void main() {
         .layout
         .all
         .singleWhere((node) => node.id == 'games');
-    expect(drawnPane(games).style, systemPrefab(folderId).root.style);
-    expect(drawnPane(games).name, 'Games');
+    expect(drawnInstance(games).style, systemPrefab(folderId).root.style);
+    expect(drawnInstance(games).name, 'Games');
     expect(tester.takeException(), isNull);
   });
 
@@ -271,7 +271,7 @@ void main() {
     final ref = await pump(tester);
     LauncherConfig config() => ref.read(configProvider).value!;
     await press(tester, find.text('Objects'));
-    await press(tester, inTree('Pane'));
+    await press(tester, inTree('Layout'));
     await press(tester, find.text('Create prefab'));
     await tester.enterText(find.byType(TextField).last, 'Shelf');
     await press(tester, find.widgetWithText(FilledButton, 'Add'));
@@ -323,7 +323,7 @@ void main() {
     await press(tester, find.widgetWithText(FilledButton, 'Delete'));
     expect(ref.read(prefabModeProvider), isNull);
     expect(config().prefabs, isEmpty);
-    final back = config().layout.pane('main')!;
+    final back = config().layout.container('main')!;
     expect(back.children.single.handed, ['system:app/a']);
     expect(config().layout.removed, isEmpty);
     expect(tester.takeException(), isNull);
@@ -340,9 +340,9 @@ void main() {
           Prefab(
             id: 'inner',
             name: 'Inner',
-            root: Node.pane(
+            root: Node.layout(
               id: 'root',
-              mode: PaneMode.column,
+              mode: LayoutMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
               children: [
                 drawn(
@@ -356,9 +356,9 @@ void main() {
           Prefab(
             id: 'outer',
             name: 'Outer',
-            root: Node.pane(
+            root: Node.layout(
               id: 'root',
-              mode: PaneMode.column,
+              mode: LayoutMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
               children: const [
                 // Hands on what it was handed.

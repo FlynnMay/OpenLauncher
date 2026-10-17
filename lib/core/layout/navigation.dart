@@ -5,14 +5,14 @@ import 'package:flutter/foundation.dart';
 
 enum NavDirection { left, right, up, down }
 
-/// A focusable thing: its rect and the panes it is in, outermost first.
+/// A focusable thing: its rect and the containers it is in, outermost first.
 @immutable
 class NavSpot<T> {
-  const NavSpot(this.id, this.rect, [this.panes = const []]);
+  const NavSpot(this.id, this.rect, [this.containers = const []]);
 
   final T id;
   final Rect rect;
-  final List<String> panes;
+  final List<String> containers;
 }
 
 /// How a spot's pane relates to the focused one, in order of preference.
@@ -87,7 +87,7 @@ NavSpot<T>? navigate<T>(
       ),
     };
     if (!ahead) continue;
-    final kinship = navKinship(from.panes, spot.panes);
+    final kinship = navKinship(from.containers, spot.containers);
     final inLine = apart < 0;
     // Distance, with a heavy penalty for being off to the side and a light
     // one for not being level.

@@ -5,13 +5,13 @@ import 'package:openlauncher/editor/stage/stage.dart';
 void main() {
   test('cells go by whole cells; without a layout, pixels, a few at a time '
       'while snapping', () {
-    final free = Node.pane(id: 'p', mode: PaneMode.free);
-    final grid = Node.pane(id: 'p', mode: PaneMode.grid);
+    final free = Node.layout(id: 'p', mode: LayoutMode.free);
+    final grid = Node.layout(id: 'p', mode: LayoutMode.grid);
     expect(stepIn(free, snap: true), freeStep);
     expect(stepIn(free, snap: false), 1);
     expect(stepIn(grid, snap: true), 1);
     expect(stepIn(grid, snap: false), 1);
-    expect(stepIn(Node.pane(id: 'p'), snap: false), 1);
+    expect(stepIn(Node.layout(id: 'p'), snap: false), 1);
   });
 
   test('values go to the nearest step, without stray digits', () {

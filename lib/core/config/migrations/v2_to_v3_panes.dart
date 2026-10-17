@@ -38,8 +38,8 @@ const _visuals = {'text', 'picture', 'icon', 'meter', 'appWidget', 'preview'};
 /// A node that held others on cells or by transform and drew nothing was
 /// given a box by the launcher: padding 16, corners 14, what is in it
 /// clipped, its name as a heading. That box is written out, and one on cells
-/// with a name is an instance of the System pack's Pane, which draws the
-/// heading. A layer's root, never drawn with a box, stays as it is; so do
+/// with a name is an instance of the System pack's Section, which draws
+/// the heading. A layer's root, never drawn with a box, stays as it is; so do
 /// instances, and a prefab's root but for its box.
 void panelsWrittenOut(Json save, Device device) {
   bool panel(Json node) {
@@ -73,7 +73,7 @@ void panelsWrittenOut(Json save, Device device) {
     return {
       'id': node['id'],
       'name': node['name'],
-      'prefab': 'system:pane',
+      'prefab': 'system:section',
       'transform': ?node['transform'],
       'hidden': ?node['hidden'],
       'overrides': {
@@ -87,7 +87,7 @@ void panelsWrittenOut(Json save, Device device) {
         'content': {
           'modules': {
             for (final module in laidOut) module: ?modules[module],
-            // The Pane scrolls down; one that did not says so.
+            // The Section scrolls down; one that did not says so.
             'scroll': {'down': false, ..._json(modules['scroll'])},
           },
         },

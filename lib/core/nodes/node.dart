@@ -105,13 +105,13 @@ class Node {
     this.overrides = const {},
   });
 
-  /// A node that holds others: laid out as [mode] ([PaneMode.free] for no
+  /// A node that holds others: laid out as [mode] ([LayoutMode.free] for no
   /// Layout), with [layout] adding Layout values. Cells scroll down unless
   /// [scroll] says otherwise.
-  factory Node.pane({
+  factory Node.layout({
     required String id,
     String name = '',
-    PaneMode mode = PaneMode.flow,
+    LayoutMode mode = LayoutMode.flow,
     int columns = LayoutModule.defaultColumns,
     List<Node> children = const [],
     Style style = const {},
@@ -128,13 +128,13 @@ class Node {
     double? flex,
     double? aspect,
   }) {
-    final cells = mode == PaneMode.flow || mode == PaneMode.grid;
+    final cells = mode == LayoutMode.flow || mode == LayoutMode.grid;
     return Node(
       id: id,
       name: name,
       children: children,
       modules: {
-        if (mode != PaneMode.free)
+        if (mode != LayoutMode.free)
           layoutModule.name: {'mode': mode.name, 'columns': columns, ...layout},
         scrollModule.name: ?scroll ?? (cells ? const {'down': true} : null),
         dockModule.name: ?dock,

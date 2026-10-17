@@ -38,7 +38,7 @@ void main() {
       final placed = placeItems(
         [_item('a'), _item('b', w: 2), _item('c'), _item('d')],
         3,
-        PaneMode.flow,
+        LayoutMode.flow,
       );
       expect(placed, const [
         Placement(0, 0, 1, 1),
@@ -53,7 +53,7 @@ void main() {
       final placed = placeItems(
         [_item('tall', h: 2), _item('wide', w: 2), _item('c'), _item('d')],
         3,
-        PaneMode.flow,
+        LayoutMode.flow,
       );
       expect(placed, const [
         Placement(0, 0, 1, 2),
@@ -64,7 +64,7 @@ void main() {
     });
 
     test('an item wider than the section is cut down to fit', () {
-      expect(placeItems([_item('a', w: 4)], 2, PaneMode.flow), const [
+      expect(placeItems([_item('a', w: 4)], 2, LayoutMode.flow), const [
         Placement(0, 0, 2, 1),
       ]);
     });
@@ -73,7 +73,7 @@ void main() {
       final placed = placeItems(
         [_item('a', x: 2, y: 1), _item('b', x: 0, y: 0)],
         4,
-        PaneMode.grid,
+        LayoutMode.grid,
       );
       expect(placed, const [Placement(2, 1, 1, 1), Placement(0, 0, 1, 1)]);
     });
@@ -87,7 +87,7 @@ void main() {
           _item('off', x: 3, y: 0, w: 2),
         ],
         4,
-        PaneMode.grid,
+        LayoutMode.grid,
       );
       expect(placed, const [
         Placement(0, 0, 2, 1),
@@ -101,14 +101,14 @@ void main() {
   group('free placement', () {
     test('without a layout there are no cells', () {
       expect(
-        placeItems([_item('a', x: 1, y: 1), _item('b')], 4, PaneMode.free),
+        placeItems([_item('a', x: 1, y: 1), _item('b')], 4, LayoutMode.free),
         const [Placement(0, 0, 0, 0), Placement(0, 0, 0, 0)],
       );
     });
 
     test('a pane that scrolls across keeps its children on one row', () {
       final items = [_item('a'), _item('b', w: 2), _item('c'), _item('d')];
-      final wraps = Node.pane(id: 'p', columns: 3, children: items);
+      final wraps = Node.layout(id: 'p', columns: 3, children: items);
       expect(rowCount(placementsOf(wraps)), 2);
       expect(columnsOf(wraps), 3);
 
@@ -127,12 +127,12 @@ void main() {
     test('it scrolls the ways its Scroll module asks and its layout lets '
         'it', () {
       Node pane(
-        PaneMode mode, [
+        LayoutMode mode, [
         Map<String, Object?>? scroll,
         Map<String, Object?> layout = const {},
-      ]) => Node.pane(id: 'p', mode: mode, scroll: scroll, layout: layout);
+      ]) => Node.layout(id: 'p', mode: mode, scroll: scroll, layout: layout);
       const both = {'across': true, 'down': true};
-      for (final mode in [PaneMode.flow, PaneMode.grid]) {
+      for (final mode in [LayoutMode.flow, LayoutMode.grid]) {
         // A new pane on cells scrolls down.
         expect(
           (pane(mode).scrollsAcross, pane(mode).scrollsDown),
@@ -144,37 +144,37 @@ void main() {
       // Without a layout nothing scrolls.
       expect(
         (
-          pane(PaneMode.free, both).scrollsAcross,
-          pane(PaneMode.free, both).scrollsDown,
+          pane(LayoutMode.free, both).scrollsAcross,
+          pane(LayoutMode.free, both).scrollsDown,
         ),
         (false, false),
       );
       // A row scrolls along itself only, and so does a column.
-      expect(pane(PaneMode.row).scrollsAcross, isFalse);
-      expect(pane(PaneMode.column).scrollsDown, isFalse);
+      expect(pane(LayoutMode.row).scrollsAcross, isFalse);
+      expect(pane(LayoutMode.column).scrollsDown, isFalse);
       expect(
         (
-          pane(PaneMode.row, both).scrollsAcross,
-          pane(PaneMode.row, both).scrollsDown,
+          pane(LayoutMode.row, both).scrollsAcross,
+          pane(LayoutMode.row, both).scrollsDown,
         ),
         (true, false),
       );
       expect(
         (
-          pane(PaneMode.column, both).scrollsAcross,
-          pane(PaneMode.column, both).scrollsDown,
+          pane(LayoutMode.column, both).scrollsAcross,
+          pane(LayoutMode.column, both).scrollsDown,
         ),
         (false, true),
       );
       // Scaled to its box, there is nothing to scroll.
       expect(
-        pane(PaneMode.row, both, const {'fit': true}).scrollsAcross,
+        pane(LayoutMode.row, both, const {'fit': true}).scrollsAcross,
         isFalse,
       );
     });
 
     test('a scroll bar is for a pane that scrolls, and reads its look', () {
-      final pane = Node.pane(
+      final pane = Node.layout(
         id: 'p',
         scroll: const {'down': true, 'bar': 'thumb'},
       );
@@ -221,12 +221,12 @@ void main() {
     });
   });
 
-  group('panes', () {
+  group('containers', () {
     Node pane(
       String id, {
-      PaneMode mode = PaneMode.flow,
+      LayoutMode mode = LayoutMode.flow,
       List<Node>? children,
-    }) => Node.pane(
+    }) => Node.layout(
       id: id,
       mode: mode,
       columns: 4,
@@ -236,7 +236,7 @@ void main() {
     test('nest, and are found with what is in them', () {
       final root = pane(
         'global',
-        mode: PaneMode.free,
+        mode: LayoutMode.free,
         children: [
           _item('loose', ref: 'system:app/a'),
           pane(
@@ -248,7 +248,7 @@ void main() {
           ).sized(3, 2.5, x: 0.5, y: 1),
         ],
       );
-      expect(root.panes.map((p) => p.id), ['global', 'outer', 'inner']);
+      expect(root.containers.map((p) => p.id), ['global', 'outer', 'inner']);
       // An entity can sit in the global pane, outside every other.
       expect(root.contents.map((i) => i.handed.firstOrNull), [
         'system:app/a',
@@ -270,7 +270,7 @@ void main() {
         'system:app/c',
         'system:app/new',
       ], instance: placedCard);
-      final inner = shown.pane('inner')!;
+      final inner = shown.container('inner')!;
       expect(inner.children.map((i) => i.handed.firstOrNull), [
         'system:app/c',
         'system:app/new',
@@ -299,7 +299,7 @@ void main() {
         layers: [
           Layer(
             id: 'over',
-            root: Node.pane(
+            root: Node.layout(
               id: 'rail',
               columns: 4,
               children: [
@@ -308,7 +308,7 @@ void main() {
                 _item('games', ref: 'system:app/x'),
                 pane('in-rail', children: [_item('b')]),
                 // A folder: docked, so off the cells of the pane it is in.
-                drawnPane(folderPane('games', title: 'Games'))
+                drawnInstance(folderOf('games', title: 'Games'))
                     .withValue(layoutModule.name, 'mode', 'grid')
                     .withValue(layoutModule.name, 'columns', 4)
                     .copyWith(
@@ -332,7 +332,7 @@ void main() {
       // inbox.
       expect(layout.layers.map((l) => l.id), ['home', 'over']);
       expect(layout.inbox, layout.home.root.id);
-      expect(layout.home.root.mode, PaneMode.grid);
+      expect(layout.home.root.mode, LayoutMode.grid);
 
       final rail = layout.layer('over')!.root;
       expect(rail.columns, 4);
@@ -343,14 +343,14 @@ void main() {
 
       expect((games.id, games.name, games.isDocked), ('games', 'Games', true));
       final [a, half, open, empty, nested] = games.children;
-      expect((empty.id, empty.isPane), ('empty', true));
+      expect((empty.id, empty.isContainer), ('empty', true));
       expect(a.id, isNot('a'));
       expect((a.x, a.y, a.w, a.h), (2, 2, 2, SizingModule.maxRows));
       expect((half.x, half.y), (null, null));
       expect(open.handed.firstOrNull, 'games');
       // Panes deeper than allowed give their contents to the last that is.
       // A docked pane starts the count again.
-      expect(nested.panes, hasLength(Node.maxDepth - 1));
+      expect(nested.containers, hasLength(Node.maxDepth - 1));
       expect(nested.contents.map((i) => i.handed.firstOrNull), [
         for (var depth = 2; depth <= 6; depth++) 'system:app/$depth',
       ]);
@@ -360,7 +360,7 @@ void main() {
 
     test('repair rounds cells, and leaves alone what has no layout around '
         'it', () {
-      Node of(String id, PaneMode mode) => Node.pane(
+      Node of(String id, LayoutMode mode) => Node.layout(
         id: id,
         mode: mode,
         columns: 4,
@@ -372,7 +372,7 @@ void main() {
           _home(
             pane(
               'global',
-              children: [of('f', PaneMode.free), of('g', PaneMode.grid)],
+              children: [of('f', LayoutMode.free), of('g', LayoutMode.grid)],
             ),
           ),
         ],
@@ -384,7 +384,7 @@ void main() {
     });
 
     test('repair leaves what an instance does not set to its prefab', () {
-      final bar = sidebarPane(
+      final bar = sidebarOf(
         'right',
         'right',
         children: [_item('a')],
@@ -392,12 +392,12 @@ void main() {
       final layout = Layout(
         inbox: 'main',
         layers: [
-          _home(Node.pane(id: 'root', children: [bar])),
+          _home(Node.layout(id: 'root', children: [bar])),
         ],
       ).normalised();
       final repaired = layout.all.singleWhere((node) => node.id == 'right');
       expect(repaired.values(layoutModule.name), {'mode': 'grid'});
-      expect(drawnPane(repaired).columns, 1);
+      expect(drawnInstance(repaired).columns, 1);
     });
 
     test('rejects what is not a layout', () {
@@ -446,7 +446,7 @@ void main() {
   });
 
   test('a pane keeps the spacing it is given, within reason', () {
-    Node pane(String id, double? spacing) => Node.pane(
+    Node pane(String id, double? spacing) => Node.layout(
       id: id,
       layout: {'spacing': ?spacing},
       children: [_item('$id-a')],
@@ -455,7 +455,7 @@ void main() {
       inbox: 'a',
       layers: [
         _home(
-          Node.pane(
+          Node.layout(
             id: 'global',
             layout: const {'spacing': 4},
             children: [pane('a', null), pane('b', 0), pane('c', 500)],
@@ -463,11 +463,16 @@ void main() {
         ),
       ],
     ).normalised();
-    final panes = layout.home.root.panes.toList();
-    expect(panes.map((p) => p.spacing), [4, null, 0, LayoutModule.maxSpacing]);
+    final containers = layout.home.root.containers.toList();
+    expect(containers.map((p) => p.spacing), [
+      4,
+      null,
+      0,
+      LayoutModule.maxSpacing,
+    ]);
     // Unset, it is the usual gap, wider across than down.
-    expect((panes[1].spacingX, panes[1].spacingY), (20, 16));
-    expect((panes[2].spacingX, panes[2].spacingY), (0, 0));
+    expect((containers[1].spacingX, containers[1].spacingY), (20, 16));
+    expect((containers[2].spacingX, containers[2].spacingY), (0, 0));
     final json = layout.toJson();
     expect(Layout.fromJson(json).toJson(), json);
     expect(
@@ -504,7 +509,11 @@ void main() {
         },
       ],
     }).normalised();
-    expect(layout.home.root.panes.map((p) => p.box.padding), [24, 80, null]);
+    expect(layout.home.root.containers.map((p) => p.box.padding), [
+      24,
+      80,
+      null,
+    ]);
     final json = layout.toJson();
     expect(Layout.fromJson(json).toJson(), json);
   });
@@ -512,7 +521,7 @@ void main() {
   group('resolveLayout', () {
     final entities = [_entity('a'), _entity('b'), _entity('c')];
 
-    test('matches items to entities, folders, widgets and panes', () {
+    test('matches items to entities, folders, widgets and containers', () {
       final config = LauncherConfig(
         iconOverrides: {'node:games': '/games.png'},
         layout: Layout(
@@ -520,13 +529,13 @@ void main() {
           removed: const {'system:app/c'},
           layers: [
             _home(
-              Node.pane(
+              Node.layout(
                 id: 'global',
                 children: [
                   cardOf('games', id: 'folder', prefab: folderPrefabId),
                   _item('time', kind: textModule.name),
-                  Node.pane(id: 'main'),
-                  folderPane(
+                  Node.layout(id: 'main'),
+                  folderOf(
                     'games',
                     title: 'Games',
                     children: [_item('system:app/b')],
@@ -559,7 +568,7 @@ void main() {
       // The folder is docked: on the layer, off its cells.
       expect(view.docked.map((p) => p.id), ['games']);
       expect(
-        placeItems(view.home.root.children, 5, PaneMode.flow).last,
+        placeItems(view.home.root.children, 5, LayoutMode.flow).last,
         const Placement(0, 0, 0, 0),
       );
     });
@@ -570,7 +579,7 @@ void main() {
           inbox: 'global',
           layers: [
             _home(
-              Node.pane(
+              Node.layout(
                 id: 'global',
                 children: [
                   _item('one', ref: 'system:app/a'),
@@ -595,10 +604,10 @@ void main() {
     });
   });
 
-  group('sidebars and what panes decide', () {
+  group('sidebars and what containers decide', () {
     test('a sidebar is a pane docked to an edge, with its usual size', () {
-      final left = drawnPane(sidebarPane('left', 'left'));
-      final top = drawnPane(sidebarPane('top', 'top'));
+      final left = drawnInstance(sidebarOf('left', 'left'));
+      final top = drawnInstance(sidebarOf('top', 'top'));
       expect((left.isDocked, left.hiddenWhenClosed), (true, false));
       expect(
         (left.edge, left.openWidth, left.openHeight, left.closed),
@@ -615,7 +624,7 @@ void main() {
       expect(left.on.keys, Trigger.values.skip(2));
       // A folder is hidden while closed; in the middle it is as tall as what
       // is in it.
-      final folder = drawnPane(folderPane('games'));
+      final folder = drawnInstance(folderOf('games'));
       expect(
         (
           folder.hiddenWhenClosed,
@@ -627,42 +636,43 @@ void main() {
       );
       // A word that is no dock leaves a pane on its parent's cells.
       expect(
-        Node.pane(id: 'p', dock: const {'position': 'sky'}).isDocked,
+        Node.layout(id: 'p', dock: const {'position': 'sky'}).isDocked,
         isFalse,
       );
     });
 
     Layout holding(List<Node> docked) => Layout(
       inbox: 'main',
-      layers: [_home(Node.pane(id: 'root', children: docked))],
+      layers: [_home(Node.layout(id: 'root', children: docked))],
     ).normalised();
 
     test('sizes are written, read back and kept within bounds', () {
       final layout = holding([
-        drawnPane(sidebarPane('right', 'right'))
+        drawnInstance(sidebarOf('right', 'right'))
             .withValue(dockModule.name, 'width', 'fill')
             .withValue(dockModule.name, 'height', 300)
             .withValue(dockModule.name, 'closed', 0),
-        drawnPane(sidebarPane('bottom', 'bottom'))
+        drawnInstance(sidebarOf('bottom', 'bottom'))
             .withValue(dockModule.name, 'height', 5000)
             .withValue(dockModule.name, 'closed', -3),
         // One off an edge has no strip to show.
-        drawnPane(folderPane('games')).withValue(dockModule.name, 'closed', 40),
+        drawnInstance(folderOf('games'))
+            .withValue(dockModule.name, 'closed', 40),
       ]);
       final copy = Layout.fromJson(layout.toJson());
-      final right = copy.pane('right')!;
+      final right = copy.container('right')!;
       expect(
         (right.dockWidth, right.dockHeight, right.closed),
         (DockModule.fill, 300, 0),
       );
-      final bottom = copy.pane('bottom')!;
+      final bottom = copy.container('bottom')!;
       expect((bottom.dockHeight, bottom.closed), (DockModule.maxExtent, 0));
       expect(bottom.dockWidth, isNull);
-      expect(copy.pane('games')!.hiddenWhenClosed, isTrue);
+      expect(copy.container('games')!.hiddenWhenClosed, isTrue);
     });
 
     test('how one opens is written and read back, the usual left out', () {
-      final usual = drawnPane(sidebarPane('left', 'left'));
+      final usual = drawnInstance(sidebarOf('left', 'left'));
       expect(
         (
           usual.valueOf(dockModule, 'opening'),
@@ -677,7 +687,7 @@ void main() {
             .withValue(dockModule.name, 'opening', 'slide')
             .withValue(dockModule.name, 'reveal', 'late'),
       ]);
-      final left = Layout.fromJson(layout.toJson()).pane('left')!;
+      final left = Layout.fromJson(layout.toJson()).container('left')!;
       expect(
         (
           left.valueOf(dockModule, 'opening'),
@@ -688,7 +698,7 @@ void main() {
 
       // A word it does not know is taken as the usual.
       final odd = holding([left.withValue(dockModule.name, 'opening', 'spin')])
-          .pane('left')!;
+          .container('left')!;
       expect(
         (odd.valueOf(dockModule, 'opening'), odd.valueOf(dockModule, 'reveal')),
         ('expand', 'late'),
@@ -704,14 +714,14 @@ void main() {
           },
         },
       };
-      final pane = Node.pane(
+      final pane = Node.layout(
         id: 'p',
         layout: const {'itemW': 2},
         prefabRules: rules,
         children: [
           _item('a', w: 3, h: 2),
           _item('time', kind: textModule.name, w: 4),
-          Node.pane(id: 'inner', w: 5),
+          Node.layout(id: 'inner', w: 5),
         ],
       );
       final [entity, widget, inner] = pane.shown;
@@ -725,7 +735,7 @@ void main() {
       // What the entity says is still there for when the pane stops.
       expect(pane.children.first.w, 3);
       expect(pane.children.first.overrides, isEmpty);
-      expect(Node.pane(id: 'p').decides, isFalse);
+      expect(Node.layout(id: 'p').decides, isFalse);
       // And all of it survives being written and read.
       final copy = Node.fromJson(
         pane.withValue(layoutModule.name, 'rowHeight', 40).toJson(),
@@ -742,7 +752,7 @@ void main() {
       };
       final layout = Layout(
         inbox: 'p',
-        layers: [_home(Node.pane(id: 'p', style: style))],
+        layers: [_home(Node.layout(id: 'p', style: style))],
       ).normalised();
       expect(layout.home.root.style, style);
       final read = Node.fromJson(layout.home.root.toJson());
@@ -756,7 +766,7 @@ void main() {
           inbox: 'main',
           layers: [
             _home(
-              Node.pane(
+              Node.layout(
                 id: 'main',
                 prefabRules: const {
                   cardPrefabId: {'variant': 'row'},

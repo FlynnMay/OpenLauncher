@@ -10,7 +10,7 @@ import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 
-/// Docked panes to keep open and shown even when empty. Used by the editor.
+/// Docked containers to keep open and shown even when empty. Used by the editor.
 class DockHold extends InheritedWidget {
   const DockHold({super.key, required this.ids, required super.child});
 
@@ -25,16 +25,16 @@ class DockHold extends InheritedWidget {
 /// while its `open` variable is set; closed, it shows its `closed` strip or
 /// is not there at all. On an edge it is laid out at its open size, so its
 /// contents do not move as it opens.
-class DockedPane extends ConsumerStatefulWidget {
-  const DockedPane({super.key, required this.pane});
+class DockedNode extends ConsumerStatefulWidget {
+  const DockedNode({super.key, required this.pane});
 
   final Node pane;
 
   @override
-  ConsumerState<DockedPane> createState() => _DockedPaneState();
+  ConsumerState<DockedNode> createState() => _DockedNodeState();
 }
 
-class _DockedPaneState extends ConsumerState<DockedPane>
+class _DockedNodeState extends ConsumerState<DockedNode>
     with SingleTickerProviderStateMixin {
   /// Duration of the contents' own reveal.
   static const _revealMs = 150;

@@ -8,20 +8,20 @@ import 'package:openlauncher/features/modules/style_drawer.dart';
 import 'package:openlauncher/features/modules/variables_drawer.dart';
 
 /// Wraps every pane's grid. Unused on the TV; the editor uses it to locate
-/// panes.
-class PaneFrame extends InheritedWidget {
-  const PaneFrame({super.key, required this.wrap, required super.child});
+/// containers.
+class LayoutFrame extends InheritedWidget {
+  const LayoutFrame({super.key, required this.wrap, required super.child});
 
   final Widget Function(Node pane, Widget grid) wrap;
 
   @override
-  bool updateShouldNotify(PaneFrame oldWidget) => wrap != oldWidget.wrap;
+  bool updateShouldNotify(LayoutFrame oldWidget) => wrap != oldWidget.wrap;
 }
 
 /// Lays a pane's children out on its cells, or by their transforms when it
 /// has no Layout. Its children read its variables and inherit its style.
-class PaneGrid extends StatelessWidget {
-  const PaneGrid({super.key, required this.pane, required this.tile});
+class ChildrenLayout extends StatelessWidget {
+  const ChildrenLayout({super.key, required this.pane, required this.tile});
 
   final Node pane;
   final Widget Function(Node child) tile;
@@ -29,7 +29,7 @@ class PaneGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pane = this.pane;
-    final grid = pane.mode == PaneMode.free
+    final grid = pane.mode == LayoutMode.free
         ? FreeLayout(node: pane, tile: tile)
         : CellsLayout(pane: pane, tile: tile);
     final scoped = pane.vars.isEmpty

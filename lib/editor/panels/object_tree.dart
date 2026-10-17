@@ -9,13 +9,13 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
 /// A pane's display name: its name, else where it docks.
-String paneName(Node pane) {
+String containerName(Node pane) {
   // A written name reads variables; it is not one to show.
   final title = pane.name.contains('{{') ? '' : pane.name;
   if (title.isNotEmpty) return title;
   return switch (pane.dock) {
-    final dock? => '${barName(dock)} pane',
-    null => 'Pane',
+    final dock? => '${barName(dock)} dock',
+    null => 'Layout',
   };
 }
 
@@ -41,7 +41,7 @@ String objectName(
       null => name,
     };
   }
-  if (item.isPane) return paneName(item);
+  if (item.isContainer) return containerName(item);
   return item.name.isNotEmpty && !item.name.contains('{{')
       ? item.name
       : item.visual?.label ?? 'Node';
@@ -49,7 +49,7 @@ String objectName(
 
 IconData objectIcon(Node item) => item.isInstance
     ? prefabIcon
-    : !item.isPane
+    : !item.isContainer
     ? Icons.widgets_outlined
     : item.edge != null
     ? Icons.view_sidebar_outlined

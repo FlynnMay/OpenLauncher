@@ -62,7 +62,7 @@ String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {
   final prefab = ref.read(editedPrefabProvider);
   if (prefab != null) {
     if (dragged.docking || dragged.opens != null) {
-      return 'A prefab cannot hold a new docked pane.';
+      return 'A prefab cannot hold something new that docks.';
     }
     if (paneId == prefabStageId && dragged.item.id != prefab.root.id) {
       return 'Drop it inside the prefab.';
@@ -96,7 +96,9 @@ Future<void> placeDragged(
   if (opens != null) {
     final name = await askName(context, opens.name);
     if (name == null || !context.mounted) return;
-    opens = opens.withId(layout.paneIdFor(name, 'pane')).copyWith(name: name);
+    opens = opens
+        .withId(layout.containerIdFor(name, 'pane'))
+        .copyWith(name: name);
     // Point the card at its final id.
     item = item
         .copyWith(id: freeId(slugOf(name), {...layout.itemIds, opens.id}))
@@ -146,7 +148,7 @@ Future<void> addBarSomewhere(
     await addBar(context, ref, edge, template);
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Every edge has a pane docked already.')),
+      const SnackBar(content: Text('Every edge has something docked already.')),
     );
   }
 }

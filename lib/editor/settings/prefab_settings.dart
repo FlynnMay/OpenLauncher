@@ -55,7 +55,7 @@ class InstanceSettings extends StatelessWidget {
     final own = '${item.id}/';
     final parts = {
       for (final part in resolved(item, prefabs).all.skip(1))
-        if (!part.isPane && part.id.startsWith(own))
+        if (!part.isContainer && part.id.startsWith(own))
           part.id.substring(own.length): part,
     };
     final base = {

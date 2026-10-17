@@ -35,7 +35,7 @@ class Placement {
 /// there are no cells.
 ///
 /// A docked pane takes no cells: it gets an empty placement.
-List<Placement> placeItems(List<Node> items, int columns, PaneMode mode) {
+List<Placement> placeItems(List<Node> items, int columns, LayoutMode mode) {
   if (items.any((item) => item.isDocked)) {
     final rest = placeItems(
       [
@@ -53,7 +53,7 @@ List<Placement> placeItems(List<Node> items, int columns, PaneMode mode) {
     ];
   }
   // Without a layout children sit where their transforms say.
-  if (mode == PaneMode.free) {
+  if (mode == LayoutMode.free) {
     return [for (final _ in items) const Placement(0, 0, 0, 0)];
   }
   final taken = <(int, int)>{};
@@ -77,7 +77,7 @@ List<Placement> placeItems(List<Node> items, int columns, PaneMode mode) {
   }
 
   final placed = List<Placement?>.filled(items.length, null);
-  if (mode == PaneMode.grid) {
+  if (mode == LayoutMode.grid) {
     for (final (index, item) in items.indexed) {
       final x = item.x?.round(), y = item.y?.round();
       final w = min(item.w.round(), columns), h = item.h.round();
@@ -87,9 +87,9 @@ List<Placement> placeItems(List<Node> items, int columns, PaneMode mode) {
     }
   }
 
-  // The cursor only moves forward, keeping order. Row and column panes are
+  // The cursor only moves forward, keeping order. Row and column containers are
   // treated as flow.
-  final flow = mode != PaneMode.grid;
+  final flow = mode != LayoutMode.grid;
   var cursorX = 0, cursorY = 0;
   for (final (index, item) in items.indexed) {
     if (placed[index] != null) continue;

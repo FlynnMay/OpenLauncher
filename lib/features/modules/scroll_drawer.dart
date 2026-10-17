@@ -51,12 +51,12 @@ Widget scrolled(
   bool screen = false,
 }) {
   if (node.mode.inLine) {
-    final row = node.mode == PaneMode.row;
+    final row = node.mode == LayoutMode.row;
     if (!(row ? node.scrollsAcross : node.scrollsDown)) return child;
     // Cut off a little outside, so a focused child can grow.
     return ClipRect(
       clipper: const Inflated(overhang),
-      child: PaneScrollbars.over(
+      child: ScrollBars.over(
         node,
         values,
         SingleChildScrollView(
@@ -67,7 +67,7 @@ Widget scrolled(
       ),
     );
   }
-  return PaneScrollbars.over(
+  return ScrollBars.over(
     node,
     values,
     !node.scrollsDown

@@ -16,7 +16,7 @@ class FreeLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final node = this.node;
-    final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
+    final frame = context.dependOnInheritedWidgetOfExactType<LayoutFrame>();
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -30,8 +30,8 @@ class FreeLayout extends StatelessWidget {
         final size = Size(width, height);
         final placed = SizedBox.fromSize(
           size: size,
-          child: PaneScope(
-            panes: [...PaneScope.of(context), node.id],
+          child: ContainerScope(
+            containers: [...ContainerScope.of(context), node.id],
             child: Stack(
               clipBehavior: Clip.none,
               children: [

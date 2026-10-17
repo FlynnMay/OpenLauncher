@@ -42,11 +42,11 @@ Node placedAt(Node item, Rect rect, Size size) => item.copyWith(
 
 /// A pane with its layer, the docked pane it is or is in (if any), and its
 /// depth counted from that, or from the layer's root (1).
-typedef FoundPane = ({Layer layer, Node pane, Node? dock, int depth});
+typedef FoundContainer = ({Layer layer, Node pane, Node? dock, int depth});
 
 /// An instance's id finds the node holding its first slot.
-FoundPane? findPane(Layout layout, String id) {
-  FoundPane? inside(Layer layer, Node pane, Node? dock, int depth) {
+FoundContainer? findContainer(Layout layout, String id) {
+  FoundContainer? inside(Layer layer, Node pane, Node? dock, int depth) {
     if (pane.isDocked) (dock, depth) = (pane, 1);
     if (pane.id == id && pane.isInstance) {
       return switch (pane.children.firstOrNull) {
@@ -58,7 +58,7 @@ FoundPane? findPane(Layout layout, String id) {
       return (layer: layer, pane: pane, dock: dock, depth: depth);
     }
     for (final inner in pane.children) {
-      if (!inner.isPane && !inner.isInstance) continue;
+      if (!inner.isContainer && !inner.isInstance) continue;
       // What an instance holds is as deep as the instance.
       final deeper = pane.isInstance ? depth : depth + 1;
       if (inside(layer, inner, dock, deeper) case final found?) return found;
@@ -76,20 +76,21 @@ int _deepest(Node pane) =>
     1 +
     pane.children.fold(
       0,
-      (most, inner) =>
-          inner.isPane && !inner.isDocked ? max(most, _deepest(inner)) : most,
+      (most, inner) => inner.isContainer && !inner.isDocked
+          ? max(most, _deepest(inner))
+          : most,
     );
 
-/// Why [item] cannot go into [paneId], or null. Only panes are ever refused.
+/// Why [item] cannot go into [paneId], or null. Only containers are ever refused.
 String? refusal(Layout layout, Node item, String paneId) {
-  final found = findPane(layout, paneId);
-  if (found == null) return 'That pane is gone.';
-  if (!item.isPane) return null;
-  if (item.panes.any((pane) => pane.id == paneId)) {
-    return 'A pane cannot go inside itself.';
+  final found = findContainer(layout, paneId);
+  if (found == null) return 'That layout is gone.';
+  if (!item.isContainer) return null;
+  if (item.containers.any((pane) => pane.id == paneId)) {
+    return 'A layout cannot go inside itself.';
   }
   if (found.depth + _deepest(item) > Node.maxDepth) {
-    return 'Panes can be nested ${Node.maxDepth - 1} deep.';
+    return 'Layouts can be nested ${Node.maxDepth - 1} deep.';
   }
   return null;
 }
@@ -97,7 +98,7 @@ String? refusal(Layout layout, Node item, String paneId) {
 /// Gives each of [items] its own cell in a grid pane. [fixed] gets exactly
 /// the cell it asks for; the rest keep theirs or take the nearest free one.
 ///
-/// Docked panes take no cells and are left as they are.
+/// Docked containers take no cells and are left as they are.
 List<Node> settle(List<Node> items, int columns, {String? fixed}) {
   if (items.any((item) => item.isDocked)) {
     final rest = settle(
@@ -192,7 +193,7 @@ Layout _rebuilt(
   final next = layout.rebuild(change, removed: removed);
   return added == null
       ? next
-      : next.withPane(
+      : next.withContainer(
           next.home.root.id,
           (root) => root.copyWith(children: [...root.children, added]),
         );
@@ -201,7 +202,7 @@ Layout _rebuilt(
 /// Moves or adds [item] at [drop]. [opens] is the new docked pane it opens.
 /// The caller has checked [refusal].
 Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
-  final found = findPane(layout, drop.pane)!;
+  final found = findContainer(layout, drop.pane)!;
   final target = found.pane;
   final columns = target.reach * 1.0;
   final w = min(max(1.0, item.w.roundToDouble()), columns);
@@ -209,21 +210,21 @@ Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
 
   List<Node> into(List<Node> items) {
     switch (target.mode) {
-      case PaneMode.flow:
+      case LayoutMode.flow:
         final index = items.indexWhere((other) => other.id == drop.before);
         return [...items]
           ..insert(index < 0 ? items.length : index, item.sized(w, h));
       // A line takes it as it is, in its turn.
-      case PaneMode.row || PaneMode.column:
+      case LayoutMode.row || LayoutMode.column:
         final index = items.indexWhere((other) => other.id == drop.before);
         return [...items]..insert(index < 0 ? items.length : index, item);
-      case PaneMode.grid:
+      case LayoutMode.grid:
         return settle(
           [...items, item.sized(w, h, x: drop.x, y: drop.y)],
           target.reach,
           fixed: drop.x == null ? null : item.id,
         );
-      case PaneMode.free:
+      case LayoutMode.free:
         // At the top left, when no place is given.
         return [
           ...items,
@@ -258,8 +259,8 @@ Layout removeItem(Layout layout, String id) {
   final gone = [
     for (final item in layout.all)
       if (item.id == id) ...[
-        if (!item.isPane) item,
-        if (item.isPane || item.isInstance) ...item.contents,
+        if (!item.isContainer) item,
+        if (item.isContainer || item.isInstance) ...item.contents,
       ],
   ];
   final handed = layout.node(id) != null;
@@ -301,7 +302,7 @@ List<Found> findItems(Layout layout, Set<String> ids) {
       }
     }
     for (final item in pane.children) {
-      if (item.isPane) under(layer, item, inside);
+      if (item.isContainer) under(layer, item, inside);
       // What an instance holds is found in the node holding its slot.
       if (item.isInstance) {
         for (final holder in item.children) {
@@ -350,7 +351,7 @@ Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
           else
             item,
       ];
-      if (pane.mode == PaneMode.grid) {
+      if (pane.mode == LayoutMode.grid) {
         for (final item in items) {
           if (ids.contains(item.id)) {
             next = settle(next, pane.reach, fixed: item.id);
@@ -371,7 +372,7 @@ Layout reshapeItem(
   double? y,
 }) => _rebuilt(layout, (pane, items) {
   if (!items.any((item) => item.id == id)) return items;
-  final flows = pane.mode == PaneMode.flow;
+  final flows = pane.mode == LayoutMode.flow;
   final next = [
     for (final item in items)
       if (item.id == id)
@@ -384,7 +385,7 @@ Layout reshapeItem(
       else
         item,
   ];
-  return pane.mode == PaneMode.grid
+  return pane.mode == LayoutMode.grid
       ? settle(next, pane.reach, fixed: id)
       : next;
 });
@@ -394,7 +395,7 @@ Layout placeItem(Layout layout, String id, Rect rect, Size size) => changeItems(
   layout,
   {id},
   (item, parent) =>
-      parent.mode == PaneMode.free ? placedAt(item, rect, size) : item,
+      parent.mode == LayoutMode.free ? placedAt(item, rect, size) : item,
 );
 
 /// Sets one Sizing field (`w`, `h`, `x`, `y`, `flex`, `aspect`) on [ids].
@@ -437,7 +438,7 @@ Node withRule(Node pane, String module, String key, Object? value) =>
     switch ((module, key)) {
       ('layout', 'mode') => withMode(
         pane,
-        PaneMode.values.asNameMap()[value] ?? PaneMode.flow,
+        LayoutMode.values.asNameMap()[value] ?? LayoutMode.flow,
       ),
       ('layout', 'columns') => withColumns(
         pane,
@@ -464,12 +465,12 @@ Node withDock(Node pane, String? dock) {
 
 /// Changes [pane]'s mode, keeping children where they were as far as
 /// possible.
-Node withMode(Node pane, PaneMode mode) {
+Node withMode(Node pane, LayoutMode mode) {
   final laid = pane.withValue(layoutModule.name, 'mode', mode.name);
   // A row or column keeps its children in order.
   if (mode.inLine) return laid;
   // Without a layout before, in reading order of where they were.
-  final placed = pane.mode != PaneMode.free
+  final placed = pane.mode != LayoutMode.free
       ? placeItems(pane.children, pane.reach, pane.mode)
       : [
           for (final child in pane.children)
@@ -479,7 +480,7 @@ Node withMode(Node pane, PaneMode mode) {
         ];
   double size(double value) => max(1.0, value.roundToDouble());
   final List<Node> items;
-  if (mode == PaneMode.flow) {
+  if (mode == LayoutMode.flow) {
     // In reading order of their old positions.
     final order = [for (var i = 0; i < placed.length; i++) i]
       ..sort((a, b) {
@@ -499,13 +500,13 @@ Node withMode(Node pane, PaneMode mode) {
         item.sized(
           size(item.w),
           size(item.h),
-          x: pane.mode == PaneMode.free ? null : placed[index].x,
-          y: pane.mode == PaneMode.free ? null : placed[index].y,
+          x: pane.mode == LayoutMode.free ? null : placed[index].x,
+          y: pane.mode == LayoutMode.free ? null : placed[index].y,
         ),
     ];
   }
   return laid.copyWith(
-    children: mode == PaneMode.grid ? settle(items, laid.reach) : items,
+    children: mode == LayoutMode.grid ? settle(items, laid.reach) : items,
   );
 }
 
@@ -527,7 +528,7 @@ Node withColumns(Node pane, int columns) {
       }(),
   ];
   return set.copyWith(
-    children: pane.mode == PaneMode.grid ? settle(items, columns) : items,
+    children: pane.mode == LayoutMode.grid ? settle(items, columns) : items,
   );
 }
 
@@ -542,12 +543,12 @@ Node? barOn(Layout layout, String edge) =>
 Layout withBar(Layout layout, String edge, Prefab prefab) =>
     barOn(layout, edge) != null
     ? layout
-    : layout.withPane(
+    : layout.withContainer(
         layout.home.root.id,
         (root) => root.copyWith(
           children: [
             ...root.children,
-            dockedInstance(prefab, layout.paneIdFor(edge), dock: edge),
+            dockedInstance(prefab, layout.containerIdFor(edge), dock: edge),
           ],
         ),
       );

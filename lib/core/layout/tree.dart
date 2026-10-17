@@ -2,47 +2,48 @@ import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/modules/modules.dart';
 import 'package:openlauncher/core/nodes/node.dart';
 
-/// What comes of a node's modules together: the panes in it, whether it
+/// What comes of a node's modules together: the containers in it, whether it
 /// scrolls, what its children are drawn as.
 extension NodeTree on Node {
   /// This pane and every pane inside it, the nodes holding an instance's
   /// slots among them.
-  Iterable<Node> get panes sync* {
-    if (isPane) {
+  Iterable<Node> get containers sync* {
+    if (isContainer) {
       yield this;
     } else if (!isInstance) {
       return;
     }
     for (final child in children) {
-      yield* child.panes;
+      yield* child.containers;
     }
   }
 
-  /// This pane and the panes on its cells, skipping docked ones.
-  Iterable<Node> get cellPanes sync* {
-    if (isPane) {
+  /// This pane and the containers on its cells, skipping docked ones.
+  Iterable<Node> get cellContainers sync* {
+    if (isContainer) {
       yield this;
     } else if (!isInstance) {
       return;
     }
     for (final child in children) {
-      if (!child.isDocked) yield* child.cellPanes;
+      if (!child.isDocked) yield* child.cellContainers;
     }
   }
 
-  /// Every node in this pane and the panes inside it that is not a pane, or
+  /// Every node in this pane and the containers inside it that is not a pane, or
   /// an instance that docks.
-  Iterable<Node> get contents => panes
+  Iterable<Node> get contents => containers
       .expand((pane) => pane.children)
-      .where((child) => !child.isPane && !child.isDocked);
+      .where((child) => !child.isContainer && !child.isDocked);
 
-  /// The same, skipping what is in docked panes.
-  Iterable<Node> get ownContents => cellPanes
+  /// The same, skipping what is in docked containers.
+  Iterable<Node> get ownContents => cellContainers
       .expand((pane) => pane.children)
-      .where((child) => !child.isPane && !child.isDocked);
+      .where((child) => !child.isContainer && !child.isDocked);
 
-  /// True if it holds nothing but empty panes.
-  bool get isEmpty => children.every((child) => child.isPane && child.isEmpty);
+  /// True if it holds nothing but empty containers.
+  bool get isEmpty =>
+      children.every((child) => child.isContainer && child.isEmpty);
 
   /// Rebuilds every pane's children with [change], innermost first. What an
   /// instance holds in its slots is rebuilt too, but not the instance.
@@ -52,7 +53,7 @@ extension NodeTree on Node {
         children: [for (final holder in children) holder.rebuild(change)],
       );
     }
-    return !isPane
+    return !isContainer
         ? this
         : copyWith(
             children: change(this, [
@@ -67,13 +68,16 @@ extension NodeTree on Node {
   /// stop wrapping at [columns].
   bool get scrollsAcross =>
       wantsAcross &&
-      mode != PaneMode.column &&
-      mode != PaneMode.free &&
+      mode != LayoutMode.column &&
+      mode != LayoutMode.free &&
       !_fitted;
 
   /// Whether it scrolls down: cells, or a column, that ask to.
   bool get scrollsDown =>
-      wantsDown && mode != PaneMode.row && mode != PaneMode.free && !_fitted;
+      wantsDown &&
+      mode != LayoutMode.row &&
+      mode != LayoutMode.free &&
+      !_fitted;
 
   /// What shows how far it is scrolled: `thumb`, `progress`, or null.
   String? get scrollbar => scrollsAcross || scrollsDown ? wantsBar : null;

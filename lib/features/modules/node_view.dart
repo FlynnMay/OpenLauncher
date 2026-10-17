@@ -120,14 +120,14 @@ class NodeView extends ConsumerWidget {
         : TemplateScope(
             values: scope.inner,
             child: node.mode.inLine
-                ? LinePane(
+                ? LineLayout(
                     pane: node,
                     inner: inLine,
                     hug: tall,
                     tile: (child, {required shrink}) =>
                         _child(child, inLine: true, shrink: shrink),
                   )
-                : PaneGrid(pane: node, tile: _child),
+                : ChildrenLayout(pane: node, tile: _child),
           );
     Widget content = switch ((visual, children)) {
       (final visual?, final children?) => Stack(

@@ -44,7 +44,7 @@ String freeId(String wanted, Set<String> used) {
 }
 
 extension LayoutIds on Layout {
-  /// Ids in use. Panes and other components share one id space.
+  /// Ids in use. Containers and other nodes share one id space.
   Set<String> get itemIds => {
     Layout.homeId,
     for (final component in all) component.id,
@@ -53,6 +53,6 @@ extension LayoutIds on Layout {
   /// A new component id from [name].
   String itemIdFor(String name) => freeId(slugOf(name), itemIds);
 
-  String paneIdFor([String title = '', String fallback = 'pane']) =>
+  String containerIdFor([String title = '', String fallback = 'pane']) =>
       freeId(slugOf(title, fallback), itemIds);
 }

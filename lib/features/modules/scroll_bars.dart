@@ -58,8 +58,8 @@ import 'package:openlauncher/features/modules/style_drawer.dart';
 }
 
 /// Draws [pane]'s scroll bars over [child], which holds its scroll views.
-class PaneScrollbars extends StatefulWidget {
-  const PaneScrollbars({
+class ScrollBars extends StatefulWidget {
+  const ScrollBars({
     super.key,
     required this.pane,
     required this.style,
@@ -77,16 +77,16 @@ class PaneScrollbars extends StatefulWidget {
   static Widget over(Node pane, Map<String, Object?> style, Widget child) =>
       pane.scrollbar == null
       ? child
-      : PaneScrollbars(pane: pane, style: style, child: child);
+      : ScrollBars(pane: pane, style: style, child: child);
 
   /// How long one that hides stays after the last movement, fade included.
   static const linger = Duration(milliseconds: 1200);
 
   @override
-  State<PaneScrollbars> createState() => _PaneScrollbarsState();
+  State<ScrollBars> createState() => _ScrollBarsState();
 }
 
-class _PaneScrollbarsState extends State<PaneScrollbars>
+class _ScrollBarsState extends State<ScrollBars>
     with SingleTickerProviderStateMixin {
   final _down = ValueNotifier<ScrollMetrics?>(null);
   final _across = ValueNotifier<ScrollMetrics?>(null);
@@ -99,7 +99,7 @@ class _PaneScrollbarsState extends State<PaneScrollbars>
   }
 
   @override
-  void didUpdateWidget(PaneScrollbars old) {
+  void didUpdateWidget(ScrollBars old) {
     super.didUpdateWidget(old);
     final pane = widget.pane;
     if (!pane.scrollsDown) _down.value = null;
@@ -117,7 +117,7 @@ class _PaneScrollbarsState extends State<PaneScrollbars>
     if (widget.pane.scrollbarHides) {
       _shown.animateBack(
         0,
-        duration: PaneScrollbars.linger,
+        duration: ScrollBars.linger,
         curve: const Interval(0.75, 1),
       );
     }

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
-import 'package:openlauncher/features/home/docked_pane.dart';
+import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 
@@ -34,7 +34,7 @@ class PrefabScreen extends ConsumerWidget {
           child: TileTraversal(
             child: DockHold(
               ids: {root.id},
-              child: DockedPane(pane: root),
+              child: DockedNode(pane: root),
             ),
           ),
         ),
@@ -42,7 +42,7 @@ class PrefabScreen extends ConsumerWidget {
     }
     final width =
         pane.columns * prefabCellWidth + (pane.columns - 1) * pane.spacingX;
-    final metrics = PaneMetrics(pane, width);
+    final metrics = CellMetrics(pane, width);
     final w = metrics.across(root.w), h = metrics.down(root.h);
     final Size(width: across, height: down) = TvScreen.size;
     final scale = min(
@@ -64,7 +64,7 @@ class PrefabScreen extends ConsumerWidget {
                 child: Transform.scale(
                   scale: scale,
                   alignment: Alignment.topLeft,
-                  child: PaneGrid(
+                  child: ChildrenLayout(
                     pane: pane,
                     tile: (component) => NodeView(component: component),
                   ),

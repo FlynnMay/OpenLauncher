@@ -173,7 +173,7 @@ void main() {
     // An instance of the System pack's sidebar.
     final left = layout().all.singleWhere((node) => node.id == 'left');
     expect(left.prefab, sidebarId);
-    final drawn = drawnPane(left);
+    final drawn = drawnInstance(left);
     expect((drawn.dock, drawn.hiddenWhenClosed), ('left', false));
 
     // It is an object like any other: let go of, the launcher's settings
@@ -235,13 +235,13 @@ void main() {
             Prefab(
               id: 'own',
               name: 'My prefab',
-              root: Node.pane(id: 'root'),
+              root: Node.layout(id: 'root'),
             ),
             // The System pack's, edited: offered as the System pack's.
             Prefab(
               id: 'system:clock',
               name: 'Edited clock',
-              root: Node.pane(
+              root: Node.layout(
                 id: 'root',
                 vars: const {'clock': Variable(null, type: VarType.entity)},
               ),
@@ -265,10 +265,9 @@ void main() {
       'User prefabs',
     ];
     // The heading [label] is under.
-    String over(String label, {bool first = false}) {
+    String over(String label) {
       // A card with no picture says its name twice.
-      final found = offered(label);
-      final top = tester.getTopLeft(first ? found.first : found.last).dy;
+      final top = tester.getTopLeft(offered(label).last).dy;
       return headings.lastWhere(
         (heading) => tester.getTopLeft(offered(heading)).dy < top,
       );
@@ -284,9 +283,8 @@ void main() {
     expect(over('Icon'), 'Primitives');
     // A button is the System pack's prefab, not a primitive.
     expect(over('Button'), 'Prefabs');
-    // A plain pane, and the System pack's with a heading.
-    expect(over('Pane', first: true), 'Primitives');
-    expect(over('Pane'), 'Prefabs');
+    expect(over('Layout'), 'Primitives');
+    expect(over('Section'), 'Prefabs');
     expect(over('Sidebar'), 'Prefabs');
     expect(over('Folder'), 'Prefabs');
     // The only one of its category.

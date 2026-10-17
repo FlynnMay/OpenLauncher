@@ -2,7 +2,7 @@ export 'access_note.dart';
 export 'component_settings.dart';
 export 'devices_settings.dart';
 export 'dock_settings.dart';
-export 'pane_settings.dart';
+export 'layout_settings.dart';
 export 'picture_settings.dart';
 export 'place_search.dart';
 export 'prefab_settings.dart';

@@ -44,18 +44,18 @@ class Layout {
   Iterable<Node> get all => layers.expand((layer) => layer.root.all);
 
   /// Everything that is not a pane.
-  Iterable<Node> get items => all.where((item) => !item.isPane);
+  Iterable<Node> get items => all.where((item) => !item.isContainer);
 
-  /// The docked panes.
+  /// The docked containers.
   Iterable<Node> get docked => all.where((pane) => pane.isDocked);
 
-  Node? pane(String id) =>
-      all.where((pane) => pane.isPane && pane.id == id).firstOrNull;
+  Node? container(String id) =>
+      all.where((pane) => pane.isContainer && pane.id == id).firstOrNull;
 
   /// The node of id [id] that holds or draws others, if any: what an
   /// instance can be handed as well as an entity.
   Node? node(String id) => all
-      .where((node) => node.id == id && (node.isPane || node.isInstance))
+      .where((node) => node.id == id && (node.isContainer || node.isInstance))
       .firstOrNull;
 
   /// The `iconOverrides` key for a node's picture.
@@ -104,13 +104,13 @@ class Layout {
   );
 
   /// Replaces pane [id], a layer's root included, with what [change] returns.
-  Layout withPane(String id, Node Function(Node pane) change) {
+  Layout withContainer(String id, Node Function(Node pane) change) {
     Node mapped(Node pane) => pane.id == id
         ? change(pane)
         : pane.copyWith(
             children: [
               for (final child in pane.children)
-                child.isPane || child.isInstance ? mapped(child) : child,
+                child.isContainer || child.isInstance ? mapped(child) : child,
             ],
           );
     return copyWith(

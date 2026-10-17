@@ -98,7 +98,7 @@ class Prefab {
 
   /// Every non-pane descendant of the root.
   Iterable<Node> get parts =>
-      root.all.skip(1).where((component) => !component.isPane);
+      root.all.skip(1).where((component) => !component.isContainer);
 
   /// The variant instances use unless they name another.
   String? get defaultVariant => variants.keys.firstOrNull;

@@ -8,7 +8,7 @@ import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
-import 'package:openlauncher/features/home/docked_pane.dart';
+import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
@@ -59,7 +59,7 @@ class HomeScreen extends ConsumerWidget {
     });
     Widget docked(Node pane) => KeyedSubtree(
       key: keys.putIfAbsent(pane.id, GlobalKey.new),
-      child: DockedPane(pane: pane),
+      child: DockedNode(pane: pane),
     );
     return PopScope(
       // Back only closes the top modal layer.
@@ -92,7 +92,7 @@ class HomeScreen extends ConsumerWidget {
                   ],
                   data: (layout) {
                     final focus = FirstFocus();
-                    // A layer's backdrop, its own pane, and the docked panes
+                    // A layer's backdrop, its own pane, and the docked containers
                     // on it: its own that have not been moved, and those
                     // moved to it.
                     List<Widget> shown(Layer layer) {
@@ -100,7 +100,8 @@ class HomeScreen extends ConsumerWidget {
                       final first = layer.id == Layout.homeId;
                       final empty = root.children.every(
                         (child) =>
-                            child.isDocked || child.isPane && child.isEmpty,
+                            child.isDocked ||
+                            child.isContainer && child.isEmpty,
                       );
                       return [
                         if (layer.blur > 0 || layer.dim > 0)
@@ -136,7 +137,7 @@ class HomeScreen extends ConsumerWidget {
                             root,
                             Padding(
                               padding: EdgeInsets.all(root.box.padding ?? 0),
-                              child: PaneGrid(
+                              child: ChildrenLayout(
                                 pane: root,
                                 tile: (entry) =>
                                     NodeView(component: entry, focus: focus),
@@ -149,7 +150,7 @@ class HomeScreen extends ConsumerWidget {
                           if (pane.isDocked && layerOf(above, pane.id) == null)
                             docked(pane),
                         for (final id in layer.holds)
-                          if (layout.pane(id) case final pane?
+                          if (layout.container(id) case final pane?
                               when pane.isDocked)
                             docked(pane),
                         if (first)
@@ -203,7 +204,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  static Widget _scrolling(Node root, Widget child) => PaneScrollbars.over(
+  static Widget _scrolling(Node root, Widget child) => ScrollBars.over(
     root,
     root.scroll,
     root.scrollsDown ? ScreenScrollView(child: child) : child,

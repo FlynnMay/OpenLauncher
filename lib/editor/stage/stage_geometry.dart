@@ -12,8 +12,8 @@ Placement placementIn(Node pane, String id) =>
 
 /// [id]'s rect in [pane]'s grid, which is [size]: on its cells, or where its
 /// transform puts it.
-Rect rectIn(Node pane, String id, PaneMetrics metrics, Size size) =>
-    pane.mode == PaneMode.free
+Rect rectIn(Node pane, String id, CellMetrics metrics, Size size) =>
+    pane.mode == LayoutMode.free
     ? pane.children.firstWhere((item) => item.id == id).transform.rectIn(size)
     : metrics.rectOf(placementIn(pane, id));
 
@@ -21,13 +21,13 @@ Rect rectIn(Node pane, String id, PaneMetrics metrics, Size size) =>
 /// [size], snapped to [step].
 Drop dropAt(
   Node pane,
-  PaneMetrics metrics,
+  CellMetrics metrics,
   Size size,
   Offset at,
   Node item,
   double step,
 ) {
-  if (pane.mode == PaneMode.free) {
+  if (pane.mode == LayoutMode.free) {
     // Held by its centre, at the size it has here or its cells' size.
     final rect = pane.children.any((other) => other.id == item.id)
         ? item.transform.rectIn(size)
@@ -41,7 +41,7 @@ Drop dropAt(
       size: size,
     );
   }
-  if (pane.mode == PaneMode.flow) {
+  if (pane.mode == LayoutMode.flow) {
     // Before the first child after the pointer, in reading order.
     final placed = placementsOf(pane);
     String? before;
@@ -73,7 +73,7 @@ Drop dropAt(
 Rect barRect(Layout layout, String edge, {double? thickness}) {
   final pane =
       barOn(layout, edge) ??
-      Node.pane(id: edge).withValue(dockModule.name, 'position', edge);
+      Node.layout(id: edge).withValue(dockModule.name, 'position', edge);
   final Size(:width, :height) = TvScreen.size;
   final across = pane.opensAcross;
   final w = across && thickness != null
@@ -126,7 +126,7 @@ Rect resizedRect(Rect rect, ResizeHandle handle, Offset moved, double step) {
 /// one cell to shrink; a corner needs both its edges.
 Set<ResizeHandle> resizeHandles(Node item, Placement placed, Node pane) {
   // Without a layout every edge moves.
-  if (pane.mode == PaneMode.free) return ResizeHandle.values.toSet();
+  if (pane.mode == LayoutMode.free) return ResizeHandle.values.toSet();
   // The pane sets its size.
   final decided = (pane.itemW != null || pane.itemH != null) && item.isInstance;
   if (decided) return const {};
@@ -150,7 +150,7 @@ Set<ResizeHandle> resizeHandles(Node item, Placement placed, Node pane) {
 ({double x, double y, double w, double h}) resizedTo(
   Node pane,
   Placement placed,
-  PaneMetrics metrics,
+  CellMetrics metrics,
   ResizeHandle handle,
   Offset moved,
   double step,
@@ -179,7 +179,7 @@ Set<ResizeHandle> resizeHandles(Node item, Placement placed, Node pane) {
         ).clamp(top + least, top + SizingModule.maxRows)
       : placed.y + placed.h;
   // In a flow pane only the size changes.
-  final flows = pane.mode == PaneMode.flow;
+  final flows = pane.mode == LayoutMode.flow;
   return (
     x: left * 1.0,
     y: top * 1.0,

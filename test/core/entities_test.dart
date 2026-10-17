@@ -237,7 +237,7 @@ void main() {
               .set('quick-actions', 'source', entity.id);
           return [
             for (final item in offeredFor(
-              view.pane('quick-actions')!,
+              view.container('quick-actions')!,
               container.read,
               await container.read(entitiesProvider.future),
             ))
@@ -307,7 +307,7 @@ void main() {
           'system:app/b',
         ]);
         final layout = container.read(configProvider).value!.layout;
-        final added = layout.pane(layout.inbox)!.children.last;
+        final added = layout.container(layout.inbox)!.children.last;
         expect(added.prefab, cardPrefabId);
         expect(added.handed, ['system:app/a']);
         expect(

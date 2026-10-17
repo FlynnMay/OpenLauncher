@@ -192,7 +192,7 @@ void main() {
       final pane = withDockedInstances(
         start,
         c.read(prefabsProvider),
-      ).pane('quick-actions')!;
+      ).container('quick-actions')!;
       expect((pane.dock, pane.hiddenWhenClosed), ('center', true));
       // Under a heading, a list of buttons.
       final list = pane.children.last;
@@ -206,7 +206,7 @@ void main() {
       expect(pane.vars.keys, ['source']);
     });
 
-    test('has a folder, a pane and a sidebar that hold what is put in '
+    test('has a folder, a section and a sidebar that hold what is put in '
         'them', () {
       expect(
         [
@@ -216,7 +216,7 @@ void main() {
         ],
         [
           ('system:folder', 'system:folder-card', 'content'),
-          ('system:pane', null, 'content'),
+          ('system:section', null, 'content'),
           ('system:sidebar', null, 'content'),
         ],
       );

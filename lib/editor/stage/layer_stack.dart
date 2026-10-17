@@ -69,7 +69,7 @@ class _LayerStackState extends ConsumerState<LayerStack> {
             box.getTransformTo(screen),
             Offset.zero & box.size,
           ),
-          PaneScope.peek(context),
+          ContainerScope.peek(context),
         ),
       );
     }

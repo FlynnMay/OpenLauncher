@@ -5,16 +5,16 @@ import 'package:openlauncher/features/modules/layout_drawer.dart';
 
 /// Cell sizes of a pane at a given width.
 @immutable
-class PaneMetrics {
+class CellMetrics {
   /// From the width of its whole grid, which is wider than the pane when it
   /// scrolls across.
-  PaneMetrics(Node pane, double width) : this._(pane, width, columnsOf(pane));
+  CellMetrics(Node pane, double width) : this._(pane, width, columnsOf(pane));
 
   /// From the width the pane shows.
-  PaneMetrics.shown(Node pane, double width)
+  CellMetrics.shown(Node pane, double width)
     : this._(pane, width, pane.columns);
 
-  PaneMetrics._(Node pane, double width, int columns)
+  CellMetrics._(Node pane, double width, int columns)
     : gapX = pane.spacingX,
       gapY = pane.spacingY,
       cellWidth = (width - (columns - 1) * pane.spacingX) / columns,
@@ -58,10 +58,10 @@ class CellsLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final pane = this.pane;
     final shown = pane.shown;
-    final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
+    final frame = context.dependOnInheritedWidgetOfExactType<LayoutFrame>();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final metrics = PaneMetrics.shown(pane, constraints.maxWidth);
+        final metrics = CellMetrics.shown(pane, constraints.maxWidth);
         final placements = placementsOf(pane);
         final rows = rowCount(placements);
         final across = pane.scrollsAcross;
@@ -70,8 +70,8 @@ class CellsLayout extends StatelessWidget {
               ? metrics.across(columnsOf(pane, placements) * 1.0)
               : null,
           height: rows == 0 ? 0 : metrics.down(rows),
-          child: PaneScope(
-            panes: [...PaneScope.of(context), pane.id],
+          child: ContainerScope(
+            containers: [...ContainerScope.of(context), pane.id],
             child: Stack(
               // Focused tiles grow past their cell.
               clipBehavior: Clip.none,

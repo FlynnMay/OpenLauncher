@@ -55,7 +55,7 @@ extension NodeModules on Node {
   }
 
   /// A node of its own that draws nothing: it holds and arranges others.
-  bool get isPane => !isInstance && visual == null;
+  bool get isContainer => !isInstance && visual == null;
 
   /// [key] of [type] as set, else that field's default.
   Object? valueOf(ModuleType type, String key) =>

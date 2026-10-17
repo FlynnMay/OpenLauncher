@@ -71,7 +71,7 @@ const cardPrefabId = 'system:app-card';
 const folderPrefabId = 'system:folder-card';
 const folderId = 'system:folder';
 const sidebarId = 'system:sidebar';
-const paneId = 'system:pane';
+const sectionId = 'system:section';
 const appCategory = 'app';
 const inputCategory = 'input';
 const launcherCategory = 'launcher';
@@ -158,23 +158,20 @@ Node holding(Node instance, List<Node> nodes, {String slot = 'content'}) =>
 
 /// A new folder holding [children], as the editor makes it from the System
 /// pack's prefab.
-Node folderPane(
-  String id, {
-  String title = '',
-  List<Node> children = const [],
-}) => holding(
-  dockedInstance(systemPrefab(folderId), id),
-  children,
-).copyWith(name: title);
+Node folderOf(String id, {String title = '', List<Node> children = const []}) =>
+    holding(
+      dockedInstance(systemPrefab(folderId), id),
+      children,
+    ).copyWith(name: title);
 
-/// A pane headed [name], an instance of the System pack's Pane holding
+/// A section headed [name], an instance of the System pack's Section holding
 /// [children], laid out as [layout] says.
-Node headedPane(
+Node section(
   String id,
   String name, {
   Map<String, Object?> layout = const {},
   List<Node> children = const [],
-}) => holding(systemPrefab(paneId).blank(id), children).copyWith(
+}) => holding(systemPrefab(sectionId).blank(id), children).copyWith(
   name: name,
   overrides: {
     if (layout.isNotEmpty)
@@ -186,11 +183,11 @@ Node headedPane(
 
 /// A new sidebar on [edge] holding [children], as the editor makes it from
 /// the System pack's prefab.
-Node sidebarPane(String id, String edge, {List<Node> children = const []}) =>
+Node sidebarOf(String id, String edge, {List<Node> children = const []}) =>
     holding(dockedInstance(systemPrefab(sidebarId), id, dock: edge), children);
 
 /// [instance] as the launcher draws it: a plain pane.
-Node drawnPane(Node instance) => resolved(instance, systemPrefabMap);
+Node drawnInstance(Node instance) => resolved(instance, systemPrefabMap);
 
 /// The chains of the System pack's sidebar.
 Triggers barTriggers() => systemPrefab(sidebarId).root.on;
