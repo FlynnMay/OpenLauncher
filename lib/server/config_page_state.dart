@@ -45,15 +45,15 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'layout': layoutWith(config.layout, entities, prefabs).toJson(),
     // False while it is a pack's starting layout.
     'ownLayout': config.ownLayout,
-    'components': [
-      for (final kind in ComponentRegistry.values)
+    'visuals': [
+      for (final type in visualModules)
         // App widgets only where some exist.
-        if (kind != ComponentRegistry.android || providers.isNotEmpty)
+        if (type != appWidgetModule || providers.isNotEmpty)
           {
-            'type': kind.name,
-            'label': kind.label,
-            'w': kind.defaultW,
-            'h': kind.defaultH,
+            'module': type.name,
+            'label': type.label,
+            'w': type.size.$1,
+            'h': type.size.$2,
           },
     ],
     'widgetProviders': [

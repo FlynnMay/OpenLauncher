@@ -174,45 +174,6 @@ class TextComponent extends ConsumerWidget {
   }
 }
 
-/// Something to press: a small picture and a line of text, either of which
-/// may be left out. What pressing it does is in its item's triggers, and
-/// how it shows the focus is its tile's business.
-///
-/// Options: `label` and `icon` (templates; the icon reads as a pack icon's
-/// name, `set:name`). Look: `color`, `fontSize`.
-class ButtonComponent extends ConsumerWidget {
-  const ButtonComponent({super.key, required this.options});
-
-  final Map<String, Object?> options;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final label = _read(context, ref, options['label']);
-    final icon = _read(context, ref, options['icon']).trim();
-    final look = _style(context, ref, options);
-    final colour = _colour(look['color']);
-    final size = BoxStyle.number(look['fontSize'], 1) ?? 14;
-    return Row(
-      mainAxisAlignment: label.isEmpty
-          ? MainAxisAlignment.center
-          : MainAxisAlignment.start,
-      spacing: 10,
-      children: [
-        if (icon.isNotEmpty) PackIcon(icon, color: colour, size: size + 6),
-        if (label.isNotEmpty)
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: colour, fontSize: size),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// An icon from a pack; a value can say which, as the weather says the
 /// sky's.
 ///
@@ -234,9 +195,9 @@ class IconComponent extends ConsumerWidget {
   }
 }
 
-/// What a folder looks like from outside, for whatever opens it.
+/// A small picture of another node and what is in it.
 ///
-/// Options: `folder` (a template that reads as the folder's id).
+/// Options: `node` (a template that reads as the node's id).
 class FolderPicture extends ConsumerWidget {
   const FolderPicture({super.key, required this.options});
 
@@ -244,7 +205,7 @@ class FolderPicture extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FolderArt(folder: _read(context, ref, options['folder']).trim());
+      FolderArt(folder: _read(context, ref, options['node']).trim());
 }
 
 /// A picture from a web address or from a value, such as the cover of

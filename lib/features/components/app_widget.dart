@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -23,7 +22,7 @@ final widgetCleanupProvider = Provider<void>((ref) {
     if (layout == null) return;
     ref.read(launcherPlatformProvider).pruneWidgets([
       for (final item in layout.items)
-        if (item.kind == ComponentRegistry.android.name) item.id,
+        if (item.has(appWidgetModule.name)) item.id,
     ]);
   }, fireImmediately: true);
 });
@@ -35,7 +34,7 @@ final widgetCleanupProvider = Provider<void>((ref) {
 class AppWidgetView extends ConsumerWidget {
   const AppWidgetView({super.key, required this.item});
 
-  final Component item;
+  final Node item;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,7 +45,7 @@ class AppWidgetView extends ConsumerWidget {
         style: const TextStyle(color: Colors.white70, fontSize: 13),
       ),
     );
-    final provider = item.options['provider'];
+    final provider = item.values(appWidgetModule.name)?['provider'];
     if (provider is! String) return note('Choose a widget on the web page');
     final id = ref.watch(
       _widgetIdProvider((itemId: item.id, provider: provider)),

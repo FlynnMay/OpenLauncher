@@ -8,7 +8,7 @@ import 'package:openlauncher/features/home/tile_actions.dart';
 
 /// The entity [pane]'s entity-typed variables hold, [runtime] values first.
 Entity? _subject(
-  Component pane,
+  Node pane,
   Map<String, Object?>? runtime,
   Iterable<Entity> entities,
 ) => pane

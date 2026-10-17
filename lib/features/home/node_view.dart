@@ -1,13 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/components/component_tile.dart';
 import 'package:openlauncher/features/components/primitives.dart';
+import 'package:openlauncher/features/components/visual_tile.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
@@ -25,7 +25,7 @@ class TileFrame extends InheritedWidget {
     required super.child,
   });
 
-  final Widget Function(Component component, Widget tile) wrap;
+  final Widget Function(Node component, Widget tile) wrap;
 
   /// Tiles do nothing when pressed.
   final bool still;
@@ -101,11 +101,33 @@ class FocusFrame extends StatelessWidget {
   }
 }
 
-/// Draws any component and wires up its triggers. An instance is resolved
-/// against its prefab first. Anything with a press or hold action is
-/// focusable.
-class ComponentView extends ConsumerWidget {
-  const ComponentView({
+/// Which parts of the focusable node above draw its focus, and how.
+class FocusTarget extends InheritedWidget {
+  const FocusTarget({
+    super.key,
+    required this.ids,
+    required this.bare,
+    required super.child,
+  });
+
+  /// The target as named in its prefab and as resolved in an instance.
+  final Set<String> ids;
+
+  /// No background, only a faint wash when focused.
+  final bool bare;
+
+  static FocusTarget? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<FocusTarget>();
+
+  @override
+  bool updateShouldNotify(FocusTarget oldWidget) =>
+      !setEquals(ids, oldWidget.ids) || bare != oldWidget.bare;
+}
+
+/// Draws any node and wires up its triggers. An instance is resolved against
+/// its prefab first. A node with the Focus module is focusable.
+class NodeView extends ConsumerWidget {
+  const NodeView({
     super.key,
     required this.component,
     this.focus,
@@ -114,7 +136,7 @@ class ComponentView extends ConsumerWidget {
     this.shrink = false,
   });
 
-  final Component component;
+  final Node component;
 
   /// Gives the initial focus to the first focusable component.
   final FirstFocus? focus;
@@ -140,8 +162,7 @@ class ComponentView extends ConsumerWidget {
     if (c.isPane && !c.mode.inLine) {
       return PaneBox(
         pane: c,
-        tile: (inner) =>
-            ComponentView(component: inner, focus: focus, popup: popup),
+        tile: (inner) => NodeView(component: inner, focus: focus, popup: popup),
       );
     }
     final scope = scopeOf(ref.watch, c.id, c.vars, TemplateScope.of(context));
@@ -167,31 +188,23 @@ class ComponentView extends ConsumerWidget {
             does.fire(focused ? Trigger.focus : Trigger.blur);
           }
         : null;
-    final acts = does.has(Trigger.press) || hold != null;
 
     if (!c.isPane) {
       Widget content = TemplateScope(
-        // A component reads its own private variables too.
+        // A node reads its own private variables too.
         values: scope.own,
-        child: ComponentTile(item: c, shrink: shrink),
+        child: VisualTile(item: c, shrink: shrink),
       );
-      if (c.options['frame'] == true) {
-        // `bare` may be a template.
-        final bare = switch (c.options['bare']) {
-          final String template => readTemplate(ref.watch, template, scope.own),
-          final other => other,
-        };
-        content = FocusFrame(
-          bare: bare == true || bare == 'true',
-          child: content,
-        );
+      if (FocusTarget.of(context) case final target?
+          when target.ids.contains(c.id)) {
+        content = FocusFrame(bare: target.bare, child: content);
       }
       final styled = StyledBox(style: box, child: content);
-      if (!acts && c.kind != ComponentRegistry.button.name) return styled;
+      if (!c.focusable) return styled;
       return FocusTile(
         autofocus: focus?.take() ?? false,
         still: still,
-        focusedScale: 1.03,
+        focusedScale: c.focusScale ?? 1.03,
         onSelect: press,
         onMenu: hold,
         onFocus: onFocus,
@@ -217,7 +230,7 @@ class ComponentView extends ConsumerWidget {
     // its own chain moved it to a layer.
     if (ref.watch(layoutViewProvider).value?.pane(handed ?? '')
         case final folder?
-        when folder.dock == Component.inline &&
+        when folder.dock == DockModule.inline &&
             layerOf(ref.watch(layersProvider), folder.id) == null &&
             ref.watch(
               runtimeVarsProvider.select(
@@ -232,23 +245,27 @@ class ComponentView extends ConsumerWidget {
         box: box,
         child: LinePane(
           pane: c,
-          style: look,
+          scroll: readStyle(ref.watch, c.scroll, scope.own),
           inner: inLine,
           focus: focus,
           popup: popup,
         ),
       ),
     );
-    // Without actions it is not focusable.
-    if (!acts) {
+    if (!c.focusable) {
       return StyleScope.under(
         context,
         look,
         StyledBox(style: box, child: line),
       );
     }
-    // A child with `frame` shows the focus; otherwise the whole tile does.
-    final framed = c.all.any((part) => part.options['frame'] == true);
+    // A part named as its target shows the focus; otherwise the whole tile
+    // does. `bare` may be a template.
+    final target = c.focusTarget;
+    final bare = switch (c.focusBare) {
+      final String template => readTemplate(ref.watch, template, scope.own),
+      final other => other,
+    };
     return StyleScope.under(
       context,
       look,
@@ -260,11 +277,15 @@ class ComponentView extends ConsumerWidget {
           onSelect: does.has(Trigger.press) ? press : () {},
           onMenu: hold,
           onFocus: onFocus,
-          focusedScale: c.mode == PaneMode.row ? 1.04 : 1.08,
+          focusedScale: c.focusScale ?? (c.mode == PaneMode.row ? 1.04 : 1.08),
           builder: (context, focused) => TileFocus(
             focused: focused,
-            child: framed
-                ? line
+            child: target != null
+                ? FocusTarget(
+                    ids: {target, '${c.id}/$target'},
+                    bare: bare == true || bare == 'true',
+                    child: line,
+                  )
                 : TileLook(
                     box: box,
                     child: FocusFrame(
@@ -288,16 +309,16 @@ class LinePane extends StatelessWidget {
   const LinePane({
     super.key,
     required this.pane,
-    this.style = const {},
+    this.scroll = const {},
     this.inner = false,
     this.focus,
     this.popup,
   });
 
-  final Component pane;
+  final Node pane;
 
-  /// The pane's style, templates read.
-  final Style style;
+  /// Its Scroll module's values, templates read.
+  final Map<String, Object?> scroll;
 
   /// Nested in another row or column.
   final bool inner;
@@ -308,12 +329,12 @@ class LinePane extends StatelessWidget {
   bool get _scrolls =>
       pane.mode == PaneMode.row ? pane.scrollsAcross : pane.scrollsDown;
 
-  Widget? _place(Component child) {
+  Widget? _place(Node child) {
     if (child.isDocked || child.hidden && !child.keep) return null;
     // Nothing is shared out when the pane is fitted or scrolls.
     final flex = _scrolls ? null : child.flex;
     final sized = !pane.fit && (flex != null || child.aspect != null);
-    Widget placed = ComponentView(
+    Widget placed = NodeView(
       key: ValueKey(child.id),
       component: child,
       focus: focus,
@@ -361,7 +382,7 @@ class LinePane extends StatelessWidget {
         clipper: const Inflated(PaneBox.overhang),
         child: PaneScrollbars.over(
           pane,
-          style,
+          scroll,
           SingleChildScrollView(
             scrollDirection: row ? Axis.horizontal : Axis.vertical,
             clipBehavior: Clip.none,

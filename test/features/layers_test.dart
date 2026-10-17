@@ -66,7 +66,7 @@ void main() {
                     layers: [
                       Layer(
                         id: Layout.homeId,
-                        root: Component.pane(
+                        root: Node.pane(
                           id: 'main',
                           // In line with the sidebar's row and clear of it
                           // when it is open, so that going right from it
@@ -76,10 +76,11 @@ void main() {
                             cardOf('system:app/a', id: 'a', x: 3, y: 0),
                             // What it does when shown is written on it:
                             // [on] over what a new sidebar comes with.
-                            sidebarPane('left', 'left').copyWith(
-                              on: {...barTriggers(), ...on},
-                              children: [cardOf('system:app/b', id: 'b')],
-                            ),
+                            sidebarPane('left', 'left')
+                                .triggered({...barTriggers(), ...on})
+                                .copyWith(
+                                  children: [cardOf('system:app/b', id: 'b')],
+                                ),
                           ],
                         ),
                       ),
@@ -165,7 +166,7 @@ void main() {
                   layers: [
                     Layer(
                       id: Layout.homeId,
-                      root: Component.pane(
+                      root: Node.pane(
                         id: 'main',
                         children: [
                           cardOf('games', id: 'f', prefab: folderPrefabId),

@@ -1,6 +1,7 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -30,7 +31,7 @@ class SelectedProperties extends ConsumerWidget {
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     void change(Layout Function(Layout layout) how) =>
         changeLayout(context, ref, how);
-    void each(Component Function(Component item) how) =>
+    void each(Node Function(Node item) how) =>
         change((layout) => changeItems(layout, ids, (item, _) => how(item)));
 
     // In an open prefab: the prefab, the variant shown when its edits are
@@ -53,7 +54,7 @@ class SelectedProperties extends ConsumerWidget {
     final allFolders =
         items.every((item) => item.isInstance) &&
         folders.length == items.length;
-    void eachFolder(Component Function(Component pane) how) => change(
+    void eachFolder(Node Function(Node pane) how) => change(
       (layout) =>
           folders.keys.fold(layout, (layout, id) => layout.withPane(id, how)),
     );
@@ -81,11 +82,8 @@ class SelectedProperties extends ConsumerWidget {
             ),
             OverrideList(
               set: variant.overrides[single.id] ?? const {},
-              options: single.isPane
-                  ? paneRules
-                  : ComponentRegistry.named(single.kind)?.options ?? const [],
-              onReverted: (section, key) =>
-                  revertOverride(ref, single.id, section, key),
+              onReverted: (module, key) =>
+                  revertOverride(ref, single.id, module, key),
             ),
           ]),
         // Name and picture apply to auto-placed entities (apps, inputs) only.
@@ -97,13 +95,16 @@ class SelectedProperties extends ConsumerWidget {
           _FolderDetails(
             folder: folders.values.single,
             onRenamed: (title) =>
-                eachFolder((pane) => withRule(pane, 'title', title)),
+                eachFolder((pane) => pane.copyWith(name: title)),
           ),
         if (single != null && !single.isInstance && !single.isPane)
           ComponentSettings(
             item: single,
-            onChanged: (options) =>
-                each((item) => item.copyWith(options: options)),
+            onChanged: (values) => each(
+              (item) => item.visual == null
+                  ? item
+                  : item.withModule(item.visual!.name, values),
+            ),
           ),
         if (single != null && single.isInstance) ...[
           if (found.single.parent.prefabRules.containsKey(single.prefab))
@@ -129,7 +130,7 @@ class SelectedProperties extends ConsumerWidget {
           InstanceVariables(
             declared: declared,
             own: single.vars,
-            onChanged: (vars) => each((item) => item.copyWith(vars: vars)),
+            onChanged: (vars) => each((item) => item.withVars(vars)),
           ),
         ],
         if (single != null && !single.isPane)
@@ -145,13 +146,11 @@ class SelectedProperties extends ConsumerWidget {
                 : null,
             exposable: isRoot,
             onChanged: (vars) => each(
-              (item) => item.copyWith(
-                vars: {
-                  for (final MapEntry(key: name, :value) in item.vars.entries)
-                    if (fielded.contains(name)) name: value,
-                  ...vars,
-                },
-              ),
+              (item) => item.withVars({
+                for (final MapEntry(key: name, :value) in item.vars.entries)
+                  if (fielded.contains(name)) name: value,
+                ...vars,
+              }),
             ),
           ),
         // A row or column with actions is a tile.
@@ -167,7 +166,7 @@ class SelectedProperties extends ConsumerWidget {
                   if (value.access != VarAccess.private) key: value,
               ...variablesOf(single, prefabs),
             },
-            onChanged: (on) => each((item) => item.copyWith(on: on)),
+            onChanged: (on) => each((item) => withPressable(item, on)),
           ),
         // A prefab's part is hidden, not removed, where a variant lacks it.
         if (single != null && prefab != null && !isRoot)
@@ -183,18 +182,19 @@ class SelectedProperties extends ConsumerWidget {
                 label: 'Keep space when hidden',
                 value: single.keep,
                 onChanged: (keep) => each(
-                  (item) => item.overridden({
-                    'transform': {'keep': keep},
-                  }),
+                  (item) => item.withValue(sizingModule.name, 'keep', keep),
                 ),
               ),
           ]),
-        // A docked pane has no cells.
-        if (!items.any((item) => item.isDocked))
+        // A docked pane has no cells, nor what has no layout around it.
+        if (!items.any((item) => item.isDocked) &&
+            found.every((one) => one.parent.mode != PaneMode.free))
           Section(
-            'Transform',
+            'Sizing',
             ruleFields(
-              options: transformOptions([for (final one in found) one.parent]),
+              options: SizingModule.fieldsIn([
+                for (final one in found) one.parent,
+              ], found.map((one) => one.parent.reach).reduce(min)),
               json: {
                 for (final MapEntry(:key, :value) in transform.entries)
                   key: ?shared<double?>(value),
@@ -219,10 +219,9 @@ class SelectedProperties extends ConsumerWidget {
               .map((item) => item.styleKeys.toSet())
               .reduce((all, own) => all.intersection(own)),
           style: items.first.style,
-          corner: allPanes ? Component.defaultCorner : 10,
-          onChanged: (key, value) => each(
-            (item) => item.copyWith(style: withStyle(item.style, {key: value})),
-          ),
+          corner: allPanes ? LayoutModule.defaultCorner : 10,
+          onChanged: (key, value) =>
+              each((item) => item.styled(withStyle(item.style, {key: value}))),
         ),
         if (allPanes)
           PaneSettings(
@@ -301,10 +300,9 @@ class SelectedProperties extends ConsumerWidget {
             styleFields(
               keys: const [...boxStyle, ...textStyle],
               style: folders.values.single.style,
-              corner: Component.defaultCorner,
+              corner: LayoutModule.defaultCorner,
               onChanged: (key, value) => eachFolder(
-                (pane) =>
-                    pane.copyWith(style: withStyle(pane.style, {key: value})),
+                (pane) => pane.styled(withStyle(pane.style, {key: value})),
               ),
             ),
           ),
@@ -428,7 +426,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
 class _FolderDetails extends ConsumerWidget {
   const _FolderDetails({required this.folder, required this.onRenamed});
 
-  final Component folder;
+  final Node folder;
   final void Function(String title) onRenamed;
 
   @override
@@ -437,7 +435,7 @@ class _FolderDetails extends ConsumerWidget {
     final key = Layout.iconKey(folder.id);
     final picture = ref.watch(configProvider).value?.iconOverrides[key];
     return Section('Folder card', [
-      CommitField(label: 'Name', value: folder.title, onChanged: onRenamed),
+      CommitField(label: 'Name', value: folder.name, onChanged: onRenamed),
       PictureSettings(
         picture: picture == null
             ? null

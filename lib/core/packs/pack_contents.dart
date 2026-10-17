@@ -246,7 +246,7 @@ class _Glue {
             ('prefab' || 'card' || 'template', final String prefab) => _ref(
               prefab,
             ),
-            ('vars', final Map<Object?, Object?> vars) => {
+            ('variables', final Map<Object?, Object?> vars) => {
               for (final MapEntry(key: name, value: variable) in vars.entries)
                 '$name': switch (variable) {
                   {'type': 'entity', 'value': final String id} => {

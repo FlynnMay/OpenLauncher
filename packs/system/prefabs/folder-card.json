@@ -3,55 +3,60 @@
   "name": "Folder card",
   "root": {
     "id": "root",
-    "kind": "pane",
-    "options": {
-      "mode": "column",
-      "gap": 6
-    },
-    "vars": {
-      "source": {
-        "value": null,
-        "type": "entity"
-      }
-    },
-    "on": {
-      "press": [
-        {
-          "run": "launcher://variables/set",
-          "with": {
-            "var": "open",
-            "value": true,
-            "of": "{{source.id}}"
-          }
+    "modules": {
+      "layout": {
+        "mode": "column",
+        "gap": 6
+      },
+      "variables": {
+        "source": {
+          "value": null,
+          "type": "entity"
         }
-      ]
+      },
+      "triggers": {
+        "press": [
+          {
+            "run": "launcher://variables/set",
+            "with": {
+              "var": "open",
+              "value": true,
+              "of": "{{source.id}}"
+            }
+          }
+        ]
+      },
+      "focus": {
+        "target": "picture",
+        "bare": "{{source.bare}}"
+      }
     },
     "children": [
       {
         "id": "picture",
-        "kind": "folder",
-        "transform": {
-          "flex": 1
-        },
-        "options": {
-          "folder": "{{source.id}}",
-          "frame": true,
-          "bare": "{{source.bare}}"
+        "modules": {
+          "preview": {
+            "node": "{{source.id}}"
+          },
+          "sizing": {
+            "flex": 1
+          }
         }
       },
       {
         "id": "name",
-        "kind": "text",
-        "transform": {
-          "keep": true
-        },
-        "options": {
-          "text": "{{source.label}}",
-          "overflow": "ellipsis"
-        },
-        "style": {
-          "fontSize": 12,
-          "fontWeight": "medium"
+        "modules": {
+          "text": {
+            "text": "{{source.label}}",
+            "overflow": "ellipsis"
+          },
+          "style": {
+            "fontSize": 12,
+            "fontWeight": "medium"
+          },
+          "sizing": {
+            "keep": true
+          }
         }
       }
     ]
@@ -64,24 +69,30 @@
       "label": "Name beside the picture",
       "overrides": {
         "root": {
-          "options": {
-            "mode": "row",
-            "gap": 12
+          "modules": {
+            "layout": {
+              "mode": "row",
+              "gap": 12
+            }
           }
         },
         "picture": {
-          "transform": {
-            "flex": 0,
-            "aspect": 1.7777777777777777
+          "modules": {
+            "sizing": {
+              "flex": 0,
+              "aspect": 1.7777777777777777
+            }
           }
         },
         "name": {
-          "transform": {
-            "flex": 1,
-            "keep": false
-          },
-          "style": {
-            "textAlign": "left"
+          "modules": {
+            "style": {
+              "textAlign": "left"
+            },
+            "sizing": {
+              "flex": 1,
+              "keep": false
+            }
           }
         }
       }

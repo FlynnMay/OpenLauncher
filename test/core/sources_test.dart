@@ -194,7 +194,7 @@ void main() {
         c.read(prefabsProvider),
       ).pane('quick-actions')!;
       expect((pane.dock, pane.hiddenWhenClosed), ('center', true));
-      expect(pane.children.map((button) => button.options['label']), [
+      expect(pane.children.map((button) => button.vars['label']?.value), [
         'Open',
         'App info',
         'Uninstall',
@@ -417,7 +417,7 @@ void main() {
       'prefabs/tile.json': {
         'id': 'tile',
         'name': 'Tile',
-        'root': {'id': 'tile', 'kind': 'pane'},
+        'root': {'id': 'tile'},
       },
     });
 
@@ -543,22 +543,25 @@ void main() {
               'id': 'tile',
               'root': {
                 'id': 'tile',
-                'kind': 'pane',
-                'vars': {
-                  'source': {'value': 'lounge', 'type': 'entity'},
-                },
-                'on': {
-                  'press': [
-                    {'do': 'toggle', 'entity': 'lounge'},
-                    {'do': 'open', 'entity': '{{source.id}}'},
-                  ],
+                'modules': {
+                  'variables': {
+                    'source': {'value': 'lounge', 'type': 'entity'},
+                  },
+                  'triggers': {
+                    'press': [
+                      {'do': 'toggle', 'entity': 'lounge'},
+                      {'do': 'open', 'entity': '{{source.id}}'},
+                    ],
+                  },
                 },
                 'children': [
                   {
                     'id': 'state',
-                    'kind': 'text',
-                    'options': {
-                      'text': "{{lounge.state == 'on' ? 'On' : source.label}}",
+                    'modules': {
+                      'text': {
+                        'text':
+                            "{{lounge.state == 'on' ? 'On' : source.label}}",
+                      },
                     },
                   },
                 ],
@@ -577,7 +580,7 @@ void main() {
       ]);
       // A root is its entity's only where it names one; a variable is not.
       expect(
-        tile.children.single.options['text'],
+        tile.children.single.values('text')?['text'],
         "{{ha:lounge.state == 'on' ? 'On' : source.label}}",
       );
     });

@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/style_settings.dart';
 
-List<ComponentOption> _optionsOf(Component part) =>
-    ComponentRegistry.named(part.kind)?.options ?? const [];
+List<Field> _optionsOf(Node part) => part.visual?.fields ?? const [];
 
-List<String> _styleOf(Component part) =>
-    ComponentRegistry.named(part.kind)?.style ?? const [];
+List<String> _styleOf(Node part) => part.visual?.styleKeys ?? const [];
+
+ModuleValues _visualOf(Node part) =>
+    part.visual == null ? const {} : part.values(part.visual!.name) ?? const {};
 
 /// An instance's own settings: which prefab it is of, its variant, and
 /// per-part visibility, options and style. Only differences from the prefab
@@ -28,9 +29,9 @@ class InstanceSettings extends StatelessWidget {
   });
 
   final Map<String, Prefab> prefabs;
-  final Component item;
+  final Node item;
 
-  final void Function(Component item) onChanged;
+  final void Function(Node item) onChanged;
 
   /// Opens its prefab for editing.
   final VoidCallback? onOpen;
@@ -38,10 +39,10 @@ class InstanceSettings extends StatelessWidget {
   /// Replaces it with a plain copy.
   final VoidCallback? onUnpack;
 
-  void _override(String part, Map<String, Object?> values, [String? section]) =>
+  void _override(String part, Map<String, Object?> values, [String? module]) =>
       onChanged(
         item.copyWith(
-          overrides: withOverride(item.overrides, part, values, section),
+          overrides: withOverride(item.overrides, part, values, module),
         ),
       );
 
@@ -117,22 +118,22 @@ class InstanceSettings extends StatelessWidget {
           ),
           ...optionFields(
             options: _optionsOf(part),
-            values: part.options,
+            values: _visualOf(part),
             onChanged: (next) => _override(id, {
               for (final option in _optionsOf(part))
-                option.key: next[option.key] == base[id]!.options[option.key]
+                option.key: next[option.key] == _visualOf(base[id]!)[option.key]
                     ? null
                     // Resetting to the default where the prefab differs must
                     // be stored explicitly.
                     : next[option.key] ?? option.defaultValue ?? '',
-            }, 'options'),
+            }, part.visual?.name),
           ),
           ...styleFields(
             keys: _styleOf(part),
             style: part.style,
             onChanged: (key, value) => _override(id, {
               key: base[id]!.style[key] == value ? null : value,
-            }, 'style'),
+            }, styleModule.name),
           ),
         ],
         if (item.overrides.isNotEmpty)
@@ -150,23 +151,15 @@ class InstanceSettings extends StatelessWidget {
 
 /// One child's overrides, each with a revert.
 class OverrideList extends StatelessWidget {
-  const OverrideList({
-    super.key,
-    required this.set,
-    required this.onReverted,
-    this.options = const [],
-  });
+  const OverrideList({super.key, required this.set, required this.onReverted});
 
-  /// One entry of an [Overrides]: `options`, `style`, `transform`, `hidden`.
+  /// One entry of an [Overrides]: `modules`, `transform`, `hidden`, `name`.
   final Map<String, Object?> set;
 
-  /// The child's options, for their labels.
-  final List<ComponentOption> options;
+  /// Called with the module and key to revert; with neither for all.
+  final void Function(String? module, String? key) onReverted;
 
-  /// Called with the section and key to revert; with neither for all.
-  final void Function(String? section, String? key) onReverted;
-
-  static const _transform = {
+  static const _sizing = {
     'w': 'Width',
     'h': 'Height',
     'x': 'X',
@@ -176,11 +169,13 @@ class OverrideList extends StatelessWidget {
     'keep': 'Keep space when hidden',
   };
 
-  String _label(String section, String key) => switch (section) {
-    'style' => stylePropsOf([key]).firstOrNull?.label ?? key,
-    'transform' => _transform[key] ?? key,
-    _ => options.where((option) => option.key == key).firstOrNull?.label ?? key,
-  };
+  String _label(String module, String key) => module == sizingModule.name
+      ? _sizing[key] ?? key
+      : moduleNamed(module)?.fields
+                .where((field) => field.key == key)
+                .firstOrNull
+                ?.label ??
+            key;
 
   @override
   Widget build(BuildContext context) {
@@ -199,10 +194,16 @@ class OverrideList extends StatelessWidget {
       ],
     );
     final rows = [
-      for (final section in const ['options', 'style', 'transform'])
-        if (set[section] case final Map<Object?, Object?> values)
-          for (final key in values.keys.whereType<String>())
-            row(_label(section, key), section, key),
+      for (final MapEntry(key: module, :value) in modulesFromJson(
+        set['modules'],
+      ).entries)
+        for (final key in value.keys)
+          row(
+            '${moduleNamed(module)?.label ?? module}: ${_label(module, key)}',
+            module,
+            key,
+          ),
+      if (set.containsKey('transform')) row('Transform', null, 'transform'),
       if (set.containsKey('hidden')) row('Visible', null, 'hidden'),
     ];
     if (rows.isEmpty) {

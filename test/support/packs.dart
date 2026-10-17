@@ -12,6 +12,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/templates.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 
@@ -61,10 +62,7 @@ Layout homeLayout([List<String> order = const []]) {
   return home.rebuild(
     (pane, items) => pane.id != home.inbox
         ? items
-        : [
-            ...items,
-            for (final id in order) cardOf(id, id: Component.autoId(id)),
-          ],
+        : [...items, for (final id in order) cardOf(id, id: Node.autoId(id))],
   );
 }
 
@@ -91,7 +89,7 @@ Map<String, Prefab> get systemPrefabMap => {
 
 /// An instance of [prefab], the app card unless said, handed [entityId] in
 /// its `source` variable, as the System pack's cards take it.
-Component cardOf(
+Node cardOf(
   String entityId, {
   required String id,
   String prefab = cardPrefabId,
@@ -103,7 +101,7 @@ Component cardOf(
   Overrides overrides = const {},
   Style style = const {},
   Triggers on = const {},
-}) => Component.of(
+}) => Node.of(
   entityId,
   id: id,
   prefab: prefab,
@@ -118,18 +116,41 @@ Component cardOf(
   on: on,
 );
 
+/// A node drawing [visual] with [values], as tests write one. A press or a
+/// hold among [on] gives it the focus, as the editor does.
+Node drawn(
+  String id,
+  String visual, {
+  Map<String, Object?> values = const {},
+  double w = 1,
+  double h = 1,
+  double? x,
+  double? y,
+  Style style = const {},
+  Triggers on = const {},
+  Variables vars = const {},
+}) => Node(
+  id: id,
+  modules: {
+    visual: values,
+    if (style.isNotEmpty) styleModule.name: style,
+    if (vars.isNotEmpty) variablesModule.name: variablesToJson(vars),
+    if (on.isNotEmpty) triggersModule.name: triggersToJson(on),
+    if (on.containsKey(Trigger.press) || on.containsKey(Trigger.hold))
+      focusModule.name: const {},
+  },
+).sized(w, h, x: x, y: y);
+
 /// [cardOf] as `withEntities` places an entity.
-Component? placedCard(String entityId, String id) => cardOf(entityId, id: id);
+Node? placedCard(String entityId, String id) => cardOf(entityId, id: id);
 
 /// A new folder, as the editor makes it from the System pack's template.
-Component folderPane(String id, {String title = ''}) => paneFrom(
-  systemPrefab(folderTemplateId),
-  id,
-).withOption('title', title.isEmpty ? null : title);
+Node folderPane(String id, {String title = ''}) =>
+    paneFrom(systemPrefab(folderTemplateId), id).copyWith(name: title);
 
 /// A new sidebar on [edge], as the editor makes it from the System pack's
 /// template.
-Component sidebarPane(String id, String edge) =>
+Node sidebarPane(String id, String edge) =>
     paneFrom(systemPrefab(sidebarTemplateId), id, dock: edge);
 
 /// The chains of a sidebar made from the System pack's template.

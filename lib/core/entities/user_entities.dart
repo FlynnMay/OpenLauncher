@@ -1,8 +1,8 @@
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/entity_action.dart';
 import 'package:openlauncher/core/entities/http_feed.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 
 /// The most entities a user can make.
@@ -35,22 +35,20 @@ const _with = 'with:';
 
 /// The editor's form for the user's entities, over [userEntityToForm]. An
 /// action is offered [operations] to run.
-ComponentOption userEntityOptions(
-  Iterable<Operation> operations,
-) => ComponentOption(
+Field userEntityOptions(Iterable<Operation> operations) => Field(
   'entities',
   'Add entity',
-  OptionKind.list,
+  FieldKind.list,
   heading: 'name',
   asks: 'Entity name',
   blank: const {'name': 'Value'},
   max: maxUserEntities,
   fields: (one) => [
-    const ComponentOption('name', 'Name', OptionKind.text),
-    ComponentOption(
+    const Field('name', 'Name', FieldKind.text),
+    Field(
       'kind',
       'Source',
-      OptionKind.choice,
+      FieldKind.choice,
       defaultValue: _web,
       choices: {
         _web: 'URL (JSON)',
@@ -59,49 +57,39 @@ ComponentOption userEntityOptions(
         if (!const {_web, _text}.contains(_kind(one))) _kind(one): _kind(one),
       },
     ),
-    ComponentOption(
-      'text',
-      'Text',
-      OptionKind.text,
-      when: (one) => _kind(one) == _text,
-    ),
-    ComponentOption(
-      'url',
-      'URL',
-      OptionKind.text,
-      when: (one) => _kind(one) == _web,
-    ),
+    Field('text', 'Text', FieldKind.text, when: (one) => _kind(one) == _text),
+    Field('url', 'URL', FieldKind.text, when: (one) => _kind(one) == _web),
     // Polled by the TV while something shows it.
-    ComponentOption(
+    Field(
       'every',
       'Refresh interval (s)',
-      OptionKind.number,
+      FieldKind.number,
       defaultValue: 60,
       min: HttpFeed.minEvery,
       max: 3600,
       step: 10,
       when: (one) => _kind(one) == _web,
     ),
-    ComponentOption(
+    Field(
       'actions',
       'Add action',
-      OptionKind.list,
+      FieldKind.list,
       heading: 'name',
       asks: 'Action name',
       blank: {'name': 'do', 'run': operations.firstOrNull?.name},
       fields: (action) => [
-        ComponentOption(
+        Field(
           'run',
           'Operation',
-          OptionKind.choice,
+          FieldKind.choice,
           choices: {
             // Keeps one this build does not know.
             if (action['run'] case final String run) run: run,
             for (final operation in operations) operation.name: operation.label,
           },
         ),
-        const ComponentOption('label', 'Label', OptionKind.text),
-        const ComponentOption('icon', 'Icon', OptionKind.icon),
+        const Field('label', 'Label', FieldKind.text),
+        const Field('icon', 'Icon', FieldKind.icon),
         // What is left empty, the act may say.
         for (final MapEntry(key: name, value: choices)
             in (operations
@@ -111,11 +99,11 @@ ComponentOption userEntityOptions(
                     const <String, List<String>>{})
                 .entries)
           choices.isEmpty
-              ? ComponentOption('$_with$name', name, OptionKind.template)
-              : ComponentOption(
+              ? Field('$_with$name', name, FieldKind.template)
+              : Field(
                   '$_with$name',
                   name,
-                  OptionKind.choice,
+                  FieldKind.choice,
                   unset: 'Set by the action',
                   choices: {for (final choice in choices) choice: choice},
                 ),

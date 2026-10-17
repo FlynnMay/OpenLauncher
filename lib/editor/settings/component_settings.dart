@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
-/// The settings of one primitive component.
+/// The settings of one node's visual module.
 class ComponentSettings extends ConsumerWidget {
   const ComponentSettings({
     super.key,
@@ -13,23 +12,27 @@ class ComponentSettings extends ConsumerWidget {
     required this.onChanged,
   });
 
-  final Component item;
+  final Node item;
 
-  final void Function(Map<String, Object?> options) onChanged;
+  final void Function(Map<String, Object?> values) onChanged;
 
-  void _set(String key, Object? value) => onChanged(
-    {...item.options, key: value}..removeWhere((_, v) => v == null),
-  );
+  ModuleValues get _values => switch (item.visual) {
+    final visual? => item.values(visual.name) ?? const {},
+    null => const {},
+  };
+
+  void _set(String key, Object? value) =>
+      onChanged({..._values, key: value}..removeWhere((_, v) => v == null));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final options = item.options;
+    final options = _values;
     final state = ref.watch(tvStateProvider).value;
-    final kind = ComponentRegistry.named(item.kind);
+    final kind = item.visual;
     final settings = [
       // Fields that need more than a generated one.
       ...switch (kind) {
-        ComponentRegistry.android => [
+        appWidgetModule => [
           LabelledRow(
             'Widget',
             ChoiceBox<String>(
@@ -49,12 +52,12 @@ class ComponentSettings extends ConsumerWidget {
       },
       // The rest is generated from the kind's options.
       ...optionFields(
-        options: kind?.options ?? const [],
+        options: kind?.fields ?? const [],
         values: options,
         onChanged: onChanged,
       ),
     ];
     if (settings.isEmpty) return const SizedBox.shrink();
-    return Section(kind?.label ?? 'Component', settings);
+    return Section(kind?.label ?? 'Node', settings);
   }
 }

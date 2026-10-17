@@ -143,7 +143,7 @@ class PrefabBar extends ConsumerWidget {
                       },
                       'Docked panes': {
                         for (final pane in docked)
-                          pane.id: pane.title.isEmpty ? pane.id : pane.title,
+                          pane.id: pane.name.isEmpty ? pane.id : pane.name,
                       },
                     },
                     onChanged: (id) => previewWith(ref, name, id),
@@ -157,11 +157,11 @@ class PrefabBar extends ConsumerWidget {
             child: NumberField(
               label: 'Cell height',
               value: mode?.height,
-              min: Component.minRowHeight.round(),
-              max: Component.maxRowHeight.round(),
+              min: LayoutModule.minRowHeight.round(),
+              max: LayoutModule.maxRowHeight.round(),
               step: 4,
               placeholder: 'Auto',
-              start: Component.barRowHeight.round(),
+              start: LayoutModule.barRowHeight.round(),
               onChanged: (height) => ref
                   .read(prefabTrailProvider.notifier)
                   .drawAt(height.toDouble()),

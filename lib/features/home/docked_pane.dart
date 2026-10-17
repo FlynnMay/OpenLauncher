@@ -7,9 +7,9 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/node_view.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/tile_actions.dart';
 
@@ -31,7 +31,7 @@ class DockHold extends InheritedWidget {
 class DockedPane extends ConsumerStatefulWidget {
   const DockedPane({super.key, required this.pane, this.inPlace = false});
 
-  final Component pane;
+  final Node pane;
 
   /// Drawn in the box of what opened it, filling it.
   final bool inPlace;
@@ -62,10 +62,10 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   /// then takes the focus.
   FirstFocus? _first;
 
-  Component get _pane => widget.pane;
+  Node get _pane => widget.pane;
 
-  Object? get _opening => dockRule(_pane, 'opening');
-  Object? get _reveal => dockRule(_pane, 'reveal');
+  Object? get _opening => _pane.valueOf(dockModule, 'opening');
+  Object? get _reveal => _pane.valueOf(dockModule, 'reveal');
 
   int get _barMs => switch (_opening) {
     'slide' || 'fade' => 200,
@@ -158,7 +158,7 @@ class _DockedPaneState extends ConsumerState<DockedPane>
 
   /// The pane as drawn: a menu opened for an entity leaves out what cannot
   /// be done to it.
-  Component _offered() => subjectOf(ref, _pane.id) == null
+  Node _offered() => subjectOf(ref, _pane.id) == null
       ? _pane
       : _pane.copyWith(
           children: offeredFor(
@@ -170,15 +170,16 @@ class _DockedPaneState extends ConsumerState<DockedPane>
 
   /// The pane [shown] in its box. Keyed so it keeps its state as what is
   /// around it changes.
-  Widget _contentsOf(Component shown, Alignment from, {bool shrink = false}) {
+  Widget _contentsOf(Node shown, Alignment from, {bool shrink = false}) {
     final pane = _pane;
     final popup = pane.closeOnPress ? pane.id : null;
     final box = PaneBox(
+      screen: true,
       pane: shown,
       shrink: shrink,
       placeholder: 'Nothing here yet. Add things from the web page.',
       tile: (component) => _appearing(
-        ComponentView(component: component, focus: _first, popup: popup),
+        NodeView(component: component, focus: _first, popup: popup),
         from,
       ),
     );

@@ -46,7 +46,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     // pane, nor itself.
     final open = ref.watch(editedPrefabProvider);
     final layout = ref.watch(editedLayoutProvider) ?? config.layout;
-    final components = ref.watch(tvStateProvider).value?.components ?? const [];
+    final visuals = ref.watch(tvStateProvider).value?.visuals ?? const [];
     final prefabs = ref.watch(prefabsProvider);
     final counts = placedCounts(config.layout);
     // Only an entity with a prefab can be placed.
@@ -72,12 +72,10 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         ? null
         : _Offer(
             Dragged(
-              item: Component(
+              item: Node(
                 id: layout.itemIdFor(prefab.name),
                 prefab: prefab.id,
-                w: prefab.root.w,
-                h: prefab.root.h,
-              ),
+              ).sized(prefab.root.w, prefab.root.h),
               label: prefab.name,
               picture: const SymbolArt(prefabIcon),
             ),
@@ -106,13 +104,13 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         layout.paneIdFor(template.name, 'pane'),
         used: layout.itemIds,
       );
-      final title = pane.title.isEmpty ? template.name : pane.title;
+      final title = pane.name.isEmpty ? template.name : pane.name;
       final item = card.instance(pane.id, id: layout.itemIdFor(title));
       if (item == null) return null;
       return _Offer(
         Dragged(
           item: item,
-          opens: pane.withOption('title', title),
+          opens: pane.copyWith(name: title),
           label: template.name,
           picture: const SymbolArt(Icons.create_new_folder_outlined),
         ),
@@ -186,22 +184,19 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       _Group('Primitives', [
         _Offer(
           Dragged(
-            item: Component.pane(id: layout.paneIdFor(), w: 6, h: 3),
+            item: Node.pane(id: layout.paneIdFor(), w: 6, h: 3),
             label: 'Pane',
             picture: const SymbolArt(Icons.dashboard_outlined),
           ),
         ),
-        for (final component in components)
+        for (final visual in visuals)
           _Offer(
             Dragged(
-              item: Component(
-                id: layout.itemIdFor(component.type),
-                kind: component.type,
-                w: component.w,
-                h: component.h,
-                options: component.options,
-              ),
-              label: component.label,
+              item: Node(
+                id: layout.itemIdFor(visual.module),
+                modules: {visual.module: visual.values},
+              ).sized(visual.w, visual.h),
+              label: visual.label,
               picture: const SymbolArt(Icons.widgets_outlined),
             ),
           ),
@@ -217,7 +212,7 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         for (final pane in config.layout.docked)
           if (prefabs[prefabs[pane.template]?.card]?.instance(
                 pane.id,
-                id: layout.itemIdFor(pane.title.isEmpty ? 'pane' : pane.title),
+                id: layout.itemIdFor(pane.name.isEmpty ? 'pane' : pane.name),
               )
               case final card?)
             _Offer(

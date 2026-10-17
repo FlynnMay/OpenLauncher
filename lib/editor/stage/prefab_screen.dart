@@ -5,18 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
-import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/node_view.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 
 /// The open prefab alone on the TV's screen: its root at its default size,
 /// enlarged to fill the screen. A docked one is shown open where it docks.
 class PrefabScreen extends ConsumerWidget {
   const PrefabScreen({super.key});
-
-  /// A cell's width, about an app card's on the home screen.
-  static const _cell = 150.0;
 
   /// Left clear around it.
   static const _margin = 60.0;
@@ -30,7 +27,7 @@ class PrefabScreen extends ConsumerWidget {
     if (pane == null || root == null) {
       return SizedBox.fromSize(size: TvScreen.size);
     }
-    if (root.isDocked && root.dock != Component.inline) {
+    if (root.isDocked && root.dock != DockModule.inline) {
       return SizedBox.fromSize(
         size: TvScreen.size,
         child: Material(
@@ -44,7 +41,8 @@ class PrefabScreen extends ConsumerWidget {
         ),
       );
     }
-    final width = pane.columns * _cell + (pane.columns - 1) * pane.spacingX;
+    final width =
+        pane.columns * prefabCellWidth + (pane.columns - 1) * pane.spacingX;
     final metrics = PaneMetrics(pane, width);
     final w = metrics.across(root.w), h = metrics.down(root.h);
     final Size(width: across, height: down) = TvScreen.size;
@@ -69,7 +67,7 @@ class PrefabScreen extends ConsumerWidget {
                   alignment: Alignment.topLeft,
                   child: PaneGrid(
                     pane: pane,
-                    tile: (component) => ComponentView(component: component),
+                    tile: (component) => NodeView(component: component),
                   ),
                 ),
               ),

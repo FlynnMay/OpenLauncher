@@ -87,7 +87,7 @@ void _enter(WidgetRef ref) {
 /// draw for each variable that has no value: what the instance [from] holds,
 /// else the first thing that uses the prefab. Opened from an instance inside
 /// the open prefab, it is added to the trail.
-void openPrefab(WidgetRef ref, String prefabId, {Component? from}) {
+void openPrefab(WidgetRef ref, String prefabId, {Node? from}) {
   final prefab = ref.read(prefabsProvider)[prefabId];
   if (prefab == null) return;
   final trail = ref.read(prefabTrailProvider);
@@ -191,7 +191,7 @@ Future<void> newPrefab(BuildContext context, WidgetRef ref) async {
     Prefab(
       id: id,
       name: name,
-      root: Component.pane(id: 'root', mode: PaneMode.column),
+      root: Node.pane(id: 'root', mode: PaneMode.column),
     ),
   );
   openPrefab(ref, id);
@@ -312,6 +312,10 @@ Future<void> createPrefab(
     found.item,
     freeId(slugOf(name, 'prefab'), {...ref.read(prefabsProvider).keys}),
     name,
+    // Placed by its transform: its size on the TV's screen.
+    size: found.parent.mode == PaneMode.free
+        ? found.item.transform.rectIn(const Size(960, 540)).size
+        : null,
   );
   await ref.read(configProvider.notifier).change((c) {
     final layout = changeItems(c.layout, {
@@ -337,11 +341,7 @@ Future<void> createPrefab(
 }
 
 /// Renames child [part] of the open prefab, and what names it.
-Future<void> renamePart(
-  BuildContext context,
-  WidgetRef ref,
-  Component part,
-) async {
+Future<void> renamePart(BuildContext context, WidgetRef ref, Node part) async {
   final prefab = ref.read(editedPrefabProvider);
   if (prefab == null) return;
   if (!prefab.isBase(ref.read(prefabModeProvider)?.variant)) {

@@ -1,28 +1,24 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 
 import '../support/packs.dart';
 
-Component entity(
-  String id, {
-  double w = 1,
-  double h = 1,
-  double? x,
-  double? y,
-}) => Component(
-  id: id,
-  prefab: cardPrefabId,
-  vars: {'source': Variable('system:app/$id', type: VarType.entity)},
-  w: w,
-  h: h,
-  x: x,
-  y: y,
-);
+Node entity(String id, {double w = 1, double h = 1, double? x, double? y}) =>
+    cardOf('system:app/$id', id: id, w: w, h: h, x: x, y: y);
 
-Layout home(Component root, {Set<String> removed = const {}}) => Layout(
+/// The Dock fields [pane] is offered.
+List<Field> dockFieldsOf(Node pane) => [
+  for (final field in dockModule.fields)
+    if (field.when?.call(pane.values(dockModule.name) ?? const {}) ?? true)
+      field,
+];
+
+Layout home(Node root, {Set<String> removed = const {}}) => Layout(
   inbox: root.id,
   removed: removed,
   layers: [Layer(id: Layout.homeId, root: root)],
@@ -77,10 +73,7 @@ void main() {
 
   group('dropItem', () {
     final flow = home(
-      Component.pane(
-        id: 'p',
-        children: [entity('a'), entity('b'), entity('c')],
-      ),
+      Node.pane(id: 'p', children: [entity('a'), entity('b'), entity('c')]),
     );
 
     test('goes in front of an item of a pane that flows, or to its end', () {
@@ -103,7 +96,7 @@ void main() {
 
     test('takes the asked cell of a grid and pushes aside what was there', () {
       final grid = home(
-        Component.pane(
+        Node.pane(
           id: 'p',
           mode: PaneMode.grid,
           columns: 4,
@@ -117,32 +110,46 @@ void main() {
       expect(at(dropped.normalised(), 'n'), (1, 0));
     });
 
-    test('lands where asked in a free pane, kept inside its width', () {
+    test('lands where asked without a layout, pinned where it is put', () {
       final free = home(
-        Component.pane(
-          id: 'p',
-          mode: PaneMode.free,
-          columns: 4,
-          children: [entity('a', x: 0, y: 0)],
-        ),
+        Node.pane(id: 'p', mode: PaneMode.free, children: [entity('a')]),
       );
+      const rect = Rect.fromLTWH(100, 40, 200, 90);
       final dropped = dropItem(
         free,
-        entity('n', w: 2),
-        const Drop('p', x: 3, y: 0),
+        entity('n'),
+        const Drop('p', rect: rect, size: Size(800, 400)),
       );
-      expect(at(dropped, 'n'), (2, 0));
-      // With nowhere asked for, under what is there.
-      expect(at(dropItem(free, entity('m'), const Drop('p')), 'm'), (0, 1));
+      final n = findItems(dropped, {'n'}).single.item;
+      expect(n.transform, NodeTransform.at(rect));
+      expect(n.transform.rectIn(const Size(400, 200)), rect);
+
+      // One anchored to stretch keeps its anchors and is moved by its offsets.
+      const stretched = NodeTransform(minX: 0.5, maxX: 1);
+      final moved = placeItem(
+        home(
+          Node.pane(
+            id: 'p',
+            mode: PaneMode.free,
+            children: [entity('s').copyWith(transform: stretched)],
+          ),
+        ),
+        's',
+        rect,
+        const Size(800, 400),
+      );
+      final s = findItems(moved, {'s'}).single.item.transform;
+      expect((s.minX, s.maxX), (0.5, 1));
+      expect(s.rectIn(const Size(800, 400)), rect);
     });
 
     test('moves an item from one pane into another inside it', () {
       final nested = home(
-        Component.pane(
+        Node.pane(
           id: 'p',
           children: [
             entity('a'),
-            Component.pane(id: 'inner', w: 3, h: 2),
+            Node.pane(id: 'inner', w: 3, h: 2),
           ],
         ),
       );
@@ -153,7 +160,7 @@ void main() {
 
     test('an entity that is placed is no longer removed', () {
       final layout = home(
-        Component.pane(id: 'p'),
+        Node.pane(id: 'p'),
         removed: {'system:app/n', 'system:app/z'},
       );
       expect(dropItem(layout, entity('n'), const Drop('p')).removed, {
@@ -169,7 +176,7 @@ void main() {
         opens: folderPane('f', title: 'Games'),
       );
       final folder = dropped.pane('f')!;
-      expect((folder.title, folder.hiddenWhenClosed), ('Games', true));
+      expect((folder.name, folder.hiddenWhenClosed), ('Games', true));
       expect(dropped.home.root.children.last, same(folder));
       // The TV keeps the card because the folder it opens exists.
       expect(ids(dropped.normalised(), 'p'), contains('i'));
@@ -177,45 +184,40 @@ void main() {
   });
 
   group('refusal', () {
-    Component nest(int levels, String id) => Component.pane(
-      id: id,
-      children: [if (levels > 1) nest(levels - 1, '$id+')],
-    );
+    Node nest(int levels, String id) =>
+        Node.pane(id: id, children: [if (levels > 1) nest(levels - 1, '$id+')]);
 
     test('only panes are ever refused', () {
-      final layout = home(nest(Component.maxDepth, 'p'));
+      final layout = home(nest(Node.maxDepth, 'p'));
       expect(refusal(layout, entity('a'), 'p+++'), isNull);
     });
 
     test('a pane cannot go inside itself or deeper than panes go', () {
-      final layout = home(nest(Component.maxDepth, 'p'));
+      final layout = home(nest(Node.maxDepth, 'p'));
       final inner = layout.home.root.children.single;
       expect(refusal(layout, inner, 'p++'), contains('inside itself'));
-      expect(
-        refusal(layout, Component.pane(id: 'new'), 'p+++'),
-        contains('nested'),
-      );
-      expect(refusal(layout, Component.pane(id: 'new'), 'p++'), isNull);
+      expect(refusal(layout, Node.pane(id: 'new'), 'p+++'), contains('nested'));
+      expect(refusal(layout, Node.pane(id: 'new'), 'p++'), isNull);
     });
 
     test('a sidebar takes panes like anywhere else, however deep it is', () {
       // Docked at the bottom of the deepest nest, it still counts from one.
-      Component deep(int levels) => Component.pane(
+      Node deep(int levels) => Node.pane(
         id: 'p$levels',
         children: [
           if (levels > 1) deep(levels - 1) else sidebarPane('left', 'left'),
         ],
       );
-      final layout = home(deep(Component.maxDepth));
+      final layout = home(deep(Node.maxDepth));
       final found = findPane(layout, 'left')!;
       expect((found.depth, found.dock?.id), (1, 'left'));
-      expect(refusal(layout, Component.pane(id: 'new'), 'left'), isNull);
-      expect(refusal(layout, Component.pane(id: 'new'), 'p1'), isNotNull);
+      expect(refusal(layout, Node.pane(id: 'new'), 'left'), isNull);
+      expect(refusal(layout, Node.pane(id: 'new'), 'p1'), isNotNull);
     });
 
     test('a docked pane takes no cell and is told what it is in', () {
       final layout = home(
-        Component.pane(
+        Node.pane(
           id: 'p',
           mode: PaneMode.grid,
           columns: 2,
@@ -239,15 +241,11 @@ void main() {
   group('removeItem', () {
     test('notes an entity as removed once it is nowhere', () {
       final layout = home(
-        Component.pane(
+        Node.pane(
           id: 'p',
           children: [
             entity('a'),
-            const Component(
-              id: 'again',
-              prefab: cardPrefabId,
-              vars: {'source': Variable('system:app/a', type: VarType.entity)},
-            ),
+            cardOf('system:app/a', id: 'again'),
           ],
         ),
       );
@@ -259,11 +257,11 @@ void main() {
 
     test('a pane goes with everything in it', () {
       final layout = home(
-        Component.pane(
+        Node.pane(
           id: 'p',
           children: [
             entity('a'),
-            Component.pane(id: 'inner', children: [entity('b'), entity('c')]),
+            Node.pane(id: 'inner', children: [entity('b'), entity('c')]),
           ],
         ),
       );
@@ -275,14 +273,14 @@ void main() {
 
   group('editing what is selected', () {
     final layout = home(
-      Component.pane(
+      Node.pane(
         id: 'p',
         mode: PaneMode.grid,
         columns: 4,
         children: [
           entity('a', x: 0, y: 0),
           entity('b', x: 1, y: 0),
-          Component.pane(
+          Node.pane(
             id: 'inner',
             children: [entity('c'), entity('d', w: 2)],
             w: 4,
@@ -306,11 +304,11 @@ void main() {
       final changed = changeItems(layout, {
         'a',
         'c',
-      }, (item, _) => item.copyWith(options: const {'layout': 'row'}));
+      }, (item, _) => item.copyWith(name: 'changed'));
       expect(
         [
           for (final one in findItems(changed, {'a', 'b', 'c'}))
-            one.item.options.isNotEmpty,
+            one.item.name.isNotEmpty,
         ],
         [true, false, true],
       );
@@ -343,9 +341,9 @@ void main() {
     test('a transform is set a part at a time, by the pane it is in', () {
       // Where things have places they are offered; where they flow, not.
       List<String> offered(String id) => [
-        for (final option in transformOptions([
+        for (final option in SizingModule.fieldsIn([
           findItems(layout, {id}).single.parent,
-        ]))
+        ], findItems(layout, {id}).single.parent.reach))
           option.key,
       ];
       expect(offered('a'), ['w', 'h', 'x', 'y']);
@@ -404,7 +402,7 @@ void main() {
 
   test('deleting a folder takes its entities and what was in it', () {
     final layout = home(
-      Component.pane(
+      Node.pane(
         id: 'p',
         children: [
           entity('a'),
@@ -412,13 +410,7 @@ void main() {
           folderPane('f').copyWith(
             children: [
               entity('b'),
-              const Component(
-                id: 'a2',
-                prefab: cardPrefabId,
-                vars: {
-                  'source': Variable('system:app/a', type: VarType.entity),
-                },
-              ),
+              cardOf('system:app/a', id: 'a2'),
             ],
           ),
         ],
@@ -434,16 +426,12 @@ void main() {
 
   test('counts how often each entity is on the TV', () {
     final layout = home(
-      Component.pane(
+      Node.pane(
         id: 'p',
         children: [
           entity('a'),
-          const Component(
-            id: 'again',
-            prefab: cardPrefabId,
-            vars: {'source': Variable('system:app/a', type: VarType.entity)},
-          ),
-          const Component(id: 'w', kind: 'system:clock'),
+          cardOf('system:app/a', id: 'again'),
+          drawn('w', textModule.name),
         ],
       ),
     );
@@ -460,15 +448,18 @@ void main() {
         id: 'acme:drawer',
         name: 'Drawer',
         template: true,
-        root: Component.pane(
+        root: Node.pane(
           id: 'root',
-          rules: const {'dock': 'right', 'closed': 40},
+          dock: const {'position': 'right', 'closed': 40},
         ),
         variants: {
           'down': const PrefabVariant('Down'),
           'shelf': const PrefabVariant('Shelf', {
             'root': {
-              'options': {'dock': 'bottom', 'columns': 9},
+              'modules': {
+                'dock': {'position': 'bottom'},
+                'layout': {'columns': 9},
+              },
             },
           }),
         },
@@ -490,7 +481,7 @@ void main() {
     test('make plain copies, not instances', () {
       final made = paneFrom(folder, 'games');
       expect(
-        (made.isPane, made.isInstance, made.title, made.dock),
+        (made.isPane, made.isInstance, made.name, made.dock),
         (true, false, 'Folder', 'center'),
       );
       expect(made.closeOnPress, isTrue);
@@ -498,7 +489,7 @@ void main() {
       expect(made.on, folder.root.on);
       // It records what it was copied from.
       expect(made.template, folderTemplateId);
-      expect(Component.fromJson(made.toJson()).template, folderTemplateId);
+      expect(Node.fromJson(made.toJson()).template, folderTemplateId);
       // Down a side it is a column of rows; across, a row.
       final left = paneFrom(sidebar, 'l', dock: 'left');
       final top = paneFrom(sidebar, 't', dock: 'bottom');
@@ -510,10 +501,9 @@ void main() {
 
     test('give what they made their look, keeping what is in it', () {
       final restyled = folder.copyWith(
-        root: folder.root.copyWith(
-          style: const {'background': '#ff0000ff'},
-          options: {...folder.root.options, 'opening': 'fade'},
-        ),
+        root: folder.root
+            .styled(const {'background': '#ff0000ff'})
+            .withValue(dockModule.name, 'opening', 'fade'),
       );
       final layout = homeLayout().withPane(
         'home/root',
@@ -524,7 +514,7 @@ void main() {
               'games',
               title: 'Games',
             ).copyWith(children: [entity('a')]),
-            withDock(folderPane('near'), Component.inline),
+            withDock(folderPane('near'), DockModule.inline),
             sidebarPane('left', 'left'),
           ],
         ),
@@ -536,11 +526,11 @@ void main() {
       final applied = withTemplateApplied(layout, restyled);
       final games = applied.pane('games')!;
       expect(games.style, {'background': '#ff0000ff'});
-      expect(dockRule(games, 'opening'), 'fade');
-      expect((games.title, games.children.single.id), ('Games', 'a'));
+      expect(games.valueOf(dockModule, 'opening'), 'fade');
+      expect((games.name, games.children.single.id), ('Games', 'a'));
       // Each stays where it docks and takes the template's chains.
       final near = applied.pane('near')!;
-      expect(near.dock, Component.inline);
+      expect(near.dock, DockModule.inline);
       expect(near.on, folder.root.on);
       // One copied from another template is left alone.
       expect(applied.pane('left')!.toJson(), layout.pane('left')!.toJson());
@@ -561,21 +551,14 @@ void main() {
       expect(withBar(layout, 'top', template), same(layout));
       final full = withBar(layout, 'left', template).withPane(
         'left',
-        (pane) => pane.copyWith(
-          children: const [
-            Component(
-              id: 'a',
-              prefab: cardPrefabId,
-              vars: {'source': Variable('x', type: VarType.entity)},
-            ),
-          ],
-        ),
+        (pane) => pane.copyWith(children: [cardOf('x', id: 'a')]),
       );
       expect(freeEdges(layout), barEdges);
       expect(freeEdges(full), ['right', 'top', 'bottom']);
       // Whatever is docked at an edge takes it once it holds something.
-      final folder = folderPane('f').withOption('dock', 'right');
-      Layout withFolder(Component folder) => full.withPane(
+      final folder = folderPane('f')
+          .withValue(dockModule.name, 'position', 'right');
+      Layout withFolder(Node folder) => full.withPane(
         full.home.root.id,
         (root) => root.copyWith(children: [...root.children, folder]),
       );
@@ -587,8 +570,8 @@ void main() {
 
       // Docking sets the dock and nothing more; undocked it is as it was,
       // back on the cells.
-      final plain = Component.pane(id: 'p', columns: 3, w: 4, x: 1, y: 2);
-      final docked = withRule(plain, 'dock', 'top');
+      final plain = Node.pane(id: 'p', columns: 3, w: 4, x: 1, y: 2);
+      final docked = withRule(plain, 'dock', 'position', 'top');
       expect(
         (docked.edge, docked.closed, docked.hiddenWhenClosed),
         (BarEdge.top, null, true),
@@ -596,41 +579,45 @@ void main() {
       expect(docked.on, isEmpty);
       expect((docked.columns, docked.w, docked.x), (3, 4, 1));
       final back = withRule(
-        withRule(withRule(docked, 'width', 300), 'closed', 8),
+        withRule(withRule(docked, 'dock', 'width', 300), 'dock', 'closed', 8),
         'dock',
+        'position',
         null,
       );
       expect(back.toJson(), plain.toJson());
       // Every pane has the same choices; the strip is for an edge.
       for (final pane in [plain, docked, folder]) {
-        expect(dockRules(pane).first.choices.keys, Component.docks);
-        expect(dockRules(pane).first.unset, 'None');
+        expect(dockFieldsOf(pane).first.choices.keys, DockModule.positions);
+        expect(dockFieldsOf(pane).first.unset, 'None');
       }
-      expect(dockRules(plain).map((rule) => rule.key), ['dock']);
-      expect(dockRules(docked).map((rule) => rule.key), contains('closed'));
-      final centred = withRule(folder, 'dock', 'center');
+      expect(dockFieldsOf(plain).map((rule) => rule.key), ['position']);
+      expect(dockFieldsOf(docked).map((rule) => rule.key), contains('closed'));
+      final centred = withRule(folder, 'dock', 'position', 'center');
       expect(
-        dockRules(centred).map((rule) => rule.key),
+        dockFieldsOf(centred).map((rule) => rule.key),
         isNot(contains('closed')),
       );
       // Moved into what opens it, its chains stay its own.
-      expect(withRule(folder, 'dock', Component.inline).on, folder.on);
       expect(
-        withRule(folder, 'width', Component.fill).dockWidth,
-        Component.fill,
+        withRule(folder, 'dock', 'position', DockModule.inline).on,
+        folder.on,
+      );
+      expect(
+        withRule(folder, 'dock', 'width', DockModule.fill).dockWidth,
+        DockModule.fill,
       );
     });
 
     test('a pane that stops scrolling across takes its children back', () {
-      final pane = Component.pane(
+      final pane = Node.pane(
         id: 'p',
         mode: PaneMode.grid,
         columns: 3,
-        rules: const {'scrollX': true},
+        scroll: const {'across': true},
         children: [entity('a', x: 0, y: 0), entity('b', w: 2, x: 6, y: 0)],
       );
       // Past its own columns while it scrolls, whatever their number.
-      expect(withRule(pane, 'columns', 2).children.last.x, 6);
+      expect(withRule(pane, 'layout', 'columns', 2).children.last.x, 6);
       final dropped = dropItem(
         home(pane),
         entity('c'),
@@ -638,8 +625,8 @@ void main() {
       );
       expect(findPane(dropped, 'p')!.pane.children.last.x, 9);
 
-      final back = withRule(pane, 'scrollX', null);
-      expect(back.options.containsKey('scrollX'), isFalse);
+      final back = withRule(pane, 'scroll', 'across', null);
+      expect(back.scroll.containsKey('across'), isFalse);
       expect(
         [for (final item in back.children) (item.x, item.y)],
         [(0, 0), (1, 0)],

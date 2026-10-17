@@ -94,21 +94,18 @@ Future<void> placeDragged(
   }
   var opens = dragged.opens, item = dragged.item;
   if (opens != null) {
-    final name = await askName(context, opens.title);
+    final name = await askName(context, opens.name);
     if (name == null || !context.mounted) return;
-    opens = opens
-        .copyWith(id: layout.paneIdFor(name, 'pane'))
-        .withOption('title', name);
+    opens = opens.copyWith(id: layout.paneIdFor(name, 'pane'), name: name);
     // Point the card at the pane's final id.
-    item = item.copyWith(
-      id: freeId(slugOf(name), {...layout.itemIds, opens.id}),
-      vars: {
-        for (final MapEntry(key: name, value: variable) in item.vars.entries)
-          name: variable.type == VarType.entity
-              ? Variable(opens.id, type: VarType.entity)
-              : variable,
-      },
-    );
+    item = item
+        .copyWith(id: freeId(slugOf(name), {...layout.itemIds, opens.id}))
+        .withVars({
+          for (final MapEntry(key: name, value: variable) in item.vars.entries)
+            name: variable.type == VarType.entity
+                ? Variable(opens.id, type: VarType.entity)
+                : variable,
+        });
   }
   await changeLayout(
     context,

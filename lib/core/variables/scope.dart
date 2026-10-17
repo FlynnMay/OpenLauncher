@@ -90,7 +90,7 @@ Scope scopeOf(
 }
 
 /// [item]'s variables merged over its prefab's.
-Variables variablesOf(Component item, Map<String, Prefab> prefabs) =>
+Variables variablesOf(Node item, Map<String, Prefab> prefabs) =>
     resolved(item, prefabs).vars;
 
 /// The variable that says a docked pane is showing.
@@ -120,7 +120,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
     // From outside it has no inherited scope.
     return scopeOf(ref.watch, id, variables, const {}).public;
   }
-  final label = switch (found.title) {
+  final label = switch (found.name) {
     '' => 'Pane',
     final title => title,
   };
@@ -128,7 +128,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
     'text': label,
     'id': id,
     'label': label,
-    'title': found.title,
+    'title': found.name,
     'count': found.ownContents.length,
     // An empty pane with no picture is drawn as an outline.
     'bare':

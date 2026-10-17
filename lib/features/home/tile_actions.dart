@@ -16,11 +16,7 @@ Act actIn(Act act, Watch watch, Map<String, Object?> scope) => Act(act.name, {
 });
 
 /// The children of [pane] whose press can be done as its variables stand.
-List<Component> offeredFor(
-  Component pane,
-  Watch watch,
-  Iterable<Entity> entities,
-) {
+List<Node> offeredFor(Node pane, Watch watch, Iterable<Entity> entities) {
   final scope = scopeOf(watch, pane.id, pane.vars, const {}).inner;
   return [
     for (final item in pane.children)

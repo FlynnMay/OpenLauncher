@@ -15,13 +15,13 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// A primitive component as the catalogue offers it.
-typedef ComponentOffer = ({
-  String type,
+/// A node with one visual module, as the catalogue offers it.
+typedef VisualOffer = ({
+  String module,
   String label,
   double w,
   double h,
-  Map<String, Object?> options,
+  Map<String, Object?> values,
 });
 
 /// A file uploaded to the TV; [used] if the TV's config points at it.
@@ -32,7 +32,7 @@ class TvState {
   const TvState({
     required this.entities,
     required this.config,
-    required this.components,
+    required this.visuals,
     this.packs = const [],
     this.widgetProviders = const {},
     this.access = const {},
@@ -44,7 +44,7 @@ class TvState {
   final List<Entity> entities;
 
   final LauncherConfig config;
-  final List<ComponentOffer> components;
+  final List<VisualOffer> visuals;
 
   /// The packs installed on the TV.
   final List<Pack> packs;
@@ -142,21 +142,20 @@ class TvApi {
         },
         wallpapers: [for (final id in config.wallpapers) _mediaUrl(id)],
       ),
-      components: [
-        for (final Map component in json['components'] as List)
+      visuals: [
+        for (final Map visual in json['visuals'] as List)
           // One offer per app widget.
           for (final Map? provider
-              in component['type'] == 'android' ? providers : [null])
+              in visual['module'] == appWidgetModule.name ? providers : [null])
             (
-              type: component['type'] as String,
+              module: visual['module'] as String,
               label: provider == null
-                  ? component['label'] as String
+                  ? visual['label'] as String
                   : '${provider['app']}: ${provider['label']}',
-              w: (component['w'] as num).toDouble(),
-              h: (component['h'] as num).toDouble(),
-              options: {
-                ...?ComponentRegistry.named(component['type'] as String)
-                    ?.starter,
+              w: (visual['w'] as num).toDouble(),
+              h: (visual['h'] as num).toDouble(),
+              values: {
+                ...?moduleNamed(visual['module'] as String)?.starter,
                 'provider': ?provider?['id'],
               },
             ),

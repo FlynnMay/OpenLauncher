@@ -11,18 +11,13 @@ import '../support/packs.dart';
 void main() {
   final card = systemPrefabs.first;
   final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
-  const plain = Component(
-    id: 'a',
-    prefab: cardPrefabId,
-    vars: {'source': Variable('system:app/a', type: VarType.entity)},
-  );
+  final plain = cardOf('system:app/a', id: 'a');
 
   /// The component [id] of [instance] as it is drawn.
-  Component part(Component instance, String id, [Map<String, Prefab>? among]) =>
-      resolved(
-        instance,
-        among ?? prefabs,
-      ).all.firstWhere((part) => part.id == '${instance.id}/$id');
+  Node part(Node instance, String id, [Map<String, Prefab>? among]) => resolved(
+    instance,
+    among ?? prefabs,
+  ).all.firstWhere((part) => part.id == '${instance.id}/$id');
 
   test('a prefab is a saved component, written and read back as it was', () {
     final read = Prefab.fromJson(card.toJson())!;
@@ -30,7 +25,7 @@ void main() {
     expect(read.variants.keys, ['stacked', 'row']);
     // It is made of components like any on the screen.
     expect(read.root.isPane, isTrue);
-    expect(read.root.children.map((part) => (part.id, part.kind)), [
+    expect(read.root.children.map((part) => (part.id, part.visual?.name)), [
       ('picture', 'picture'),
       ('name', 'text'),
     ]);
@@ -45,14 +40,13 @@ void main() {
   test(
     'an entity is handed to the first entity variable, whatever its name',
     () {
-      const tile = Prefab(
+      final tile = Prefab(
         id: 'acme:tile',
         name: 'Tile',
-        root: Component(
+        root: Node.pane(
           id: 'root',
-          kind: 'pane',
           w: 2,
-          vars: {
+          vars: const {
             'title': Variable('Hi'),
             'thing': Variable(null, type: VarType.entity),
           },
@@ -65,10 +59,10 @@ void main() {
       expect(item.vars.keys, ['thing']);
       // One that takes no entity cannot show one.
       expect(
-        const Prefab(
+        Prefab(
           id: 'x',
           name: 'X',
-          root: Component(id: 'root', kind: 'pane'),
+          root: Node.pane(id: 'root'),
         ).instance('system:clock', id: 'c'),
         isNull,
       );
@@ -78,7 +72,7 @@ void main() {
   test('an instance is its prefab until it says otherwise', () {
     final drawn = resolved(plain, prefabs);
     expect((drawn.id, drawn.isPane, drawn.mode), ('a', true, PaneMode.column));
-    expect(part(plain, 'name').options['text'], '{{source.label}}');
+    expect(part(plain, 'name').values('text')?['text'], '{{source.label}}');
     expect(drawn.all.every((part) => !part.hidden), isTrue);
     // Its variables and triggers are the prefab's, with its own over them.
     expect(drawn.handed.firstOrNull, 'system:app/a');
@@ -113,8 +107,8 @@ void main() {
             'picture',
             {'hidden': true},
           ),
-          on: {Trigger.hold: const []},
-        );
+        )
+        .triggered({Trigger.hold: const []});
     final drawn = resolved(item, prefabs);
     expect(drawn.mode, PaneMode.row);
     // Its look is set over property by property: what the variant says of
@@ -140,14 +134,13 @@ void main() {
       ...prefabs,
       card.id: card.withPart(
         'name',
-        (name) => name.copyWith(
-          options: const {'text': 'App: {{source.label}}'},
-          style: const {'fontSize': 30},
-        ),
+        (name) => name
+            .withModule('text', const {'text': 'App: {{source.label}}'})
+            .styled(const {'fontSize': 30}),
       ),
     };
     expect(
-      part(item, 'name', changed).options['text'],
+      part(item, 'name', changed).values('text')?['text'],
       'App: {{source.label}}',
     );
     expect(part(item, 'name', changed).style['fontSize'], 20);
@@ -170,7 +163,9 @@ void main() {
           overrides: const {
             'name': {
               'hidden': true,
-              'style': {'fontSize': 20},
+              'modules': {
+                'style': {'fontSize': 20},
+              },
             },
           },
         );
@@ -188,7 +183,7 @@ void main() {
 
   test('what opens a folder is an instance too', () {
     final folder = cardOf('games', id: 'f', prefab: folderPrefabId);
-    expect(part(folder, 'picture').kind, 'folder');
+    expect(part(folder, 'picture').visual, previewModule);
     // What it does is set the `open` of whatever it was handed: said in
     // the prefab, against its `source`, like anything else.
     expect(resolved(folder, prefabs).on[Trigger.press], [
@@ -214,12 +209,14 @@ void main() {
     final own = Prefab(
       id: 'loud-card',
       name: 'Loud card',
-      root: const Component(
+      root: const Node(
         id: 'root',
         prefab: cardPrefabId,
         overrides: {
           'name': {
-            'style': {'fontSize': 40},
+            'modules': {
+              'style': {'fontSize': 40},
+            },
           },
         },
       ),
@@ -233,8 +230,12 @@ void main() {
   test('a card works out how its picture sits from the sort it was handed', () {
     Object? read(String template, Map<String, Object?> source) =>
         Template.parse(template).evaluate((root) => {'source': source}[root]);
-    final picture = card.root.children.first.options;
-    final small = card.variants['row']!.overrides['picture']!['options'] as Map;
+    final picture = card.root.children.first.values('picture')!;
+    final focus = card.root.values('focus')!;
+    final small =
+        (card.variants['row']!.overrides['picture']!['modules']!
+                as Map)['picture']
+            as Map;
     for (final (shape, fit, pad, tight, bare) in [
       ('banner', 'cover', 0, 0, false),
       ('icon', 'contain', 14, 4, false),
@@ -245,7 +246,7 @@ void main() {
       expect(read(picture['fit']! as String, source), fit, reason: '$shape');
       expect(read(picture['pad']! as String, source), pad, reason: '$shape');
       expect(read(small['pad'] as String, source), tight, reason: '$shape');
-      expect(read(picture['bare']! as String, source), bare, reason: '$shape');
+      expect(read(focus['bare']! as String, source), bare, reason: '$shape');
     }
     // What the weather is like and who a song is by are worked out by
     // their prefabs too, from what the entities say.

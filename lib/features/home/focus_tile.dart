@@ -118,6 +118,43 @@ class _PanePolicy extends ReadingOrderTraversalPolicy {
 }
 
 /// A focusable tile. OK selects; holding OK or pressing Menu opens its menu.
+/// Scrolls a whole screen of tiles, a layer's root or a docked pane, which
+/// centres the focused one.
+class ScreenScrollController extends ScrollController {}
+
+/// [child] scrolling down as a whole screen of tiles: see
+/// [ScreenScrollController].
+class ScreenScrollView extends StatefulWidget {
+  const ScreenScrollView({
+    super.key,
+    required this.child,
+    this.clipBehavior = Clip.hardEdge,
+  });
+
+  final Widget child;
+  final Clip clipBehavior;
+
+  @override
+  State<ScreenScrollView> createState() => _ScreenScrollViewState();
+}
+
+class _ScreenScrollViewState extends State<ScreenScrollView> {
+  final _controller = ScreenScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    controller: _controller,
+    clipBehavior: widget.clipBehavior,
+    child: widget.child,
+  );
+}
+
 class FocusTile extends StatefulWidget {
   const FocusTile({
     super.key,
@@ -170,8 +207,8 @@ class _FocusTileState extends State<FocusTile> {
   /// Margin kept around a tile when scrolling to it, for its focused size.
   static const _overhang = 12.0;
 
-  /// Scrolls the tile into view. The screen centres it; a pane scrolls as
-  /// little as needed, showing the top of a tile taller than itself.
+  /// Scrolls the tile into view. A layer's root centres it; a pane scrolls
+  /// as little as needed, showing the top of a tile taller than itself.
   void _reveal() {
     final object = context.findRenderObject();
     if (object == null) return;
@@ -185,9 +222,10 @@ class _FocusTileState extends State<FocusTile> {
     }
     // Each scrollable has one viewport, nested the same way.
     var viewport = RenderAbstractViewport.maybeOf(object);
-    for (final (index, scrollable) in around.indexed) {
+    for (final scrollable in around) {
       final position = scrollable.position;
-      if (index == around.length - 1 || viewport == null) {
+      if (scrollable.widget.controller is ScreenScrollController ||
+          viewport == null) {
         position.ensureVisible(
           object,
           alignment: 0.5,

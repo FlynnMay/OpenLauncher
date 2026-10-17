@@ -27,19 +27,19 @@ String? variantFor(Prefab template, String dock) {
 
 /// [template]'s root as [variant], a plain pane of id [id] that records
 /// the template. Its children get ids not in [used].
-Component madeFrom(
+Node madeFrom(
   Prefab template,
   String id,
   Set<String> used, {
   String? variant,
-}) => unpacked(Component(id: id, prefab: template.id, variant: variant), {
+}) => unpacked(Node(id: id, prefab: template.id, variant: variant), {
   template.id: template,
 }, used).copyWith(template: template.id);
 
 /// A new pane of id [id] made from [template]: docked at [dock] as the
 /// variant made for it, else where the template's root docks. Its children
 /// get ids not in [used].
-Component paneFrom(
+Node paneFrom(
   Prefab template,
   String id, {
   String? dock,
@@ -48,11 +48,13 @@ Component paneFrom(
   final made = madeFrom(template, id, {
     ...used,
   }, variant: dock == null ? null : variantFor(template, dock));
-  return dock == null ? made : made.withOption('dock', dock);
+  return dock == null
+      ? made
+      : made.withValue(dockModule.name, 'position', dock);
 }
 
 /// The docked panes in [layout] copied from [template].
-Iterable<Component> madeBy(Prefab template, Layout layout) =>
+Iterable<Node> madeBy(Prefab template, Layout layout) =>
     layout.docked.where((pane) => pane.template == template.id);
 
 /// [layout] with [template]'s look and chains on every pane copied from it:
@@ -64,15 +66,13 @@ Layout withTemplateApplied(Layout layout, Prefab template) {
     final made = paneFrom(template, pane.id, dock: pane.dock);
     next = next.withPane(
       pane.id,
-      (pane) => pane.copyWith(
-        style: made.style,
-        options: {
-          ...pane.options,
-          for (final key in dockKeys)
-            if (key != 'dock') key: made.options[key],
-        }..removeWhere((_, value) => value == null),
-        on: {...pane.on, ...made.on},
-      ),
+      (pane) => pane
+          .styled(made.style)
+          .withModule(dockModule.name, {
+            ...?made.values(dockModule.name),
+            'position': pane.dock,
+          })
+          .triggered({...pane.on, ...made.on}),
     );
   }
   return next;

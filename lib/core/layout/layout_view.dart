@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/layout_repair.dart';
+import 'package:openlauncher/core/modules/modules.dart';
+import 'package:openlauncher/core/nodes/node.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 
 /// [layout] with missing entities dropped and unplaced auto-placed ones in
@@ -31,21 +32,18 @@ Layout layoutWith(
 
 /// [entity] as an instance of its prefab, at that prefab's size, with an id
 /// free in [layout]; null if it has no prefab that takes it.
-Component? instanceFor(
-  Entity entity,
-  Layout layout,
-  Map<String, Prefab> prefabs,
-) => switch (entity.prefab) {
-  final prefab? => prefabs[prefab]?.instance(
-    entity.id,
-    id: layout.itemIdFor(Component.autoId(entity.id, entity.name)),
-  ),
-  null => null,
-};
+Node? instanceFor(Entity entity, Layout layout, Map<String, Prefab> prefabs) =>
+    switch (entity.prefab) {
+      final prefab? => prefabs[prefab]?.instance(
+        entity.id,
+        id: layout.itemIdFor(Node.autoId(entity.id, entity.name)),
+      ),
+      null => null,
+    };
 
 /// [item] as the pane it resolves to, if that is docked: an instance of a
 /// docked prefab docks like one.
-Component? dockedForm(Component item, Map<String, Prefab> prefabs) {
+Node? dockedForm(Node item, Map<String, Prefab> prefabs) {
   if (!item.isInstance) return null;
   final pane = resolved(item, prefabs);
   return pane.isDocked ? pane : null;

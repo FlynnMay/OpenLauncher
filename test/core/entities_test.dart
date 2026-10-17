@@ -241,7 +241,7 @@ void main() {
               container.read,
               await container.read(entitiesProvider.future),
             ))
-              item.options['label'] as String,
+              item.vars['label']!.value! as String,
           ];
         }
 
@@ -324,13 +324,9 @@ void main() {
     );
 
     test('a thing does what was set for it, else the usual for its kind', () {
-      const entity = Component(
-        id: 'a',
-        prefab: cardPrefabId,
-        vars: {'source': Variable('system:app/a', type: VarType.entity)},
-      );
+      final entity = cardOf('system:app/a', id: 'a');
       // What an instance does is its prefab's to say, unless it says.
-      Triggers does(Component item) =>
+      Triggers does(Node item) =>
           resolved(item, {cardPrefabId: systemPrefabs.first}).on;
       expect(entity.on, isEmpty);
       expect(does(entity), {
@@ -350,17 +346,20 @@ void main() {
           }),
         ],
       });
-      final quiet = Component.fromJson({
+      final quiet = Node.fromJson({
         ...entity.toJson(),
-        'on': {
-          'hold': <Object?>[],
-          'focus': [
-            {'do': 'system:media', 'command': 'pause'},
-            {'no': 'name'},
-          ],
-          'shake': [
-            {'do': 'open'},
-          ],
+        'modules': {
+          ...entity.modules,
+          'triggers': {
+            'hold': <Object?>[],
+            'focus': [
+              {'do': 'system:media', 'command': 'pause'},
+              {'no': 'name'},
+            ],
+            'shake': [
+              {'do': 'open'},
+            ],
+          },
         },
       });
       expect(does(quiet), {
@@ -372,7 +371,7 @@ void main() {
           const Act('system:media', {'command': 'pause'}),
         ],
       });
-      expect(Component.fromJson(quiet.toJson()).on, quiet.on);
+      expect(Node.fromJson(quiet.toJson()).on, quiet.on);
       expect(entity.toJson().containsKey('on'), isFalse);
     });
   });

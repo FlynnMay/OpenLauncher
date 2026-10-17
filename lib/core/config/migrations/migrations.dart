@@ -59,7 +59,8 @@ const migrations = <Migration>[
     what:
         'Operations named by address; feeds are sources; pack ids; quick '
         'actions as a prefab; folders and sidebars record their template; '
-        'docked panes say whether a press closes them',
+        'docked panes say whether a press closes them; nodes with '
+        'modules',
     rules: [
       operationsByAddress,
       feedsAsSources,
@@ -67,6 +68,7 @@ const migrations = <Migration>[
       quickActionsAsPrefab,
       templatesRecorded,
       closeOnPressRecorded,
+      nodesAndModules,
     ],
   ),
 ];

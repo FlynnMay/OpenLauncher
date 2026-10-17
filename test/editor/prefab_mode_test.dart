@@ -52,8 +52,8 @@ void main() {
                 config:
                     config ??
                     LauncherConfig(layout: homeLayout(['system:app/a'])),
-                components: const [
-                  (type: 'text', label: 'Text', w: 2, h: 1, options: {}),
+                visuals: const [
+                  (module: 'text', label: 'Text', w: 2, h: 1, values: {}),
                 ],
               ),
             ),
@@ -242,7 +242,7 @@ void main() {
               folderPane(
                 'games',
                 title: 'Games',
-              ).copyWith(style: const {'background': '#ff0000ff'}),
+              ).styled(const {'background': '#ff0000ff'}),
             ],
           ),
         ),
@@ -269,7 +269,7 @@ void main() {
     await press(tester, find.widgetWithText(FilledButton, 'Apply'));
     final games = ref.read(configProvider).value!.layout.pane('games')!;
     expect(games.style, systemPrefab(folderTemplateId).root.style);
-    expect(games.title, 'Games');
+    expect(games.name, 'Games');
     expect(tester.takeException(), isNull);
   });
 
@@ -348,15 +348,15 @@ void main() {
           Prefab(
             id: 'inner',
             name: 'Inner',
-            root: Component.pane(
+            root: Node.pane(
               id: 'root',
               mode: PaneMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
-              children: const [
-                Component(
-                  id: 'label',
-                  kind: 'text',
-                  options: {'text': '{{source.label}}'},
+              children: [
+                drawn(
+                  'label',
+                  textModule.name,
+                  values: const {'text': '{{source.label}}'},
                 ),
               ],
             ),
@@ -364,17 +364,19 @@ void main() {
           Prefab(
             id: 'outer',
             name: 'Outer',
-            root: Component.pane(
+            root: Node.pane(
               id: 'root',
               mode: PaneMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
               children: const [
                 // Hands on what it was handed.
-                Component(
+                Node(
                   id: 'in',
                   prefab: 'inner',
-                  vars: {
-                    'source': Variable('{{source.id}}', type: VarType.entity),
+                  modules: {
+                    'variables': {
+                      'source': {'value': '{{source.id}}', 'type': 'entity'},
+                    },
                   },
                 ),
               ],

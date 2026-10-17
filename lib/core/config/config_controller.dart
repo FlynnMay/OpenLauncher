@@ -62,7 +62,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   );
 
   /// Adds [item] to pane [pane].
-  Future<void> addItem(Component item, String pane) => _update(
+  Future<void> addItem(Node item, String pane) => _update(
     (c) => c.copyWith(layout: c.layout.withAdded(item, pane).normalised()),
   );
 

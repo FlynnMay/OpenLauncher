@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -9,10 +8,10 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
-/// A pane's display name: its title, else where it docks.
-String paneName(Component pane) {
-  // A written title reads variables; it is not a name.
-  final title = pane.title.contains('{{') ? '' : pane.title;
+/// A pane's display name: its name, else where it docks.
+String paneName(Node pane) {
+  // A written name reads variables; it is not one to show.
+  final title = pane.name.contains('{{') ? '' : pane.name;
   if (title.isNotEmpty) return title;
   return switch (pane.dock) {
     final dock? => '${barName(dock)} pane',
@@ -20,10 +19,10 @@ String paneName(Component pane) {
   };
 }
 
-/// A component's display name: its entity's or folder's for an instance,
-/// else its prefab's; its title for a pane, its label for a button.
+/// A node's display name: its entity's or folder's for an instance, else its
+/// prefab's; its own name, else what it draws.
 String objectName(
-  Component item,
+  Node item,
   Layout? layout,
   List<Entity> entities, {
   Map<String, Prefab> prefabs = const {},
@@ -37,13 +36,12 @@ String objectName(
         };
   }
   if (item.isPane) return paneName(item);
-  return switch (item.options['label']) {
-    final String label when label.isNotEmpty && !label.contains('{{') => label,
-    _ => ComponentRegistry.named(item.kind)?.label ?? 'Component',
-  };
+  return item.name.isNotEmpty && !item.name.contains('{{')
+      ? item.name
+      : item.visual?.label ?? 'Node';
 }
 
-IconData objectIcon(Component item) => item.isInstance
+IconData objectIcon(Node item) => item.isInstance
     ? prefabIcon
     : !item.isPane
     ? Icons.widgets_outlined
@@ -76,7 +74,7 @@ class ObjectTree extends ConsumerWidget {
     final real = ref.watch(configProvider).value?.layout;
     final theme = Theme.of(context);
 
-    List<TreeNode<String>> under(Component pane) => [
+    List<TreeNode<String>> under(Node pane) => [
       for (final item in pane.children)
         TreeNode(
           id: item.id,

@@ -20,14 +20,14 @@ class Dragged {
     required this.label,
     required this.picture,
     required Prefab this.template,
-  }) : item = const Component(id: 'docking'),
+  }) : item = const Node(id: 'docking'),
        opens = null,
        placed = false;
 
-  final Component item;
+  final Node item;
 
   /// The new docked pane that [item] opens, if any.
-  final Component? opens;
+  final Node? opens;
 
   /// Whether [item] is already in the layout.
   final bool placed;

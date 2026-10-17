@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -71,7 +70,7 @@ void main() {
             body: StatefulBuilder(
               builder: (context, setState) => Column(
                 children: optionFields(
-                  options: ComponentRegistry.icon.options,
+                  options: iconModule.fields,
                   values: values,
                   onChanged: (next) => setState(() => values = next),
                 ),
@@ -159,11 +158,7 @@ void main() {
       (pane) => pane.copyWith(
         children: [
           ...pane.children,
-          const Component(
-            id: 'b',
-            kind: 'button',
-            options: {'label': 'Lamp', 'icon': 'mdi:lamp'},
-          ),
+          drawn('b', iconModule.name, values: const {'icon': 'mdi:lamp'}),
         ],
       ),
     );
@@ -196,7 +191,7 @@ void main() {
                       ),
                     ],
                     config: LauncherConfig(layout: layout),
-                    components: const [],
+                    visuals: const [],
                     packs: const [materialPack, _mdi],
                   ),
                 ),
@@ -256,7 +251,7 @@ void main() {
               TvState(
                 entities: const [],
                 config: LauncherConfig(layout: homeLayout()),
-                components: const [],
+                visuals: const [],
                 packs: const [materialPack],
               ),
             ),
@@ -285,7 +280,7 @@ void main() {
               'entities': [],
               'layout': homeLayout().toJson(),
               'config': <String, Object?>{},
-              'components': [],
+              'visuals': [],
               'widgetProviders': [],
               'packs': [_mdi.toJson(), 'not a pack'],
             };

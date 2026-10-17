@@ -10,9 +10,9 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/node_view.dart';
 import 'package:openlauncher/features/home/pane_grid.dart';
 import 'package:openlauncher/features/home/pane_scrollbar.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -83,31 +83,27 @@ void main() {
 
     /// A home layer of [panes] one under another, each five rows tall, with
     /// room on the left for a sidebar, and [docked] on it.
-    Layer home(List<Component> panes, [List<Component> docked = const []]) =>
-        Layer(
-          id: Layout.homeId,
-          root: Component.pane(
-            id: 'global',
-            mode: PaneMode.grid,
-            columns: 12,
-            children: [
-              for (final (index, pane) in panes.indexed)
-                pane.sized(10, 5, x: 2, y: index * 5.0),
-              ...docked,
-            ],
-          ),
-        );
+    Layer home(List<Node> panes, [List<Node> docked = const []]) => Layer(
+      id: Layout.homeId,
+      root: Node.pane(
+        id: 'global',
+        mode: PaneMode.grid,
+        columns: 12,
+        children: [
+          for (final (index, pane) in panes.indexed)
+            pane.sized(10, 5, x: 2, y: index * 5.0),
+          ...docked,
+        ],
+      ),
+    );
 
     /// The docked pane [id] as drawn.
     Finder dock(String id) => find.byWidgetPredicate(
       (widget) => widget is DockedPane && widget.pane.id == id,
     );
 
-    Component entity(String package) => Component(
-      id: 'i-$package',
-      prefab: cardPrefabId,
-      vars: {'source': Variable('system:app/$package', type: VarType.entity)},
-    );
+    Node entity(String package) =>
+        cardOf('system:app/$package', id: 'i-$package');
 
     testWidgets('holding OK offers quick actions instead of opening', (
       tester,
@@ -158,14 +154,16 @@ void main() {
     testWidgets('a menu goes by its entity variable, whatever its name', (
       tester,
     ) async {
-      Component button(String label, String action) => Component(
+      Node button(String label, String action) => Node(
         id: 'pick-$action',
-        kind: 'button',
-        options: {'label': label},
-        on: {
-          Trigger.press: [
-            Act(action, {'entity': '{{target.id}}'}),
-          ],
+        prefab: 'system:button',
+        modules: {
+          variablesModule.name: {'label': label},
+          triggersModule.name: triggersToJson({
+            Trigger.press: [
+              Act(action, {'entity': '{{target.id}}'}),
+            ],
+          }),
         },
       );
       await pumpApp(
@@ -175,17 +173,18 @@ void main() {
             inbox: 'main',
             layers: [
               home(
-                [Component.pane(id: 'main')],
+                [Node.pane(id: 'main')],
                 [
-                  folderPane('pick').copyWith(
-                    vars: const {
-                      'target': Variable(null, type: VarType.entity),
-                    },
-                    children: [
-                      button('Start it', 'open'),
-                      button('Play it', 'playPause'),
-                    ],
-                  ),
+                  folderPane('pick')
+                      .withVars(const {
+                        'target': Variable(null, type: VarType.entity),
+                      })
+                      .copyWith(
+                        children: [
+                          button('Start it', 'open'),
+                          button('Play it', 'playPause'),
+                        ],
+                      ),
                 ],
               ),
             ],
@@ -227,9 +226,9 @@ void main() {
             layers: [
               home(
                 [
-                  Component.pane(
+                  Node.pane(
                     id: 'top',
-                    title: 'Favourites',
+                    name: 'Favourites',
                     mode: PaneMode.grid,
                     columns: 4,
                     children: [
@@ -253,12 +252,12 @@ void main() {
                       ),
                     ],
                   ),
-                  Component.pane(id: 'main'),
+                  Node.pane(id: 'main'),
                 ],
                 [
                   folderPane('games', title: 'Games')
-                      .withOption('dock', 'bottom')
-                      .withOption('height', 270)
+                      .withValue(dockModule.name, 'position', 'bottom')
+                      .withValue(dockModule.name, 'height', 270)
                       .copyWith(children: [entity('pkg.b')]),
                 ],
               ),
@@ -293,7 +292,7 @@ void main() {
             inbox: 'main',
             layers: [
               home([
-                Component.pane(
+                Node.pane(
                   id: 'main',
                   style: const {
                     'background': {
@@ -303,16 +302,10 @@ void main() {
                     'borderColor': '#ffffff55',
                   },
                   children: [
-                    const Component(
+                    cardOf(
+                      'system:app/pkg.a',
                       id: 'a',
-                      prefab: cardPrefabId,
-                      vars: {
-                        'source': Variable(
-                          'system:app/pkg.a',
-                          type: VarType.entity,
-                        ),
-                      },
-                      style: {'background': '#b71c1c'},
+                      style: const {'background': '#b71c1c'},
                     ),
                   ],
                 ),
@@ -366,19 +359,13 @@ void main() {
             inbox: 'main',
             layers: [
               home([
-                Component.pane(
+                Node.pane(
                   id: 'main',
                   children: [
-                    Component(
+                    cardOf(
+                      'system:app/pkg.a',
                       id: 'a',
-                      prefab: cardPrefabId,
-                      vars: {
-                        'source': Variable(
-                          'system:app/pkg.a',
-                          type: VarType.entity,
-                        ),
-                      },
-                      overrides: {
+                      overrides: const {
                         'name': {'hidden': true},
                       },
                     ),
@@ -422,7 +409,7 @@ void main() {
     testWidgets('a pane pads the same with or without a background', (
       tester,
     ) async {
-      Component pane(String id, String package, Style style) => Component.pane(
+      Node pane(String id, String package, Style style) => Node.pane(
         id: id,
         columns: 2,
         style: style,
@@ -452,8 +439,7 @@ void main() {
             .ancestor(
               of: find.text(name).first,
               matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is ComponentView && widget.component.isInstance,
+                (widget) => widget is NodeView && widget.component.isInstance,
               ),
             )
             .first,
@@ -474,9 +460,12 @@ void main() {
       ]) {
         expect(
           entity.left - pane.left,
-          closeTo(Component.defaultPadding, 1e-6),
+          closeTo(LayoutModule.defaultPadding, 1e-6),
         );
-        expect(entity.top - pane.top, closeTo(Component.defaultPadding, 1e-6));
+        expect(
+          entity.top - pane.top,
+          closeTo(LayoutModule.defaultPadding, 1e-6),
+        );
       }
     });
 
@@ -492,14 +481,14 @@ void main() {
             layers: [
               Layer(
                 id: Layout.homeId,
-                root: Component.pane(
+                root: Node.pane(
                   id: 'global',
                   mode: PaneMode.grid,
                   columns: 12,
                   children: [
                     // One row tall, but its two columns make entities far
                     // taller than that.
-                    Component.pane(
+                    Node.pane(
                       id: 'short',
                       columns: 2,
                       children: [entity('pkg.a'), entity('pkg.b')],
@@ -521,7 +510,7 @@ void main() {
         find.ancestor(
           of: find.text(name),
           matching: find.byWidgetPredicate(
-            (widget) => widget is ComponentView && widget.component.isInstance,
+            (widget) => widget is NodeView && widget.component.isInstance,
           ),
         ),
       );
@@ -551,7 +540,7 @@ void main() {
     });
 
     testWidgets('a pane scrolls the ways it is set to', (tester) async {
-      Future<void> pump(Map<String, Object?> rules) => pumpApp(
+      Future<void> pump([Map<String, Object?>? scroll]) => pumpApp(
         tester,
         LauncherConfig(
           layout: Layout(
@@ -559,10 +548,10 @@ void main() {
             removed: const {'system:settings'},
             layers: [
               home([
-                Component.pane(
+                Node.pane(
                   id: 'p',
                   columns: 2,
-                  rules: rules,
+                  scroll: scroll,
                   children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
                 ),
               ]),
@@ -575,7 +564,7 @@ void main() {
         find.ancestor(
           of: find.text(name),
           matching: find.byWidgetPredicate(
-            (widget) => widget is ComponentView && widget.component.isInstance,
+            (widget) => widget is NodeView && widget.component.isInstance,
           ),
         ),
       );
@@ -589,7 +578,7 @@ void main() {
           .map((view) => view.scrollDirection);
 
       // As it comes: wrapped at its columns, scrolling down.
-      await pump(const {});
+      await pump();
       expect(scrolls(), [Axis.vertical]);
       expect(tile('Gamma').top, greaterThan(tile('Alpha').top));
       expect(tile('Gamma').left, tile('Alpha').left);
@@ -597,7 +586,7 @@ void main() {
       // Across: one row, its cells no narrower, the third out of sight until
       // the focus gets there.
       final cell = tile('Alpha').size;
-      await pump(const {'scrollX': true, 'scrollY': false});
+      await pump(const {'across': true});
       await tester.pumpAndSettle();
       expect(scrolls(), [Axis.horizontal]);
       final pane = of(find.byType(PaneBox));
@@ -615,17 +604,17 @@ void main() {
       expect(platform.launched, ['pkg.c']);
 
       // Neither: nothing in it scrolls.
-      await pump(const {'scrollY': false});
+      await pump(const {});
       await tester.pumpAndSettle();
       expect(scrolls(), isEmpty);
       expect(tile('Gamma').top, greaterThan(tile('Alpha').top));
     });
 
     test('cells measure the same from the whole grid as from the pane', () {
-      final pane = Component.pane(
+      final pane = Node.pane(
         id: 'p',
         columns: 2,
-        rules: const {'scrollX': true},
+        scroll: const {'across': true},
         children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
       );
       final shown = PaneMetrics.shown(pane, 400);
@@ -634,7 +623,10 @@ void main() {
       expect(whole.cellWidth, closeTo(shown.cellWidth, 1e-9));
       expect(
         shown.cellWidth,
-        PaneMetrics(pane.withOption('scrollX', null), 400).cellWidth,
+        PaneMetrics(
+          pane.withValue(scrollModule.name, 'across', null),
+          400,
+        ).cellWidth,
       );
     });
 
@@ -722,11 +714,10 @@ void main() {
               removed: const {'system:settings'},
               layers: [
                 home([
-                  Component.pane(
+                  Node.pane(
                     id: 'p',
                     columns: 2,
-                    rules: {'scrollX': true, 'scrollY': false, ...rules},
-                    style: style,
+                    scroll: {'across': true, ...rules, ...style},
                     children: [
                       entity('pkg.a'),
                       entity('pkg.b'),
@@ -750,7 +741,7 @@ void main() {
 
       // Two of three columns in view: a thumb two thirds of the track.
       await pump(
-        const {'scrollbar': 'thumb'},
+        const {'bar': 'thumb'},
         const {'scrollbarThumb': '#ff0000', 'scrollbarSize': 10},
       );
       await tester.pumpAndSettle();
@@ -783,7 +774,7 @@ void main() {
 
       // Progress: a track, and a fill that is all of it at the end.
       await pump(
-        const {'scrollbar': 'progress'},
+        const {'bar': 'progress'},
         const {'scrollbarThumb': '#ff0000', 'scrollbarSize': 10},
       );
       await tester.pumpAndSettle();
@@ -801,7 +792,7 @@ void main() {
       );
 
       // One that hides is gone a while after the last movement.
-      await pump(const {'scrollbar': 'thumb', 'scrollbarShow': 'auto'});
+      await pump(const {'bar': 'thumb', 'show': 'auto'});
       double shown() => tester
           .widget<FadeTransition>(
             find.descendant(of: bars, matching: find.byType(FadeTransition)),
@@ -821,10 +812,10 @@ void main() {
     });
 
     testWidgets('a row scrolls along itself when set to', (tester) async {
-      Component label(String id) => Component(
-        id: id,
-        kind: 'text',
-        options: {'text': id},
+      Node label(String id) => drawn(
+        id,
+        textModule.name,
+        values: {'text': id},
         on: {
           Trigger.press: const [
             Act('open', {'entity': 'system:app/pkg.a'}),
@@ -845,15 +836,16 @@ void main() {
             layers: [
               Layer(
                 id: Layout.homeId,
-                root: Component.pane(
+                root: Node.pane(
                   id: 'global',
                   mode: PaneMode.grid,
                   columns: 12,
                   children: [
-                    Component.pane(
+                    Node.pane(
                       id: 'line',
                       mode: PaneMode.row,
-                      rules: {'gap': 400, ...rules},
+                      layout: const {'gap': 400},
+                      scroll: rules,
                       children: [
                         for (final id in ['one', 'two', 'three', 'four'])
                           label(id),
@@ -877,7 +869,7 @@ void main() {
         of: line,
         matching: find.byType(SingleChildScrollView),
       );
-      await pump(const {'scrollX': true});
+      await pump(const {'across': true});
       expect(tester.takeException(), isNull);
       expect(
         tester.widget<SingleChildScrollView>(scroll()).scrollDirection,
@@ -905,7 +897,7 @@ void main() {
             inbox: 'main',
             layers: [
               home(
-                [Component.pane(id: 'main')],
+                [Node.pane(id: 'main')],
                 [
                   sidebarPane(
                     'left',
@@ -942,7 +934,7 @@ void main() {
 
     testWidgets('a sidebar opens the way it is set to', (tester) async {
       List<String> choices(String rule) => [
-        ...dockRules(sidebarPane('left', 'left'))
+        ...dockModule.fields
             .firstWhere((option) => option.key == rule)
             .choices
             .keys,
@@ -956,11 +948,11 @@ void main() {
                 inbox: 'main',
                 layers: [
                   home(
-                    [Component.pane(id: 'main')],
+                    [Node.pane(id: 'main')],
                     [
                       sidebarPane('left', 'left')
-                          .withOption('opening', opening)
-                          .withOption('reveal', reveal)
+                          .withValue(dockModule.name, 'opening', opening)
+                          .withValue(dockModule.name, 'reveal', reveal)
                           .copyWith(children: [entity('pkg.c')]),
                     ],
                   ),
@@ -1004,7 +996,7 @@ void main() {
             inbox: 'main',
             layers: [
               home(
-                [Component.pane(id: 'main')],
+                [Node.pane(id: 'main')],
                 [
                   sidebarPane(
                     'top',

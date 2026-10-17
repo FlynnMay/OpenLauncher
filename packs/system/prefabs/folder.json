@@ -5,38 +5,44 @@
   "card": "folder-card",
   "root": {
     "id": "root",
-    "kind": "pane",
-    "options": {
-      "title": "Folder",
-      "mode": "flow",
-      "columns": 4,
-      "dock": "center",
-      "opening": "instant",
-      "closeOnPress": true
-    },
-    "style": {
-      "background": "#1a1c23fa",
-      "radius": 18,
-      "padding": 28
-    },
-    "on": {
-      "reveal": [
-        {
-          "run": "launcher://layers/new",
-          "with": {
-            "dim": 0.54,
-            "modal": true
+    "name": "Folder",
+    "modules": {
+      "layout": {
+        "mode": "flow",
+        "columns": 4
+      },
+      "dock": {
+        "position": "center",
+        "opening": "instant",
+        "closeOnPress": true
+      },
+      "scroll": {
+        "down": true
+      },
+      "style": {
+        "background": "#1a1c23fa",
+        "radius": 18,
+        "padding": 28
+      },
+      "triggers": {
+        "reveal": [
+          {
+            "run": "launcher://layers/new",
+            "with": {
+              "dim": 0.54,
+              "modal": true
+            }
+          },
+          {
+            "run": "launcher://layers/raise"
           }
-        },
-        {
-          "run": "launcher://layers/raise"
-        }
-      ],
-      "hide": [
-        {
-          "run": "launcher://layers/close"
-        }
-      ]
+        ],
+        "hide": [
+          {
+            "run": "launcher://layers/close"
+          }
+        ]
+      }
     }
   }
 }

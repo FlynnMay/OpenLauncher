@@ -3,111 +3,117 @@
   "name": "Weather",
   "root": {
     "id": "root",
-    "kind": "pane",
-    "transform": {
-      "w": 2
-    },
-    "options": {
-      "mode": "row",
-      "fit": true,
-      "gap": 14
-    },
-    "vars": {
-      "source": {
-        "value": "weather",
-        "type": "entity"
+    "modules": {
+      "layout": {
+        "mode": "row",
+        "fit": true,
+        "gap": 14
       },
-      "icon": {
-        "when": "{{source.sky}}",
-        "cases": [
-          {
-            "equals": "clear",
-            "then": "material:sunny"
-          },
-          {
-            "equals": "partlyCloudy",
-            "then": "material:partly_cloudy_day"
-          },
-          {
-            "equals": "cloudy",
-            "then": "material:cloud"
-          },
-          {
-            "equals": "fog",
-            "then": "material:foggy"
-          },
-          {
-            "equals": "snow",
-            "then": "material:weather_snowy"
-          },
-          {
-            "equals": "storm",
-            "then": "material:thunderstorm"
-          }
-        ],
-        "else": "material:rainy",
-        "exposed": false
+      "variables": {
+        "source": {
+          "value": "weather",
+          "type": "entity"
+        },
+        "icon": {
+          "when": "{{source.sky}}",
+          "cases": [
+            {
+              "equals": "clear",
+              "then": "material:sunny"
+            },
+            {
+              "equals": "partlyCloudy",
+              "then": "material:partly_cloudy_day"
+            },
+            {
+              "equals": "cloudy",
+              "then": "material:cloud"
+            },
+            {
+              "equals": "fog",
+              "then": "material:foggy"
+            },
+            {
+              "equals": "snow",
+              "then": "material:weather_snowy"
+            },
+            {
+              "equals": "storm",
+              "then": "material:thunderstorm"
+            }
+          ],
+          "else": "material:rainy",
+          "exposed": false
+        },
+        "summary": {
+          "when": "{{source.high}}",
+          "cases": [
+            {
+              "equals": "",
+              "then": "{{source.description}}"
+            }
+          ],
+          "else": "{{source.description}}  ·  {{source.high | round}}° / {{source.low | round}}°",
+          "exposed": false
+        }
       },
-      "summary": {
-        "when": "{{source.high}}",
-        "cases": [
-          {
-            "equals": "",
-            "then": "{{source.description}}"
-          }
-        ],
-        "else": "{{source.description}}  ·  {{source.high | round}}° / {{source.low | round}}°",
-        "exposed": false
+      "sizing": {
+        "w": 2
       }
     },
     "children": [
       {
         "id": "icon",
-        "kind": "icon",
-        "options": {
-          "icon": "{{icon}}",
-          "size": 46
+        "modules": {
+          "icon": {
+            "icon": "{{icon}}",
+            "size": 46
+          }
         }
       },
       {
         "id": "lines",
-        "kind": "pane",
-        "options": {
-          "mode": "column",
-          "fit": true,
-          "align": "start"
+        "modules": {
+          "layout": {
+            "mode": "column",
+            "fit": true,
+            "align": "start"
+          }
         },
         "children": [
           {
             "id": "temperature",
-            "kind": "text",
-            "options": {
-              "text": "{{source | default:Choose a place in the editor}}"
-            },
-            "style": {
-              "fontSize": 38
+            "modules": {
+              "text": {
+                "text": "{{source | default:Choose a place in the editor}}"
+              },
+              "style": {
+                "fontSize": 38
+              }
             }
           },
           {
             "id": "summary",
-            "kind": "text",
-            "options": {
-              "text": "{{summary}}"
-            },
-            "style": {
-              "fontSize": 14,
-              "color": "#ffffffb3"
+            "modules": {
+              "text": {
+                "text": "{{summary}}"
+              },
+              "style": {
+                "fontSize": 14,
+                "color": "#ffffffb3"
+              }
             }
           },
           {
             "id": "place",
-            "kind": "text",
-            "options": {
-              "text": "{{source.place}}"
-            },
-            "style": {
-              "fontSize": 14,
-              "color": "#ffffff8a"
+            "modules": {
+              "text": {
+                "text": "{{source.place}}"
+              },
+              "style": {
+                "fontSize": 14,
+                "color": "#ffffff8a"
+              }
             }
           }
         ]

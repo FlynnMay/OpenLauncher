@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -21,14 +23,13 @@ class FirstFocus {
 class PaneMetrics {
   /// From the width of its whole grid, which is wider than the pane when it
   /// scrolls across.
-  PaneMetrics(Component pane, double width)
-    : this._(pane, width, columnsOf(pane));
+  PaneMetrics(Node pane, double width) : this._(pane, width, columnsOf(pane));
 
   /// From the width the pane shows.
-  PaneMetrics.shown(Component pane, double width)
+  PaneMetrics.shown(Node pane, double width)
     : this._(pane, width, pane.columns);
 
-  PaneMetrics._(Component pane, double width, int columns)
+  PaneMetrics._(Node pane, double width, int columns)
     : gapX = pane.spacingX,
       gapY = pane.spacingY,
       cellWidth = (width - (columns - 1) * pane.spacingX) / columns,
@@ -62,7 +63,7 @@ class PaneMetrics {
 class PaneFrame extends InheritedWidget {
   const PaneFrame({super.key, required this.wrap, required super.child});
 
-  final Widget Function(Component pane, Widget grid) wrap;
+  final Widget Function(Node pane, Widget grid) wrap;
 
   @override
   bool updateShouldNotify(PaneFrame oldWidget) => wrap != oldWidget.wrap;
@@ -72,8 +73,8 @@ class PaneFrame extends InheritedWidget {
 class PaneGrid extends StatelessWidget {
   const PaneGrid({super.key, required this.pane, required this.tile});
 
-  final Component pane;
-  final Widget Function(Component component) tile;
+  final Node pane;
+  final Widget Function(Node component) tile;
 
   /// Cell width over height.
   static const cellRatio = 1.45;
@@ -81,9 +82,31 @@ class PaneGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pane = this.pane;
+    final grid = pane.mode == PaneMode.free ? _free(context) : _cells(context);
+    // Children can read the pane's variables.
+    final scoped = pane.vars.isEmpty
+        ? grid
+        : Consumer(
+            builder: (context, ref, child) => TemplateScope(
+              values: scopeOf(
+                ref.watch,
+                pane.id,
+                pane.vars,
+                TemplateScope.of(context),
+              ).inner,
+              child: child!,
+            ),
+            child: grid,
+          );
+    return StyleScope.under(context, pane.style, scoped);
+  }
+
+  /// Children on cells.
+  Widget _cells(BuildContext context) {
+    final pane = this.pane;
     final shown = pane.shown;
     final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
-    final grid = LayoutBuilder(
+    return LayoutBuilder(
       builder: (context, constraints) {
         final metrics = PaneMetrics.shown(pane, constraints.maxWidth);
         final placements = placementsOf(pane);
@@ -123,22 +146,45 @@ class PaneGrid extends StatelessWidget {
             : framed;
       },
     );
-    // Children can read the pane's variables.
-    final scoped = pane.vars.isEmpty
-        ? grid
-        : Consumer(
-            builder: (context, ref, child) => TemplateScope(
-              values: scopeOf(
-                ref.watch,
-                pane.id,
-                pane.vars,
-                TemplateScope.of(context),
-              ).inner,
-              child: child!,
+  }
+
+  /// Children where their transforms put them. Without a height to anchor to
+  /// it is as tall as what is in it.
+  Widget _free(BuildContext context) {
+    final pane = this.pane;
+    final frame = context.dependOnInheritedWidgetOfExactType<PaneFrame>();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : pane.children.fold(
+                0.0,
+                (tallest, child) =>
+                    max(tallest, child.transform.rectIn(Size(width, 0)).bottom),
+              );
+        final size = Size(width, height);
+        final placed = SizedBox.fromSize(
+          size: size,
+          child: PaneScope(
+            panes: [...PaneScope.of(context), pane.id],
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final child in pane.shown)
+                  if (!child.hidden && !child.isDocked)
+                    Positioned.fromRect(
+                      key: ValueKey(child.id),
+                      rect: child.transform.rectIn(size),
+                      child: tile(child),
+                    ),
+              ],
             ),
-            child: grid,
-          );
-    return StyleScope.under(context, pane.style, scoped);
+          ),
+        );
+        return frame == null ? placed : frame.wrap(pane, placed);
+      },
+    );
   }
 }
 
@@ -148,14 +194,15 @@ class PaneGrid extends StatelessWidget {
 class PaneBox extends ConsumerWidget {
   const PaneBox({
     super.key,
+    this.screen = false,
     required this.pane,
     required this.tile,
     this.shrink = false,
     this.placeholder,
   });
 
-  final Component pane;
-  final Widget Function(Component component) tile;
+  final Node pane;
+  final Widget Function(Node component) tile;
 
   /// As tall as what is in it, where it has the room to be.
   final bool shrink;
@@ -163,8 +210,12 @@ class PaneBox extends ConsumerWidget {
   /// Shown while there is nothing in it.
   final String? placeholder;
 
-  static BorderRadius shapeOf(Component pane) =>
-      styleShape(pane.box, Component.defaultCorner);
+  /// It is a whole screen of tiles, a docked pane: it centres the focused
+  /// one as it scrolls.
+  final bool screen;
+
+  static BorderRadius shapeOf(Node pane) =>
+      styleShape(pane.box, LayoutModule.defaultCorner);
 
   static const _underTitle = 10.0;
 
@@ -177,21 +228,21 @@ class PaneBox extends ConsumerWidget {
     final outer = TemplateScope.of(context);
     final look = readStyle(ref.watch, pane.style, outer);
     final box = BoxStyle.of(look);
-    final padding = box.padding ?? Component.defaultPadding;
-    // The title may read the pane's own variables.
-    final title = !pane.title.contains('{{')
-        ? pane.title
+    final padding = box.padding ?? LayoutModule.defaultPadding;
+    // Its name is its heading, and may read its own variables.
+    final title = !pane.name.contains('{{')
+        ? pane.name
         : valueText(
             readTemplate(
               ref.watch,
-              pane.title,
+              pane.name,
               scopeOf(ref.watch, pane.id, pane.vars, outer).own,
             ),
           );
     final titled = title.isNotEmpty;
     final fill = styleFill(box);
     final border = box.border;
-    final shape = styleShape(box, Component.defaultCorner);
+    final shape = styleShape(box, LayoutModule.defaultCorner);
     final grid = PaneGrid(pane: pane, tile: tile);
     final padded = Padding(
       padding: EdgeInsets.fromLTRB(
@@ -216,10 +267,12 @@ class PaneBox extends ConsumerWidget {
     // What does not scroll is cut off at the box.
     final scroll = PaneScrollbars.over(
       pane,
-      look,
-      pane.scrollsDown
-          ? SingleChildScrollView(clipBehavior: Clip.none, child: padded)
-          : padded,
+      readStyle(ref.watch, pane.scroll, outer),
+      !pane.scrollsDown
+          ? padded
+          : screen
+          ? ScreenScrollView(clipBehavior: Clip.none, child: padded)
+          : SingleChildScrollView(clipBehavior: Clip.none, child: padded),
     );
     final content = Column(
       mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,

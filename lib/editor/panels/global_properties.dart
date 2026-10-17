@@ -43,8 +43,7 @@ class GlobalProperties extends ConsumerWidget {
             ref,
             (layout) => layout.withPane(
               layout.home.root.id,
-              (root) =>
-                  root.copyWith(style: withStyle(root.style, {key: value})),
+              (root) => root.styled(withStyle(root.style, {key: value})),
             ),
           ),
         ),

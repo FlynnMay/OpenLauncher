@@ -66,14 +66,15 @@ class PaneScrollbars extends StatefulWidget {
     required this.child,
   });
 
-  final Component pane;
+  final Node pane;
 
-  /// The pane's style, templates read.
-  final Style style;
+  /// Its Scroll module's values, templates read: the bar's look.
+  final Map<String, Object?> style;
   final Widget child;
 
-  /// [child] under [pane]'s scroll bars, if it has any.
-  static Widget over(Component pane, Style style, Widget child) =>
+  /// [child] under [pane]'s scroll bars, if it has any, which look as [style]
+  /// (its Scroll module's values, templates read) says.
+  static Widget over(Node pane, Map<String, Object?> style, Widget child) =>
       pane.scrollbar == null
       ? child
       : PaneScrollbars(pane: pane, style: style, child: child);

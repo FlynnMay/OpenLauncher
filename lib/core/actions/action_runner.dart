@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
@@ -57,18 +57,18 @@ Map<String, EntityAction> actionsOf(String? target, Iterable<Entity> entities) {
 
 /// The editor's fields for [args], what an act may say: an action's, or an
 /// operation's.
-List<ComponentOption> argOptions(Map<String, List<String>> args) => [
+List<Field> argOptions(Map<String, List<String>> args) => [
   for (final MapEntry(key: name, value: choices) in args.entries)
     choices.isEmpty
-        ? ComponentOption(
+        ? Field(
             name,
             name == 'of' ? 'of (component ID)' : name,
-            OptionKind.value,
+            FieldKind.value,
           )
-        : ComponentOption(
+        : Field(
             name,
             name,
-            OptionKind.choice,
+            FieldKind.choice,
             choices: {for (final choice in choices) choice: choice},
           ),
 ];

@@ -1,0 +1,51 @@
+{
+  "id": "button",
+  "name": "Button",
+  "root": {
+    "id": "root",
+    "modules": {
+      "layout": {
+        "mode": "row",
+        "gap": 10
+      },
+      "style": {
+        "padding": 0
+      },
+      "focus": {
+        "scale": 103
+      },
+      "variables": {
+        "label": "Button",
+        "icon": ""
+      }
+    },
+    "children": [
+      {
+        "id": "icon",
+        "modules": {
+          "icon": {
+            "icon": "{{icon}}",
+            "size": 20
+          }
+        }
+      },
+      {
+        "id": "label",
+        "modules": {
+          "text": {
+            "text": "{{label}}",
+            "overflow": "ellipsis"
+          },
+          "style": {
+            "fontSize": 14,
+            "color": "#ffffff",
+            "textAlign": "left"
+          },
+          "sizing": {
+            "flex": 1
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/editor/controls/choice_box.dart';
 import 'package:openlauncher/editor/controls/colour_picker.dart';
 import 'package:openlauncher/editor/controls/commit_field.dart';
@@ -16,38 +16,38 @@ import 'package:openlauncher/editor/controls/tick_box.dart';
 /// Generated fields for [options] showing [values]. Reports the whole value
 /// map; a value reset to its default is removed. [mixed] keys show as mixed.
 List<Widget> optionFields({
-  required List<ComponentOption> options,
+  required List<Field> options,
   required Map<String, Object?> values,
   required void Function(Map<String, Object?> values) onChanged,
   double corner = 10,
   Set<String> mixed = const {},
 }) {
-  void set(ComponentOption option, Object? value) => onChanged(
+  void set(Field option, Object? value) => onChanged(
     {...values, option.key: value == option.defaultValue ? null : value}
       ..removeWhere((_, value) => value == null),
   );
-  Widget field(ComponentOption option) {
+  Widget field(Field option) {
     final value = values[option.key] ?? option.defaultValue;
     switch (option.kind) {
-      case OptionKind.template:
+      case FieldKind.template:
         return TemplateField(
           label: option.label,
           value: value is String ? value : '',
           onChanged: (text) => set(option, text.isEmpty ? null : text),
         );
-      case OptionKind.text:
+      case FieldKind.text:
         return CommitField(
           label: option.label,
           value: value is String ? value : '',
           onChanged: (text) => set(option, text),
         );
-      case OptionKind.value:
+      case FieldKind.value:
         return CommitField(
           label: option.label,
           value: value == null ? '' : '$value',
           onChanged: (text) => set(option, typedValue(text)),
         );
-      case OptionKind.list:
+      case FieldKind.list:
         return ListField(
           option: option,
           records: [
@@ -57,13 +57,13 @@ List<Widget> optionFields({
           ],
           onChanged: (records) => set(option, records),
         );
-      case OptionKind.toggle:
+      case FieldKind.toggle:
         return TickBox(
           label: option.label,
           value: value == true,
           onChanged: (on) => set(option, on),
         );
-      case OptionKind.number:
+      case FieldKind.number:
         final fallback = option.defaultValue;
         return NumberField(
           label: option.label,
@@ -85,7 +85,7 @@ List<Widget> optionFields({
               ? () => set(option, null)
               : null,
         );
-      case OptionKind.choice:
+      case FieldKind.choice:
         return LabelledRow(
           option.label,
           ChoiceBox<String>(
@@ -99,13 +99,13 @@ List<Widget> optionFields({
             onChanged: (choice) => set(option, choice.isEmpty ? null : choice),
           ),
         );
-      case OptionKind.icon:
+      case FieldKind.icon:
         return IconField(
           label: option.label,
           value: value is String ? value : '',
           onChanged: (name) => set(option, name.isEmpty ? null : name),
         );
-      case OptionKind.colour:
+      case FieldKind.colour:
         return LabelledRow(
           option.label,
           Align(
@@ -117,13 +117,13 @@ List<Widget> optionFields({
             ),
           ),
         );
-      case OptionKind.fill:
+      case FieldKind.fill:
         return FillField(
           label: option.label,
           value: value,
           onChanged: (fill) => set(option, fill),
         );
-      case OptionKind.corners:
+      case FieldKind.corners:
         return CornerSettings(
           label: option.label,
           corners: BoxStyle.of({option.key: value}).corners,
@@ -147,7 +147,7 @@ List<Widget> optionFields({
 /// The same for a thing saved as [json]: reports one key and its new value,
 /// null for the default.
 List<Widget> ruleFields({
-  required List<ComponentOption> options,
+  required List<Field> options,
   required Map<String, Object?> json,
   required void Function(String key, Object? value) onChanged,
   double corner = 10,
@@ -179,7 +179,7 @@ class ListField extends StatelessWidget {
     this.after,
   });
 
-  final ComponentOption option;
+  final Field option;
   final List<Map<String, Object?>> records;
   final void Function(List<Map<String, Object?>> records) onChanged;
 

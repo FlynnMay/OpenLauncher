@@ -81,9 +81,9 @@ class BarReplay extends Notifier<bool> {
 }
 
 /// The folders the selected folder cards open, by id.
-final selectedFoldersProvider = Provider<Map<String, Component>>((ref) {
+final selectedFoldersProvider = Provider<Map<String, Node>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
-  final folders = <String, Component>{};
+  final folders = <String, Node>{};
   for (final one in ref.watch(selectedProvider)) {
     final folder = layout?.folderOf(one.item);
     if (layout?.pane(folder ?? '') case final pane?) {

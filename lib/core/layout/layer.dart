@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
+import 'package:openlauncher/core/modules/modules.dart';
+import 'package:openlauncher/core/nodes/node.dart';
 
 /// One layer of the screen, drawn over the ones before it. The home screen is
 /// the bottom one. Its content is [root]; a layer made while running starts
@@ -24,7 +25,7 @@ class Layer {
 
   final String id;
 
-  final Component root;
+  final Node root;
 
   /// Blur of what is below; 0 for none.
   final double blur;
@@ -40,13 +41,13 @@ class Layer {
 
   static String rootId(String layerId) => '$layerId/root';
 
-  static Component _emptyRoot(String id) => Component.pane(
+  static Node _emptyRoot(String id) => Node.pane(
     id: rootId(id),
     mode: PaneMode.grid,
-    columns: Component.globalColumns,
+    columns: LayoutModule.globalColumns,
   );
 
-  Layer withRoot(Component root) => Layer(
+  Layer withRoot(Node root) => Layer(
     id: id,
     root: root,
     blur: blur,
@@ -69,7 +70,7 @@ class Layer {
     return Layer(
       id: id,
       root: switch (jsonOptional<Map<Object?, Object?>>(json, 'root')) {
-        final pane? => Component.fromJson(pane),
+        final pane? => Node.fromJson(pane),
         null => _emptyRoot(id),
       },
       blur: (jsonOptional<num>(json, 'blur') ?? 0).clamp(0, 40).toDouble(),

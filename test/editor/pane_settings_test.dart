@@ -20,7 +20,7 @@ void main() {
       id: 'big-entity',
       name: 'Big entity',
     );
-    var pane = Component.pane(id: 'p');
+    var pane = Node.pane(id: 'p');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -78,7 +78,7 @@ void main() {
     tester.view.physicalSize = const Size(500, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    var pane = Component.pane(id: 'p');
+    var pane = Node.pane(id: 'p');
     var changes = 0;
     late StateSetter redraw;
     await tester.pumpWidget(
@@ -114,7 +114,7 @@ void main() {
     bool? ticked(String label) => tester
         .widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, label))
         .value;
-    // Cells scroll down as they come, and nothing is saved for it.
+    // A new pane on cells scrolls down.
     expect(
       (ticked('Horizontal scroll'), ticked('Vertical scroll')),
       (false, true),
@@ -125,11 +125,11 @@ void main() {
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
     expect((pane.scrollsAcross, pane.scrollsDown), (true, false));
-    expect(pane.options, containsPair('scrollY', false));
+    expect(pane.scroll, containsPair('down', false));
     expect(changes, 2);
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
-    expect(pane.options.containsKey('scrollY'), isFalse);
+    expect(pane.scroll, containsPair('down', true));
 
     // A scroll bar is chosen, then its look has a section of its own.
     expect(find.text('Thickness'), findsNothing);
@@ -149,7 +149,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(pane.style, {'scrollbarSize': 7});
+    expect(pane.scroll, containsPair('scrollbarSize', 7));
     // One that scrolls neither way has none to show.
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
@@ -163,23 +163,24 @@ void main() {
     await tester.pump();
     expect(pane.scrollbar, 'progress');
 
-    // A row has the one along it, a column the other, off until ticked.
-    redraw(() => pane = Component.pane(id: 'p', mode: PaneMode.row));
+    // A row or a column does not scroll until ticked, and only along
+    // itself.
+    redraw(() => pane = Node.pane(id: 'p', mode: PaneMode.row));
     await tester.pump();
-    expect(ticked('Horizontal scroll'), isFalse);
-    expect(find.text('Vertical scroll'), findsNothing);
+    expect(
+      (ticked('Horizontal scroll'), ticked('Vertical scroll')),
+      (false, false),
+    );
 
-    redraw(() => pane = Component.pane(id: 'p', mode: PaneMode.column));
+    redraw(() => pane = Node.pane(id: 'p', mode: PaneMode.column));
     await tester.pump();
-    expect(find.text('Horizontal scroll'), findsNothing);
-    expect(ticked('Vertical scroll'), isFalse);
     changes = 0;
     await tester.tap(find.text('Vertical scroll'));
     await tester.pump();
-    expect(pane.options, containsPair('scrollY', true));
+    expect((pane.scroll['down'], pane.scrollsDown), (true, true));
     expect(changes, 1);
-    await tester.tap(find.text('Vertical scroll'));
+    await tester.tap(find.text('Horizontal scroll'));
     await tester.pump();
-    expect(pane.options.containsKey('scrollY'), isFalse);
+    expect(pane.scrollsAcross, isFalse);
   });
 }

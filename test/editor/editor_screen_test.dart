@@ -54,7 +54,7 @@ void main() {
                     config: LauncherConfig(
                       layout: homeLayout(['system:app/a']),
                     ),
-                    components: const [],
+                    visuals: const [],
                   ),
             ),
           ),
@@ -232,21 +232,21 @@ void main() {
             Prefab(
               id: 'own',
               name: 'My prefab',
-              root: Component.pane(id: 'root'),
+              root: Node.pane(id: 'root'),
             ),
             // The System pack's, edited: offered as the System pack's.
             Prefab(
               id: 'system:clock',
               name: 'Edited clock',
-              root: Component.pane(
+              root: Node.pane(
                 id: 'root',
                 vars: const {'clock': Variable(null, type: VarType.entity)},
               ),
             ),
           ],
         ),
-        components: const [
-          (type: 'button', label: 'Button', w: 2, h: 1, options: {}),
+        visuals: const [
+          (module: 'icon', label: 'Icon', w: 1, h: 1, values: {}),
         ],
       ),
     );
@@ -278,7 +278,9 @@ void main() {
     for (final gone in ['Components', 'Buttons', 'Folders']) {
       expect(offered(gone), findsNothing);
     }
-    expect(over('Button'), 'Primitives');
+    expect(over('Icon'), 'Primitives');
+    // A button is the System pack's prefab, not a primitive.
+    expect(over('Button'), 'Prefabs');
     expect(over('Pane'), 'Primitives');
     expect(over('Sidebar'), 'Templates');
     expect(over('Folder'), 'Templates');
