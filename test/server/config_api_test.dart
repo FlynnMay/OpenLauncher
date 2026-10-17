@@ -511,7 +511,7 @@ void main() {
       (top.children.last.prefab, top.children.last.handed.firstOrNull),
       ('system:weather', 'system:weather'),
     );
-    expect((games.dock, games.hovers), ('bottom', true));
+    expect((games.dock, games.hiddenWhenClosed), ('bottom', true));
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
     // which was placed nowhere, in the pane for new entities.

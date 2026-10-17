@@ -200,33 +200,31 @@ const _edges = {
   'bottom': 'Bottom edge',
 };
 
-/// Where a pane is docked and, once it is, how it opens. Any pane can be
-/// docked to an edge; one hidden while closed (a folder) can also sit in the
-/// middle or in what opens it, and cannot be undocked, since its cards name
-/// it.
+/// Where a pane is docked and, once it is, how it opens and closes.
 List<ComponentOption> dockRules(Component pane) => [
-  ComponentOption(
+  const ComponentOption(
     'dock',
     'Position',
     OptionKind.choice,
-    unset: pane.hovers ? null : 'None',
-    choices: {
-      ..._edges,
-      if (pane.hovers) ...const {
-        'center': 'Centre',
-        Component.inline: 'Inline',
-      },
-    },
+    unset: 'None',
+    choices: {..._edges, 'center': 'Centre', Component.inline: 'Inline'},
   ),
-  // 0 leaves it at its edge with nothing showing.
-  if (pane.isDocked && !pane.hovers)
+  // 0 leaves it at its edge with nothing showing; unset, it is not there.
+  if (pane.edge != null)
     const ComponentOption(
       'closed',
       'Collapsed size',
       OptionKind.number,
       max: 400,
       step: 8,
-      defaultValue: 0,
+      unset: 'Hidden',
+    ),
+  if (pane.isDocked)
+    const ComponentOption(
+      'closeOnPress',
+      'Close after a press',
+      OptionKind.toggle,
+      defaultValue: false,
     ),
   if (pane.isDocked && pane.dock != Component.inline) ...const [
     ComponentOption(
@@ -257,7 +255,15 @@ List<ComponentOption> dockRules(Component pane) => [
 ];
 
 /// The options only a docked pane has.
-const dockKeys = ['dock', 'closed', 'width', 'height', 'opening', 'reveal'];
+const dockKeys = [
+  'dock',
+  'closed',
+  'closeOnPress',
+  'width',
+  'height',
+  'opening',
+  'reveal',
+];
 
 /// A docked pane's rule, or its default.
 Object? dockRule(Component pane, String key) =>

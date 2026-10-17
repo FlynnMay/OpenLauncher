@@ -60,7 +60,6 @@ class TileActions {
     this.component,
     this.scope = const {},
     this.popup,
-    this.closes = false,
   });
 
   final BuildContext _context;
@@ -72,11 +71,8 @@ class TileActions {
 
   final String? component;
 
-  /// The hovering folder the tile is in, if any.
+  /// The docked pane the tile is in, if a press closes it.
   final String? popup;
-
-  /// Whether a press closes that folder first.
-  final bool closes;
 
   bool has(Trigger trigger) => triggers[trigger]?.isNotEmpty ?? false;
 
@@ -86,7 +82,7 @@ class TileActions {
     final messenger = ScaffoldMessenger.of(_context);
     final navigator = Navigator.of(_context);
     final actions = _ref.read(actionRunnerProvider);
-    final closed = closes && trigger == Trigger.press;
+    final closed = popup != null && trigger == Trigger.press;
     void close() {
       if (popup case final id?) {
         _ref.read(runtimeVarsProvider.notifier).set(id, openVar, false);

@@ -158,8 +158,8 @@ List<Component> settle(List<Component> items, int columns, {String? fixed}) {
   return [for (final item in items) settled[item.id]!];
 }
 
-/// [layout] with every pane's children changed, and [added] (a new folder)
-/// put on the home layer.
+/// [layout] with every pane's children changed, and [added] (a new docked
+/// pane) put on the home layer.
 Layout _rebuilt(
   Layout layout,
   List<Component> Function(Component pane, List<Component> items) change, {
@@ -175,9 +175,9 @@ Layout _rebuilt(
         );
 }
 
-/// Moves or adds [item] at [drop]. [folder] is the new folder that comes with
-/// it. The caller has checked [refusal].
-Layout dropItem(Layout layout, Component item, Drop drop, {Component? folder}) {
+/// Moves or adds [item] at [drop]. [opens] is the new docked pane it opens.
+/// The caller has checked [refusal].
+Layout dropItem(Layout layout, Component item, Drop drop, {Component? opens}) {
   final found = findPane(layout, drop.pane)!;
   final target = found.pane;
   final whole = target.mode != PaneMode.free;
@@ -228,7 +228,7 @@ Layout dropItem(Layout layout, Component item, Drop drop, {Component? folder}) {
       ];
       return pane.id == target.id ? into(rest) : rest;
     },
-    added: folder,
+    added: opens,
     // Placing an entity un-removes it.
     removed: {...layout.removed}..removeAll(item.handed),
   );
@@ -405,20 +405,14 @@ Layout transformItems(
   ),
 };
 
-/// Sets a pane option. `mode` and `columns` also re-place the children; a
-/// new dock takes what docking adds from the templates in [prefabs].
-Component withRule(
-  Component pane,
-  String key,
-  Object? value, {
-  Map<String, Prefab> prefabs = const {},
-}) => switch (key) {
+/// Sets a pane option. `mode` and `columns` also re-place the children.
+Component withRule(Component pane, String key, Object? value) => switch (key) {
   'mode' => withMode(pane, PaneMode.values.asNameMap()[value] ?? PaneMode.flow),
   'columns' => withColumns(
     pane,
     value is num ? value.toInt() : Component.defaultColumns,
   ),
-  'dock' => withDock(pane, value is String ? value : null, prefabs),
+  'dock' => withDock(pane, value is String ? value : null),
   // No longer scrolling across, its children go back inside its columns.
   'scrollX' when value != true && !pane.mode.inLine => withColumns(
     pane.withOption(key, null),
@@ -430,50 +424,19 @@ Component withRule(
 };
 
 /// Docks [pane] at [dock], or with null puts it back on its parent's cells.
-Component withDock(
-  Component pane,
-  String? dock, [
-  Map<String, Prefab> prefabs = const {},
-]) {
+Component withDock(Component pane, String? dock) {
+  if (dock != null) return pane.withOption('dock', dock);
   // What only a docked pane has goes with the dock.
-  if (dock == null) {
-    return pane.copyWith(
-      options: {
-        for (final MapEntry(:key, :value) in pane.options.entries)
-          if (!dockKeys.contains(key)) key: value,
-      },
-      on: {
-        for (final MapEntry(:key, :value) in pane.on.entries)
-          if (key == Trigger.press || key == Trigger.hold) key: value,
-      },
-    );
-  }
-  // Newly docked, it is a sidebar.
-  if (!pane.isDocked) {
-    return dockedLike(
-      pane,
-      sidebarFrom(templateFor(dock, prefabs), pane.id, dock),
-    );
-  }
-  // A folder moved into what opens it needs no layer; moved out, it does.
-  if (pane.hovers &&
-      (dock == Component.inline) != (pane.dock == Component.inline)) {
-    return pane
-        .withOption('dock', dock)
-        .copyWith(
-          on: {
-            for (final MapEntry(:key, :value) in pane.on.entries)
-              if (key != Trigger.reveal && key != Trigger.hide) key: value,
-            if (dock != Component.inline)
-              for (final MapEntry(:key, :value) in folderFrom(
-                templateFor(dock, prefabs),
-                pane.id,
-              ).on.entries)
-                if (key == Trigger.reveal || key == Trigger.hide) key: value,
-          },
-        );
-  }
-  return pane.withOption('dock', dock);
+  return pane.copyWith(
+    options: {
+      for (final MapEntry(:key, :value) in pane.options.entries)
+        if (!dockKeys.contains(key)) key: value,
+    },
+    on: {
+      for (final MapEntry(:key, :value) in pane.on.entries)
+        if (key == Trigger.press || key == Trigger.hold) key: value,
+    },
+  );
 }
 
 /// Changes [pane]'s mode, keeping children where they were as far as
@@ -541,16 +504,15 @@ Component withColumns(Component pane, int columns) {
       );
 }
 
-/// The screen edges a sidebar can be on.
+/// The screen edges a pane can dock to.
 const barEdges = ['left', 'right', 'top', 'bottom'];
 
-/// The sidebar on [edge], if any.
-Component? barOn(Layout layout, String edge) => layout.docked
-    .where((pane) => pane.dock == edge && !pane.hovers)
-    .firstOrNull;
+/// The pane docked to [edge], if any.
+Component? barOn(Layout layout, String edge) =>
+    layout.docked.where((pane) => pane.dock == edge).firstOrNull;
 
-/// Adds an empty sidebar on [edge] made from [template] if there is none.
-Layout withBar(Layout layout, String edge, [Prefab? template]) =>
+/// Adds a pane made from [template] docked to [edge], if none is.
+Layout withBar(Layout layout, String edge, Prefab template) =>
     barOn(layout, edge) != null
     ? layout
     : layout.withPane(
@@ -558,12 +520,17 @@ Layout withBar(Layout layout, String edge, [Prefab? template]) =>
         (root) => root.copyWith(
           children: [
             ...root.children,
-            sidebarFrom(template, layout.paneIdFor(edge), edge, layout.itemIds),
+            paneFrom(
+              template,
+              layout.paneIdFor(edge),
+              dock: edge,
+              used: layout.itemIds,
+            ),
           ],
         ),
       );
 
-/// Edges with no sidebar, or an empty one.
+/// Edges with no pane docked, or an empty one.
 List<String> freeEdges(Layout layout) => [
   for (final edge in barEdges)
     if (barOn(layout, edge)?.children.isEmpty ?? true) edge,

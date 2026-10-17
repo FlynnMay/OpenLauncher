@@ -96,16 +96,19 @@ void openPrefab(WidgetRef ref, String prefabId, {Component? from}) {
   final at = trail.indexWhere((mode) => mode.id == prefabId);
   if (nested && at >= 0) return backPrefab(ref, at + 1);
   final entities = ref.read(entitiesProvider).value ?? const <Entity>[];
-  final folders = ref.read(configProvider).value?.layout.docked ?? const [];
-  // A card that opens folders is shown with one.
-  final opensFolders = ref
-      .read(prefabsProvider)
-      .values
-      .any((template) => template.template && template.card == prefabId);
+  final docked = ref.read(configProvider).value?.layout.docked ?? const [];
+  final prefabs = ref.read(prefabsProvider);
+  // A template's card is shown with a pane made from that template.
+  final opensPanes = prefabs.values.any(
+    (template) => template.template && template.card == prefabId,
+  );
   final sample =
       entities.where((entity) => entity.prefab == prefabId).firstOrNull?.id ??
-      (opensFolders
-          ? folders.where((pane) => pane.hovers).firstOrNull?.id
+      (opensPanes
+          ? docked
+                .where((pane) => prefabs[pane.template]?.card == prefabId)
+                .firstOrNull
+                ?.id
           : entities.where((entity) => entity.placed).firstOrNull?.id);
   // What [from] was handed, read through the prefab around it.
   String? held(String name) => switch (from?.vars[name]?.value) {
@@ -243,13 +246,10 @@ Future<void> deletePrefab(
     if (!await confirm(
       context,
       'Revert "${prefab.name}" to $pack?',
-      switch (prefab.template ? madeName(prefab) : null) {
-        final made? =>
-          'Your changes to it are lost. New ${made}s start like $pack\'s '
-              'again; ${made}s you have already made are not changed.',
-        null =>
-          'Your changes to it are lost. Its instances follow $pack\'s again.',
-      },
+      prefab.template
+          ? 'Your changes to it are lost. New panes start like $pack\'s '
+                'again; panes you have already made are not changed.'
+          : 'Your changes to it are lost. Its instances follow $pack\'s again.',
       'Revert',
     )) {
       return;
@@ -483,9 +483,8 @@ Future<void> applyTemplate(
 ) async {
   final layout = ref.read(configProvider).value?.layout;
   if (layout == null || !template.template) return;
-  final kind = madeName(template);
   final count = madeBy(template, layout).length;
-  final what = count == 1 ? 'the $kind' : 'all $count ${kind}s';
+  final what = count == 1 ? 'the pane' : 'all $count panes';
   if (!await confirm(
     context,
     'Apply "${template.name}" to $what on the screen?',

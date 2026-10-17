@@ -44,7 +44,7 @@ class Layout {
   /// Everything that is not a pane.
   Iterable<Component> get items => all.where((item) => !item.isPane);
 
-  /// The sidebars and folders.
+  /// The docked panes.
   Iterable<Component> get docked => all.where((pane) => pane.isDocked);
 
   Component? pane(String id) =>

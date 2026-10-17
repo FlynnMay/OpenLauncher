@@ -171,7 +171,7 @@ void main() {
     // Selected, so it is held open and its settings show.
     expect(ref.read(selectionProvider), {'left'});
     final left = layout().pane('left')!;
-    expect((left.dock, left.hovers), ('left', false));
+    expect((left.dock, left.hiddenWhenClosed), ('left', false));
 
     // It is an object like any other: let go of, the launcher's settings
     // show, which have no section for sidebars; picked out of the list, its
@@ -182,7 +182,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), isEmpty);
     expect(find.text('Sidebars'), findsNothing);
-    await tester.tap(inTree('Left sidebar'));
+    await tester.tap(inTree('Left pane'));
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), {'left'});
     expect(find.text('Dock'), findsOneWidget);

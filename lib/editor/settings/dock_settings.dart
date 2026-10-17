@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 
-/// Display name of a screen edge.
-String barName(String edge) => switch (edge) {
+/// Display name of a dock.
+String barName(String dock) => switch (dock) {
   'left' => 'Left',
   'right' => 'Right',
   'top' => 'Top',
   'bottom' => 'Bottom',
-  _ => edge,
+  'center' => 'Centre',
+  Component.inline => 'Inline',
+  _ => dock,
 };
 
 /// A size that is automatic, fill, or a number of TV pixels.
@@ -88,17 +89,15 @@ class ExtentBox extends StatelessWidget {
 /// Where a pane is docked and, once it is, its size and how it opens.
 List<Widget> dockFields(
   Component pane,
-  void Function(Component Function(Component pane) how) change, [
-  Map<String, Prefab> prefabs = const {},
-]) {
+  void Function(Component Function(Component pane) how) change,
+) {
   // The dock's defaults.
   final defaults = Component.pane(id: '', rules: {'dock': pane.dock});
   final [dock, ...rest] = dockRules(pane);
   List<Widget> fields(List<ComponentOption> options) => ruleFields(
     options: options,
     json: pane.options,
-    onChanged: (key, value) =>
-        change((pane) => withRule(pane, key, value, prefabs: prefabs)),
+    onChanged: (key, value) => change((pane) => withRule(pane, key, value)),
   );
   return [
     ...fields([dock]),
@@ -116,9 +115,9 @@ List<Widget> dockFields(
         onChanged: (height) =>
             change((pane) => withRule(pane, 'height', height)),
       ),
-      ...fields(rest),
-      const _Replay(),
     ],
+    ...fields(rest),
+    if (pane.isDocked && pane.dock != Component.inline) const _Replay(),
   ];
 }
 

@@ -28,7 +28,7 @@ class PrefabBar extends ConsumerWidget {
     final shown = prefab.variantNamed(mode?.variant);
     final byDefault = shown == prefab.defaultVariant;
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    final folders = ref.watch(configProvider).value?.layout.docked ?? const [];
+    final docked = ref.watch(configProvider).value?.layout.docked ?? const [];
     final pack = ref.watch(shippedByProvider(prefab.id));
     final modified =
         pack != null &&
@@ -141,10 +141,9 @@ class PrefabBar extends ConsumerWidget {
                       'Entities': {
                         for (final entity in entities) entity.id: entity.label,
                       },
-                      'Folders': {
-                        for (final pane in folders)
-                          if (pane.hovers)
-                            pane.id: pane.title.isEmpty ? pane.id : pane.title,
+                      'Docked panes': {
+                        for (final pane in docked)
+                          pane.id: pane.title.isEmpty ? pane.id : pane.title,
                       },
                     },
                     onChanged: (id) => previewWith(ref, name, id),
@@ -179,24 +178,22 @@ class PrefabBar extends ConsumerWidget {
         ],
       ),
     );
-    return switch (prefab.template ? madeName(prefab) : null) {
-      null => bar,
-      final kind => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [bar, _TemplateNote(prefab, kind)],
-      ),
-    };
+    return !prefab.template
+        ? bar
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [bar, _TemplateNote(prefab)],
+          );
   }
 }
 
 /// Says that a template is copied, not followed, and offers to give what it
 /// already made its look.
 class _TemplateNote extends ConsumerWidget {
-  const _TemplateNote(this.template, this.kind);
+  const _TemplateNote(this.template);
 
   final Prefab template;
-  final String kind;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -220,9 +217,8 @@ class _TemplateNote extends ConsumerWidget {
               ),
               Flexible(
                 child: Text(
-                  'Template: ${kind}s you make from now on start like this. '
-                  '${kind[0].toUpperCase()}${kind.substring(1)}s already on '
-                  'your screen keep their own look.',
+                  'Template: panes you make from now on start like this. '
+                  'Panes already on your screen keep their own look.',
                   style: theme.textTheme.bodySmall,
                 ),
               ),
@@ -233,8 +229,8 @@ class _TemplateNote extends ConsumerWidget {
               onPressed: () => applyTemplate(context, ref, template),
               child: Text(
                 count == 1
-                    ? 'Apply to 1 existing $kind'
-                    : 'Apply to $count existing ${kind}s',
+                    ? 'Apply to 1 existing pane'
+                    : 'Apply to $count existing panes',
               ),
             ),
         ],

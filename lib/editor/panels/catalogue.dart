@@ -7,6 +7,7 @@ import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/panels/object_tree.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 
@@ -41,8 +42,8 @@ class _CatalogueState extends ConsumerState<Catalogue> {
   /// The headings and what is under them: the primitives, each pack's, and
   /// the user's.
   List<_Group> _groups(LauncherConfig config) {
-    // New ids are free in what is being edited; a prefab holds no sidebar or
-    // new folder, nor itself.
+    // New ids are free in what is being edited; a prefab holds no new docked
+    // pane, nor itself.
     final open = ref.watch(editedPrefabProvider);
     final layout = ref.watch(editedLayoutProvider) ?? config.layout;
     final components = ref.watch(tvStateProvider).value?.components ?? const [];
@@ -82,14 +83,16 @@ class _CatalogueState extends ConsumerState<Catalogue> {
             ),
             prefab: prefab,
           );
-    // A new sidebar or folder, copied from the template; named and given
-    // its final id when placed.
+    // A new docked pane copied from the template. With a card it comes as
+    // that card, named and given its final id when placed; without, it goes
+    // to an edge.
     _Offer? templateOffer(Prefab template) {
       if (open != null) return null;
       final tooltip = 'Made from the ${template.name} template';
-      if (makesSidebars(template)) {
+      final card = prefabs[template.card];
+      if (card == null) {
         return _Offer(
-          Dragged.sidebar(
+          Dragged.docking(
             label: template.name,
             picture: const SymbolArt(Icons.view_sidebar_outlined),
             template: template,
@@ -98,22 +101,18 @@ class _CatalogueState extends ConsumerState<Catalogue> {
           tooltip: tooltip,
         );
       }
-      final folder = folderFrom(
+      final pane = paneFrom(
         template,
-        layout.paneIdFor(template.name, 'folder'),
-        title: template.name,
+        layout.paneIdFor(template.name, 'pane'),
         used: layout.itemIds,
       );
-      // The folder comes with a card that opens it.
-      final card = prefabs[template.card]?.instance(
-        folder.id,
-        id: layout.itemIdFor(folder.title),
-      );
-      if (card == null) return null;
+      final title = pane.title.isEmpty ? template.name : pane.title;
+      final item = card.instance(pane.id, id: layout.itemIdFor(title));
+      if (item == null) return null;
       return _Offer(
         Dragged(
-          item: card,
-          folder: folder,
+          item: item,
+          opens: pane.withOption('title', title),
           label: template.name,
           picture: const SymbolArt(Icons.create_new_folder_outlined),
         ),
@@ -214,26 +213,20 @@ class _CatalogueState extends ConsumerState<Catalogue> {
       })
         packGroup(pack),
       _Group('User prefabs', [
-        // A card for each folder, as its template has it.
+        // A card for each docked pane, as its template has it.
         for (final pane in config.layout.docked)
-          if (pane.hovers)
-            if (prefabs[(prefabs[pane.template] ??
-                            templateFor(pane.dock!, prefabs))
-                        ?.card]
-                    ?.instance(
-                      pane.id,
-                      id: layout.itemIdFor(
-                        pane.title.isEmpty ? 'folder' : pane.title,
-                      ),
-                    )
-                case final card?)
-              _Offer(
-                Dragged(
-                  item: card,
-                  label: pane.title.isEmpty ? 'Folder' : pane.title,
-                  picture: const SymbolArt(Icons.folder_outlined),
-                ),
+          if (prefabs[prefabs[pane.template]?.card]?.instance(
+                pane.id,
+                id: layout.itemIdFor(pane.title.isEmpty ? 'pane' : pane.title),
+              )
+              case final card?)
+            _Offer(
+              Dragged(
+                item: card,
+                label: paneName(pane),
+                picture: const SymbolArt(Icons.folder_outlined),
               ),
+            ),
         for (final prefab in prefabs.values)
           if (packOf(prefab.id) == null) ?offerOf(prefab),
         ...entities(
@@ -278,14 +271,11 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                     null => null,
                     final prefab => () => openPrefab(ref, prefab.id),
                   },
-                  // A sidebar goes to an edge, not a pane.
-                  onTap: () => offer.dragged.sidebar
-                      ? addBarSomewhere(
-                          context,
-                          ref,
-                          template: offer.dragged.template,
-                        )
-                      : placeDragged(context, ref, offer.dragged, inbox),
+                  // A new docked pane goes to an edge, not a pane.
+                  onTap: () => switch (offer.dragged.template) {
+                    final template? => addBarSomewhere(context, ref, template),
+                    null => placeDragged(context, ref, offer.dragged, inbox),
+                  },
                 ),
             ]),
           ),

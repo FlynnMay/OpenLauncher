@@ -11,7 +11,8 @@
       "mode": "flow",
       "columns": 4,
       "dock": "center",
-      "opening": "instant"
+      "opening": "instant",
+      "closeOnPress": true
     },
     "style": {
       "background": "#1a1c23fa",

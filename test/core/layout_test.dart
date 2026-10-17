@@ -574,7 +574,7 @@ void main() {
     test('a sidebar is a pane docked to an edge, with its usual size', () {
       final left = sidebarPane('left', 'left');
       final top = sidebarPane('top', 'top');
-      expect((left.isDocked, left.hovers), (true, false));
+      expect((left.isDocked, left.hiddenWhenClosed), (true, false));
       expect(
         (left.edge, left.openWidth, left.openHeight, left.closed),
         (BarEdge.left, 260, Component.fill, 96),
@@ -592,7 +592,12 @@ void main() {
       // is in it.
       final folder = folderPane('games');
       expect(
-        (folder.hovers, folder.edge, folder.openWidth, folder.openHeight),
+        (
+          folder.hiddenWhenClosed,
+          folder.edge,
+          folder.openWidth,
+          folder.openHeight,
+        ),
         (true, null, 595, null),
       );
       // A word that is no dock leaves a pane on its parent's cells.
@@ -627,7 +632,7 @@ void main() {
       final bottom = copy.pane('bottom')!;
       expect((bottom.dockHeight, bottom.closed), (Component.maxExtent, 0));
       expect(bottom.dockWidth, isNull);
-      expect(copy.pane('games')!.hovers, isTrue);
+      expect(copy.pane('games')!.hiddenWhenClosed, isTrue);
     });
 
     test('how one opens is written and read back, the usual left out', () {

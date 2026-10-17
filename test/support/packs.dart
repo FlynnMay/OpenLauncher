@@ -122,13 +122,15 @@ Component cardOf(
 Component? placedCard(String entityId, String id) => cardOf(entityId, id: id);
 
 /// A new folder, as the editor makes it from the System pack's template.
-Component folderPane(String id, {String title = ''}) =>
-    folderFrom(systemPrefab(folderTemplateId), id, title: title);
+Component folderPane(String id, {String title = ''}) => paneFrom(
+  systemPrefab(folderTemplateId),
+  id,
+).withOption('title', title.isEmpty ? null : title);
 
 /// A new sidebar on [edge], as the editor makes it from the System pack's
 /// template.
 Component sidebarPane(String id, String edge) =>
-    sidebarFrom(systemPrefab(sidebarTemplateId), id, edge);
+    paneFrom(systemPrefab(sidebarTemplateId), id, dock: edge);
 
 /// The chains of a sidebar made from the System pack's template.
 Triggers barTriggers() => systemPrefab(sidebarTemplateId).root.on;

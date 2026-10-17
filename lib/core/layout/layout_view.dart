@@ -44,7 +44,7 @@ Component? instanceFor(
 };
 
 /// [item] as the pane it resolves to, if that is docked: an instance of a
-/// sidebar or folder prefab docks like one.
+/// docked prefab docks like one.
 Component? dockedForm(Component item, Map<String, Prefab> prefabs) {
   if (!item.isInstance) return null;
   final pane = resolved(item, prefabs);

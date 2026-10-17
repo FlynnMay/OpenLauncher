@@ -338,7 +338,8 @@ class Component {
   Map<String, Map<String, Object?>> get prefabRules =>
       overridesFromJson(options['prefabRules']);
 
-  // A docked pane is off its parent's cells: a sidebar or a folder.
+  // A docked pane is off its parent's cells, opened and closed by its `open`
+  // variable.
 
   /// One of [docks], or null for a pane on its parent's cells.
   String? get dock => switch (options['dock']) {
@@ -366,11 +367,14 @@ class Component {
   double? get dockHeight => _extent('height');
 
   /// How much shows while closed; 0 leaves it at its edge with nothing
-  /// showing. Null hides it: see [hovers].
+  /// showing. Null hides it: see [hiddenWhenClosed].
   double? get closed => _extent('closed');
 
-  /// Whether it is hidden while closed, and so cannot take the focus then.
-  bool get hovers => isDocked && closed == null;
+  /// Whether it is not there while closed, and so cannot take the focus then.
+  bool get hiddenWhenClosed => isDocked && closed == null;
+
+  /// Whether a press on something in it closes it.
+  bool get closeOnPress => isDocked && options['closeOnPress'] == true;
 
   /// Defaults per dock: side bars are full height, top and bottom bars full
   /// width, one in the middle as tall as what is in it (null).

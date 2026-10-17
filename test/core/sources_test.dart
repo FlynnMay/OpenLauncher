@@ -193,7 +193,7 @@ void main() {
         start,
         c.read(prefabsProvider),
       ).pane('quick-actions')!;
-      expect((pane.dock, pane.hovers), ('center', true));
+      expect((pane.dock, pane.hiddenWhenClosed), ('center', true));
       expect(pane.children.map((button) => button.options['label']), [
         'Open',
         'App info',

@@ -53,7 +53,7 @@ Drop dropAt(
   );
 }
 
-/// The open rect of the sidebar on [edge], or a strip [thickness] thick.
+/// The open rect of the pane docked to [edge], or a strip [thickness] thick.
 Rect barRect(Layout layout, String edge, {double? thickness}) {
   final pane =
       barOn(layout, edge) ?? Component.pane(id: edge).withOption('dock', edge);

@@ -255,16 +255,17 @@ void main() {
         matching: find.text('Prefabs'),
       ),
     );
-    expect(find.text('Template for new folders · System'), findsOneWidget);
+    // The folder and the sidebar.
+    expect(find.text('Template for new panes · System'), findsNWidgets(2));
 
     openPrefab(ref, 'system:folder');
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('Template: folders you make from now on'),
+      find.textContaining('Template: panes you make from now on'),
       findsOneWidget,
     );
-    await press(tester, find.text('Apply to 1 existing folder'));
-    expect(find.text('Apply "Folder" to the folder on the screen?'), findsOne);
+    await press(tester, find.text('Apply to 1 existing pane'));
+    expect(find.text('Apply "Folder" to the pane on the screen?'), findsOne);
     await press(tester, find.widgetWithText(FilledButton, 'Apply'));
     final games = ref.read(configProvider).value!.layout.pane('games')!;
     expect(games.style, systemPrefab(folderTemplateId).root.style);

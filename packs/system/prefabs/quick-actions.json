@@ -11,6 +11,7 @@
       "dock": "center",
       "width": 432,
       "opening": "instant",
+      "closeOnPress": true,
       "rowHeight": 40,
       "spacing": 4
     },

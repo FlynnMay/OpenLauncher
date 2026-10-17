@@ -42,12 +42,11 @@ class Prefab {
 
   final String id, name;
 
-  /// Whether new panes are made as copies of it rather than instances. How
-  /// its root docks says what it makes: at an edge, a sidebar; anywhere
-  /// else, a folder opened by a [card].
+  /// Whether new panes are made as copies of it rather than instances.
+  /// One with a [card] is placed as that card; one without goes to an edge.
   final bool template;
 
-  /// The prefab whose instance opens a folder made from this template.
+  /// The prefab whose instance opens a pane made from this template.
   final String? card;
 
   /// The component. Its size is what a new instance starts with.
