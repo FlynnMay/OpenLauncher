@@ -1,5 +1,5 @@
-/// How a pane arranges its children.
-enum PaneMode {
+/// How a container arranges its children.
+enum LayoutMode {
   /// In order, wrapping at the last column.
   flow,
 
@@ -18,5 +18,5 @@ enum PaneMode {
   bool get inLine => this == row || this == column;
 }
 
-/// A screen edge a pane can be docked to.
+/// A screen edge a container can be docked to.
 enum BarEdge { left, right, top, bottom }

@@ -1,5 +1,6 @@
 {
   "id": "home",
+  "start": true,
   "inbox": "main",
   "removed": [],
   "layers": [
@@ -7,26 +8,36 @@
       "id": "home",
       "root": {
         "id": "home/root",
-        "kind": "pane",
-        "options": {
-          "mode": "free",
-          "columns": 12
-        },
         "children": [
           {
             "id": "main",
-            "kind": "pane",
             "transform": {
-              "w": 10.82,
-              "h": 7.69,
-              "x": 0.59,
-              "y": 1.35
+              "anchors": [
+                0.0492,
+                0,
+                0.9508,
+                0
+              ],
+              "offsets": [
+                0.98,
+                79.01,
+                -0.98,
+                513.1
+              ]
             },
-            "options": {
-              "mode": "flow",
-              "columns": 5
-            },
-            "children": []
+            "modules": {
+              "layout": {
+                "mode": "flow",
+                "columns": 5
+              },
+              "scroll": {
+                "down": true
+              },
+              "style": {
+                "padding": 16,
+                "clip": true
+              }
+            }
           },
           {
             "id": "quick-actions",

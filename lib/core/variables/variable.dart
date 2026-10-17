@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component_option.dart';
+import 'package:openlauncher/core/modules/module.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 
 /// Who can read a variable.
 enum VarAccess {
@@ -74,7 +75,10 @@ enum VarType {
 
   /// An entity or component id. The variable stands for it, so
   /// `{{name.label}}` works; this is how an entity is passed to children.
-  entity('Entity');
+  entity('Entity'),
+
+  /// Nodes an instance puts in a slot of its prefab; never read as a value.
+  nodes('Nodes');
 
   const VarType(this.label);
 
@@ -204,80 +208,65 @@ bool Function(Map<String, Object?> one) _valueOf(VarType type) =>
 /// The editor's form is generated from this, over [variablesToForm]. An
 /// entity-typed value is one of [entities], id to label. [exposable] adds
 /// the tick a prefab's own variables have.
-ComponentOption variableOptions({
+Field variableOptions({
   Map<String, String> entities = const {},
   bool exposable = false,
-}) => ComponentOption(
+}) => Field(
   'vars',
   'Add variable',
-  OptionKind.list,
+  FieldKind.list,
   heading: 'name',
   asks: 'Variable name',
   blank: const {'name': 'name'},
   fields: (one) => [
-    ComponentOption(
+    Field(
       'type',
       'Type',
-      OptionKind.choice,
+      FieldKind.choice,
       defaultValue: VarType.any.name,
       choices: {for (final type in VarType.values) type.name: type.label},
     ),
-    ComponentOption(
+    Field(
       'access',
       'Access',
-      OptionKind.choice,
+      FieldKind.choice,
       defaultValue: VarAccess.protected.name,
       choices: {
         for (final access in VarAccess.values) access.name: access.label,
       },
     ),
     if (exposable)
-      const ComponentOption(
-        'exposed',
-        'Exposed',
-        OptionKind.toggle,
-        defaultValue: true,
-      ),
-    const ComponentOption('conditional', 'Conditional', OptionKind.toggle),
-    const ComponentOption(
+      const Field('exposed', 'Exposed', FieldKind.toggle, defaultValue: true),
+    const Field('conditional', 'Conditional', FieldKind.toggle),
+    const Field(
       'expression',
       'Expression',
-      OptionKind.toggle,
+      FieldKind.toggle,
       when: hasTypedValue,
     ),
-    ComponentOption(
+    Field(
       'value',
       'Value',
-      OptionKind.template,
+      FieldKind.template,
       when: (one) =>
           !_conditional(one) &&
           (!hasTypedValue(one) || one['expression'] == true),
     ),
-    ComponentOption(
+    Field(
       'value',
       'Value',
-      OptionKind.number,
+      FieldKind.number,
       min: -1000000,
       max: 1000000,
       decimal: true,
       when: _valueOf(VarType.number),
     ),
-    ComponentOption(
+    Field('value', 'Value', FieldKind.toggle, when: _valueOf(VarType.bool)),
+    Field('value', 'Value', FieldKind.colour, when: _valueOf(VarType.colour)),
+    Field(
       'value',
       'Value',
-      OptionKind.toggle,
-      when: _valueOf(VarType.bool),
-    ),
-    ComponentOption(
-      'value',
-      'Value',
-      OptionKind.colour,
-      when: _valueOf(VarType.colour),
-    ),
-    ComponentOption(
-      'value',
-      'Value',
-      OptionKind.choice,
+      FieldKind.choice,
       unset: 'None',
       choices: {
         // Keeps a saved one that is not there now.
@@ -287,30 +276,25 @@ ComponentOption variableOptions({
       },
       when: _valueOf(VarType.entity),
     ),
-    const ComponentOption(
-      'when',
-      'Based on',
-      OptionKind.template,
-      when: _conditional,
-    ),
-    ComponentOption(
+    const Field('when', 'Based on', FieldKind.template, when: _conditional),
+    Field(
       'cases',
       'Add case',
-      OptionKind.list,
+      FieldKind.list,
       when: _conditional,
       blank: {'test': VarTest.equals.name},
       fields: (_) => [
-        ComponentOption(
+        Field(
           'test',
           'If it',
-          OptionKind.choice,
+          FieldKind.choice,
           choices: {for (final test in VarTest.values) test.name: test.label},
         ),
-        const ComponentOption('value', 'Value', OptionKind.value),
-        const ComponentOption('then', 'Then', OptionKind.value),
+        const Field('value', 'Value', FieldKind.value),
+        const Field('then', 'Then', FieldKind.value),
       ],
     ),
-    const ComponentOption('else', 'Else', OptionKind.value, when: _conditional),
+    const Field('else', 'Else', FieldKind.value, when: _conditional),
   ],
 );
 
@@ -342,13 +326,15 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
     },
 ];
 
-/// Variables from form rows. Names are reduced to `[A-Za-z0-9_]`; empty and
-/// duplicate names are skipped.
+/// Variables from form rows. Names are reduced to `[A-Za-z0-9_]`; empty,
+/// reserved and duplicate names are skipped.
 Variables variablesFromForm(List<Map<String, Object?>> form) {
   final variables = <String, Variable>{};
   for (final one in form) {
     final name = '${one['name'] ?? ''}'.replaceAll(RegExp('[^A-Za-z0-9_]'), '');
-    if (name.isEmpty || variables.containsKey(name)) continue;
+    if (name.isEmpty || name == enabledKey || variables.containsKey(name)) {
+      continue;
+    }
     final conditional = _conditional(one);
     variables[name] = Variable(
       conditional ? null : typedValue('${one['value'] ?? ''}'),

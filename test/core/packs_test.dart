@@ -280,15 +280,15 @@ void main() {
       await packs
           .read(configProvider.notifier)
           .setLayout(
-            home.withPane(
+            home.withContainer(
               home.home.root.id,
-              (pane) => pane.copyWith(
+              (container) => container.copyWith(
                 children: [
-                  ...pane.children,
-                  const Component(
-                    id: 'b',
-                    kind: 'button',
-                    options: {'label': 'Lamp', 'icon': 'mdi:lamp'},
+                  ...container.children,
+                  drawn(
+                    'b',
+                    iconModule.name,
+                    values: const {'icon': 'mdi:lamp'},
                   ),
                 ],
               ),

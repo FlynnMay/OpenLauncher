@@ -19,15 +19,16 @@ On the TV:
 
 - Lists installed apps with their TV banners, and the TV's inputs (HDMI
   ports, tuner) as cards beside them.
-- Panes hold cards and other panes. You set each one's place and size, how
-  things are arranged inside, and whether it scrolls.
-- Folders and sidebars are panes that open over the home screen.
+- Layouts hold cards and other layouts. You set each one's place and size,
+  how things are arranged inside, and whether it scrolls. A section is a
+  layout with a heading.
+- Folders and sidebars dock: they open over the home screen.
 - Components: text, pictures, icons, meters and buttons, plus a clock, the
   weather (from Open-Meteo), now playing, and widgets from installed apps.
 - Prefabs: a component you saved to reuse, with variables that each use can
   set. The app card, the clock and the others are prefabs you can edit.
 - Actions on a press, a hold or on focus: open an app, switch input, control
-  playback, show or hide a pane, set a variable.
+  playback, show or hide a folder or sidebar, set a variable.
 - A menu on holding OK, with Open, App info, Uninstall and Remove, which you
   can change.
 - Styling for anything: fills and gradients, borders, corners, padding, text.

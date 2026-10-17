@@ -10,7 +10,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
 void main() {
-  testWidgets('a form is made from what a component says can be set', (
+  testWidgets('a form is made from what a module says can be set', (
     tester,
   ) async {
     var values = <String, Object?>{'text': 'Hello'};
@@ -26,7 +26,7 @@ void main() {
                   redraw = setState;
                   return Column(
                     children: optionFields(
-                      options: ComponentRegistry.text.options,
+                      options: textModule.fields,
                       values: values,
                       onChanged: (next) => setState(() => values = next),
                     ),
@@ -67,11 +67,13 @@ void main() {
       home: Scaffold(
         body: SingleChildScrollView(
           child: StatefulBuilder(
-            builder: (context, setState) => StyleSettings(
-              keys: keys,
-              style: style,
-              onChanged: (key, value) =>
-                  setState(() => style = withStyle(style, {key: value})),
+            builder: (context, setState) => Column(
+              children: styleFields(
+                keys: keys,
+                style: style,
+                onChanged: (key, value) =>
+                    setState(() => style = withStyle(style, {key: value})),
+              ),
             ),
           ),
         ),
@@ -113,15 +115,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test(
-    'every kind of component says what can be set, each under its own key',
-    () {
-      for (final kind in ComponentRegistry.values) {
-        final keys = [for (final option in kind.options) option.key];
-        expect(keys.toSet(), hasLength(keys.length), reason: kind.name);
-      }
-    },
-  );
+  test('every module says what can be set, each under its own key', () {
+    for (final module in moduleTypes) {
+      final keys = [for (final option in module.fields) option.key];
+      expect(keys.toSet(), hasLength(keys.length), reason: module.name);
+    }
+    // Each is listed once, by a name of its own.
+    final names = [for (final module in moduleTypes) module.name];
+    expect(names.toSet(), hasLength(names.length));
+    for (final name in names) {
+      expect(moduleNamed(name)?.name, name);
+    }
+  });
 
   test('variables go to their form and back as they were', () {
     final variables = {
@@ -165,10 +170,10 @@ void main() {
             body: SingleChildScrollView(
               child: StatefulBuilder(
                 builder: (context, setState) => ListField(
-                  option: ComponentOption(
+                  option: Field(
                     'press',
                     'Add action',
-                    OptionKind.list,
+                    FieldKind.list,
                     blank: const {'do': 'set'},
                     // What an act may add is what the action lets it.
                     fields: (act) =>

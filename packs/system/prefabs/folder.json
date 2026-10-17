@@ -1,0 +1,86 @@
+{
+  "id": "folder",
+  "name": "Folder",
+  "card": "folder-card",
+  "root": {
+    "id": "root",
+    "name": "Folder",
+    "modules": {
+      "layout": {
+        "mode": "column",
+        "gap": 10
+      },
+      "dock": {
+        "position": "center",
+        "opening": "instant",
+        "closeOnPress": true
+      },
+      "style": {
+        "background": "#1a1c23fa",
+        "radius": 18,
+        "padding": 28,
+        "clip": true
+      },
+      "triggers": {
+        "reveal": [
+          {
+            "run": "launcher://layers/new",
+            "with": {
+              "dim": 0.54,
+              "modal": true
+            }
+          },
+          {
+            "run": "launcher://layers/raise"
+          }
+        ],
+        "hide": [
+          {
+            "run": "launcher://layers/close"
+          }
+        ]
+      },
+      "variables": {
+        "content": {
+          "value": null,
+          "type": "nodes"
+        }
+      }
+    },
+    "children": [
+      {
+        "id": "heading",
+        "modules": {
+          "text": {
+            "text": "{{instance.name}}",
+            "overflow": "ellipsis"
+          },
+          "style": {
+            "fontSize": 16,
+            "fontWeight": "medium",
+            "color": "#ffffffb3",
+            "textAlign": "left"
+          }
+        }
+      },
+      {
+        "id": "content",
+        "modules": {
+          "layout": {
+            "mode": "flow",
+            "columns": 4
+          },
+          "scroll": {
+            "down": true
+          },
+          "slot": {
+            "variable": "content"
+          },
+          "sizing": {
+            "flex": 1
+          }
+        }
+      }
+    ]
+  }
+}

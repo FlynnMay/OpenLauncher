@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/stage/anchor_marks.dart';
 import 'package:openlauncher/editor/stage/layer_stack.dart';
 import 'package:openlauncher/editor/stage/prefab_screen.dart';
 import 'package:openlauncher/editor/stage/resize_handles.dart';
 import 'package:openlauncher/editor/stage/snapping.dart';
 import 'package:openlauncher/editor/stage/stage_geometry.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
-import 'package:openlauncher/features/home/component_view.dart';
-import 'package:openlauncher/features/home/docked_pane.dart';
+import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// The TV's screen, or the open prefab on it. While [editing], components are
 /// selectable and draggable and the screen is a drop target; otherwise it is
@@ -25,24 +24,43 @@ class Stage extends ConsumerStatefulWidget {
 
   final bool editing;
 
+  /// The size of the box [id] places its children in, in its own pixels, if
+  /// it is drawn.
+  static Size? sizeOf(String id) =>
+      _StageState._box(_StageState._current?._grids[id])?.size;
+
   @override
   ConsumerState<Stage> createState() => _StageState();
 }
 
 class _StageState extends ConsumerState<Stage> {
+  static _StageState? _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = this;
+  }
+
+  @override
+  void dispose() {
+    if (_current == this) _current = null;
+    super.dispose();
+  }
+
   final _screen = GlobalKey();
 
-  /// Keys for each pane's grid, and for the box of each nested pane and of
-  /// each child of a row or column.
+  /// Keys for each container's grid, and for the box of each nested container
+  /// and of each child of a row or column.
   final _grids = <String, GlobalKey>{}, _boxes = <String, GlobalKey>{};
 
-  /// What is being edited: each component's parent pane, by id.
-  var _parents = const <String, Component>{};
+  /// What is being edited: each component's parent container, by id.
+  var _parents = const <String, Node>{};
 
   /// Where the dragged thing would land.
   Rect? _marker;
 
-  /// The sidebar being dragged over.
+  /// The docked container being dragged over.
   String? _over;
 
   static RenderBox? _box(GlobalKey? key) =>
@@ -51,14 +69,18 @@ class _StageState extends ConsumerState<Stage> {
         _ => null,
       };
 
-  Widget _grid(Component pane, Widget grid) => KeyedSubtree(
-    key: _grids.putIfAbsent(pane.id, GlobalKey.new),
+  /// A slot's grid goes by the node holding what is put in it.
+  Widget _grid(Node container, Widget grid) => KeyedSubtree(
+    key: _grids.putIfAbsent(
+      container.slotHolder ?? container.id,
+      GlobalKey.new,
+    ),
     child: grid,
   );
 
-  Widget _plainTile(Component item, Widget tile) => tile;
+  Widget _plainTile(Node item, Widget tile) => tile;
 
-  Widget _editTile(Component item, Widget tile) {
+  Widget _editTile(Node item, Widget tile) {
     // A part of an instance is not a thing of its own.
     final parent = _parents[item.id];
     if (parent == null) return tile;
@@ -76,7 +98,7 @@ class _StageState extends ConsumerState<Stage> {
             child: child,
           );
     // In a row or column its box is what a drop goes before or after.
-    Widget boxed(Widget child) => item.isPane || parent.mode.inLine
+    Widget boxed(Widget child) => item.isContainer || parent.mode.inLine
         ? KeyedSubtree(
             key: _boxes.putIfAbsent(item.id, GlobalKey.new),
             child: child,
@@ -87,15 +109,19 @@ class _StageState extends ConsumerState<Stage> {
       id: item.id,
       child: AbsorbPointer(child: tile),
     );
-    if (item.isPane) {
+    if (item.isContainer) {
       return boxed(
         handle(
-          item.title.isEmpty ? 'Pane' : item.title,
+          item.name.isNotEmpty
+              ? item.name
+              : item.has(layoutModule.name)
+              ? 'Layout'
+              : 'Empty',
           const SymbolArt(Icons.dashboard_outlined),
-          // Outlined so a pane with no background can be seen and grabbed.
+          // Outlined so a container with no background can be seen and grabbed.
           _Selectable(
             id: item.id,
-            shape: PaneBox.shapeOf(item),
+            shape: shapeOf(item),
             resting: Colors.white24,
             child: tile,
           ),
@@ -105,7 +131,7 @@ class _StageState extends ConsumerState<Stage> {
     if (!item.isInstance) {
       return boxed(
         handle(
-          ComponentRegistry.named(item.kind)?.label ?? item.kind,
+          item.visual?.label ?? 'Node',
           const SymbolArt(Icons.widgets_outlined),
           still,
         ),
@@ -118,7 +144,7 @@ class _StageState extends ConsumerState<Stage> {
           ? handle(entity.label, EntityArt(entity: entity, padding: 4), still)
           : handle(
               source.isEmpty ? 'Prefab' : source,
-              FolderArt(folder: source),
+              NodeArt(node: source),
               still,
             ),
     );
@@ -132,8 +158,8 @@ class _StageState extends ConsumerState<Stage> {
   ) {
     final layout = ref.read(editedLayoutProvider);
     if (layout == null) return null;
-    if (dragged.sidebar) {
-      // A sidebar only goes to a free edge.
+    if (dragged.docking) {
+      // A new docked container only goes to a free edge.
       final screen = _box(_screen);
       if (screen == null) return null;
       final at = screen.globalToLocal(pointer);
@@ -148,34 +174,31 @@ class _StageState extends ConsumerState<Stage> {
       return (drop: null, bar: edge, marker: barRect(layout, edge));
     }
     final item = dragged.item;
-    // An open folder is the only target; else a visible sidebar; else the
-    // home screen.
-    var pane = layout.home.root;
+    // The last docked container showing under the pointer, else the home
+    // screen.
+    var container = layout.home.root;
     String? bar;
     for (final dock in layout.docked) {
-      final grid = _grids[dock.id];
-      if (_box(grid) == null) continue;
-      if (dock.hovers) {
-        pane = dock;
-        bar = null;
-        break;
-      }
+      // What an instance holds goes in its slot.
+      final into = dock.isInstance ? dock.children.firstOrNull : dock;
+      final grid = _grids[into?.id];
+      if (into == null || _box(grid) == null) continue;
       final showing = grid?.currentContext
           ?.getInheritedWidgetOfExactType<FocusBounds>()
           ?.visible();
       if (showing?.contains(pointer) ?? false) {
-        pane = dock;
+        container = into;
         bar = dock.id;
       }
     }
-    // A sidebar dragged over opens.
+    // A docked container dragged over opens.
     if (bar != _over) setState(() => _over = bar);
-    // The innermost pane under the pointer, excluding the dragged one.
-    for (Component? inner = pane; inner != null;) {
-      pane = inner;
+    // The innermost container under the pointer, excluding the dragged one.
+    for (Node? inner = container; inner != null;) {
+      container = inner;
       inner = null;
-      for (final other in pane.children) {
-        final box = other.isPane ? _box(_boxes[other.id]) : null;
+      for (final other in container.children) {
+        final box = other.isContainer ? _box(_boxes[other.id]) : null;
         if (other.id != item.id &&
             box != null &&
             (Offset.zero & box.size).contains(box.globalToLocal(pointer))) {
@@ -183,29 +206,30 @@ class _StageState extends ConsumerState<Stage> {
         }
       }
     }
-    if (whyNot(ref, dragged, pane.id) != null) return null;
+    if (whyNot(ref, dragged, container.id) != null) return null;
     final screen = _box(_screen);
     if (screen == null) return null;
-    if (pane.mode.inLine) return _inLine(pane, pointer, item, screen);
-    final grid = _box(_grids[pane.id]);
+    if (container.mode.inLine) return _inLine(container, pointer, item, screen);
+    final grid = _box(_grids[container.id]);
     if (grid == null) return null;
 
-    final metrics = PaneMetrics(pane, grid.size.width);
+    final metrics = CellMetrics(container, grid.size.width);
     final drop = dropAt(
-      pane,
+      container,
       metrics,
+      grid.size,
       grid.globalToLocal(pointer),
       item,
-      stepIn(pane, snap: ref.read(snapProvider)),
+      stepIn(container, snap: ref.read(snapProvider)),
     );
 
     // The marker is computed from the resulting layout so it cannot disagree
     // with it.
-    final after = findPane(
-      dropItem(layout, item, drop, folder: dragged.folder),
-      pane.id,
-    )!.pane;
-    final rect = metrics.rectOf(placementIn(after, item.id));
+    final after = findContainer(
+      dropItem(layout, item, drop, opens: dragged.opens),
+      container.id,
+    )!.container;
+    final rect = rectIn(after, item.id, metrics, grid.size);
     return (
       drop: drop,
       bar: null,
@@ -213,29 +237,29 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
-  /// The drop for [item] at [pointer] in the row or column [pane]: before the
-  /// first child whose middle is past the pointer. The marker is a bar
+  /// The drop for [item] at [pointer] in the row or column [container]: before
+  /// the first child whose middle is past the pointer. The marker is a bar
   /// between the two.
   ({Drop? drop, String? bar, Rect marker})? _inLine(
-    Component pane,
+    Node container,
     Offset pointer,
-    Component item,
+    Node item,
     RenderBox screen,
   ) {
-    final box = _box(_boxes[pane.id]);
+    final box = _box(_boxes[container.id]);
     if (box == null) return null;
     Rect on(RenderBox box) => MatrixUtils.transformRect(
       box.getTransformTo(screen),
       Offset.zero & box.size,
     );
-    final row = pane.mode == PaneMode.row;
+    final row = container.mode == LayoutMode.row;
     final at = screen.globalToLocal(pointer);
     final whole = on(box);
     const thick = 4.0;
     String? before;
     // Where the bar goes along the line: the start, or after the last child.
     var along = row ? whole.left : whole.top;
-    for (final child in pane.children) {
+    for (final child in container.children) {
       final rect = switch (child.id == item.id
           ? null
           : _box(_boxes[child.id])) {
@@ -251,7 +275,7 @@ class _StageState extends ConsumerState<Stage> {
       along = row ? rect.right : rect.bottom;
     }
     return (
-      drop: Drop(pane.id, before: before),
+      drop: Drop(container.id, before: before),
       bar: null,
       marker: row
           ? Rect.fromLTWH(along - thick / 2, whole.top, thick, whole.height)
@@ -259,25 +283,38 @@ class _StageState extends ConsumerState<Stage> {
     );
   }
 
-  /// The single selected component, if its cells can be found: its rect and
-  /// what resizing needs.
-  ({Found found, Placement placed, PaneMetrics metrics, Rect rect})? _picked() {
+  /// The single selected node, if its place can be found: its rect and what
+  /// resizing needs.
+  ({
+    Found found,
+    Placement placed,
+    CellMetrics metrics,
+    Rect rect,
+    Size size,
+    Rect parent,
+  })?
+  _picked() {
     final layout = ref.read(editedLayoutProvider);
     final ids = ref.read(selectionProvider);
     if (layout == null || ids.length != 1) return null;
     final found = findItems(layout, ids).singleOrNull;
     final grid = _box(_grids[found?.parent.id]), screen = _box(_screen);
     if (found == null || grid == null || screen == null) return null;
-    final pane = found.parent;
-    final placed = placementIn(pane, found.item.id);
-    final metrics = PaneMetrics(pane, grid.size.width);
+    final container = found.parent;
+    final placed = placementIn(container, found.item.id);
+    final metrics = CellMetrics(container, grid.size.width);
     return (
       found: found,
       placed: placed,
       metrics: metrics,
+      size: grid.size,
       rect: MatrixUtils.transformRect(
         grid.getTransformTo(screen),
-        metrics.rectOf(placed),
+        rectIn(container, found.item.id, metrics, grid.size),
+      ),
+      parent: MatrixUtils.transformRect(
+        grid.getTransformTo(screen),
+        Offset.zero & grid.size,
       ),
     );
   }
@@ -290,34 +327,39 @@ class _StageState extends ConsumerState<Stage> {
     final picked = _picked();
     final layout = ref.read(editedLayoutProvider);
     if (picked == null || layout == null) return;
-    final (:found, :placed, :metrics, rect: _) = picked;
-    final pane = found.parent;
-    final grid = _box(_grids[pane.id]), screen = _box(_screen);
+    final (:found, :placed, :metrics, :size, rect: _, parent: _) = picked;
+    final container = found.parent;
+    final grid = _box(_grids[container.id]), screen = _box(_screen);
     if (grid == null || screen == null) return;
-    final to = resizedTo(
-      pane,
-      placed,
-      metrics,
-      handle,
-      // In the pane's own pixels, which a prefab's are enlarged from.
-      moved / grid.getTransformTo(screen).getMaxScaleOnAxis(),
-      stepIn(pane, snap: ref.read(snapProvider)),
-    );
-    final next = reshapeItem(
-      layout,
-      found.item.id,
-      x: to.x,
-      y: to.y,
-      w: to.w,
-      h: to.h,
-    );
+    // In the container's own pixels, which a prefab's are enlarged from.
+    final by = moved / grid.getTransformTo(screen).getMaxScaleOnAxis();
+    final step = stepIn(container, snap: ref.read(snapProvider));
+    final Layout next;
+    if (container.mode == LayoutMode.free) {
+      next = placeItem(
+        layout,
+        found.item.id,
+        resizedRect(found.item.transform.rectIn(size), handle, by, step),
+        size,
+      );
+    } else {
+      final to = resizedTo(container, placed, metrics, handle, by, step);
+      next = reshapeItem(
+        layout,
+        found.item.id,
+        x: to.x,
+        y: to.y,
+        w: to.w,
+        h: to.h,
+      );
+    }
     final after = findItems(next, {found.item.id}).single;
     setState(() {
       _resized = next;
       // Computed from the resulting layout, as for a drop.
       _marker = MatrixUtils.transformRect(
         grid.getTransformTo(screen),
-        metrics.rectOf(placementIn(after.parent, after.item.id)),
+        rectIn(after.parent, after.item.id, metrics, size),
       );
     });
   }
@@ -341,11 +383,11 @@ class _StageState extends ConsumerState<Stage> {
     final layout = ref.watch(editedLayoutProvider);
     final prefab = ref.watch(editedPrefabProvider) != null;
     _parents = {
-      for (final pane in layout?.all ?? const <Component>[])
-        for (final child in pane.children) child.id: pane,
+      for (final container in layout?.all ?? const <Node>[])
+        for (final child in container.children) child.id: container,
     };
     // The frames stay mounted so toggling editing keeps the launcher's state.
-    final screen = PaneFrame(
+    final screen = LayoutFrame(
       wrap: _grid,
       child: TileFrame(
         wrap: editing ? _editTile : _plainTile,
@@ -363,7 +405,7 @@ class _StageState extends ConsumerState<Stage> {
             _mark(null);
             if (_over != null) setState(() => _over = null);
             if (target?.bar case final bar?) {
-              addBar(context, ref, bar);
+              addBar(context, ref, bar, details.data.docks!);
             } else if (target?.drop case final drop?) {
               placeDragged(context, ref, details.data, drop);
             }
@@ -389,10 +431,26 @@ class _StageState extends ConsumerState<Stage> {
                     read: _picked,
                     same: (a, b) =>
                         a?.rect == b?.rect &&
+                        a?.parent == b?.parent &&
+                        a?.found.item.transform == b?.found.item.transform &&
                         a?.found.item.id == b?.found.item.id &&
                         a?.found.parent.mode == b?.found.parent.mode,
                     builder: (context, picked) => Stack(
                       children: [
+                        // Where its anchors are in its parent.
+                        if (picked != null &&
+                            picked.found.parent.mode == LayoutMode.free &&
+                            !picked.found.item.isDocked)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: AnchorMarks(
+                                  parent: picked.parent,
+                                  transform: picked.found.item.transform,
+                                ),
+                              ),
+                            ),
+                          ),
                         if (picked != null)
                           ResizeHandles(
                             // While resizing, around the new rect.
@@ -403,12 +461,6 @@ class _StageState extends ConsumerState<Stage> {
                               picked.found.item,
                               picked.placed,
                               picked.found.parent,
-                              leastSpan(
-                                stepIn(
-                                  picked.found.parent,
-                                  snap: ref.watch(snapProvider),
-                                ),
-                              ),
                             ),
                             onDragged: _resize,
                             onDone: _resizeDone,
@@ -417,10 +469,11 @@ class _StageState extends ConsumerState<Stage> {
                     ),
                   ),
                 ),
-              // While a sidebar is dragged, the edges that would take it.
+              // While a new docked container is dragged, the edges that would
+              // take it.
               if (layout != null &&
                   !prefab &&
-                  held.any((dragged) => dragged?.sidebar ?? false))
+                  held.any((dragged) => dragged?.docking ?? false))
                 for (final id in freeEdges(layout))
                   Positioned.fromRect(
                     rect: barRect(layout, id, thickness: 8),

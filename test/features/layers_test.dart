@@ -8,7 +8,7 @@ import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
@@ -38,108 +38,114 @@ void main() {
     expect(c.read(layersProvider), isEmpty);
   });
 
-  testWidgets('a sidebar revealed is on a layer of its own, as its pane says', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(960, 540);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    Future<WidgetRef> show(Triggers on) async {
-      late WidgetRef ref;
-      await tester.pumpWidget(
-        ProviderScope(
-          key: UniqueKey(),
-          overrides: [
-            ...packOverrides,
-            launcherPlatformProvider.overrideWithValue(
-              FakeLauncherPlatform([
-                InstalledApp(packageName: 'a', label: 'Alpha', isBanner: true),
-                InstalledApp(packageName: 'b', label: 'Beta', isBanner: true),
-              ], const []),
-            ),
-            configStoreProvider.overrideWithValue(
-              MemoryConfigStore(
-                LauncherConfig(
-                  layout: Layout(
-                    inbox: 'main',
-                    removed: const {'system:settings'},
-                    layers: [
-                      Layer(
-                        id: Layout.homeId,
-                        root: Component.pane(
-                          id: 'main',
-                          // In line with the sidebar's row and clear of it
-                          // when it is open, so that going right from it
-                          // leads here.
-                          mode: PaneMode.grid,
-                          children: [
-                            Component.of('system:app/a', id: 'a', x: 3, y: 0),
-                            // What it does when shown is written on it:
-                            // [on] over what a new sidebar comes with.
-                            sidebarPane('left', 'left').copyWith(
-                              on: {...barTriggers(), ...on},
-                              children: [Component.of('system:app/b', id: 'b')],
-                            ),
-                          ],
+  testWidgets(
+    'a sidebar revealed is on a layer of its own, as its container says',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 540);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      Future<WidgetRef> show(Triggers on) async {
+        late WidgetRef ref;
+        await tester.pumpWidget(
+          ProviderScope(
+            key: UniqueKey(),
+            overrides: [
+              ...packOverrides,
+              launcherPlatformProvider.overrideWithValue(
+                FakeLauncherPlatform([
+                  InstalledApp(
+                    packageName: 'a',
+                    label: 'Alpha',
+                    isBanner: true,
+                  ),
+                  InstalledApp(packageName: 'b', label: 'Beta', isBanner: true),
+                ], const []),
+              ),
+              configStoreProvider.overrideWithValue(
+                MemoryConfigStore(
+                  LauncherConfig(
+                    layout: Layout(
+                      inbox: 'main',
+                      removed: const {'system:settings'},
+                      layers: [
+                        Layer(
+                          id: Layout.homeId,
+                          root: Node.layout(
+                            id: 'main',
+                            // In line with the sidebar's row and clear of it
+                            // when it is open, so that going right from it
+                            // leads here.
+                            mode: LayoutMode.grid,
+                            children: [
+                              cardOf('system:app/a', id: 'a', x: 3, y: 0),
+                              // What it does when shown is written on it:
+                              // [on] over what a new sidebar comes with.
+                              sidebarOf('left', 'left')
+                                  .triggered({...barTriggers(), ...on})
+                                  .holds(
+                                    children: [cardOf('system:app/b', id: 'b')],
+                                  ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ).normalised(),
+                      ],
+                    ).normalised(),
+                  ),
                 ),
               ),
-            ),
-          ],
-          child: MaterialApp(
-            home: Consumer(
-              builder: (context, r, _) {
-                ref = r;
-                return const HomeScreen();
-              },
+            ],
+            child: MaterialApp(
+              home: Consumer(
+                builder: (context, r, _) {
+                  ref = r;
+                  return const HomeScreen();
+                },
+              ),
             ),
           ),
-        ),
-      );
+        );
+        await tester.pumpAndSettle();
+        return ref;
+      }
+
+      // As it comes: a layer of its own while it is open, and none after.
+      var ref = await show(const {});
+      expect(ref.read(layersProvider), isEmpty);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
-      return ref;
-    }
+      expect(ref.read(runtimeVarsProvider)['left']?[openVar], isTrue);
+      expect(ref.read(layersProvider).single.holds, {'left'});
+      expect(find.byType(BackdropFilter), findsNothing);
+      // Still the one sidebar: its one tile, which says its name twice,
+      // as what its picture falls back to and under it.
+      expect(find.text('Beta'), findsNWidgets(2));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(ref.read(layersProvider), isEmpty);
+      expect(tester.takeException(), isNull);
 
-    // As it comes: a layer of its own while it is open, and none after.
-    var ref = await show(const {});
-    expect(ref.read(layersProvider), isEmpty);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    expect(ref.read(runtimeVarsProvider)['left']?[openVar], isTrue);
-    expect(ref.read(layersProvider).single.holds, {'left'});
-    expect(find.byType(BackdropFilter), findsNothing);
-    // Still the one sidebar: its one tile, which says its name twice,
-    // as what its picture falls back to and under it.
-    expect(find.text('Beta'), findsNWidgets(2));
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pumpAndSettle();
-    expect(ref.read(layersProvider), isEmpty);
-    expect(tester.takeException(), isNull);
+      // Told to blur what is under it, the layer does.
+      ref = await show(const {
+        Trigger.reveal: [
+          Act('launcher://layers/new', {'blur': 8, 'dim': 0.2}),
+          Act('launcher://layers/raise'),
+        ],
+      });
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      final layer = ref.read(layersProvider).single;
+      expect((layer.blur, layer.dim), (8.0, 0.2));
+      expect(layer.holds, {'left'});
+      expect(find.byType(BackdropFilter), findsOneWidget);
 
-    // Told to blur what is under it, the layer does.
-    ref = await show(const {
-      Trigger.reveal: [
-        Act('launcher://layers/new', {'blur': 8, 'dim': 0.2}),
-        Act('launcher://layers/raise'),
-      ],
-    });
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    final layer = ref.read(layersProvider).single;
-    expect((layer.blur, layer.dim), (8.0, 0.2));
-    expect(layer.holds, {'left'});
-    expect(find.byType(BackdropFilter), findsOneWidget);
-
-    // Told to do nothing on being revealed, it stays where it is.
-    ref = await show(const {Trigger.reveal: [], Trigger.hide: []});
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    expect(ref.read(runtimeVarsProvider)['left']?[openVar], isTrue);
-    expect(ref.read(layersProvider), isEmpty);
-  });
+      // Told to do nothing on being revealed, it stays where it is.
+      ref = await show(const {Trigger.reveal: [], Trigger.hide: []});
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(ref.read(runtimeVarsProvider)['left']?[openVar], isTrue);
+      expect(ref.read(layersProvider), isEmpty);
+    },
+  );
 
   testWidgets('a folder hovers on a layer that keeps the focus, and Back '
       'takes it away', (tester) async {
@@ -165,17 +171,14 @@ void main() {
                   layers: [
                     Layer(
                       id: Layout.homeId,
-                      root: Component.pane(
+                      root: Node.layout(
                         id: 'main',
                         children: [
-                          Component.of(
+                          cardOf('games', id: 'f', prefab: folderPrefabId),
+                          folderOf(
                             'games',
-                            id: 'f',
-                            prefab: folderPrefabId,
-                          ),
-                          folderPane('games', title: 'Games').copyWith(
-                            children: [Component.of('system:app/b', id: 'b')],
-                          ),
+                            title: 'Games',
+                          ).holds(children: [cardOf('system:app/b', id: 'b')]),
                         ],
                       ),
                     ),
@@ -198,7 +201,8 @@ void main() {
     await tester.pumpAndSettle();
     // What is in the folder, laid out only while it shows.
     final held = find.byWidgetPredicate(
-      (widget) => widget is PaneGrid && widget.pane.id == 'games',
+      (widget) =>
+          widget is ChildrenLayout && widget.container.id == 'games/content',
     );
     expect(held, findsNothing);
 

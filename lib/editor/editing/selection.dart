@@ -65,7 +65,7 @@ final selectedProvider = Provider<List<Found>>((ref) {
   return layout == null || ids.isEmpty ? const [] : findItems(layout, ids);
 });
 
-/// Briefly lets go of the selected docked pane to preview its opening.
+/// Briefly lets go of the selected docked container to preview its opening.
 final barReplayProvider = NotifierProvider<BarReplay, bool>(BarReplay.new);
 
 class BarReplay extends Notifier<bool> {
@@ -80,17 +80,16 @@ class BarReplay extends Notifier<bool> {
   }
 }
 
-/// The folders the selected folder cards open, by id.
-final selectedFoldersProvider = Provider<Map<String, Component>>((ref) {
+/// The nodes the selected instances are handed, rather than entities, by
+/// id.
+final selectedHandedProvider = Provider<Map<String, Node>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
-  final folders = <String, Component>{};
-  for (final one in ref.watch(selectedProvider)) {
-    final folder = layout?.folderOf(one.item);
-    if (layout?.pane(folder ?? '') case final pane?) {
-      folders[pane.id] = pane;
-    }
-  }
-  return folders;
+  return {
+    for (final one in ref.watch(selectedProvider))
+      if (one.item.isInstance)
+        for (final id in one.item.handed)
+          if (layout?.node(id) != null) id: layout!.node(id)!,
+  };
 });
 
 final inboxProvider = Provider<String?>(

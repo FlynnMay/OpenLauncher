@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// Whether components in a free pane still snap to whole cells. On by
+/// Whether nodes without a layout around them snap to [freeStep]. On by
 /// default.
 final snapProvider = NotifierProvider<Snap, bool>(Snap.new);
 
@@ -13,13 +13,13 @@ class Snap extends Notifier<bool> {
   void set(bool snap) => state = snap;
 }
 
-/// Step for unsnapped placement, in cells.
-const freeStep = 0.05;
+/// Step for snapped placement without a layout, in TV pixels.
+const freeStep = 8.0;
 
-/// The placement step in [pane]: whole cells, or [freeStep] in a free pane
-/// with [snap] off.
-double stepIn(Component pane, {required bool snap}) =>
-    pane.mode == PaneMode.free && !snap ? freeStep : 1;
+/// The placement step in [container]: whole cells, or without a layout TV
+/// pixels, [freeStep] apart while [snap] is on.
+double stepIn(Node container, {required bool snap}) =>
+    container.mode == LayoutMode.free && snap ? freeStep : 1;
 
 /// [value] rounded to a multiple of [step], to two decimals.
 double snapTo(double value, double step) =>
@@ -33,9 +33,9 @@ class SnapButton extends ConsumerWidget {
     final snap = ref.watch(snapProvider);
     return IconButton(
       tooltip: snap
-          ? 'Snap to grid: on. Press to place and size freely in Free '
-                'panes.'
-          : 'Snap to grid: off. Press to keep things to whole cells.',
+          ? 'Snap to grid: on. Press to place and size freely where there '
+                'is no layout.'
+          : 'Snap to grid: off. Press to keep things to an 8 pixel grid.',
       isSelected: snap,
       onPressed: () => ref.read(snapProvider.notifier).set(!snap),
       icon: const Icon(Icons.grid_off_outlined),

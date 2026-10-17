@@ -49,12 +49,12 @@ class EntityArt extends StatelessWidget {
   }
 }
 
-/// A folder's picture: the user's, else a preview of its contents, else an
+/// A node's picture: the user's, else a preview of what is in it, else an
 /// outline.
-class FolderArt extends ConsumerWidget {
-  const FolderArt({super.key, required this.folder});
+class NodeArt extends ConsumerWidget {
+  const NodeArt({super.key, required this.node});
 
-  final String folder;
+  final String node;
 
   /// How many entities the preview shows.
   static const _shown = 4;
@@ -70,7 +70,7 @@ class FolderArt extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final icon = ref.watch(
       configProvider.select(
-        (config) => config.value?.iconOverrides[Layout.iconKey(folder)],
+        (config) => config.value?.iconOverrides[Layout.pictureKey(node)],
       ),
     );
     if (icon != null) {
@@ -84,8 +84,8 @@ class FolderArt extends ConsumerWidget {
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final preview = [
       for (final item
-          in ref.watch(layoutViewProvider).value?.pane(folder)?.contents ??
-              const <Component>[])
+          in ref.watch(layoutViewProvider).value?.node(node)?.contents ??
+              const <Node>[])
         ?entities.byId(item.handed.firstOrNull),
     ].take(_shown).toList();
     if (preview.isEmpty) return SvgPicture.string(_outline);

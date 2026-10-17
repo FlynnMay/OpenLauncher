@@ -1,11 +1,11 @@
-import 'package:openlauncher/core/components/component_option.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
 /// A component's saved style: property name -> value.
 typedef Style = Map<String, Object?>;
 
 /// One style property, described as data for the editor.
-class StyleProp extends ComponentOption {
+class StyleProp extends Field {
   const StyleProp(
     super.key,
     super.label,
@@ -26,22 +26,29 @@ class StyleProp extends ComponentOption {
 /// Every style property. A new one goes here, in the key list of whatever
 /// takes it, and where it is drawn.
 const styleProps = [
-  StyleProp('background', 'Background', OptionKind.fill),
-  StyleProp('borderColor', 'Border colour', OptionKind.colour),
+  StyleProp('background', 'Background', FieldKind.fill),
+  StyleProp('borderColor', 'Border colour', FieldKind.colour),
   StyleProp(
     'borderWidth',
     'Border width',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 2,
     max: 20,
     unset: null,
   ),
-  StyleProp('radius', 'Corners', OptionKind.corners, max: 120, step: 2),
-  StyleProp('padding', 'Padding', OptionKind.number, max: 80, step: 2),
+  StyleProp('radius', 'Corners', FieldKind.corners, max: 120, step: 2),
+  StyleProp('padding', 'Padding', FieldKind.number, max: 80, step: 2),
+  StyleProp(
+    'clip',
+    'Clip contents',
+    FieldKind.toggle,
+    defaultValue: false,
+    unset: null,
+  ),
   StyleProp(
     'opacity',
     'Opacity %',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 100,
     max: 100,
     step: 5,
@@ -50,17 +57,17 @@ const styleProps = [
   StyleProp(
     'shadow',
     'Shadow',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 0,
     max: 60,
     step: 2,
     unset: null,
   ),
-  StyleProp('color', 'Colour', OptionKind.colour, inherits: true),
+  StyleProp('color', 'Colour', FieldKind.colour, inherits: true),
   StyleProp(
     'fontSize',
     'Font size',
-    OptionKind.number,
+    FieldKind.number,
     inherits: true,
     min: 8,
     max: 200,
@@ -69,22 +76,22 @@ const styleProps = [
   StyleProp(
     'fontWeight',
     'Font weight',
-    OptionKind.choice,
+    FieldKind.choice,
     inherits: true,
     choices: {'light': 'Light', 'medium': 'Medium', 'bold': 'Bold'},
   ),
   StyleProp(
     'textAlign',
     'Text align',
-    OptionKind.choice,
+    FieldKind.choice,
     inherits: true,
     choices: {'left': 'Left', 'center': 'Centre', 'right': 'Right'},
   ),
-  // A pane's scroll bar. Read by `ScrollbarStyle.of`.
+  // A container's scroll bar. Read by `ScrollbarStyle.of`.
   StyleProp(
     'scrollbarSide',
     'Position',
-    OptionKind.choice,
+    FieldKind.choice,
     defaultValue: 'end',
     choices: {'end': 'Right / bottom', 'start': 'Left / top'},
     unset: null,
@@ -92,7 +99,7 @@ const styleProps = [
   StyleProp(
     'scrollbarSize',
     'Thickness',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 6,
     min: 1,
     max: 40,
@@ -101,7 +108,7 @@ const styleProps = [
   StyleProp(
     'scrollbarLength',
     'Length %',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 100,
     min: 5,
     max: 100,
@@ -111,7 +118,7 @@ const styleProps = [
   StyleProp(
     'scrollbarMargin',
     'Edge margin',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 4,
     max: 80,
     unset: null,
@@ -119,7 +126,7 @@ const styleProps = [
   StyleProp(
     'scrollbarEndMargin',
     'End margin',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 4,
     max: 200,
     step: 2,
@@ -128,18 +135,18 @@ const styleProps = [
   StyleProp(
     'scrollbarOpacity',
     'Opacity %',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 100,
     max: 100,
     step: 5,
     unset: null,
   ),
-  StyleProp('scrollbarThumb', 'Thumb', OptionKind.fill),
-  StyleProp('scrollbarThumbBorder', 'Thumb border colour', OptionKind.colour),
+  StyleProp('scrollbarThumb', 'Thumb', FieldKind.fill),
+  StyleProp('scrollbarThumbBorder', 'Thumb border colour', FieldKind.colour),
   StyleProp(
     'scrollbarThumbBorderWidth',
     'Thumb border width',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 1,
     max: 20,
     unset: null,
@@ -147,14 +154,14 @@ const styleProps = [
   StyleProp(
     'scrollbarThumbRadius',
     'Thumb corners',
-    OptionKind.number,
+    FieldKind.number,
     max: 120,
     unset: 'Round',
   ),
   StyleProp(
     'scrollbarInset',
     'Thumb inset',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 0,
     max: 20,
     unset: null,
@@ -162,19 +169,19 @@ const styleProps = [
   StyleProp(
     'scrollbarMinLength',
     'Thumb minimum length',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 24,
     min: 4,
     max: 400,
     step: 4,
     unset: null,
   ),
-  StyleProp('scrollbarTrack', 'Track', OptionKind.fill),
-  StyleProp('scrollbarTrackBorder', 'Track border colour', OptionKind.colour),
+  StyleProp('scrollbarTrack', 'Track', FieldKind.fill),
+  StyleProp('scrollbarTrackBorder', 'Track border colour', FieldKind.colour),
   StyleProp(
     'scrollbarTrackBorderWidth',
     'Track border width',
-    OptionKind.number,
+    FieldKind.number,
     defaultValue: 1,
     max: 20,
     unset: null,
@@ -182,7 +189,7 @@ const styleProps = [
   StyleProp(
     'scrollbarTrackRadius',
     'Track corners',
-    OptionKind.number,
+    FieldKind.number,
     max: 120,
     unset: 'Round',
   ),
@@ -195,11 +202,12 @@ const boxStyle = [
   'borderWidth',
   'radius',
   'padding',
+  'clip',
   'opacity',
   'shadow',
 ];
 
-/// Properties of a pane's scroll bar.
+/// Properties of a container's scroll bar.
 const scrollbarStyle = [
   'scrollbarSide',
   'scrollbarSize',

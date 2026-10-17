@@ -3,10 +3,20 @@ import 'package:flutter/material.dart';
 /// A collapsible group of settings. Its open state is remembered by [title]
 /// for the life of the page.
 class Section extends StatefulWidget {
-  const Section(this.title, this.children, {super.key, this.open = true});
+  const Section(
+    this.title,
+    this.children, {
+    super.key,
+    this.open = true,
+    this.leading,
+    this.trailing,
+  });
 
   final String title;
   final List<Widget> children;
+
+  /// Before and after the title, such as a switch and a menu.
+  final Widget? leading, trailing;
 
   /// Initial state.
   final bool open;
@@ -42,7 +52,13 @@ class _SectionState extends State<Section> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      SectionHeader(widget.title, open: _open, onTap: _toggle),
+      SectionHeader(
+        widget.title,
+        open: _open,
+        onTap: _toggle,
+        leading: widget.leading,
+        trailing: widget.trailing,
+      ),
       if (_open)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -56,16 +72,54 @@ class _SectionState extends State<Section> {
 }
 
 /// The row heading a collapsible group. Without [onTap] it cannot be closed.
+/// One at a [depth] below another is drawn as a branch of a tree: indented,
+/// its arrow before it.
 class SectionHeader extends StatelessWidget {
-  const SectionHeader(this.title, {super.key, required this.open, this.onTap});
+  const SectionHeader(
+    this.title, {
+    super.key,
+    required this.open,
+    this.onTap,
+    this.depth = 0,
+    this.leading,
+    this.trailing,
+  });
 
   final String title;
   final bool open;
   final VoidCallback? onTap;
+  final int depth;
+  final Widget? leading, trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (depth > 0) {
+      return InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(4.0 + 16 * depth, 6, 12, 6),
+          child: Row(
+            spacing: 4,
+            children: [
+              Icon(
+                open ? Icons.expand_more : Icons.chevron_right,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -74,9 +128,10 @@ class SectionHeader extends StatelessWidget {
         InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+            padding: EdgeInsets.fromLTRB(leading == null ? 16 : 4, 10, 12, 10),
             child: Row(
               children: [
+                ?leading,
                 Expanded(
                   child: Text(
                     title,
@@ -85,6 +140,7 @@ class SectionHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+                ?trailing,
                 if (onTap != null)
                   Tooltip(
                     message: open ? 'Close' : 'Open',

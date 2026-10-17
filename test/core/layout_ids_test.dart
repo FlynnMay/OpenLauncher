@@ -1,10 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
 import '../support/packs.dart';
 
-Component _entity(String id, String ref) => Component.of(ref, id: id);
+Node _entity(String id, String ref) => cardOf(ref, id: id);
 
 void main() {
   test('a name becomes an id that can be read', () {
@@ -21,12 +20,12 @@ void main() {
       layers: [
         Layer(
           id: 'home',
-          root: Component.pane(
+          root: Node.layout(
             id: 'home/root',
             children: [
               _entity('youtube', 'system:app/yt'),
-              Component.pane(id: 'pane'),
-              folderPane('games', title: 'Games'),
+              Node.layout(id: 'layout'),
+              folderOf('games', title: 'Games'),
             ],
           ),
         ),
@@ -34,12 +33,12 @@ void main() {
     );
     expect(layout.itemIdFor('YouTube'), 'youtube-2');
     expect(layout.itemIdFor('Netflix'), 'netflix');
-    expect(layout.paneIdFor(), 'pane-2');
-    // A folder is a pane: one id space for everything.
-    expect(layout.paneIdFor('Games', 'folder'), 'games-2');
-    expect(layout.paneIdFor('', 'folder'), 'folder');
+    expect(layout.containerIdFor(), 'layout-2');
+    // A folder is a container: one id space for everything.
+    expect(layout.containerIdFor('Games', 'folder'), 'games-2');
+    expect(layout.containerIdFor('', 'folder'), 'folder');
     // Nothing can take the id of the home layer, there or not.
-    expect(layout.paneIdFor('Home'), 'home-2');
+    expect(layout.containerIdFor('Home'), 'home-2');
     expect(layout.itemIdFor('Quick actions'), 'quick-actions');
   });
 
@@ -65,6 +64,7 @@ void main() {
         'system:app/io.gh.reisxd.tizentube.cobalt': 'YouTube',
         'system:input/x/HW15': 'HDMI 1',
       },
+      instance: placedCard,
     );
     expect(shown.items.where((i) => i.handed.isNotEmpty).map((i) => i.id), [
       'tizentube-cobalt',

@@ -5,6 +5,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/server/media_store.dart';
 import 'package:path/path.dart' as p;
@@ -20,6 +21,7 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
 ) async {
   final entities = await ref.watch(entitiesProvider.future);
   final config = await ref.watch(configProvider.future);
+  final prefabs = ref.watch(prefabsProvider);
   final providers = await ref.watch(widgetProvidersProvider.future);
   // Not awaited; the page should not wait for it.
   final playing = ref.watch(nowPlayingProvider).value;
@@ -40,18 +42,18 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     ],
     // As the TV draws it: unplaced entities in the inbox, missing ones
     // dropped.
-    'layout': layoutWith(config.layout, entities).toJson(),
+    'layout': layoutWith(config.layout, entities, prefabs).toJson(),
     // False while it is a pack's starting layout.
     'ownLayout': config.ownLayout,
-    'components': [
-      for (final kind in ComponentRegistry.values)
+    'visuals': [
+      for (final type in visualModules)
         // App widgets only where some exist.
-        if (kind != ComponentRegistry.android || providers.isNotEmpty)
+        if (type != appWidgetModule || providers.isNotEmpty)
           {
-            'type': kind.name,
-            'label': kind.label,
-            'w': kind.defaultW,
-            'h': kind.defaultH,
+            'module': type.name,
+            'label': type.label,
+            'w': type.size.$1,
+            'h': type.size.$2,
           },
     ],
     'widgetProviders': [

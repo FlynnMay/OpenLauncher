@@ -70,7 +70,7 @@ TvState _state() => TvState(
     ),
   ],
   config: LauncherConfig(layout: homeLayout(['system:app/a'])),
-  components: const [],
+  visuals: const [],
 );
 
 void main() {
@@ -101,7 +101,7 @@ void main() {
         TvState(
           entities: const [_entity],
           config: startingConfig,
-          components: const [],
+          visuals: const [],
         ),
       ),
     );
@@ -205,7 +205,7 @@ void main() {
         TvState(
           entities: const [_entity],
           config: LauncherConfig(layout: homeLayout(['system:app/a'])),
-          components: const [],
+          visuals: const [],
           nowPlaying: NowPlaying(
             packageName: 'a',
             appLabel: 'A',
@@ -285,7 +285,7 @@ void main() {
             TvState(
               entities: const [_entity],
               config: LauncherConfig(layout: homeLayout(['system:app/a'])),
-              components: const [],
+              visuals: const [],
               access: const {Access.homeButton: false},
             ),
           ),

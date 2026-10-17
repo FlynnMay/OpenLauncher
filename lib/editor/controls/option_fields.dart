@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/editor/controls/choice_box.dart';
 import 'package:openlauncher/editor/controls/colour_picker.dart';
 import 'package:openlauncher/editor/controls/commit_field.dart';
@@ -14,40 +14,43 @@ import 'package:openlauncher/editor/controls/template_field.dart';
 import 'package:openlauncher/editor/controls/tick_box.dart';
 
 /// Generated fields for [options] showing [values]. Reports the whole value
-/// map; a value reset to its default is removed. [mixed] keys show as mixed.
+/// map; a value reset to its default is removed. [mixed] keys show as mixed;
+/// [marked] keys as set over what they inherit, with [onRevert] to undo that.
 List<Widget> optionFields({
-  required List<ComponentOption> options,
+  required List<Field> options,
   required Map<String, Object?> values,
   required void Function(Map<String, Object?> values) onChanged,
   double corner = 10,
   Set<String> mixed = const {},
+  Set<String> marked = const {},
+  void Function(String key)? onRevert,
 }) {
-  void set(ComponentOption option, Object? value) => onChanged(
+  void set(Field option, Object? value) => onChanged(
     {...values, option.key: value == option.defaultValue ? null : value}
       ..removeWhere((_, value) => value == null),
   );
-  Widget field(ComponentOption option) {
+  Widget field(Field option) {
     final value = values[option.key] ?? option.defaultValue;
     switch (option.kind) {
-      case OptionKind.template:
+      case FieldKind.template:
         return TemplateField(
           label: option.label,
           value: value is String ? value : '',
           onChanged: (text) => set(option, text.isEmpty ? null : text),
         );
-      case OptionKind.text:
+      case FieldKind.text:
         return CommitField(
           label: option.label,
           value: value is String ? value : '',
           onChanged: (text) => set(option, text),
         );
-      case OptionKind.value:
+      case FieldKind.value:
         return CommitField(
           label: option.label,
           value: value == null ? '' : '$value',
           onChanged: (text) => set(option, typedValue(text)),
         );
-      case OptionKind.list:
+      case FieldKind.list:
         return ListField(
           option: option,
           records: [
@@ -57,13 +60,13 @@ List<Widget> optionFields({
           ],
           onChanged: (records) => set(option, records),
         );
-      case OptionKind.toggle:
+      case FieldKind.toggle:
         return TickBox(
           label: option.label,
           value: value == true,
           onChanged: (on) => set(option, on),
         );
-      case OptionKind.number:
+      case FieldKind.number:
         final fallback = option.defaultValue;
         return NumberField(
           label: option.label,
@@ -85,7 +88,7 @@ List<Widget> optionFields({
               ? () => set(option, null)
               : null,
         );
-      case OptionKind.choice:
+      case FieldKind.choice:
         return LabelledRow(
           option.label,
           ChoiceBox<String>(
@@ -99,13 +102,13 @@ List<Widget> optionFields({
             onChanged: (choice) => set(option, choice.isEmpty ? null : choice),
           ),
         );
-      case OptionKind.icon:
+      case FieldKind.icon:
         return IconField(
           label: option.label,
           value: value is String ? value : '',
           onChanged: (name) => set(option, name.isEmpty ? null : name),
         );
-      case OptionKind.colour:
+      case FieldKind.colour:
         return LabelledRow(
           option.label,
           Align(
@@ -117,13 +120,13 @@ List<Widget> optionFields({
             ),
           ),
         );
-      case OptionKind.fill:
+      case FieldKind.fill:
         return FillField(
           label: option.label,
           value: value,
           onChanged: (fill) => set(option, fill),
         );
-      case OptionKind.corners:
+      case FieldKind.corners:
         return CornerSettings(
           label: option.label,
           corners: BoxStyle.of({option.key: value}).corners,
@@ -140,23 +143,66 @@ List<Widget> optionFields({
 
   return [
     for (final option in options)
-      if (option.when?.call(values) ?? true) field(option),
+      if (option.when?.call(values) ?? true)
+        marked.contains(option.key)
+            ? Overridden(
+                onRevert: onRevert == null ? null : () => onRevert(option.key),
+                child: field(option),
+              )
+            : field(option),
   ];
+}
+
+/// A field set over what it inherits: a bar beside it and a revert.
+class Overridden extends StatelessWidget {
+  const Overridden({super.key, required this.child, this.onRevert});
+
+  final Widget child;
+  final VoidCallback? onRevert;
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = Theme.of(context).colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: colour, width: 2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Row(
+          children: [
+            Expanded(child: child),
+            if (onRevert != null)
+              IconButton(
+                tooltip: 'Revert to prefab',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.undo, size: 18),
+                onPressed: onRevert,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// The same for a thing saved as [json]: reports one key and its new value,
 /// null for the default.
 List<Widget> ruleFields({
-  required List<ComponentOption> options,
+  required List<Field> options,
   required Map<String, Object?> json,
   required void Function(String key, Object? value) onChanged,
   double corner = 10,
   Set<String> mixed = const {},
+  Set<String> marked = const {},
+  void Function(String key)? onRevert,
 }) => optionFields(
   options: options,
   values: json,
   corner: corner,
   mixed: mixed,
+  marked: marked,
+  onRevert: onRevert,
   onChanged: (next) {
     for (final option in options) {
       // Two options may share a key, each applying at a different time.
@@ -179,7 +225,7 @@ class ListField extends StatelessWidget {
     this.after,
   });
 
-  final ComponentOption option;
+  final Field option;
   final List<Map<String, Object?>> records;
   final void Function(List<Map<String, Object?>> records) onChanged;
 

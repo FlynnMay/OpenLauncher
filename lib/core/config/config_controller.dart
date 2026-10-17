@@ -18,15 +18,15 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     await ref.read(configStoreProvider).save(next);
   }
 
-  /// Replaces the layout, repaired first. The pictures of folders it no
-  /// longer has go with them.
+  /// Replaces the layout, repaired first. The pictures of nodes it no longer
+  /// has go with them.
   Future<void> setLayout(Layout layout) =>
       _update((c) => _withLayout(c, layout.normalised()));
 
   /// Puts back the starting layout as its pack has it.
   Future<void> revertLayout() async {
     final start = await ref.read(startingLayoutProvider.future);
-    await _update((c) => _withLayout(c, start, own: false));
+    await _update((c) => _withLayout(c, start.layout, own: false));
   }
 
   static LauncherConfig _withLayout(
@@ -34,13 +34,13 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     Layout next, {
     bool own = true,
   }) {
-    final folders = {for (final pane in next.docked) Layout.iconKey(pane.id)};
+    final nodes = {for (final node in next.all) Layout.pictureKey(node.id)};
     return c.copyWith(
       layout: next,
       ownLayout: own,
       iconOverrides: {
         for (final MapEntry(:key, :value) in c.iconOverrides.entries)
-          if (!key.startsWith(Layout.iconKey('')) || folders.contains(key))
+          if (!key.startsWith(Layout.pictureKey('')) || nodes.contains(key))
             key: value,
       },
     );
@@ -61,9 +61,9 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
         c.copyWith(layout: c.layout.without({id}, layer: layer).normalised()),
   );
 
-  /// Adds [item] to pane [pane].
-  Future<void> addItem(Component item, String pane) => _update(
-    (c) => c.copyWith(layout: c.layout.withAdded(item, pane).normalised()),
+  /// Adds [item] to container [container].
+  Future<void> addItem(Node item, String container) => _update(
+    (c) => c.copyWith(layout: c.layout.withAdded(item, container).normalised()),
   );
 
   Future<void> setWallpapers(List<String> paths) =>

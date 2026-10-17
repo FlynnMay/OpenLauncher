@@ -25,7 +25,10 @@ class NumberField extends StatefulWidget {
   final String label;
   final double? value;
   final bool mixed, decimal;
-  final int min, max, step;
+  final int min, max;
+
+  /// May be a fraction when [decimal].
+  final num step;
 
   /// What an unset value reads as.
   final String? placeholder;

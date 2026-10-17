@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
+import 'package:openlauncher/core/modules/modules.dart';
+import 'package:openlauncher/core/nodes/node.dart';
 
 /// One layer of the screen, drawn over the ones before it. The home screen is
 /// the bottom one. Its content is [root]; a layer made while running starts
@@ -17,14 +18,14 @@ class Layer {
     this.holds = const {},
   });
 
-  /// A layer with an empty root pane.
+  /// A layer with an empty root container.
   Layer.empty(this.id, {this.blur = 0, this.dim = 0, this.modal = false})
     : root = _emptyRoot(id),
       holds = const {};
 
   final String id;
 
-  final Component root;
+  final Node root;
 
   /// Blur of what is below; 0 for none.
   final double blur;
@@ -35,18 +36,18 @@ class Layer {
   /// Takes the focus; Back closes what is on it.
   final bool modal;
 
-  /// Ids of the docked panes moved to it. Not saved.
+  /// Ids of the docked containers moved to it. Not saved.
   final Set<String> holds;
 
   static String rootId(String layerId) => '$layerId/root';
 
-  static Component _emptyRoot(String id) => Component.pane(
+  static Node _emptyRoot(String id) => Node.layout(
     id: rootId(id),
-    mode: PaneMode.grid,
-    columns: Component.globalColumns,
+    mode: LayoutMode.grid,
+    columns: LayoutModule.globalColumns,
   );
 
-  Layer withRoot(Component root) => Layer(
+  Layer withRoot(Node root) => Layer(
     id: id,
     root: root,
     blur: blur,
@@ -69,7 +70,7 @@ class Layer {
     return Layer(
       id: id,
       root: switch (jsonOptional<Map<Object?, Object?>>(json, 'root')) {
-        final pane? => Component.fromJson(pane),
+        final container? => Node.fromJson(container),
         null => _emptyRoot(id),
       },
       blur: (jsonOptional<num>(json, 'blur') ?? 0).clamp(0, 40).toDouble(),

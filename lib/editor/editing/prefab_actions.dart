@@ -85,7 +85,7 @@ void _enter(WidgetRef ref) {
 /// draw for each variable that has no value: what the instance [from] holds,
 /// else the first thing that uses the prefab. Opened from an instance inside
 /// the open prefab, it is added to the trail.
-void openPrefab(WidgetRef ref, String prefabId, {Component? from}) {
+void openPrefab(WidgetRef ref, String prefabId, {Node? from}) {
   final prefab = ref.read(prefabsProvider)[prefabId];
   if (prefab == null) return;
   final trail = ref.read(prefabTrailProvider);
@@ -94,11 +94,20 @@ void openPrefab(WidgetRef ref, String prefabId, {Component? from}) {
   final at = trail.indexWhere((mode) => mode.id == prefabId);
   if (nested && at >= 0) return backPrefab(ref, at + 1);
   final entities = ref.read(entitiesProvider).value ?? const <Entity>[];
-  final folders = ref.read(configProvider).value?.layout.docked ?? const [];
+  final placed = ref.read(configProvider).value?.layout.all ?? const [];
+  final prefabs = ref.read(prefabsProvider);
+  // A card that opens instances of a prefab is shown with one of them.
+  final opensOthers = prefabs.values.any((opened) => opened.card == prefabId);
   final sample =
       entities.where((entity) => entity.prefab == prefabId).firstOrNull?.id ??
-      (prefabId == folderPrefabId
-          ? folders.where((pane) => pane.hovers).firstOrNull?.id
+      (opensOthers
+          ? placed
+                .where(
+                  (node) =>
+                      node.isInstance && prefabs[node.prefab]?.card == prefabId,
+                )
+                .firstOrNull
+                ?.id
           : entities.where((entity) => entity.placed).firstOrNull?.id);
   // What [from] was handed, read through the prefab around it.
   String? held(String name) => switch (from?.vars[name]?.value) {
@@ -173,15 +182,13 @@ Future<String?> saveEdited(WidgetRef ref, Prefab prefab, Layout edited) async {
 Future<void> newPrefab(BuildContext context, WidgetRef ref) async {
   final name = await askName(context, 'Prefab', title: 'Prefab name');
   if (name == null || name.isEmpty) return;
-  final id = freeId(slugOf(name, 'prefab'), {
-    ...ref.read(prefabsProvider).keys,
-  });
+  final id = _freePrefabId(ref, name);
   await _put(
     ref,
     Prefab(
       id: id,
       name: name,
-      root: Component.pane(id: 'root', mode: PaneMode.column),
+      root: Node.layout(id: 'root', mode: LayoutMode.column),
     ),
   );
   openPrefab(ref, id);
@@ -198,13 +205,7 @@ Future<void> duplicatePrefab(
     title: 'Prefab name',
   );
   if (name == null || name.isEmpty) return;
-  await _put(
-    ref,
-    prefab.copyWith(
-      id: freeId(slugOf(name, 'prefab'), {...ref.read(prefabsProvider).keys}),
-      name: name,
-    ),
-  );
+  await _put(ref, prefab.copyWith(id: _freePrefabId(ref, name), name: name));
 }
 
 Future<void> renamePrefab(
@@ -297,8 +298,12 @@ Future<void> createPrefab(
   if (name == null || name.isEmpty) return;
   final made = asPrefab(
     found.item,
-    freeId(slugOf(name, 'prefab'), {...ref.read(prefabsProvider).keys}),
+    _freePrefabId(ref, name),
     name,
+    // Placed by its transform: its size on the TV's screen.
+    size: found.parent.mode == LayoutMode.free
+        ? found.item.transform.rectIn(const Size(960, 540)).size
+        : null,
   );
   await ref.read(configProvider.notifier).change((c) {
     final layout = changeItems(c.layout, {
@@ -315,7 +320,7 @@ Future<void> createPrefab(
               for (final part in found.item.all)
                 if (part.isInstance)
                   for (final id in part.handed)
-                    if (layout.pane(id) == null) id,
+                    if (layout.container(id) == null) id,
             },
           )
           .normalised(),
@@ -324,11 +329,7 @@ Future<void> createPrefab(
 }
 
 /// Renames child [part] of the open prefab, and what names it.
-Future<void> renamePart(
-  BuildContext context,
-  WidgetRef ref,
-  Component part,
-) async {
+Future<void> renamePart(BuildContext context, WidgetRef ref, Node part) async {
   final prefab = ref.read(editedPrefabProvider);
   if (prefab == null) return;
   if (!prefab.isBase(ref.read(prefabModeProvider)?.variant)) {
@@ -461,3 +462,10 @@ Future<void> revertOverride(
     ),
   );
 }
+
+/// A new prefab's id from [name]. Prefab rules are keyed by it, so never the
+/// reserved [enabledKey].
+String _freePrefabId(WidgetRef ref, String name) => freeId(
+  slugOf(name, 'prefab'),
+  {enabledKey, ...ref.read(prefabsProvider).keys},
+);

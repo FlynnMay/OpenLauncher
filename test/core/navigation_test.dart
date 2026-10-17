@@ -3,30 +3,30 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
-/// An entity one cell big at column [x], row [y], in [panes].
+/// An entity one cell big at column [x], row [y], in [containers].
 NavSpot<String> _at(
   String id,
   double x,
   double y, [
-  List<String> panes = const ['g'],
-]) => NavSpot(id, Rect.fromLTWH(x * 100, y * 100, 80, 60), panes);
+  List<String> containers = const ['g'],
+]) => NavSpot(id, Rect.fromLTWH(x * 100, y * 100, 80, 60), containers);
 
 String? _go(String from, NavDirection direction, List<NavSpot<String>> spots) =>
     navigate(spots.firstWhere((s) => s.id == from), spots, direction)?.id;
 
 void main() {
-  test('kinship of panes', () {
+  test('kinship of containers', () {
     expect(navKinship(['g', 'a'], ['g', 'a']), NavKinship.same);
     expect(navKinship(['g', 'a'], ['g', 'a', 'x']), NavKinship.child);
     expect(navKinship(['g', 'a'], ['g']), NavKinship.parent);
     expect(navKinship(['g', 'a'], ['g', 'b']), NavKinship.other);
     expect(navKinship(['g', 'a'], ['g', 'b', 'x']), NavKinship.other);
-    // A button that is in no pane, and a rail, are neither kin.
+    // A button that is in no container, and a rail, are neither kin.
     expect(navKinship(['g'], []), NavKinship.other);
     expect(navKinship(['g'], ['left']), NavKinship.other);
   });
 
-  group('within one pane', () {
+  group('within one container', () {
     final grid = [
       _at('a', 0, 0),
       _at('b', 1, 0),
@@ -61,9 +61,9 @@ void main() {
     });
   });
 
-  group('between panes', () {
-    // A pane p on the global pane g, with a pane q inside it and a pane s
-    // beside it. Everything is on one row, left to right:
+  group('between containers', () {
+    // A container p on the global container g, with a container q inside it
+    // and a container s beside it. Everything is on one row, left to right:
     //   loose0  [p: p0  [q: q0]  p1]  [s: s0]  loose1
     final spots = [
       _at('loose0', 0, 0),
@@ -74,36 +74,33 @@ void main() {
       _at('loose1', 5, 0),
     ];
 
-    test('the same pane comes first, even past something nearer', () {
-      // q0 is next to p0, but p1 is in p0's own pane.
+    test('the same container comes first, even past something nearer', () {
+      // q0 is next to p0, but p1 is in p0's own container.
       expect(_go('p0', NavDirection.right, spots), 'p1');
       expect(_go('p1', NavDirection.left, spots), 'p0');
     });
 
-    test('then a pane inside, then the pane around, then any other', () {
+    test('then a container inside, then the container around, then any other', () {
       final noP1 = spots.where((s) => s.id != 'p1').toList();
-      // With nothing else of its own pane that way: the child pane.
+      // With nothing else of its own container that way: the child container.
       expect(_go('p0', NavDirection.right, noP1), 'q0');
-      // From the last entity of p: the pane around it, past the sibling s.
+      // From the last entity of p: the container around it, past the sibling s.
       expect(_go('p1', NavDirection.right, spots), 'loose1');
       // And only with nothing there either, the sibling.
       final noLoose = spots.where((s) => s.id != 'loose1').toList();
       expect(_go('p1', NavDirection.right, noLoose), 's0');
     });
 
-    test(
-      'from the global pane, panes on it are entered at their nearest entity',
-      () {
-        // Its own pane first: the other loose entity, however far.
-        expect(_go('loose0', NavDirection.right, spots), 'loose1');
-        final alone = spots.where((s) => s.id != 'loose1').toList();
-        expect(_go('loose0', NavDirection.right, alone), 'p0');
-      },
-    );
+    test('from the global container, containers on it are entered at their nearest entity', () {
+      // Its own container first: the other loose entity, however far.
+      expect(_go('loose0', NavDirection.right, spots), 'loose1');
+      final alone = spots.where((s) => s.id != 'loose1').toList();
+      expect(_go('loose0', NavDirection.right, alone), 'p0');
+    });
 
-    test('leaving a pane, straight ahead beats the pane around off to the side', () {
-      // A row of entities in pane b, a pane a directly above it, and one entity
-      // of the global pane far up in the corner.
+    test('leaving a container, straight ahead beats the container around off to the side', () {
+      // A row of entities in container b, a container a directly above it, and
+      // one entity of the global container far up in the corner.
       final stacked = [
         _at('corner', 0, 0),
         _at('a0', 3, 1, ['g', 'a']),
@@ -111,7 +108,8 @@ void main() {
         _at('b1', 4, 2, ['g', 'b']),
       ];
       expect(_go('b0', NavDirection.up, stacked), 'a0');
-      // With nothing straight ahead, the pane around comes before a sibling.
+      // With nothing straight ahead, the container around comes before a
+      // sibling.
       final askew = [
         _at('corner', 0, 0),
         _at('a0', 6, 1, ['g', 'a']),
@@ -120,7 +118,7 @@ void main() {
       expect(_go('b0', NavDirection.up, askew), 'corner');
     });
 
-    test('from an inner pane, out to the pane around it', () {
+    test('from an inner container, out to the container around it', () {
       expect(_go('q0', NavDirection.right, spots), 'p1');
       expect(_go('q0', NavDirection.left, spots), 'p0');
     });

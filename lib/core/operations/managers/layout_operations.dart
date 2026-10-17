@@ -17,7 +17,7 @@ class LayoutOperationsManager implements OperationsManager {
     Operation(
       name: 'launcher://layout/add',
       label: 'Add an entity to a layer',
-      // `what` is an entity id; `to` a pane on the layer, else the inbox.
+      // `what` is an entity id; `to` a container on the layer, else the inbox.
       args: const {'layer': [], 'what': [], 'to': []},
       run: (run) async {
         final entities = await _ref.read(entitiesProvider.future);
@@ -25,17 +25,14 @@ class LayoutOperationsManager implements OperationsManager {
         final layout = (await _ref.read(configProvider.future)).layout;
         final layer = layout.layer(run.arg('layer') ?? '');
         if (entity == null || layer == null) return null;
-        bool holds(String? id) => layer.root.panes.any((p) => p.id == id);
+        bool holds(String? id) => layer.root.containers.any((p) => p.id == id);
         final to =
             run.arg('to') ??
             (holds(layout.inbox) ? layout.inbox : layer.root.id);
-        if (!holds(to)) return 'There is no pane "$to" there.';
-        await _ref
-            .read(configProvider.notifier)
-            .addItem(
-              instanceFor(entity, layout, _ref.read(prefabsProvider)),
-              to,
-            );
+        if (!holds(to)) return 'There is no layout "$to" there.';
+        final item = instanceFor(entity, layout, _ref.read(prefabsProvider));
+        if (item == null) return '${entity.label} has no card to show it.';
+        await _ref.read(configProvider.notifier).addItem(item, to);
         return '${entity.label} was added.';
       },
     ),

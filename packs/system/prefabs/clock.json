@@ -3,41 +3,44 @@
   "name": "Clock",
   "root": {
     "id": "root",
-    "kind": "pane",
-    "transform": {
-      "w": 2
-    },
-    "options": {
-      "mode": "column",
-      "fit": true,
-      "align": "center"
-    },
-    "vars": {
-      "source": {
-        "value": "clock",
-        "type": "entity"
+    "modules": {
+      "layout": {
+        "mode": "column",
+        "fit": true,
+        "align": "center"
+      },
+      "variables": {
+        "source": {
+          "value": "clock",
+          "type": "entity"
+        }
+      },
+      "sizing": {
+        "w": 2
       }
     },
     "children": [
       {
         "id": "time",
-        "kind": "text",
-        "options": {
-          "text": "{{source.time}}"
-        },
-        "style": {
-          "fontSize": 44
+        "modules": {
+          "text": {
+            "text": "{{source.time}}"
+          },
+          "style": {
+            "fontSize": 44
+          }
         }
       },
       {
         "id": "date",
-        "kind": "text",
-        "options": {
-          "text": "{{source.date}}"
-        },
-        "style": {
-          "fontSize": 14,
-          "color": "#ffffffb3"
+        "modules": {
+          "text": {
+            "text": "{{source.date}}"
+          },
+          "style": {
+            "fontSize": 14,
+            "color": "#ffffffb3"
+          }
         }
       }
     ]

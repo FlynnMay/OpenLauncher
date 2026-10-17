@@ -52,8 +52,8 @@ void main() {
                 config:
                     config ??
                     LauncherConfig(layout: homeLayout(['system:app/a'])),
-                components: const [
-                  (type: 'text', label: 'Text', w: 2, h: 1, options: {}),
+                visuals: const [
+                  (module: 'text', label: 'Text', w: 2, h: 1, values: {}),
                 ],
               ),
             ),
@@ -98,7 +98,13 @@ void main() {
         .singleWhere((prefab) => prefab.id == cardPrefabId);
 
     // From the list in the launcher's settings.
-    await press(tester, find.text('Prefabs'));
+    await press(
+      tester,
+      find.descendant(
+        of: find.byType(PrefabList),
+        matching: find.text('Prefabs'),
+      ),
+    );
     // The app card and the quick actions.
     expect(find.text('1 instance · System'), findsNWidgets(2));
     await press(
@@ -135,7 +141,7 @@ void main() {
     await tester.tap(onStage('Alpha').last, warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), {'name'});
-    expect(find.text('Visibility'), findsOneWidget);
+    expect(find.text('Visible'), findsOneWidget);
     // A press on the prefab did not open the app.
     expect(tester.takeException(), isNull);
 
@@ -222,69 +228,110 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a pane is made a prefab; deleting it unpacks the instance', (
-    tester,
-  ) async {
-    final ref = await pump(tester);
-    LauncherConfig config() => ref.read(configProvider).value!;
-    await press(tester, find.text('Objects'));
-    await press(tester, inTree('Pane'));
-    await press(tester, find.text('Create prefab'));
-    await tester.enterText(find.byType(TextField).last, 'Shelf');
-    await press(tester, find.widgetWithText(FilledButton, 'Add'));
-    expect(config().prefabs.single.id, 'shelf');
-    expect(config().prefabs.single.root.children.single.handed, [
-      'system:app/a',
-    ]);
-    final instance = config().layout.all.singleWhere(
-      (item) => item.prefab == 'shelf',
-    );
-    expect((instance.id, instance.prefab), ('main', 'shelf'));
-    // What it holds is not put back on the screen beside it.
-    expect(config().layout.removed, {'system:app/a'});
-
-    // In the list it is marked as an instance, as the quick actions are,
-    // and says of what; which prefab that is cannot be swapped from its
-    // settings.
-    expect(
-      find.descendant(
-        of: find.byType(ObjectTree),
-        matching: find.byIcon(prefabIcon),
+  testWidgets('a folder is an instance its prefab reaches', (tester) async {
+    final ref = await pump(
+      tester,
+      config: LauncherConfig(
+        layout: homeLayout(['system:app/a']).withContainer(
+          'home/root',
+          (root) => root.copyWith(
+            children: [
+              ...root.children,
+              folderOf('games', title: 'Games'),
+            ],
+          ),
+        ),
       ),
-      findsNWidgets(2),
     );
-    expect(find.byTooltip('Prefab: Shelf'), findsOneWidget);
-    expect(
+    await press(
+      tester,
       find.descendant(
-        of: find.byType(InstanceSettings),
-        matching: find.text('Shelf'),
+        of: find.byType(PrefabList),
+        matching: find.text('Prefabs'),
       ),
-      findsOneWidget,
     );
-    expect(
-      find.descendant(
-        of: find.byType(InstanceSettings),
-        matching: find.byType(ChoiceBox<String>),
-      ),
-      findsNothing,
-    );
-
-    // Its instance shows the prefab and can open it.
-    expect(find.byTooltip('Rename'), findsNothing);
-    await press(tester, find.widgetWithText(OutlinedButton, 'Open'));
-    expect(ref.read(prefabModeProvider)?.id, 'shelf');
-    expect(find.text('1 instance'), findsOneWidget);
-
-    await press(tester, find.text('Delete'));
-    expect(find.textContaining('1 instance will be unpacked'), findsOneWidget);
-    await press(tester, find.widgetWithText(FilledButton, 'Delete'));
-    expect(ref.read(prefabModeProvider), isNull);
-    expect(config().prefabs, isEmpty);
-    final back = config().layout.pane('main')!;
-    expect(back.children.single.handed, ['system:app/a']);
-    expect(config().layout.removed, isEmpty);
+    expect(find.text('1 instance · System'), findsWidgets);
+    openPrefab(ref, 'system:folder');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Template'), findsNothing);
+    final games = ref
+        .read(configProvider)
+        .value!
+        .layout
+        .all
+        .singleWhere((node) => node.id == 'games');
+    expect(drawnInstance(games).style, systemPrefab(folderId).root.style);
+    expect(drawnInstance(games).name, 'Games');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'a container is made a prefab; deleting it unpacks the instance',
+    (tester) async {
+      final ref = await pump(tester);
+      LauncherConfig config() => ref.read(configProvider).value!;
+      await press(tester, find.text('Objects'));
+      await press(tester, inTree('Layout'));
+      await press(tester, find.text('Create prefab'));
+      await tester.enterText(find.byType(TextField).last, 'Shelf');
+      await press(tester, find.widgetWithText(FilledButton, 'Add'));
+      expect(config().prefabs.single.id, 'shelf');
+      expect(config().prefabs.single.root.children.single.handed, [
+        'system:app/a',
+      ]);
+      final instance = config().layout.all.singleWhere(
+        (item) => item.prefab == 'shelf',
+      );
+      expect((instance.id, instance.prefab), ('main', 'shelf'));
+      // What it holds is not put back on the screen beside it.
+      expect(config().layout.removed, {'system:app/a'});
+
+      // In the list it is marked as an instance, as the quick actions are,
+      // and says of what; which prefab that is cannot be swapped from its
+      // settings.
+      expect(
+        find.descendant(
+          of: find.byType(ObjectTree),
+          matching: find.byIcon(prefabIcon),
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.byTooltip('Prefab: Shelf'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSettings),
+          matching: find.text('Shelf'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSettings),
+          matching: find.byType(ChoiceBox<String>),
+        ),
+        findsNothing,
+      );
+
+      // Its instance shows the prefab and can open it.
+      expect(find.byTooltip('Rename'), findsNothing);
+      await press(tester, find.widgetWithText(OutlinedButton, 'Open'));
+      expect(ref.read(prefabModeProvider)?.id, 'shelf');
+      expect(find.text('1 instance'), findsOneWidget);
+
+      await press(tester, find.text('Delete'));
+      expect(
+        find.textContaining('1 instance will be unpacked'),
+        findsOneWidget,
+      );
+      await press(tester, find.widgetWithText(FilledButton, 'Delete'));
+      expect(ref.read(prefabModeProvider), isNull);
+      expect(config().prefabs, isEmpty);
+      final back = config().layout.container('main')!;
+      expect(back.children.single.handed, ['system:app/a']);
+      expect(config().layout.removed, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('a prefab opened from inside another is on the trail back', (
     tester,
@@ -297,15 +344,15 @@ void main() {
           Prefab(
             id: 'inner',
             name: 'Inner',
-            root: Component.pane(
+            root: Node.layout(
               id: 'root',
-              mode: PaneMode.column,
+              mode: LayoutMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
-              children: const [
-                Component(
-                  id: 'label',
-                  kind: 'text',
-                  options: {'text': '{{source.label}}'},
+              children: [
+                drawn(
+                  'label',
+                  textModule.name,
+                  values: const {'text': '{{source.label}}'},
                 ),
               ],
             ),
@@ -313,17 +360,19 @@ void main() {
           Prefab(
             id: 'outer',
             name: 'Outer',
-            root: Component.pane(
+            root: Node.layout(
               id: 'root',
-              mode: PaneMode.column,
+              mode: LayoutMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
               children: const [
                 // Hands on what it was handed.
-                Component(
+                Node(
                   id: 'in',
                   prefab: 'inner',
-                  vars: {
-                    'source': Variable('{{source.id}}', type: VarType.entity),
+                  modules: {
+                    'variables': {
+                      'source': {'value': '{{source.id}}', 'type': 'entity'},
+                    },
                   },
                 ),
               ],

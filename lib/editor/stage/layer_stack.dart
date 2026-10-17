@@ -7,8 +7,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/layers.dart';
-import 'package:openlauncher/features/home/component_view.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// One focus move: from where, to where, in which direction.
 @immutable
@@ -69,7 +69,7 @@ class _LayerStackState extends ConsumerState<LayerStack> {
             box.getTransformTo(screen),
             Offset.zero & box.size,
           ),
-          PaneScope.peek(context),
+          ContainerScope.peek(context),
         ),
       );
     }
@@ -83,7 +83,7 @@ class _LayerStackState extends ConsumerState<LayerStack> {
                 spot.rect,
                 target.rect,
                 spot.id.context
-                    ?.findAncestorWidgetOfExactType<ComponentView>()
+                    ?.findAncestorWidgetOfExactType<NodeView>()
                     ?.component
                     .id,
               ),

@@ -1,0 +1,135 @@
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+
+/// The style's fill as a colour or a gradient.
+({Color? color, Gradient? gradient}) styleFill(BoxStyle style) {
+  final colors = [for (final color in style.colors) Color(color)];
+  if (colors.length < 2) return (color: colors.firstOrNull, gradient: null);
+  // CSS angles: 0 points up and they grow clockwise.
+  final radians = style.angle * pi / 180;
+  final towards = Alignment(sin(radians), -cos(radians));
+  return (
+    color: null,
+    gradient: LinearGradient(
+      begin: -towards,
+      end: towards,
+      colors: colors,
+      stops: style.positions,
+    ),
+  );
+}
+
+/// Corner radii from [style], or [fallback] for all.
+BorderRadius styleShape(BoxStyle style, double fallback) =>
+    switch (style.corners) {
+      [final topLeft, final topRight, final bottomRight, final bottomLeft] =>
+        BorderRadius.only(
+          topLeft: Radius.circular(topLeft),
+          topRight: Radius.circular(topRight),
+          bottomRight: Radius.circular(bottomRight),
+          bottomLeft: Radius.circular(bottomLeft),
+        ),
+      _ => BorderRadius.circular(fallback),
+    };
+
+List<BoxShadow>? styleShadow(BoxStyle style) => style.shadow == 0
+    ? null
+    : [
+        BoxShadow(
+          color: Colors.black54,
+          blurRadius: style.shadow,
+          offset: Offset(0, style.shadow / 3),
+        ),
+      ];
+
+Widget styleOpacity(BoxStyle style, Widget child) =>
+    style.opacity == 1 ? child : Opacity(opacity: style.opacity, child: child);
+
+/// The inherited style for the widgets below: text colour, size and the like.
+class StyleScope extends InheritedWidget {
+  const StyleScope({super.key, required this.values, required super.child});
+
+  final Style values;
+
+  static Style of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<StyleScope>()?.values ??
+      const {};
+
+  /// [child] with [style]'s inherited properties added to the scope.
+  static Widget under(BuildContext context, Style style, Widget child) {
+    final own = inheritedOf(style);
+    return own.isEmpty
+        ? child
+        : StyleScope(values: {...of(context), ...own}, child: child);
+  }
+
+  @override
+  bool updateShouldNotify(StyleScope oldWidget) =>
+      !mapEquals(values, oldWidget.values);
+}
+
+/// Corner radius of a box whose style sets none.
+const defaultCorner = 10.0;
+
+/// Padding inside [box]: its own, else some once it paints something.
+double paddingOf(BoxStyle box) => box.padding ?? (box.isEmpty ? 0 : 8);
+
+/// How far a focused child may show past a box that clips what is in it but
+/// paints nothing.
+const overhang = 12.0;
+
+/// Clips [by] outside the box.
+class Inflated extends CustomClipper<Rect> {
+  const Inflated(this.by);
+
+  final double by;
+
+  @override
+  Rect getClip(Size size) => (Offset.zero & size).inflate(by);
+
+  @override
+  bool shouldReclip(Inflated oldClipper) => oldClipper.by != by;
+}
+
+/// Paints a node's Style around [child]: fill and shadow behind, border over
+/// it, taking no space, and clips it if asked. Padding and opacity are
+/// applied by the node.
+class NodeBox extends StatelessWidget {
+  const NodeBox({super.key, required this.box, required this.child});
+
+  final BoxStyle box;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (box.isEmpty) {
+      return box.clip
+          ? ClipRect(clipper: const Inflated(overhang), child: child)
+          : child;
+    }
+    final fill = styleFill(box);
+    final shape = styleShape(box, defaultCorner);
+    final border = box.border;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: fill.color,
+        gradient: fill.gradient,
+        borderRadius: shape,
+        boxShadow: styleShadow(box),
+      ),
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: shape,
+          border: border == null
+              ? null
+              : Border.all(color: Color(border), width: box.borderWidth),
+        ),
+        child: box.clip ? ClipRRect(borderRadius: shape, child: child) : child,
+      ),
+    );
+  }
+}

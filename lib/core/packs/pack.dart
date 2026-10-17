@@ -15,6 +15,7 @@ class Pack {
     this.licence = '',
     this.source = '',
     this.requires = const [],
+    this.categories = const {},
     this.builtIn = false,
     this.bytes = 0,
     this.files = const [],
@@ -32,6 +33,9 @@ class Pack {
 
   /// The packs it names, which must be installed first.
   final List<String> requires;
+
+  /// What its entity categories are called, in the order they are listed.
+  final Map<String, String> categories;
 
   /// Ships with the launcher, so cannot be removed: the one way it differs.
   final bool builtIn;
@@ -72,6 +76,11 @@ class Pack {
             for (final pack in packs)
               if (validId(pack)) pack as String,
         ],
+        categories: {
+          if (json['categories'] case final Map<Object?, Object?> categories)
+            for (final MapEntry(:key, :value) in categories.entries)
+              if (key is String && value is String) key: value,
+        },
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {
           final num bytes => bytes.toInt(),
@@ -95,6 +104,7 @@ class Pack {
     'licence': licence,
     'source': source,
     'requires': requires,
+    'categories': categories,
     'builtIn': builtIn,
     'bytes': bytes,
     'files': files,
@@ -108,6 +118,7 @@ class Pack {
     licence: licence,
     source: source,
     requires: requires,
+    categories: categories,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,
     files: files ?? this.files,
@@ -127,6 +138,18 @@ class Pack {
     );
   }
 
+  /// What [packs] call entity categories, in the order they list them; the
+  /// first to name one names it.
+  static Map<String, String> categoriesOf(Iterable<Pack> packs) {
+    final named = <String, String>{};
+    for (final pack in packs) {
+      for (final MapEntry(:key, :value) in pack.categories.entries) {
+        named.putIfAbsent(key, () => value);
+      }
+    }
+    return named;
+  }
+
   @override
   bool operator ==(Object other) =>
       other is Pack &&
@@ -137,6 +160,7 @@ class Pack {
       other.licence == licence &&
       other.source == source &&
       listEquals(other.requires, requires) &&
+      mapEquals(other.categories, categories) &&
       other.builtIn == builtIn &&
       other.bytes == bytes &&
       listEquals(other.files, files);

@@ -3,114 +3,159 @@
   "name": "Quick actions",
   "root": {
     "id": "root",
-    "kind": "pane",
-    "options": {
-      "title": "{{source.label}}",
-      "mode": "flow",
-      "columns": 1,
-      "dock": "center",
-      "width": 432,
-      "opening": "instant",
-      "rowHeight": 40,
-      "spacing": 4
-    },
-    "vars": {
-      "source": {
-        "value": null,
-        "type": "entity"
-      }
-    },
-    "style": {
-      "background": "#1a1c23fa",
-      "radius": 18,
-      "padding": 28
-    },
-    "on": {
-      "reveal": [
-        {
-          "run": "launcher://layers/new",
-          "with": {
-            "dim": 0.54,
-            "modal": true
+    "name": "{{source.label}}",
+    "modules": {
+      "layout": {
+        "mode": "column",
+        "gap": 10
+      },
+      "dock": {
+        "position": "center",
+        "width": 432,
+        "opening": "instant",
+        "closeOnPress": true
+      },
+      "variables": {
+        "source": {
+          "value": null,
+          "type": "entity"
+        }
+      },
+      "triggers": {
+        "reveal": [
+          {
+            "run": "launcher://layers/new",
+            "with": {
+              "dim": 0.54,
+              "modal": true
+            }
+          },
+          {
+            "run": "launcher://layers/raise"
           }
-        },
-        {
-          "run": "launcher://layers/raise"
-        }
-      ],
-      "hide": [
-        {
-          "run": "launcher://layers/close"
-        }
-      ]
+        ],
+        "hide": [
+          {
+            "run": "launcher://layers/close"
+          }
+        ]
+      },
+      "style": {
+        "background": "#1a1c23fa",
+        "radius": 18,
+        "padding": 28,
+        "clip": true
+      }
     },
     "children": [
       {
-        "id": "open",
-        "kind": "button",
-        "options": {
-          "label": "Open",
-          "icon": "material:play_arrow"
-        },
-        "on": {
-          "press": [
-            {
-              "do": "open",
-              "entity": "{{source.id}}"
-            }
-          ]
+        "id": "heading",
+        "modules": {
+          "text": {
+            "text": "{{source.label}}",
+            "overflow": "ellipsis"
+          },
+          "style": {
+            "fontSize": 16,
+            "fontWeight": "medium",
+            "color": "#ffffffb3",
+            "textAlign": "left"
+          }
         }
       },
       {
-        "id": "info",
-        "kind": "button",
-        "options": {
-          "label": "App info",
-          "icon": "material:info"
+        "id": "list",
+        "modules": {
+          "layout": {
+            "mode": "flow",
+            "columns": 1,
+            "rowHeight": 40,
+            "spacing": 4
+          },
+          "scroll": {
+            "down": true
+          },
+          "sizing": {
+            "flex": 1
+          }
         },
-        "on": {
-          "press": [
-            {
-              "do": "info",
-              "entity": "{{source.id}}"
-            }
-          ]
-        }
-      },
-      {
-        "id": "uninstall",
-        "kind": "button",
-        "options": {
-          "label": "Uninstall",
-          "icon": "material:delete"
-        },
-        "on": {
-          "press": [
-            {
-              "do": "uninstall",
-              "entity": "{{source.id}}"
-            }
-          ]
-        }
-      },
-      {
-        "id": "remove",
-        "kind": "button",
-        "options": {
-          "label": "Remove",
-          "icon": "material:do_not_disturb_on"
-        },
-        "on": {
-          "press": [
-            {
-              "run": "launcher://layout/remove",
-              "with": {
-                "layer": "home",
-                "what": "{{source.id}}"
+        "children": [
+          {
+            "id": "open",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "Open",
+                "icon": "material:play_arrow"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "do": "open",
+                    "entity": "{{source.id}}"
+                  }
+                ]
               }
             }
-          ]
-        }
+          },
+          {
+            "id": "info",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "App info",
+                "icon": "material:info"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "do": "info",
+                    "entity": "{{source.id}}"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "uninstall",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "Uninstall",
+                "icon": "material:delete"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "do": "uninstall",
+                    "entity": "{{source.id}}"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "remove",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "Remove",
+                "icon": "material:do_not_disturb_on"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "run": "launcher://layout/remove",
+                    "with": {
+                      "layer": "home",
+                      "what": "{{source.id}}"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
       }
     ]
   }

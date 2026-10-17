@@ -28,7 +28,7 @@ class PrefabBar extends ConsumerWidget {
     final shown = prefab.variantNamed(mode?.variant);
     final byDefault = shown == prefab.defaultVariant;
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    final folders = ref.watch(configProvider).value?.layout.docked ?? const [];
+    final docked = ref.watch(configProvider).value?.layout.docked ?? const [];
     final pack = ref.watch(shippedByProvider(prefab.id));
     final modified =
         pack != null &&
@@ -41,7 +41,7 @@ class PrefabBar extends ConsumerWidget {
     final previews = ref.watch(
       runtimeVarsProvider.select((all) => all[prefab.root.id] ?? const {}),
     );
-    return Padding(
+    final bar = Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 12, 0),
       child: Wrap(
         spacing: 12,
@@ -141,10 +141,11 @@ class PrefabBar extends ConsumerWidget {
                       'Entities': {
                         for (final entity in entities) entity.id: entity.label,
                       },
-                      'Folders': {
-                        for (final pane in folders)
-                          if (pane.hovers)
-                            pane.id: pane.title.isEmpty ? pane.id : pane.title,
+                      'Docked': {
+                        for (final container in docked)
+                          container.id: container.name.isEmpty
+                              ? container.id
+                              : container.name,
                       },
                     },
                     onChanged: (id) => previewWith(ref, name, id),
@@ -158,11 +159,11 @@ class PrefabBar extends ConsumerWidget {
             child: NumberField(
               label: 'Cell height',
               value: mode?.height,
-              min: Component.minRowHeight.round(),
-              max: Component.maxRowHeight.round(),
+              min: LayoutModule.minRowHeight.round(),
+              max: LayoutModule.maxRowHeight.round(),
               step: 4,
               placeholder: 'Auto',
-              start: Component.barRowHeight.round(),
+              start: LayoutModule.barRowHeight.round(),
               onChanged: (height) => ref
                   .read(prefabTrailProvider.notifier)
                   .drawAt(height.toDouble()),
@@ -179,5 +180,6 @@ class PrefabBar extends ConsumerWidget {
         ],
       ),
     );
+    return bar;
   }
 }

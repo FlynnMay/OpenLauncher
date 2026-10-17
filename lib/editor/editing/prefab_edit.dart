@@ -1,24 +1,25 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:ui';
 
-import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 
-/// The pane a prefab's root sits in while it is edited as a layout.
+/// The container a prefab's root sits in while it is edited as a layout.
 const prefabStageId = 'prefab/stage';
 
 /// [prefab] as a layout the editing tools work on: its root, as [variant]
-/// has it, alone in a pane, whose rows are [rowHeight] high if given.
+/// has it, alone in a container, whose rows are [rowHeight] high if given.
 Layout prefabAsLayout(Prefab prefab, [String? variant, double? rowHeight]) =>
     Layout(
       inbox: prefab.root.id,
       layers: [
         Layer(
           id: Layout.homeId,
-          root: Component.pane(
+          root: Node.layout(
             id: prefabStageId,
-            columns: Component.globalColumns,
-            rules: {'rowHeight': ?rowHeight},
+            columns: LayoutModule.globalColumns,
+            layout: {'rowHeight': ?rowHeight},
             children: [prefab.rootAs(variant)],
           ),
         ),
@@ -26,43 +27,46 @@ Layout prefabAsLayout(Prefab prefab, [String? variant, double? rowHeight]) =>
     );
 
 /// The prefab's root in a layout made by [prefabAsLayout], if still there.
-Component? prefabRootIn(Layout layout, String rootId) =>
+Node? prefabRootIn(Layout layout, String rootId) =>
     layout.home.root.children.where((child) => child.id == rootId).firstOrNull;
 
-Component _everywhere(
-  Component component,
-  Component Function(Component component) change,
-) => change(
-  component.copyWith(
-    children: [
-      for (final child in component.children) _everywhere(child, change),
-    ],
-  ),
-);
+Node _everywhere(Node component, Node Function(Node component) change) =>
+    change(
+      component.copyWith(
+        children: [
+          for (final child in component.children) _everywhere(child, change),
+        ],
+      ),
+    );
 
 /// [layout] with [change] applied to every component, innermost first.
-Layout _throughout(
-  Layout layout,
-  Component Function(Component component) change,
-) => layout.copyWith(
-  layers: [
-    for (final layer in layout.layers)
-      layer.withRoot(_everywhere(layer.root, change)),
-  ],
-);
+Layout _throughout(Layout layout, Node Function(Node component) change) =>
+    layout.copyWith(
+      layers: [
+        for (final layer in layout.layers)
+          layer.withRoot(_everywhere(layer.root, change)),
+      ],
+    );
 
 bool _same(Object? a, Object? b) => jsonEncode(a) == jsonEncode(b);
 
-/// What a component is apart from what an override can change.
-String _shape(Component component, {required bool root}) {
-  final json = component.sized(component.w, component.h).toJson()
-    ..remove('options')
-    ..remove('style')
+/// Modules an override cannot change.
+const _fixedModules = {'variables', 'triggers'};
+
+/// What a node is apart from what an override can change: what overrides
+/// cannot hold. A root's size and place are the prefab's, not a variant's.
+String _shape(Node node, {required bool root}) {
+  final json = node.toJson()
+    ..remove('modules')
     ..remove('hidden')
+    ..remove('name')
     ..remove('children');
-  // A root's size is the prefab's, not a variant's.
   if (!root) json.remove('transform');
-  return jsonEncode(json);
+  return jsonEncode({
+    ...json,
+    for (final module in [..._fixedModules, if (root) sizingModule.name])
+      module: node.modules[module],
+  });
 }
 
 Map<String, Object?> _changed(
@@ -74,45 +78,47 @@ Map<String, Object?> _changed(
     if (!_same(was[key], now[key])) key: now[key] ?? unset(key),
 };
 
+/// What an override sets for a Sizing value that was taken away.
+const _sizingUnset = {'w': 1, 'h': 1, 'flex': 0, 'aspect': 0, 'keep': false};
+
 /// What [edited] changes in [base]'s tree, as overrides. Null if they differ
-/// in what overrides cannot hold: children, variables, triggers, kind.
-Overrides? overridesBetween(Component base, Component edited) {
+/// in what overrides cannot hold: children, modules taken away, variables,
+/// triggers.
+Overrides? overridesBetween(Node base, Node edited) {
   final result = <String, Map<String, Object?>>{};
-  bool walk(Component was, Component now, {required bool root}) {
+  bool walk(Node was, Node now, {required bool root}) {
+    // An override can add a module but not take one away.
     if (_shape(was, root: root) != _shape(now, root: root) ||
-        was.children.length != now.children.length) {
+        was.children.length != now.children.length ||
+        !was.modules.keys.every(now.added)) {
       return false;
     }
-    final described = ComponentRegistry.named(was.kind)?.options ?? const [];
-    final options = _changed(
-      was.options,
-      now.options,
-      // An override cannot remove; the default says the same.
-      (key) =>
-          described
-              .where((option) => option.key == key)
-              .firstOrNull
-              ?.defaultValue ??
-          '',
-    );
-    final style = _changed(was.style, now.style, (_) => null);
-    final transform = root
-        ? const <String, Object?>{}
-        : {
-            if (was.w != now.w) 'w': now.w,
-            if (was.h != now.h) 'h': now.h,
-            if (now.x case final x? when was.x != x) 'x': x,
-            if (now.y case final y? when was.y != y) 'y': y,
-            // 0 means none.
-            if (was.flex != now.flex) 'flex': now.flex ?? 0,
-            if (was.aspect != now.aspect) 'aspect': now.aspect ?? 0,
-            if (was.keep != now.keep) 'keep': now.keep,
-          };
+    final modules = {
+      for (final MapEntry(key: name, value: values) in now.modules.entries)
+        if (!was.added(name) && !_fixedModules.contains(name)) name: values,
+      for (final MapEntry(key: name, value: values) in was.modules.entries)
+        if (!_fixedModules.contains(name) &&
+            !(root && name == sizingModule.name))
+          if (_changed(values, now.modules[name] ?? const {}, (key) {
+                if (key == enabledKey) return true;
+                // An override cannot remove; the default says the same.
+                if (name == styleModule.name) return null;
+                if (name == sizingModule.name) return _sizingUnset[key];
+                return moduleNamed(name)?.fields
+                        .where((field) => field.key == key)
+                        .firstOrNull
+                        ?.defaultValue ??
+                    '';
+              })
+              case final changed when changed.isNotEmpty)
+            name: changed,
+    };
     final set = {
-      if (options.isNotEmpty) 'options': options,
-      if (style.isNotEmpty) 'style': style,
-      if (transform.isNotEmpty) 'transform': transform,
+      if (modules.isNotEmpty) 'modules': modules,
+      if (!root && was.transform != now.transform)
+        'transform': now.transform.toJson(),
       if (was.hidden != now.hidden) 'hidden': now.hidden,
+      if (was.name != now.name) 'name': now.name,
     };
     if (set.isNotEmpty) result[was.id] = set;
     for (final (index, child) in was.children.indexed) {
@@ -127,7 +133,7 @@ Overrides? overridesBetween(Component base, Component edited) {
 /// [prefab] after its tree, shown as [variant], was edited to [root]. Edits
 /// under a variant that is not the base become that variant's overrides;
 /// null if they are not ones a variant can hold.
-Prefab? withEdited(Prefab prefab, String? variant, Component root) {
+Prefab? withEdited(Prefab prefab, String? variant, Node root) {
   if (prefab.isBase(variant)) {
     return prefab.copyWith(root: root.sized(root.w, root.h));
   }
@@ -149,14 +155,14 @@ Overrides _rekeyed(Overrides overrides, Map<String, String?> ids) => {
 
 /// [layout] and [prefabs] with the overrides naming [prefabId]'s children
 /// re-keyed by [ids] (old to new; null drops them): in its variants, its
-/// instances and panes' rules for it.
+/// instances and containers' rules for it.
 ({Layout layout, List<Prefab> prefabs}) withPartIds(
   Layout layout,
   List<Prefab> prefabs,
   String prefabId,
   Map<String, String?> ids,
 ) {
-  Component fix(Component component) {
+  Node fix(Node component) {
     var fixed = component;
     if (component.prefab == prefabId && component.overrides.isNotEmpty) {
       fixed = fixed.copyWith(overrides: _rekeyed(component.overrides, ids));
@@ -164,7 +170,7 @@ Overrides _rekeyed(Overrides overrides, Map<String, String?> ids) => {
     final rule = component.prefabRules[prefabId];
     if (rule?['overrides'] != null) {
       final overrides = _rekeyed(overridesFromJson(rule!['overrides']), ids);
-      fixed = fixed.withOption('prefabRules', {
+      fixed = fixed.withPrefabRules({
         ...component.prefabRules,
         prefabId: {...rule}
           ..remove('overrides')
@@ -241,13 +247,9 @@ bool holdsPrefab(String id, String of, Map<String, Prefab> prefabs) {
 /// [instance] as plain components: its prefab's tree with the instance's
 /// variant, overrides and variable values. Children get ids not in [used],
 /// which they are added to.
-Component unpacked(
-  Component instance,
-  Map<String, Prefab> prefabs,
-  Set<String> used,
-) {
+Node unpacked(Node instance, Map<String, Prefab> prefabs, Set<String> used) {
   final whole = resolved(instance, prefabs);
-  Component named(Component child) {
+  Node named(Node child) {
     final id = freeId(child.id.replaceAll('/', '-'), used);
     used.add(id);
     return child.copyWith(
@@ -262,26 +264,26 @@ Component unpacked(
 }
 
 /// Whether [component] has a plain variable with no value.
-bool hasBlank(Component component) => component.vars.values.any(
+bool hasBlank(Node component) => component.vars.values.any(
   (variable) =>
       !variable.isConditional &&
       (variable.value == null || variable.value == ''),
 );
 
-/// [pane] with its instances of [prefabId] unpacked, as the pane's rules
-/// show them, and its rule for the prefab dropped.
-Component _unpackedIn(
-  Component component,
+/// [container] with its instances of [prefabId] unpacked, as the container's
+/// rules show them, and its rule for the prefab dropped.
+Node _unpackedIn(
+  Node component,
   String prefabId,
   Map<String, Prefab> prefabs,
   Set<String> used,
-  void Function(Component plain) each,
+  void Function(Node plain) each,
 ) {
-  if (!component.isPane) return component;
+  if (!component.isContainer) return component;
   final shown = component.shown;
   final rules = {...component.prefabRules}..remove(prefabId);
   return component
-      .withOption('prefabRules', rules.isEmpty ? null : rules)
+      .withPrefabRules(rules)
       .copyWith(
         children: [
           for (final (index, child) in component.children.indexed)
@@ -301,12 +303,12 @@ Component _unpackedIn(
 Layout withUnpacked(Layout layout, String id, Map<String, Prefab> prefabs) {
   final used = layout.itemIds;
   return layout.rebuild(
-    (pane, items) => [
+    (container, items) => [
       for (final (index, item) in items.indexed)
         item.id == id && item.isInstance
-            // As the pane's rules show it.
+            // As the container's rules show it.
             ? unpacked(
-                pane.copyWith(children: items).shown[index],
+                container.copyWith(children: items).shown[index],
                 prefabs,
                 used,
               )
@@ -325,7 +327,7 @@ Layout withUnpacked(Layout layout, String id, Map<String, Prefab> prefabs) {
   String prefabId,
 ) {
   var instances = 0, blank = 0;
-  void each(Component plain) {
+  void each(Node plain) {
     instances++;
     if (hasBlank(plain)) blank++;
   }
@@ -360,30 +362,44 @@ Layout withUnpacked(Layout layout, String id, Map<String, Prefab> prefabs) {
   );
 }
 
-/// A prefab made of [item], and the instance that takes its place.
-({Prefab prefab, Component instance}) asPrefab(
-  Component item,
+/// A cell's width while a prefab is edited, about an app card's on the home
+/// screen; its height is in the usual proportion.
+const prefabCellWidth = 150.0;
+
+/// A prefab made of [item], and the instance that takes its place. One
+/// placed by its transform, drawn at [size], is given the cells that size
+/// takes where prefabs are edited.
+({Prefab prefab, Node instance}) asPrefab(
+  Node item,
   String id,
-  String name,
-) {
+  String name, {
+  Size? size,
+}) {
   const root = 'root';
   final taken = {for (final part in item.all.skip(1)) part.id};
+  int cells(double length, double cell, double gap) =>
+      max(1, ((length + gap) / (cell + gap)).round());
+  final (w, h) = switch (size) {
+    final size? when !item.added(sizingModule.name) => (
+      cells(size.width, prefabCellWidth, LayoutModule.defaultSpacingX) * 1.0,
+      cells(size.height, prefabCellWidth / 1.45, LayoutModule.defaultSpacingY) *
+          1.0,
+    ),
+    _ => (item.w, item.h),
+  };
   return (
     prefab: Prefab(
       id: id,
       name: name,
-      root: item.sized(item.w, item.h).copyWith(id: freeId(root, taken)),
+      root: item
+          .sized(w, h)
+          .copyWith(id: freeId(root, taken), transform: NodeTransform.fill),
     ),
-    instance: Component(
+    instance: Node(
       id: item.id,
       prefab: id,
-      w: item.w,
-      h: item.h,
-      x: item.x,
-      y: item.y,
-      flex: item.flex,
-      aspect: item.aspect,
-      keep: item.keep,
+      transform: item.transform,
+      modules: {sizingModule.name: ?item.modules[sizingModule.name]},
       hidden: item.hidden,
     ),
   );

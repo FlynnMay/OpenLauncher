@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layer.dart';
+import 'package:openlauncher/core/layout/tree.dart';
+import 'package:openlauncher/core/modules/modules.dart';
+import 'package:openlauncher/core/nodes/node.dart';
 
 /// The saved layout: the layers of the screen, the home screen first.
 @immutable
@@ -23,7 +25,7 @@ class Layout {
 
   final List<Layer> layers;
 
-  /// The pane that receives unplaced entities, e.g. new apps.
+  /// The container that receives unplaced entities, e.g. new apps.
   final String inbox;
 
   /// Entities the user removed; they are not put back in the [inbox].
@@ -39,24 +41,26 @@ class Layout {
   }
 
   /// Every component of every layer.
-  Iterable<Component> get all => layers.expand((layer) => layer.root.all);
+  Iterable<Node> get all => layers.expand((layer) => layer.root.all);
 
-  /// Everything that is not a pane.
-  Iterable<Component> get items => all.where((item) => !item.isPane);
+  /// Everything that is not a container.
+  Iterable<Node> get items => all.where((item) => !item.isContainer);
 
-  /// The sidebars and folders.
-  Iterable<Component> get docked => all.where((pane) => pane.isDocked);
+  /// The docked containers.
+  Iterable<Node> get docked => all.where((container) => container.isDocked);
 
-  Component? pane(String id) =>
-      all.where((pane) => pane.isPane && pane.id == id).firstOrNull;
+  Node? container(String id) => all
+      .where((container) => !container.isInstance && container.id == id)
+      .firstOrNull;
 
-  /// The folder [item] opens, if it is an instance handed one.
-  String? folderOf(Component item) => !item.isInstance
-      ? null
-      : item.handed.where((id) => pane(id)?.isDocked ?? false).firstOrNull;
+  /// The node of id [id] that holds or draws others, if any: what an
+  /// instance can be handed as well as an entity.
+  Node? node(String id) => all
+      .where((node) => node.id == id && (node.isContainer || node.isInstance))
+      .firstOrNull;
 
-  /// The `iconOverrides` key for a folder's picture.
-  static String iconKey(String paneId) => 'folder:$paneId';
+  /// The `iconOverrides` key for a node's picture.
+  static String pictureKey(String nodeId) => 'node:$nodeId';
 
   /// Throws [FormatException] on malformed JSON. Older versions are migrated
   /// first. The result still needs [normalised].
@@ -85,9 +89,10 @@ class Layout {
         removed: removed ?? this.removed,
       );
 
-  /// Rebuilds every pane's children with [change]; only [layer]'s if given.
+  /// Rebuilds every container's children with [change]; only [layer]'s if
+  /// given.
   Layout rebuild(
-    List<Component> Function(Component pane, List<Component> items) change, {
+    List<Node> Function(Node container, List<Node> items) change, {
     Set<String>? removed,
     String? layer,
   }) => copyWith(
@@ -100,15 +105,13 @@ class Layout {
     ],
   );
 
-  /// Replaces pane [id], a layer's root included, with what [change] returns.
-  Layout withPane(String id, Component Function(Component pane) change) {
-    Component mapped(Component pane) => pane.id == id
-        ? change(pane)
-        : pane.copyWith(
-            children: [
-              for (final child in pane.children)
-                child.isPane ? mapped(child) : child,
-            ],
+  /// Replaces container [id], a layer's root included, with what [change]
+  /// returns.
+  Layout withContainer(String id, Node Function(Node container) change) {
+    Node mapped(Node container) => container.id == id
+        ? change(container)
+        : container.copyWith(
+            children: [for (final child in container.children) mapped(child)],
           );
     return copyWith(
       layers: [for (final layer in layers) layer.withRoot(mapped(layer.root))],
@@ -126,9 +129,10 @@ class Layout {
     removed: {...removed, ...entityIds},
   );
 
-  /// Adds [item] to pane [paneId].
-  Layout withAdded(Component item, String paneId) => rebuild(
-    (pane, items) => pane.id == paneId ? [...items, item] : items,
+  /// Adds [item] to container [containerId].
+  Layout withAdded(Node item, String containerId) => rebuild(
+    (container, items) =>
+        container.id == containerId ? [...items, item] : items,
     removed: {...removed}..removeAll(item.handed),
   );
 }

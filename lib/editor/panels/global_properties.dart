@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/modules/modules.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
 /// Launcher-wide settings, shown when nothing is selected.
@@ -22,31 +21,20 @@ class GlobalProperties extends ConsumerWidget {
       children: [
         const WallpaperSettings(),
         if (config.ownLayout) const _RevertLayout(),
-        // The screen's root pane.
-        PaneSettings(
-          title: 'Screen',
-          prefabs: ref.watch(prefabsProvider),
-          named: false,
-          dockable: false,
-          panes: [config.layout.home.root],
+        // The home screen's root.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text('Screen', style: Theme.of(context).textTheme.titleSmall),
+        ),
+        ModuleSections(
+          nodes: [config.layout.home.root],
+          parents: const [],
           onChanged: (how) => changeLayout(
             context,
             ref,
-            (layout) => layout.withPane(layout.home.root.id, how),
+            (layout) => layout.withContainer(layout.home.root.id, how),
           ),
-        ),
-        StyleSettings(
-          keys: const ['padding', ...textStyle],
-          style: config.layout.home.root.style,
-          onChanged: (key, value) => changeLayout(
-            context,
-            ref,
-            (layout) => layout.withPane(
-              layout.home.root.id,
-              (root) =>
-                  root.copyWith(style: withStyle(root.style, {key: value})),
-            ),
-          ),
+          onLayout: (how) => changeLayout(context, ref, how),
         ),
         ValuesSettings(
           entities: config.entities,
@@ -78,7 +66,9 @@ class _RevertLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pack = ref.watch(packNameProvider(startingLayoutId));
+    final pack = ref.watch(
+      packNameProvider(ref.watch(startingLayoutProvider).value?.id ?? ''),
+    );
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton(

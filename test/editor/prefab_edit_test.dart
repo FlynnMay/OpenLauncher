@@ -11,7 +11,7 @@ import '../support/packs.dart';
 void main() {
   final card = systemPrefabs.first;
   final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
-  const text = Component(id: 'badge', kind: 'text', options: {'text': 'New'});
+  final text = drawn('badge', textModule.name, values: const {'text': 'New'});
 
   /// [prefab] after [change] to it as a layout, shown as [variant].
   Prefab? edited(
@@ -54,10 +54,9 @@ void main() {
       (layout) => changeItems(
         layout,
         {'name'},
-        (item, _) => item.copyWith(
-          hidden: true,
-          style: withStyle(item.style, {'fontSize': 20}),
-        ),
+        (item, _) => item
+            .copyWith(hidden: true)
+            .styled(withStyle(item.style, {'fontSize': 20})),
       ),
       'row',
     )!;
@@ -65,12 +64,14 @@ void main() {
     expect(row.root.toJson(), card.root.toJson());
     expect(row.variants['stacked']!.overrides, isEmpty);
     final name = row.variants['row']!.overrides['name']!;
+    Map<Object?, Object?> modules(Map<String, Object?> set) =>
+        set['modules']! as Map;
     expect(name['hidden'], true);
-    expect(name['style'], {'textAlign': 'left', 'fontSize': 20});
+    expect(modules(name)['style'], {'textAlign': 'left', 'fontSize': 20});
     // What the variant already said is kept.
     expect(
-      name['transform'],
-      card.variants['row']!.overrides['name']!['transform'],
+      modules(name)['sizing'],
+      modules(card.variants['row']!.overrides['name']!)['sizing'],
     );
     expect(
       row.variants['row']!.overrides['root'],
@@ -94,7 +95,7 @@ void main() {
         card,
         (layout) => changeItems(layout, {
           'root',
-        }, (item, _) => item.copyWith(vars: const {'x': Variable(1)})),
+        }, (item, _) => item.withVars(const {'x': Variable(1)})),
         'row',
       ),
       isNull,
@@ -118,10 +119,10 @@ void main() {
 
   test('renaming or removing a part takes what names it along', () {
     final own = [card];
-    final layout = homeLayout().withPane(
+    final layout = homeLayout().withContainer(
       'main',
-      (pane) => pane
-          .withOption('prefabRules', {
+      (container) => container
+          .withPrefabRules({
             cardPrefabId: {
               'variant': 'row',
               'overrides': {
@@ -131,18 +132,20 @@ void main() {
           })
           .copyWith(
             children: const [
-              Component(
+              Node(
                 id: 'a',
                 prefab: cardPrefabId,
                 overrides: {
                   'name': {'hidden': true},
                   'picture': {
-                    'options': {'pad': 2},
+                    'modules': {
+                      'picture': {'pad': 2},
+                    },
                   },
                 },
               ),
               // Another prefab's part of the same name is left alone.
-              Component(
+              Node(
                 id: 'b',
                 prefab: folderPrefabId,
                 overrides: {
@@ -156,7 +159,7 @@ void main() {
     final after = renamed.prefabs.single;
     expect(after.root.children.map((part) => part.id), ['picture', 'title']);
     expect(after.variants['row']!.overrides.keys, ['root', 'picture', 'title']);
-    final main = renamed.layout.pane('main')!;
+    final main = renamed.layout.container('main')!;
     expect(main.children.first.overrides.keys, ['title', 'picture']);
     expect(main.children.last.overrides.keys, ['name']);
     expect(
@@ -170,7 +173,7 @@ void main() {
       'root',
       'picture',
     ]);
-    final left = dropped.layout.pane('main')!;
+    final left = dropped.layout.container('main')!;
     expect(left.children.first.overrides.keys, ['picture']);
     expect(left.prefabRules[cardPrefabId], {'variant': 'row'});
   });
@@ -179,17 +182,17 @@ void main() {
     final inner = Prefab(
       id: 'inner',
       name: 'Inner',
-      root: Component.pane(
+      root: Node.layout(
         id: 'root',
-        children: const [Component(id: 'card', prefab: cardPrefabId)],
+        children: const [Node(id: 'card', prefab: cardPrefabId)],
       ),
     );
     final outer = Prefab(
       id: 'outer',
       name: 'Outer',
-      root: Component.pane(
+      root: Node.layout(
         id: 'root',
-        children: const [Component(id: 'in', prefab: 'inner')],
+        children: const [Node(id: 'in', prefab: 'inner')],
       ),
     );
     final all = {...prefabs, 'inner': inner, 'outer': outer};
@@ -208,22 +211,24 @@ void main() {
         'plain': PrefabVariant('Plain'),
         'loud': PrefabVariant('Loud', {
           'label': {
-            'style': {'fontSize': 30},
+            'modules': {
+              'style': {'fontSize': 30},
+            },
           },
         }),
       },
-      root: Component.pane(
+      root: Node.layout(
         id: 'root',
-        mode: PaneMode.column,
+        mode: LayoutMode.column,
         vars: const {
           'source': Variable(null, type: VarType.entity),
           'tint': Variable('#ff0000ff', type: VarType.colour),
         },
-        children: const [
-          Component(
-            id: 'label',
-            kind: 'text',
-            options: {'text': '{{source.label}}'},
+        children: [
+          drawn(
+            'label',
+            textModule.name,
+            values: const {'text': '{{source.label}}'},
           ),
         ],
       ),
@@ -231,57 +236,62 @@ void main() {
     final holder = Prefab(
       id: 'holder',
       name: 'Holder',
-      root: Component.pane(
+      root: Node.layout(
         id: 'root',
-        children: const [Component(id: 'label', prefab: 'tile')],
+        children: const [Node(id: 'label', prefab: 'tile')],
       ),
     );
     final all = {...prefabs, 'tile': tile, 'holder': holder};
-    final layout = homeLayout().withPane(
+    final layout = homeLayout().withContainer(
       'main',
-      (pane) => pane
-          .withOption('prefabRules', {
+      (container) => container
+          .withPrefabRules({
             'tile': {'variant': 'loud'},
           })
           .copyWith(
             children: [
-              Component.of('system:app/a', id: 'a', prefab: 'tile', w: 2),
-              const Component(
+              cardOf('system:app/a', id: 'a', prefab: 'tile', w: 2),
+              const Node(
                 id: 'b',
                 prefab: 'tile',
-                vars: {'tint': Variable('#00ff00ff')},
+                modules: {
+                  'variables': {'tint': '#00ff00ff'},
+                },
                 overrides: {
                   'label': {
-                    'options': {'text': 'Mine'},
+                    'modules': {
+                      'text': {'text': 'Mine'},
+                    },
                   },
                 },
               ),
               // Something already called what a child would be.
-              const Component(id: 'a-label', kind: 'text'),
+              drawn('a-label', textModule.name),
             ],
           ),
     );
     final after = withoutPrefab(layout, [tile, holder], all, 'tile');
     expect((after.instances, after.blank), (3, 2));
     expect(after.prefabs.map((prefab) => prefab.id), ['holder']);
-    final main = after.layout.pane('main')!;
+    final main = after.layout.container('main')!;
     expect(main.prefabRules, isEmpty);
     final [a, b, _] = main.children;
-    // A plain pane where it stood, at its size, holding what it was handed.
+    // A plain container where it stood, at its size, holding what it was
+    // handed.
     expect(
-      (a.isInstance, a.isPane, a.mode, a.w),
-      (false, true, PaneMode.column, 2),
+      (a.isInstance, a.isContainer, a.mode, a.w),
+      (false, true, LayoutMode.column, 2),
     );
     expect(a.handed, ['system:app/a']);
     expect(a.vars['tint']!.value, '#ff0000ff');
-    // The pane's rule is baked in, and ids stay unique.
+    // The container's rule is baked in, and ids stay unique.
     expect(a.children.single.id, 'a-label-2');
     expect(a.children.single.style['fontSize'], 30);
-    expect(a.children.single.options['text'], '{{source.label}}');
+    expect(a.children.single.values('text')?['text'], '{{source.label}}');
     // Its own values over the prefab's; what neither gave stays blank.
     expect(b.vars['tint']!.value, '#00ff00ff');
     expect(b.vars['source']!.value, isNull);
-    expect(b.children.single.options['text'], 'Mine');
+    expect(b.children.single.values('text')?['text'], 'Mine');
     expect(hasBlank(b), isTrue);
     expect(
       after.layout.all.map((part) => part.id).toSet().length,
@@ -294,24 +304,24 @@ void main() {
 
     // One instance alone, the prefab kept.
     final one = withUnpacked(layout, 'b', all);
-    expect(one.pane('main')!.children.map((item) => item.isInstance), [
+    expect(one.container('main')!.children.map((item) => item.isInstance), [
       true,
       false,
       false,
     ]);
   });
 
-  test('a component is made a prefab and an instance takes its place', () {
-    final pane = Component.pane(
+  test('a node is made a prefab and an instance takes its place', () {
+    final container = Node.layout(
       id: 'weather-box',
       x: 2,
       y: 3,
       w: 4,
       h: 2,
       vars: const {'city': Variable('Perth')},
-      children: const [Component(id: 'root', kind: 'text')],
+      children: [drawn('root', textModule.name)],
     );
-    final made = asPrefab(pane, 'box', 'Box');
+    final made = asPrefab(container, 'box', 'Box');
     expect((made.prefab.id, made.prefab.name), ('box', 'Box'));
     // Its root has an id of its own among its parts, and no position.
     expect(made.prefab.root.id, 'root-2');
@@ -320,11 +330,13 @@ void main() {
     expect(made.instance.toJson(), {
       'id': 'weather-box',
       'prefab': 'box',
-      'transform': {'w': 4, 'h': 2, 'x': 2, 'y': 3},
+      'modules': {
+        'sizing': {'w': 4, 'h': 2, 'x': 2, 'y': 3},
+      },
     });
-    final drawn = resolved(made.instance, {'box': made.prefab});
-    expect(drawn.children.single.id, 'weather-box/root');
-    expect(drawn.vars['city']!.value, 'Perth');
+    final shown = resolved(made.instance, {'box': made.prefab});
+    expect(shown.children.single.id, 'weather-box/root');
+    expect(shown.vars['city']!.value, 'Perth');
   });
 
   test('a variable is exposed unless it says it is not', () {
