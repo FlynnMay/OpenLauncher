@@ -130,7 +130,7 @@ void main() {
 
     test('makes the apps, as the launcher always has', () async {
       final entities = await container().read(entitiesProvider.future);
-      final app = entities.byId(Entity.appId('a.b'))!;
+      final app = entities.byId(appId('a.b'))!;
       expect(app.category, appCategory);
       expect(app.label, 'AB');
       expect(app.prefab, cardPrefabId);
@@ -149,9 +149,9 @@ void main() {
               'package': '{{self.package}}',
             }),
       );
-      expect(entities.byId(Entity.appId('c.d'))!.data[Entity.shape], 'icon');
+      expect(entities.byId(appId('c.d'))!.data[Entity.shape], 'icon');
       expect(
-        entities.byId(Entity.appId('e.f'))!.data.containsKey(Entity.icon),
+        entities.byId(appId('e.f'))!.data.containsKey(Entity.icon),
         isFalse,
       );
     });
@@ -159,7 +159,7 @@ void main() {
     test('makes the inputs, numbered, with a picture of each kind', () async {
       final c = container();
       final entities = await c.read(entitiesProvider.future);
-      final hdmi = entities.byId(Entity.inputId('hw2'))!;
+      final hdmi = entities.byId(inputId('hw2'))!;
       expect(hdmi.category, inputCategory);
       expect(hdmi.data['input'], 'hw2');
       expect(hdmi.data['number'], '2');
@@ -168,19 +168,20 @@ void main() {
         File(hdmi.data[Entity.icon]! as String).readAsStringSync(),
         File('packs/system/images/input-hdmi.svg').readAsStringSync(),
       );
-      final tuner = entities.byId(Entity.inputId('tuner'))!;
+      final tuner = entities.byId(inputId('tuner'))!;
       expect(tuner.data.containsKey('number'), isFalse);
       expect(tuner.data[Entity.icon], endsWith('input-tuner.svg'));
 
       await c
           .read(actionRunnerProvider)
-          .run(Act('open', {entityArg: Entity.inputId('hw2')}));
+          .run(Act('open', {entityArg: inputId('hw2')}));
       expect(platform.launched, ['hw2']);
     });
 
     test('starts the home screen, the quick actions on it', () async {
       final c = container();
-      final start = await c.read(startingLayoutProvider.future);
+      final (:id, layout: start) = await c.read(startingLayoutProvider.future);
+      expect(id, 'system:home');
       expect(start.inbox, 'main');
       final menu = start.home.root.children.last;
       expect((menu.id, menu.prefab), ('quick-actions', 'system:quick-actions'));
@@ -192,15 +193,36 @@ void main() {
         start,
         c.read(prefabsProvider),
       ).pane('quick-actions')!;
-      expect((pane.dock, pane.hovers), ('center', true));
-      expect(pane.children.map((button) => button.options['label']), [
+      expect((pane.dock, pane.hiddenWhenClosed), ('center', true));
+      expect(pane.children.map((button) => button.vars['label']?.value), [
         'Open',
         'App info',
         'Uninstall',
         'Remove',
       ]);
       expect(pane.children.first.id, 'quick-actions/open');
-      expect(pane.vars.keys, [Component.sourceVar]);
+      expect(pane.vars.keys, ['source']);
+    });
+
+    test('has a folder and a sidebar that hold what is put in them', () {
+      expect(
+        [
+          for (final prefab in systemPrefabs)
+            if (prefab.slots.isNotEmpty)
+              (prefab.id, prefab.card, prefab.slots.join()),
+        ],
+        [
+          ('system:folder', 'system:folder-card', 'content'),
+          ('system:sidebar', null, 'content'),
+        ],
+      );
+      final sidebar = systemPrefab(sidebarId);
+      // Prefab rules name prefabs, given in full like any other name.
+      expect(sidebar.rootAs('side').prefabRules.keys, [
+        'system:app-card',
+        'system:folder-card',
+      ]);
+      expect(Prefab.fromJson(sidebar.toJson())!.toJson(), sidebar.toJson());
     });
 
     test('has a picture for every kind of input', () {
@@ -399,7 +421,7 @@ void main() {
       'prefabs/tile.json': {
         'id': 'tile',
         'name': 'Tile',
-        'root': {'id': 'tile', 'kind': 'pane'},
+        'root': {'id': 'tile'},
       },
     });
 
@@ -525,22 +547,25 @@ void main() {
               'id': 'tile',
               'root': {
                 'id': 'tile',
-                'kind': 'pane',
-                'vars': {
-                  'source': {'value': 'lounge', 'type': 'entity'},
-                },
-                'on': {
-                  'press': [
-                    {'do': 'toggle', 'entity': 'lounge'},
-                    {'do': 'open', 'entity': '{{source.id}}'},
-                  ],
+                'modules': {
+                  'variables': {
+                    'source': {'value': 'lounge', 'type': 'entity'},
+                  },
+                  'triggers': {
+                    'press': [
+                      {'do': 'toggle', 'entity': 'lounge'},
+                      {'do': 'open', 'entity': '{{source.id}}'},
+                    ],
+                  },
                 },
                 'children': [
                   {
                     'id': 'state',
-                    'kind': 'text',
-                    'options': {
-                      'text': "{{lounge.state == 'on' ? 'On' : source.label}}",
+                    'modules': {
+                      'text': {
+                        'text':
+                            "{{lounge.state == 'on' ? 'On' : source.label}}",
+                      },
                     },
                   },
                 ],
@@ -559,7 +584,7 @@ void main() {
       ]);
       // A root is its entity's only where it names one; a variable is not.
       expect(
-        tile.children.single.options['text'],
+        tile.children.single.values('text')?['text'],
         "{{ha:lounge.state == 'on' ? 'On' : source.label}}",
       );
     });

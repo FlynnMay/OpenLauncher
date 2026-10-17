@@ -43,8 +43,7 @@ class GlobalProperties extends ConsumerWidget {
             ref,
             (layout) => layout.withPane(
               layout.home.root.id,
-              (root) =>
-                  root.copyWith(style: withStyle(root.style, {key: value})),
+              (root) => root.styled(withStyle(root.style, {key: value})),
             ),
           ),
         ),
@@ -78,7 +77,9 @@ class _RevertLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pack = ref.watch(packNameProvider(startingLayoutId));
+    final pack = ref.watch(
+      packNameProvider(ref.watch(startingLayoutProvider).value?.id ?? ''),
+    );
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton(

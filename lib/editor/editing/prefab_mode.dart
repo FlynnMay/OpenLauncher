@@ -111,7 +111,8 @@ final editedLayoutProvider = Provider<Layout?>((ref) {
   );
   final prefab = ref.watch(editedPrefabProvider);
   final mode = ref.watch(prefabModeProvider);
-  return prefab == null || layout == null
-      ? layout
+  if (layout == null) return null;
+  return prefab == null
+      ? withSlotLayoutsIn(layout, ref.watch(prefabsProvider))
       : prefabAsLayout(prefab, mode?.variant, mode?.height);
 });

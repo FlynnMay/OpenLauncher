@@ -26,7 +26,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   /// Puts back the starting layout as its pack has it.
   Future<void> revertLayout() async {
     final start = await ref.read(startingLayoutProvider.future);
-    await _update((c) => _withLayout(c, start, own: false));
+    await _update((c) => _withLayout(c, start.layout, own: false));
   }
 
   static LauncherConfig _withLayout(
@@ -62,7 +62,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   );
 
   /// Adds [item] to pane [pane].
-  Future<void> addItem(Component item, String pane) => _update(
+  Future<void> addItem(Node item, String pane) => _update(
     (c) => c.copyWith(layout: c.layout.withAdded(item, pane).normalised()),
   );
 

@@ -3,5 +3,10 @@
   "name": "System",
   "version": "1",
   "author": "OpenLauncher",
-  "source": "https://github.com/FlynnMay/OpenLauncher"
+  "source": "https://github.com/FlynnMay/OpenLauncher",
+  "categories": {
+    "input": "Inputs",
+    "app": "Apps",
+    "launcher": "Launcher"
+  }
 }

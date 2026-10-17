@@ -5,13 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/tile_actions.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// Docked panes to keep open and shown even when empty. Used by the editor.
 class DockHold extends InheritedWidget {
@@ -24,14 +23,33 @@ class DockHold extends InheritedWidget {
       !ids.containsAll(oldWidget.ids) || !oldWidget.ids.containsAll(ids);
 }
 
-/// A docked pane: a sidebar, a hovering folder or one opened in place. It is
-/// open while its `open` variable is set; closed, it shows its `closed` strip
-/// or is not there at all. On an edge it is laid out at its open size, so its
+/// The folder docked in place that [node] opens, while it is open, unless
+/// its own chain moved it to a layer. [node] is then drawn as that folder.
+Node? openedInPlace(WidgetRef ref, Node node) {
+  final handed = node.handed.firstOrNull;
+  if (!node.isPane || !node.mode.inLine || handed == null) return null;
+  return switch (ref.watch(layoutViewProvider).value?.pane(handed)) {
+    final folder?
+        when folder.dock == DockModule.inline &&
+            layerOf(ref.watch(layersProvider), folder.id) == null &&
+            ref.watch(
+              runtimeVarsProvider.select(
+                (all) => all[folder.id]?[openVar] == true,
+              ),
+            ) =>
+      folder,
+    _ => null,
+  };
+}
+
+/// A docked pane, on an edge, in the middle or in what opens it. It is open
+/// while its `open` variable is set; closed, it shows its `closed` strip or
+/// is not there at all. On an edge it is laid out at its open size, so its
 /// contents do not move as it opens.
 class DockedPane extends ConsumerStatefulWidget {
   const DockedPane({super.key, required this.pane, this.inPlace = false});
 
-  final Component pane;
+  final Node pane;
 
   /// Drawn in the box of what opened it, filling it.
   final bool inPlace;
@@ -58,10 +76,14 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   /// What [_opened] was last sent towards.
   bool? _open;
 
-  Component get _pane => widget.pane;
+  /// Given to what is in it each time it opens, so the first tile built
+  /// then takes the focus.
+  FirstFocus? _first;
 
-  Object? get _opening => dockRule(_pane, 'opening');
-  Object? get _reveal => dockRule(_pane, 'reveal');
+  Node get _pane => widget.pane;
+
+  Object? get _opening => _pane.valueOf(dockModule, 'opening');
+  Object? get _reveal => _pane.valueOf(dockModule, 'reveal');
 
   int get _barMs => switch (_opening) {
     'slide' || 'fade' => 200,
@@ -92,12 +114,19 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   void _sync(bool open) {
     if (open == _open) return;
     _open = open;
+    _first = open ? FirstFocus() : null;
     if (_totalMs == 0) {
       _opened.value = open ? 1 : 0;
       return;
     }
     _opened.duration = Duration(milliseconds: _totalMs);
     open ? _opened.forward() : _opened.reverse();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.inPlace) _first = FirstFocus();
   }
 
   @override
@@ -116,8 +145,9 @@ class _DockedPaneState extends ConsumerState<DockedPane>
     super.dispose();
   }
 
-  /// The part of it that shows, in global coordinates.
-  Rect? _visible() => switch (_box.currentContext?.findRenderObject()) {
+  /// The part of it that shows, in global coordinates; all of it in place.
+  Rect? _visible() => switch ((_box.currentContext ?? _contents.currentContext)
+      ?.findRenderObject()) {
     final RenderBox box when box.attached && box.hasSize =>
       box.localToGlobal(Offset.zero) & box.size,
     _ => null,
@@ -146,7 +176,7 @@ class _DockedPaneState extends ConsumerState<DockedPane>
 
   /// The pane as drawn: a menu opened for an entity leaves out what cannot
   /// be done to it.
-  Component _offered() => subjectOf(ref, _pane.id) == null
+  Node _offered() => subjectOf(ref, _pane.id) == null
       ? _pane
       : _pane.copyWith(
           children: offeredFor(
@@ -158,29 +188,24 @@ class _DockedPaneState extends ConsumerState<DockedPane>
 
   /// The pane [shown] in its box. Keyed so it keeps its state as what is
   /// around it changes.
-  Widget _contentsOf(Component shown, Alignment from, {bool shrink = false}) {
+  Widget _contentsOf(Node shown, Alignment from, {bool shrink = false}) {
     final pane = _pane;
-    final hovers = pane.hovers;
-    // One that hovers takes the focus and closes when what is in it is
-    // opened.
-    final focus = hovers ? FirstFocus() : null;
-    final popup = hovers && !widget.inPlace ? pane.id : null;
-    final box = PaneBox(
-      pane: shown,
-      shrink: shrink,
-      placeholder: hovers
-          ? 'Nothing here yet. Add things from the web page.'
-          : null,
+    final popup = pane.closeOnPress ? pane.id : null;
+    final box = NodeView(
+      component: shown,
+      screen: true,
+      tall: shrink,
+      placeholder: 'Nothing here yet. Add things from the web page.',
       tile: (component) => _appearing(
-        ComponentView(component: component, focus: focus, popup: popup),
+        NodeView(component: component, focus: _first, popup: popup),
         from,
       ),
     );
     return FocusBounds(
       key: _contents,
       visible: _visible,
-      // A bar on the right is mirrored, to keep pictures at the edge.
-      child: pane.edge == BarEdge.right && !hovers
+      // A strip on the right is mirrored, to keep its pictures at the edge.
+      child: pane.edge == BarEdge.right && pane.closed != null
           ? Directionality(textDirection: TextDirection.rtl, child: box)
           : box,
     );
@@ -223,14 +248,14 @@ class _DockedPaneState extends ConsumerState<DockedPane>
     final pane = _pane;
     final shown = _offered();
     if (widget.inPlace) return _watched(_contentsOf(shown, Alignment.center));
-    _sync(
-      _held ||
-          ref.watch(
-            runtimeVarsProvider.select((all) => all[pane.id]?[openVar] == true),
-          ),
-    );
+    final open =
+        _held ||
+        ref.watch(
+          runtimeVarsProvider.select((all) => all[pane.id]?[openVar] == true),
+        );
+    _sync(open);
     // An empty pane has no closed strip.
-    if (!pane.hovers && pane.isEmpty && !_held) return const SizedBox.shrink();
+    if (pane.isEmpty && !open) return const SizedBox.shrink();
     final edge = pane.edge;
     final alignment = switch (edge) {
       BarEdge.left => Alignment.centerLeft,
@@ -286,7 +311,9 @@ class _DockedPaneState extends ConsumerState<DockedPane>
               builder: (context, contents) {
                 final open = _barOpen;
                 // Hidden while closed.
-                if (pane.hovers && open == 0) return const SizedBox.shrink();
+                if (pane.hiddenWhenClosed && open == 0) {
+                  return const SizedBox.shrink();
+                }
                 final fading = _opening == 'fade';
                 // A fading pane is at full size from the start.
                 final shown = fading

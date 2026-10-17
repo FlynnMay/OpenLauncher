@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/features/home/styled_box.dart';
+import 'package:openlauncher/features/modules/style_drawer.dart';
 
 /// Where a scroll bar's track and thumb go in a box of [size]. Null when
 /// there is nothing to scroll. [progress] fills from the start instead of
@@ -66,14 +66,15 @@ class PaneScrollbars extends StatefulWidget {
     required this.child,
   });
 
-  final Component pane;
+  final Node pane;
 
-  /// The pane's style, templates read.
-  final Style style;
+  /// Its Scroll module's values, templates read: the bar's look.
+  final Map<String, Object?> style;
   final Widget child;
 
-  /// [child] under [pane]'s scroll bars, if it has any.
-  static Widget over(Component pane, Style style, Widget child) =>
+  /// [child] under [pane]'s scroll bars, if it has any, which look as [style]
+  /// (its Scroll module's values, templates read) says.
+  static Widget over(Node pane, Map<String, Object?> style, Widget child) =>
       pane.scrollbar == null
       ? child
       : PaneScrollbars(pane: pane, style: style, child: child);

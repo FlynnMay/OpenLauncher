@@ -1,0 +1,56 @@
+{
+  "id": "folder",
+  "name": "Folder",
+  "card": "folder-card",
+  "root": {
+    "id": "root",
+    "name": "Folder",
+    "modules": {
+      "layout": {
+        "mode": "flow",
+        "columns": 4
+      },
+      "slot": {
+        "variable": "content"
+      },
+      "dock": {
+        "position": "center",
+        "opening": "instant",
+        "closeOnPress": true
+      },
+      "scroll": {
+        "down": true
+      },
+      "style": {
+        "background": "#1a1c23fa",
+        "radius": 18,
+        "padding": 28
+      },
+      "triggers": {
+        "reveal": [
+          {
+            "run": "launcher://layers/new",
+            "with": {
+              "dim": 0.54,
+              "modal": true
+            }
+          },
+          {
+            "run": "launcher://layers/raise"
+          }
+        ],
+        "hide": [
+          {
+            "run": "launcher://layers/close"
+          }
+        ]
+      },
+      "variables": {
+        "content": {
+          "value": null,
+          "type": "nodes"
+        }
+      }
+    }
+  }
+}

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 
-/// Display name of a screen edge.
-String barName(String edge) => switch (edge) {
+/// Display name of a dock.
+String barName(String dock) => switch (dock) {
   'left' => 'Left',
   'right' => 'Right',
   'top' => 'Top',
   'bottom' => 'Bottom',
-  _ => edge,
+  'center' => 'Centre',
+  DockModule.inline => 'Inline',
+  _ => dock,
 };
 
 /// A size that is automatic, fill, or a number of TV pixels.
@@ -26,7 +28,7 @@ class ExtentBox extends StatelessWidget {
 
   final String label;
 
-  /// Null for default, [Component.fill] for fill.
+  /// Null for default, [DockModule.fill] for fill.
   final double? value;
 
   /// The default, used as the starting number; null if it is as big as what
@@ -39,7 +41,7 @@ class ExtentBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final value = this.value, byDefault = defaultValue;
-    final numbered = value != null && value != Component.fill;
+    final numbered = value != null && value != DockModule.fill;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -54,16 +56,16 @@ class ExtentBox extends StatelessWidget {
             choices: {
               _auto: switch (byDefault) {
                 null => 'Auto (fit content)',
-                Component.fill => 'Auto (fill)',
+                DockModule.fill => 'Auto (fill)',
                 _ => 'Auto (${byDefault.round()})',
               },
               _fill: 'Fill',
               _fixed: 'Fixed',
             },
             onChanged: (choice) => onChanged(switch (choice) {
-              _fill => Component.fill,
+              _fill => DockModule.fill,
               _fixed =>
-                byDefault == null || byDefault == Component.fill
+                byDefault == null || byDefault == DockModule.fill
                     ? 300
                     : byDefault,
               _ => null,
@@ -75,7 +77,7 @@ class ExtentBox extends StatelessWidget {
             label: '',
             value: value,
             min: 40,
-            max: Component.maxExtent.round(),
+            max: DockModule.maxExtent.round(),
             step: 10,
             onChanged: (size) => onChanged(size * 1.0),
           ),
@@ -86,36 +88,42 @@ class ExtentBox extends StatelessWidget {
 
 /// Where a pane is docked and, once it is, its size and how it opens.
 List<Widget> dockFields(
-  Component pane,
-  void Function(Component Function(Component pane) how) change,
+  Node pane,
+  void Function(Node Function(Node pane) how) change,
 ) {
   // The dock's defaults.
-  final defaults = Component.pane(id: '', rules: {'dock': pane.dock});
-  final [dock, ...rest] = dockRules(pane);
-  List<Widget> fields(List<ComponentOption> options) => ruleFields(
+  final defaults = Node.pane(id: '', dock: {'position': ?pane.dock});
+  final values = pane.values(dockModule.name) ?? const {};
+  final [dock, ...rest] = [
+    for (final field in dockModule.fields)
+      if (field.when?.call(values) ?? true) field,
+  ];
+  List<Widget> fields(List<Field> options) => ruleFields(
     options: options,
-    json: pane.options,
-    onChanged: (key, value) => change((pane) => withRule(pane, key, value)),
+    json: values,
+    onChanged: (key, value) =>
+        change((pane) => withRule(pane, dockModule.name, key, value)),
   );
   return [
     ...fields([dock]),
-    if (pane.isDocked && pane.dock != Component.inline) ...[
+    if (pane.isDocked && pane.dock != DockModule.inline) ...[
       ExtentBox(
         label: 'Width',
         value: pane.dockWidth,
         defaultValue: defaults.openWidth,
-        onChanged: (width) => change((pane) => withRule(pane, 'width', width)),
+        onChanged: (width) =>
+            change((pane) => withRule(pane, dockModule.name, 'width', width)),
       ),
       ExtentBox(
         label: 'Height',
         value: pane.dockHeight,
         defaultValue: defaults.openHeight,
         onChanged: (height) =>
-            change((pane) => withRule(pane, 'height', height)),
+            change((pane) => withRule(pane, dockModule.name, 'height', height)),
       ),
-      ...fields(rest),
-      const _Replay(),
     ],
+    ...fields(rest),
+    if (pane.isDocked && pane.dock != DockModule.inline) const _Replay(),
   ];
 }
 

@@ -52,8 +52,8 @@ void main() {
                 config:
                     config ??
                     LauncherConfig(layout: homeLayout(['system:app/a'])),
-                components: const [
-                  (type: 'text', label: 'Text', w: 2, h: 1, options: {}),
+                visuals: const [
+                  (module: 'text', label: 'Text', w: 2, h: 1, values: {}),
                 ],
               ),
             ),
@@ -98,7 +98,13 @@ void main() {
         .singleWhere((prefab) => prefab.id == cardPrefabId);
 
     // From the list in the launcher's settings.
-    await press(tester, find.text('Prefabs'));
+    await press(
+      tester,
+      find.descendant(
+        of: find.byType(PrefabList),
+        matching: find.text('Prefabs'),
+      ),
+    );
     // The app card and the quick actions.
     expect(find.text('1 instance · System'), findsNWidgets(2));
     await press(
@@ -222,6 +228,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a folder is an instance its prefab reaches', (tester) async {
+    final ref = await pump(
+      tester,
+      config: LauncherConfig(
+        layout: homeLayout(['system:app/a']).withPane(
+          'home/root',
+          (root) => root.copyWith(
+            children: [
+              ...root.children,
+              folderPane('games', title: 'Games'),
+            ],
+          ),
+        ),
+      ),
+    );
+    await press(
+      tester,
+      find.descendant(
+        of: find.byType(PrefabList),
+        matching: find.text('Prefabs'),
+      ),
+    );
+    expect(find.text('1 instance · System'), findsWidgets);
+    openPrefab(ref, 'system:folder');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Template'), findsNothing);
+    final games = ref
+        .read(configProvider)
+        .value!
+        .layout
+        .all
+        .singleWhere((node) => node.id == 'games');
+    expect(drawnPane(games).style, systemPrefab(folderId).root.style);
+    expect(drawnPane(games).name, 'Games');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a pane is made a prefab; deleting it unpacks the instance', (
     tester,
   ) async {
@@ -297,15 +340,15 @@ void main() {
           Prefab(
             id: 'inner',
             name: 'Inner',
-            root: Component.pane(
+            root: Node.pane(
               id: 'root',
               mode: PaneMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
-              children: const [
-                Component(
-                  id: 'label',
-                  kind: 'text',
-                  options: {'text': '{{source.label}}'},
+              children: [
+                drawn(
+                  'label',
+                  textModule.name,
+                  values: const {'text': '{{source.label}}'},
                 ),
               ],
             ),
@@ -313,17 +356,19 @@ void main() {
           Prefab(
             id: 'outer',
             name: 'Outer',
-            root: Component.pane(
+            root: Node.pane(
               id: 'root',
               mode: PaneMode.column,
               vars: const {'source': Variable(null, type: VarType.entity)},
               children: const [
                 // Hands on what it was handed.
-                Component(
+                Node(
                   id: 'in',
                   prefab: 'inner',
-                  vars: {
-                    'source': Variable('{{source.id}}', type: VarType.entity),
+                  modules: {
+                    'variables': {
+                      'source': {'value': '{{source.id}}', 'type': 'entity'},
+                    },
                   },
                 ),
               ],

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 
@@ -104,43 +104,40 @@ class InstanceVariables extends ConsumerWidget {
   static Set<String> shown(Variables declared, Variables own) => {
     for (final MapEntry(key: name, value: variable) in declared.entries)
       if (variable.exposed &&
+          variable.type != VarType.nodes &&
           !variable.isConditional &&
           !(own[name]?.isConditional ?? false))
         name,
   };
 
-  ComponentOption _option(
-    String name,
-    Variable variable,
-    Map<String, String> entities,
-  ) {
+  Field _option(String name, Variable variable, Map<String, String> entities) {
     final value = variable.value;
     return switch (variable.type) {
-      VarType.number => ComponentOption(
+      VarType.number => Field(
         name,
         name,
-        OptionKind.number,
+        FieldKind.number,
         min: -1000000,
         max: 1000000,
         decimal: true,
         defaultValue: value is num ? value : null,
       ),
-      VarType.bool => ComponentOption(
+      VarType.bool => Field(
         name,
         name,
-        OptionKind.toggle,
+        FieldKind.toggle,
         defaultValue: value == true,
       ),
-      VarType.colour => ComponentOption(
+      VarType.colour => Field(
         name,
         name,
-        OptionKind.colour,
+        FieldKind.colour,
         defaultValue: value,
       ),
-      VarType.entity => ComponentOption(
+      VarType.entity => Field(
         name,
         name,
-        OptionKind.choice,
+        FieldKind.choice,
         unset: 'None',
         defaultValue: value,
         choices: {
@@ -150,10 +147,10 @@ class InstanceVariables extends ConsumerWidget {
           ...entities,
         },
       ),
-      _ => ComponentOption(
+      _ => Field(
         name,
         name,
-        OptionKind.template,
+        FieldKind.template,
         defaultValue: value?.toString(),
       ),
     };

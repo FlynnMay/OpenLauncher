@@ -3,113 +3,128 @@
   "name": "Quick actions",
   "root": {
     "id": "root",
-    "kind": "pane",
-    "options": {
-      "title": "{{source.label}}",
-      "mode": "flow",
-      "columns": 1,
-      "dock": "center",
-      "width": 432,
-      "opening": "instant",
-      "rowHeight": 40,
-      "spacing": 4
-    },
-    "vars": {
-      "source": {
-        "value": null,
-        "type": "entity"
-      }
-    },
-    "style": {
-      "background": "#1a1c23fa",
-      "radius": 18,
-      "padding": 28
-    },
-    "on": {
-      "reveal": [
-        {
-          "run": "launcher://layers/new",
-          "with": {
-            "dim": 0.54,
-            "modal": true
+    "name": "{{source.label}}",
+    "modules": {
+      "layout": {
+        "mode": "flow",
+        "columns": 1,
+        "rowHeight": 40,
+        "spacing": 4
+      },
+      "dock": {
+        "position": "center",
+        "width": 432,
+        "opening": "instant",
+        "closeOnPress": true
+      },
+      "scroll": {
+        "down": true
+      },
+      "style": {
+        "background": "#1a1c23fa",
+        "radius": 18,
+        "padding": 28
+      },
+      "variables": {
+        "source": {
+          "value": null,
+          "type": "entity"
+        }
+      },
+      "triggers": {
+        "reveal": [
+          {
+            "run": "launcher://layers/new",
+            "with": {
+              "dim": 0.54,
+              "modal": true
+            }
+          },
+          {
+            "run": "launcher://layers/raise"
           }
-        },
-        {
-          "run": "launcher://layers/raise"
-        }
-      ],
-      "hide": [
-        {
-          "run": "launcher://layers/close"
-        }
-      ]
+        ],
+        "hide": [
+          {
+            "run": "launcher://layers/close"
+          }
+        ]
+      }
     },
     "children": [
       {
         "id": "open",
-        "kind": "button",
-        "options": {
-          "label": "Open",
-          "icon": "material:play_arrow"
-        },
-        "on": {
-          "press": [
-            {
-              "do": "open",
-              "entity": "{{source.id}}"
-            }
-          ]
+        "prefab": "button",
+        "modules": {
+          "variables": {
+            "label": "Open",
+            "icon": "material:play_arrow"
+          },
+          "triggers": {
+            "press": [
+              {
+                "do": "open",
+                "entity": "{{source.id}}"
+              }
+            ]
+          }
         }
       },
       {
         "id": "info",
-        "kind": "button",
-        "options": {
-          "label": "App info",
-          "icon": "material:info"
-        },
-        "on": {
-          "press": [
-            {
-              "do": "info",
-              "entity": "{{source.id}}"
-            }
-          ]
+        "prefab": "button",
+        "modules": {
+          "variables": {
+            "label": "App info",
+            "icon": "material:info"
+          },
+          "triggers": {
+            "press": [
+              {
+                "do": "info",
+                "entity": "{{source.id}}"
+              }
+            ]
+          }
         }
       },
       {
         "id": "uninstall",
-        "kind": "button",
-        "options": {
-          "label": "Uninstall",
-          "icon": "material:delete"
-        },
-        "on": {
-          "press": [
-            {
-              "do": "uninstall",
-              "entity": "{{source.id}}"
-            }
-          ]
+        "prefab": "button",
+        "modules": {
+          "variables": {
+            "label": "Uninstall",
+            "icon": "material:delete"
+          },
+          "triggers": {
+            "press": [
+              {
+                "do": "uninstall",
+                "entity": "{{source.id}}"
+              }
+            ]
+          }
         }
       },
       {
         "id": "remove",
-        "kind": "button",
-        "options": {
-          "label": "Remove",
-          "icon": "material:do_not_disturb_on"
-        },
-        "on": {
-          "press": [
-            {
-              "run": "launcher://layout/remove",
-              "with": {
-                "layer": "home",
-                "what": "{{source.id}}"
+        "prefab": "button",
+        "modules": {
+          "variables": {
+            "label": "Remove",
+            "icon": "material:do_not_disturb_on"
+          },
+          "triggers": {
+            "press": [
+              {
+                "run": "launcher://layout/remove",
+                "with": {
+                  "layer": "home",
+                  "what": "{{source.id}}"
+                }
               }
-            }
-          ]
+            ]
+          }
         }
       }
     ]

@@ -1,10 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 
 import '../support/packs.dart';
 
-Component _entity(String id, String ref) => Component.of(ref, id: id);
+Node _entity(String id, String ref) => cardOf(ref, id: id);
 
 void main() {
   test('a name becomes an id that can be read', () {
@@ -21,11 +20,11 @@ void main() {
       layers: [
         Layer(
           id: 'home',
-          root: Component.pane(
+          root: Node.pane(
             id: 'home/root',
             children: [
               _entity('youtube', 'system:app/yt'),
-              Component.pane(id: 'pane'),
+              Node.pane(id: 'pane'),
               folderPane('games', title: 'Games'),
             ],
           ),
@@ -65,6 +64,7 @@ void main() {
         'system:app/io.gh.reisxd.tizentube.cobalt': 'YouTube',
         'system:input/x/HW15': 'HDMI 1',
       },
+      instance: placedCard,
     );
     expect(shown.items.where((i) => i.handed.isNotEmpty).map((i) => i.id), [
       'tizentube-cobalt',

@@ -211,7 +211,9 @@ void main() {
     final section = page['layout']['layers'][0]['root']['children'].first;
     expect(page['layout']['inbox'], section['id']);
     expect(
-      (section['children'] as List).map((i) => i['vars']?['source']?['value']),
+      (section['children'] as List).map(
+        (i) => i['modules']?['variables']?['source']?['value'],
+      ),
       [
         'system:input/tv/HW1',
         'system:app/a',
@@ -220,13 +222,12 @@ void main() {
       ],
     );
     // No app on this device offers widgets, so that kind is not offered.
-    expect((page['components'] as List).map((w) => w['type']), [
+    expect((page['visuals'] as List).map((w) => w['module']), [
       'text',
       'picture',
-      'meter',
       'icon',
-      'folder',
-      'button',
+      'meter',
+      'preview',
     ]);
     // The quick actions are an instance of the System pack's menu.
     final menu = (page['layout']['layers'][0]['root']['children'] as List)
@@ -433,60 +434,72 @@ void main() {
             'id': 'home',
             'root': {
               'id': 'home/root',
-              'kind': 'pane',
-              'options': {'mode': 'free', 'columns': 12},
               'children': [
                 {
                   'id': 'top',
-                  'kind': 'pane',
-                  'options': {
-                    'title': 'Favourites',
-                    'mode': 'grid',
-                    'columns': 4,
+                  'name': 'Favourites',
+                  'modules': {
+                    'layout': {'mode': 'grid', 'columns': 4},
                   },
                   'children': [
                     {
                       'id': 'i1',
                       'prefab': 'system:app-card',
-                      'vars': {
-                        'source': {'value': 'system:app/b', 'type': 'entity'},
+                      'modules': {
+                        'variables': {
+                          'source': {'value': 'system:app/b', 'type': 'entity'},
+                        },
+                        'sizing': {'x': 2, 'y': 0, 'w': 9},
                       },
-                      'transform': {'x': 2, 'y': 0, 'w': 9},
                     },
                     {
                       'id': 'i2',
                       'prefab': 'system:folder-card',
-                      'vars': {
-                        'source': {'value': 'games', 'type': 'entity'},
+                      'modules': {
+                        'variables': {
+                          'source': {'value': 'games', 'type': 'entity'},
+                        },
                       },
                     },
                     {
                       'id': 'i3',
                       'prefab': 'system:folder-card',
-                      'vars': {
-                        'source': {'value': 'nothing', 'type': 'entity'},
+                      'modules': {
+                        'variables': {
+                          'source': {'value': 'nothing', 'type': 'entity'},
+                        },
                       },
                     },
                     {
                       'id': 'i4',
                       'prefab': 'system:weather',
-                      'vars': {
-                        'source': {'value': 'system:weather', 'type': 'entity'},
+                      'modules': {
+                        'variables': {
+                          'source': {
+                            'value': 'system:weather',
+                            'type': 'entity',
+                          },
+                        },
                       },
                     },
                   ],
                 },
-                {'id': 'rest', 'kind': 'pane'},
+                {'id': 'rest'},
                 {
                   'id': 'games',
-                  'kind': 'pane',
-                  'options': {'title': 'Games', 'dock': 'bottom'},
+                  'name': 'Games',
+                  'modules': {
+                    'layout': {'mode': 'flow'},
+                    'dock': {'position': 'bottom'},
+                  },
                   'children': [
                     {
                       'id': 'i5',
                       'prefab': 'system:app-card',
-                      'vars': {
-                        'source': {'value': 'system:app/a', 'type': 'entity'},
+                      'modules': {
+                        'variables': {
+                          'source': {'value': 'system:app/a', 'type': 'entity'},
+                        },
                       },
                     },
                   ],
@@ -502,20 +515,22 @@ void main() {
     final saved = store.config.layout;
     final [top, rest, games] = saved.home.root.children;
     expect((top.mode, top.columns), (PaneMode.grid, 4));
-    expect((top.title, saved.inbox), ('Favourites', rest.id));
-    // Too wide for the pane, and a link to a panel that does not exist.
-    expect(top.children.map((i) => i.id), ['i1', 'i2', 'i4']);
+    expect((top.name, saved.inbox), ('Favourites', rest.id));
+    // Too wide for the pane. A card for a folder that does not exist is
+    // kept, but not drawn.
+    expect(top.children.map((i) => i.id), ['i1', 'i2', 'i3', 'i4']);
     expect((top.children.first.w, top.children.first.x), (4, 0));
     expect(
       (top.children.last.prefab, top.children.last.handed.firstOrNull),
       ('system:weather', 'system:weather'),
     );
-    expect((games.dock, games.hovers), ('bottom', true));
+    expect((games.dock, games.hiddenWhenClosed), ('bottom', true));
 
     // On the TV: app:b on top, app:a inside the folder, and the input,
     // which was placed nowhere, in the pane for new entities.
     expect(await onTv(), ['system:app/b', 'system:input/tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
+    expect(view.all.map((item) => item.id), isNot(contains('i3')));
     final folder = view.home.root.contents.elementAt(1);
     expect(folder.prefab, folderPrefabId);
     expect(
@@ -527,7 +542,9 @@ void main() {
     );
     final shown = (await state())['layout']['layers'][0]['root']['children'][1];
     expect(
-      (shown['children'] as List).map((i) => i['vars']?['source']?['value']),
+      (shown['children'] as List).map(
+        (i) => i['modules']?['variables']?['source']?['value'],
+      ),
       ['system:input/tv/HW1', 'system:settings'],
     );
   });
@@ -539,7 +556,7 @@ void main() {
         'layers': [
           {
             'id': 'home',
-            'root': {'id': 'home/root', 'kind': 'pane', 'children': folders},
+            'root': {'id': 'home/root', 'children': folders},
           },
         ],
       };
@@ -549,8 +566,11 @@ void main() {
         body: layout([
           {
             'id': 'games',
-            'kind': 'pane',
-            'options': {'title': 'Games', 'dock': 'center'},
+            'name': 'Games',
+            'modules': {
+              'layout': {'mode': 'flow'},
+              'dock': {'position': 'center'},
+            },
           },
         ]),
       );
@@ -655,7 +675,7 @@ void main() {
       expect(told['config']['place']['latitude'], -31.95);
       // The three of the user's own are offered like any other widget.
       expect([
-        for (final widget in told['components']) widget['type'],
+        for (final widget in told['visuals']) widget['module'],
       ], containsAll(['text', 'picture', 'meter']));
 
       Future<(int, Object?)> value(String id) async {
@@ -717,7 +737,9 @@ void main() {
     final section = layout['layers'][0]['root']['children'][0];
     // What the page does to remove an entity: drop its item and say so.
     (section['children'] as List).removeWhere(
-      (i) => i['vars']?['source']?['value'] == 'system:input/tv/HW1',
+      (i) =>
+          i['modules']?['variables']?['source']?['value'] ==
+          'system:input/tv/HW1',
     );
     layout['removed'] = ['system:input/tv/HW1'];
     expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
@@ -738,8 +760,10 @@ void main() {
         {
           'id': id,
           'prefab': 'system:app-card',
-          'vars': {
-            'source': {'value': 'system:input/tv/HW1', 'type': 'entity'},
+          'modules': {
+            'variables': {
+              'source': {'value': 'system:input/tv/HW1', 'type': 'entity'},
+            },
           },
         },
     ]);
@@ -1039,6 +1063,7 @@ void main() {
       'licence': '',
       'source': '',
       'requires': <Object?>[],
+      'categories': <String, Object?>{},
       'builtIn': true,
       'bytes': isPositive,
       'files': ['fonts/core.ttf', 'icons/core.json'],

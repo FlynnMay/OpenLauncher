@@ -4,11 +4,11 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/tile_actions.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 
 /// The entity [pane]'s entity-typed variables hold, [runtime] values first.
 Entity? _subject(
-  Component pane,
+  Node pane,
   Map<String, Object?>? runtime,
   Iterable<Entity> entities,
 ) => pane

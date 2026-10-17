@@ -8,7 +8,7 @@ import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
@@ -66,20 +66,21 @@ void main() {
                     layers: [
                       Layer(
                         id: Layout.homeId,
-                        root: Component.pane(
+                        root: Node.pane(
                           id: 'main',
                           // In line with the sidebar's row and clear of it
                           // when it is open, so that going right from it
                           // leads here.
                           mode: PaneMode.grid,
                           children: [
-                            Component.of('system:app/a', id: 'a', x: 3, y: 0),
+                            cardOf('system:app/a', id: 'a', x: 3, y: 0),
                             // What it does when shown is written on it:
                             // [on] over what a new sidebar comes with.
-                            sidebarPane('left', 'left').copyWith(
-                              on: {...barTriggers(), ...on},
-                              children: [Component.of('system:app/b', id: 'b')],
-                            ),
+                            sidebarPane('left', 'left')
+                                .triggered({...barTriggers(), ...on})
+                                .holds(
+                                  children: [cardOf('system:app/b', id: 'b')],
+                                ),
                           ],
                         ),
                       ),
@@ -165,17 +166,14 @@ void main() {
                   layers: [
                     Layer(
                       id: Layout.homeId,
-                      root: Component.pane(
+                      root: Node.pane(
                         id: 'main',
                         children: [
-                          Component.of(
+                          cardOf('games', id: 'f', prefab: folderPrefabId),
+                          folderPane(
                             'games',
-                            id: 'f',
-                            prefab: folderPrefabId,
-                          ),
-                          folderPane('games', title: 'Games').copyWith(
-                            children: [Component.of('system:app/b', id: 'b')],
-                          ),
+                            title: 'Games',
+                          ).holds(children: [cardOf('system:app/b', id: 'b')]),
                         ],
                       ),
                     ),

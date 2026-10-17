@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
@@ -62,8 +61,8 @@ String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {
   if (layout == null) return 'Nothing to add it to.';
   final prefab = ref.read(editedPrefabProvider);
   if (prefab != null) {
-    if (dragged.sidebar || dragged.folder != null) {
-      return 'A prefab cannot hold a sidebar or a new folder.';
+    if (dragged.docking || dragged.opens != null) {
+      return 'A prefab cannot hold a new docked pane.';
     }
     if (paneId == prefabStageId && dragged.item.id != prefab.root.id) {
       return 'Drop it inside the prefab.';
@@ -93,30 +92,37 @@ Future<void> placeDragged(
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
     return;
   }
-  var folder = dragged.folder, item = dragged.item;
-  if (folder != null) {
-    final name = await askName(context, folder.title);
+  var opens = dragged.opens, item = dragged.item;
+  if (opens != null) {
+    final name = await askName(context, opens.name);
     if (name == null || !context.mounted) return;
-    folder = folderPane(layout.paneIdFor(name, 'folder'), title: name);
-    // Point the card at the folder's final id.
-    item = item.copyWith(
-      id: freeId(slugOf(name), {...layout.itemIds, folder.id}),
-      vars: {
-        ...item.vars,
-        Component.sourceVar: Variable(folder.id, type: VarType.entity),
-      },
-    );
+    opens = opens.copyWith(id: layout.paneIdFor(name, 'pane'), name: name);
+    // Point the card at the pane's final id.
+    item = item
+        .copyWith(id: freeId(slugOf(name), {...layout.itemIds, opens.id}))
+        .withVars({
+          for (final MapEntry(key: name, value: variable) in item.vars.entries)
+            name: variable.type == VarType.entity
+                ? Variable(opens.id, type: VarType.entity)
+                : variable,
+        });
   }
   await changeLayout(
     context,
     ref,
-    (layout) => dropItem(layout, item, drop, folder: folder),
+    (layout) => dropItem(layout, item, drop, opens: opens),
   );
 }
 
-/// Adds a sidebar on [edge] if missing and selects it, which holds it open.
-Future<void> addBar(BuildContext context, WidgetRef ref, String edge) async {
-  await changeLayout(context, ref, (layout) => withBar(layout, edge));
+/// Docks a pane made from [template] to [edge] if none is, and selects it,
+/// which holds it open.
+Future<void> addBar(
+  BuildContext context,
+  WidgetRef ref,
+  String edge,
+  Prefab template,
+) async {
+  await changeLayout(context, ref, (layout) => withBar(layout, edge, template));
   if (!context.mounted) return;
   final layout = ref.read(configProvider).value?.layout;
   final selection = ref.read(selectionProvider.notifier);
@@ -128,15 +134,19 @@ Future<void> addBar(BuildContext context, WidgetRef ref, String edge) async {
   }
 }
 
-/// Adds a sidebar on the first free edge.
-Future<void> addBarSomewhere(BuildContext context, WidgetRef ref) async {
+/// Docks a pane made from [template] to the first free edge.
+Future<void> addBarSomewhere(
+  BuildContext context,
+  WidgetRef ref,
+  Prefab template,
+) async {
   final layout = ref.read(configProvider).value?.layout;
   if (layout == null) return;
   if (freeEdges(layout).firstOrNull case final edge?) {
-    await addBar(context, ref, edge);
+    await addBar(context, ref, edge, template);
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Every edge has a sidebar already.')),
+      const SnackBar(content: Text('Every edge has a pane docked already.')),
     );
   }
 }

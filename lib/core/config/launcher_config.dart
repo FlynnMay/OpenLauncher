@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/components/weather.dart';
 import 'package:openlauncher/core/config/app_version.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/user_entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/updates/update.dart';
 
@@ -27,16 +27,16 @@ class ToastOptions {
 
   /// The editor's form is generated from this.
   static const options = [
-    ComponentOption(
+    Field(
       'enabled',
       'Show notifications',
-      OptionKind.toggle,
+      FieldKind.toggle,
       defaultValue: true,
     ),
-    ComponentOption(
+    Field(
       'position',
       'Position',
-      OptionKind.choice,
+      FieldKind.choice,
       defaultValue: 'topRight',
       choices: {
         'topLeft': 'Top left',
@@ -45,10 +45,10 @@ class ToastOptions {
         'bottomRight': 'Bottom right',
       },
     ),
-    ComponentOption(
+    Field(
       'seconds',
       'Duration (s)',
-      OptionKind.number,
+      FieldKind.number,
       defaultValue: 6,
       min: 2,
       max: 30,

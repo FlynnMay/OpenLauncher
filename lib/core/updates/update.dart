@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component_option.dart';
 import 'package:openlauncher/core/config/app_version.dart';
+import 'package:openlauncher/core/nodes/field.dart';
 
 /// What the launcher does about a newer release of itself.
 enum UpdateMode { off, notify, auto }
@@ -13,10 +13,10 @@ class UpdateOptions {
 
   /// The editor's form is generated from this.
   static const options = [
-    ComponentOption(
+    Field(
       'mode',
       'Automatic updates',
-      OptionKind.choice,
+      FieldKind.choice,
       defaultValue: 'notify',
       choices: {'off': 'Off', 'notify': 'Notify', 'auto': 'Install'},
     ),

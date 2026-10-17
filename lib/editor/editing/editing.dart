@@ -1,4 +1,5 @@
 export 'actions.dart';
+export 'docked_prefabs.dart';
 export 'dragging.dart';
 export 'history.dart';
 export 'layout_edit.dart';

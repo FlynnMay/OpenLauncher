@@ -85,7 +85,7 @@ class FolderArt extends ConsumerWidget {
     final preview = [
       for (final item
           in ref.watch(layoutViewProvider).value?.pane(folder)?.contents ??
-              const <Component>[])
+              const <Node>[])
         ?entities.byId(item.handed.firstOrNull),
     ].take(_shown).toList();
     if (preview.isEmpty) return SvgPicture.string(_outline);

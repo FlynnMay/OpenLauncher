@@ -8,7 +8,7 @@ import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/tile_actions.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
@@ -51,12 +51,11 @@ void main() {
         category: inputCategory,
         label: 'HDMI 1',
       );
-      final entities = arrangeEntities([
-        _entity('Plex'),
-        _entity('alpha'),
-        hdmi,
-        _entity('Zed'),
-      ], LauncherConfig());
+      final entities = arrangeEntities(
+        [_entity('Plex'), _entity('alpha'), hdmi, _entity('Zed')],
+        LauncherConfig(),
+        order: systemPack.categories.keys,
+      );
       expect(entities.map((c) => c.label), ['HDMI 1', 'alpha', 'Plex', 'Zed']);
     });
 
@@ -235,14 +234,14 @@ void main() {
           final view = await container.read(layoutViewProvider.future);
           container
               .read(runtimeVarsProvider.notifier)
-              .set('quick-actions', Component.sourceVar, entity.id);
+              .set('quick-actions', 'source', entity.id);
           return [
             for (final item in offeredFor(
               view.pane('quick-actions')!,
               container.read,
               await container.read(entitiesProvider.future),
             ))
-              item.options['label'] as String,
+              item.vars['label']!.value! as String,
           ];
         }
 
@@ -325,13 +324,9 @@ void main() {
     );
 
     test('a thing does what was set for it, else the usual for its kind', () {
-      const entity = Component(
-        id: 'a',
-        prefab: cardPrefabId,
-        vars: {'source': Variable('system:app/a', type: VarType.entity)},
-      );
+      final entity = cardOf('system:app/a', id: 'a');
       // What an instance does is its prefab's to say, unless it says.
-      Triggers does(Component item) =>
+      Triggers does(Node item) =>
           resolved(item, {cardPrefabId: systemPrefabs.first}).on;
       expect(entity.on, isEmpty);
       expect(does(entity), {
@@ -351,17 +346,20 @@ void main() {
           }),
         ],
       });
-      final quiet = Component.fromJson({
+      final quiet = Node.fromJson({
         ...entity.toJson(),
-        'on': {
-          'hold': <Object?>[],
-          'focus': [
-            {'do': 'system:media', 'command': 'pause'},
-            {'no': 'name'},
-          ],
-          'shake': [
-            {'do': 'open'},
-          ],
+        'modules': {
+          ...entity.modules,
+          'triggers': {
+            'hold': <Object?>[],
+            'focus': [
+              {'do': 'system:media', 'command': 'pause'},
+              {'no': 'name'},
+            ],
+            'shake': [
+              {'do': 'open'},
+            ],
+          },
         },
       });
       expect(does(quiet), {
@@ -373,7 +371,7 @@ void main() {
           const Act('system:media', {'command': 'pause'}),
         ],
       });
-      expect(Component.fromJson(quiet.toJson()).on, quiet.on);
+      expect(Node.fromJson(quiet.toJson()).on, quiet.on);
       expect(entity.toJson().containsKey('on'), isFalse);
     });
   });

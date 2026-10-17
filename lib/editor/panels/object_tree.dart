@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/component_registry.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -9,52 +8,59 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 
-/// A pane's display name: a sidebar by its edge, a folder or pane by its
-/// title.
-String paneName(Component pane) {
-  if (pane.isDocked && !pane.hovers) return '${barName(pane.dock!)} sidebar';
-  // A written title reads variables; it is not a name.
-  final title = pane.title.contains('{{') ? '' : pane.title;
+/// A pane's display name: its name, else where it docks.
+String paneName(Node pane) {
+  // A written name reads variables; it is not one to show.
+  final title = pane.name.contains('{{') ? '' : pane.name;
   if (title.isNotEmpty) return title;
-  return pane.isDocked ? 'Folder' : 'Pane';
+  return switch (pane.dock) {
+    final dock? => '${barName(dock)} pane',
+    null => 'Pane',
+  };
 }
 
-/// A component's display name: its entity's or folder's for an instance,
-/// else its prefab's; its title for a pane, its label for a button.
+/// A node's display name: for an instance its own, else its entity's or the
+/// folder's it opens, else its prefab's and where it docks; for others their
+/// own name, else what they draw.
 String objectName(
-  Component item,
+  Node item,
   Layout? layout,
   List<Entity> entities, {
   Map<String, Prefab> prefabs = const {},
 }) {
   if (item.isInstance) {
+    if (item.name.isNotEmpty && !item.name.contains('{{')) return item.name;
     final handed = item.handed.firstOrNull;
-    return entities.byId(handed)?.label ??
-        switch (layout?.pane(handed ?? '')) {
-          null => prefabs[item.prefab]?.name ?? 'Prefab',
-          final folder => paneName(folder),
-        };
+    final opened = layout?.docked.where((pane) => pane.id == handed);
+    if (entities.byId(handed)?.label case final label?) return label;
+    if (opened?.firstOrNull case final folder?) {
+      return objectName(folder, layout, entities, prefabs: prefabs);
+    }
+    final name = prefabs[item.prefab]?.name ?? 'Prefab';
+    return switch (item.edge) {
+      final edge? => '$name · ${barName(edge.name)}',
+      null => name,
+    };
   }
   if (item.isPane) return paneName(item);
-  return switch (item.options['label']) {
-    final String label when label.isNotEmpty && !label.contains('{{') => label,
-    _ => ComponentRegistry.named(item.kind)?.label ?? 'Component',
-  };
+  return item.name.isNotEmpty && !item.name.contains('{{')
+      ? item.name
+      : item.visual?.label ?? 'Node';
 }
 
-IconData objectIcon(Component item) => item.isInstance
+IconData objectIcon(Node item) => item.isInstance
     ? prefabIcon
     : !item.isPane
     ? Icons.widgets_outlined
-    : !item.isDocked
-    ? Icons.dashboard_outlined
-    : !item.hovers
+    : item.edge != null
     ? Icons.view_sidebar_outlined
-    : Icons.folder_open_outlined;
+    : item.isDocked
+    ? Icons.folder_open_outlined
+    : Icons.dashboard_outlined;
 
 /// What is being edited as a tree: each layer and what is on it, or the open
-/// prefab's parts by id. Clicking anything selects it; a sidebar or folder is
-/// held open on the screen while it or something in it is selected.
+/// prefab's parts by id. Clicking anything selects it; a docked pane is held
+/// open on the screen while it or something in it is selected.
 class ObjectTree extends ConsumerWidget {
   const ObjectTree({super.key});
 
@@ -75,7 +81,8 @@ class ObjectTree extends ConsumerWidget {
     final real = ref.watch(configProvider).value?.layout;
     final theme = Theme.of(context);
 
-    List<TreeNode<String>> under(Component pane) => [
+    late List<TreeNode<String>> Function(Node pane) under;
+    List<TreeNode<String>> listed(Node pane) => [
       for (final item in pane.children)
         TreeNode(
           id: item.id,
@@ -108,6 +115,10 @@ class ObjectTree extends ConsumerWidget {
           children: under(item),
         ),
     ];
+    // An instance lists what it holds; a node per slot only with several.
+    under = (pane) => pane.isInstance && pane.children.length == 1
+        ? listed(pane.children.single)
+        : listed(pane);
 
     if (prefab != null) {
       return ListView(

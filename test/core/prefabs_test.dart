@@ -11,18 +11,13 @@ import '../support/packs.dart';
 void main() {
   final card = systemPrefabs.first;
   final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
-  const plain = Component(
-    id: 'a',
-    prefab: cardPrefabId,
-    vars: {'source': Variable('system:app/a', type: VarType.entity)},
-  );
+  final plain = cardOf('system:app/a', id: 'a');
 
   /// The component [id] of [instance] as it is drawn.
-  Component part(Component instance, String id, [Map<String, Prefab>? among]) =>
-      resolved(
-        instance,
-        among ?? prefabs,
-      ).all.firstWhere((part) => part.id == '${instance.id}/$id');
+  Node part(Node instance, String id, [Map<String, Prefab>? among]) => resolved(
+    instance,
+    among ?? prefabs,
+  ).all.firstWhere((part) => part.id == '${instance.id}/$id');
 
   test('a prefab is a saved component, written and read back as it was', () {
     final read = Prefab.fromJson(card.toJson())!;
@@ -30,7 +25,7 @@ void main() {
     expect(read.variants.keys, ['stacked', 'row']);
     // It is made of components like any on the screen.
     expect(read.root.isPane, isTrue);
-    expect(read.root.children.map((part) => (part.id, part.kind)), [
+    expect(read.root.children.map((part) => (part.id, part.visual?.name)), [
       ('picture', 'picture'),
       ('name', 'text'),
     ]);
@@ -42,10 +37,42 @@ void main() {
     expect(Prefab.fromJson({'id': 'no-root'}), isNull);
   });
 
+  test(
+    'an entity is handed to the first entity variable, whatever its name',
+    () {
+      final tile = Prefab(
+        id: 'acme:tile',
+        name: 'Tile',
+        root: Node.pane(
+          id: 'root',
+          w: 2,
+          vars: const {
+            'title': Variable('Hi'),
+            'thing': Variable(null, type: VarType.entity),
+          },
+        ),
+      );
+      expect(tile.entityVar, 'thing');
+      final item = tile.instance('system:clock', id: 'c')!;
+      expect((item.prefab, item.w), ('acme:tile', 2.0));
+      expect(item.handed, ['system:clock']);
+      expect(item.vars.keys, ['thing']);
+      // One that takes no entity cannot show one.
+      expect(
+        Prefab(
+          id: 'x',
+          name: 'X',
+          root: Node.pane(id: 'root'),
+        ).instance('system:clock', id: 'c'),
+        isNull,
+      );
+    },
+  );
+
   test('an instance is its prefab until it says otherwise', () {
     final drawn = resolved(plain, prefabs);
     expect((drawn.id, drawn.isPane, drawn.mode), ('a', true, PaneMode.column));
-    expect(part(plain, 'name').options['text'], '{{source.label}}');
+    expect(part(plain, 'name').values('text')?['text'], '{{source.label}}');
     expect(drawn.all.every((part) => !part.hidden), isTrue);
     // Its variables and triggers are the prefab's, with its own over them.
     expect(drawn.handed.firstOrNull, 'system:app/a');
@@ -80,8 +107,8 @@ void main() {
             'picture',
             {'hidden': true},
           ),
-          on: {Trigger.hold: const []},
-        );
+        )
+        .triggered({Trigger.hold: const []});
     final drawn = resolved(item, prefabs);
     expect(drawn.mode, PaneMode.row);
     // Its look is set over property by property: what the variant says of
@@ -107,14 +134,13 @@ void main() {
       ...prefabs,
       card.id: card.withPart(
         'name',
-        (name) => name.copyWith(
-          options: const {'text': 'App: {{source.label}}'},
-          style: const {'fontSize': 30},
-        ),
+        (name) => name
+            .withModule('text', const {'text': 'App: {{source.label}}'})
+            .styled(const {'fontSize': 30}),
       ),
     };
     expect(
-      part(item, 'name', changed).options['text'],
+      part(item, 'name', changed).values('text')?['text'],
       'App: {{source.label}}',
     );
     expect(part(item, 'name', changed).style['fontSize'], 20);
@@ -137,7 +163,9 @@ void main() {
           overrides: const {
             'name': {
               'hidden': true,
-              'style': {'fontSize': 20},
+              'modules': {
+                'style': {'fontSize': 20},
+              },
             },
           },
         );
@@ -154,8 +182,8 @@ void main() {
   });
 
   test('what opens a folder is an instance too', () {
-    final folder = Component.of('games', id: 'f', prefab: folderPrefabId);
-    expect(part(folder, 'picture').kind, 'folder');
+    final folder = cardOf('games', id: 'f', prefab: folderPrefabId);
+    expect(part(folder, 'picture').visual, previewModule);
     // What it does is set the `open` of whatever it was handed: said in
     // the prefab, against its `source`, like anything else.
     expect(resolved(folder, prefabs).on[Trigger.press], [
@@ -170,11 +198,7 @@ void main() {
 
   test('a prefab can be made of panes, and of other prefabs', () {
     // The weather keeps its lines in a pane of their own.
-    final weather = Component.of(
-      'system:weather',
-      id: 'w',
-      prefab: 'system:weather',
-    );
+    final weather = cardOf('system:weather', id: 'w', prefab: 'system:weather');
     final drawn = resolved(weather, prefabs);
     expect(drawn.children.map((part) => (part.id, part.isPane)), [
       ('w/icon', false),
@@ -185,27 +209,112 @@ void main() {
     final own = Prefab(
       id: 'loud-card',
       name: 'Loud card',
-      root: const Component(
+      root: const Node(
         id: 'root',
         prefab: cardPrefabId,
         overrides: {
           'name': {
-            'style': {'fontSize': 40},
+            'modules': {
+              'style': {'fontSize': 40},
+            },
           },
         },
       ),
     );
-    final loud = Component.of('system:app/a', id: 'l', prefab: 'loud-card');
+    final loud = cardOf('system:app/a', id: 'l', prefab: 'loud-card');
     final all = {...prefabs, own.id: own};
     expect(resolved(loud, all).on.keys, contains(Trigger.press));
     expect(resolved(loud, all).children.last.style['fontSize'], 40);
   });
 
+  test('an instance puts its own nodes in its prefab\'s slot', () {
+    // A box with a heading, and a slot after it.
+    final boxed = Prefab(
+      id: 'boxed',
+      name: 'Boxed',
+      root: Node(
+        id: 'root',
+        modules: {
+          layoutModule.name: const {'mode': 'column'},
+          variablesModule.name: variablesToJson(const {
+            'content': Variable(null, type: VarType.nodes),
+          }),
+        },
+        children: const [
+          Node(
+            id: 'heading',
+            modules: {
+              'text': {'text': 'Hello'},
+            },
+          ),
+          Node(
+            id: 'body',
+            modules: {
+              'layout': {'mode': 'flow'},
+              'slot': {'variable': 'content'},
+            },
+            children: [
+              Node(
+                id: 'first',
+                modules: {
+                  'text': {'text': 'Always'},
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    final saved = {
+      'id': 'mine',
+      'prefab': 'boxed',
+      'modules': {
+        'variables': {
+          'content': [plain.toJson(), cardOf('system:app/b', id: 'b').toJson()],
+        },
+      },
+    };
+    final instance = Node.fromJson(saved);
+    // Held under the instance while in memory, saved as its variable.
+    expect(instance.children.single.id, 'mine#content');
+    expect(instance.vars, isEmpty);
+    expect(instance.toJson(), saved);
+    expect(instance.all.map((node) => node.id), [
+      'mine',
+      'mine#content',
+      'a',
+      'b',
+    ]);
+    // A layout sees them, and can change them.
+    final layout = Layout(
+      inbox: 'home/root',
+      layers: [
+        Layer(
+          id: Layout.homeId,
+          root: Node.pane(id: 'home/root', children: [instance]),
+        ),
+      ],
+    );
+    expect(layout.items.map((item) => item.id), containsAll(['a', 'b']));
+    final fewer = layout.without({'system:app/b'});
+    expect(fewer.items.map((item) => item.id), isNot(contains('b')));
+    // Drawn after the slot's own children, with their own ids.
+    final drawn = resolved(instance, {...prefabs, 'boxed': boxed});
+    final body = drawn.children.last;
+    expect(body.id, 'mine/body');
+    expect(body.children.map((node) => node.id), ['mine/first', 'a', 'b']);
+    expect(body.slotHolder, 'mine#content');
+  });
+
   test('a card works out how its picture sits from the sort it was handed', () {
     Object? read(String template, Map<String, Object?> source) =>
         Template.parse(template).evaluate((root) => {'source': source}[root]);
-    final picture = card.root.children.first.options;
-    final small = card.variants['row']!.overrides['picture']!['options'] as Map;
+    final picture = card.root.children.first.values('picture')!;
+    final focus = card.root.values('focus')!;
+    final small =
+        (card.variants['row']!.overrides['picture']!['modules']!
+                as Map)['picture']
+            as Map;
     for (final (shape, fit, pad, tight, bare) in [
       ('banner', 'cover', 0, 0, false),
       ('icon', 'contain', 14, 4, false),
@@ -216,7 +325,7 @@ void main() {
       expect(read(picture['fit']! as String, source), fit, reason: '$shape');
       expect(read(picture['pad']! as String, source), pad, reason: '$shape');
       expect(read(small['pad'] as String, source), tight, reason: '$shape');
-      expect(read(picture['bare']! as String, source), bare, reason: '$shape');
+      expect(read(focus['bare']! as String, source), bare, reason: '$shape');
     }
     // What the weather is like and who a song is by are worked out by
     // their prefabs too, from what the entities say.

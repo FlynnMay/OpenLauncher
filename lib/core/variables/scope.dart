@@ -71,6 +71,7 @@ Scope scopeOf(
   );
   final own = {...outer}, inner = {...outer}, public = <String, Object?>{};
   for (final MapEntry(key: name, value: variable) in variables.entries) {
+    if (variable.type == VarType.nodes) continue;
     final raw = runtime.containsKey(name)
         ? runtime[name]
         : variable.result((template) => readTemplate(watch, template, own));
@@ -90,15 +91,14 @@ Scope scopeOf(
 }
 
 /// [item]'s variables merged over its prefab's.
-Variables variablesOf(Component item, Map<String, Prefab> prefabs) =>
+Variables variablesOf(Node item, Map<String, Prefab> prefabs) =>
     resolved(item, prefabs).vars;
 
-/// The variable that says a folder or sidebar is showing.
+/// The variable that says a docked pane is showing.
 const openVar = 'open';
 
 /// What `{{<id>...}}` reads for a component: its public variables. A pane
-/// adds `label`, `title` and `count`; a docked one (a folder or sidebar) adds
-/// `open`. Null if there is nothing to read.
+/// adds `label`, `title` and `count`; a docked one adds `open`. Null if there is nothing to read.
 final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   ref,
   id,
@@ -121,29 +121,27 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
     // From outside it has no inherited scope.
     return scopeOf(ref.watch, id, variables, const {}).public;
   }
-  final docked = found.isDocked;
-  final label = switch (found.title) {
-    '' => docked ? 'Folder' : 'Pane',
+  final label = switch (found.name) {
+    '' => 'Pane',
     final title => title,
   };
   return {
     'text': label,
     'id': id,
     'label': label,
-    'title': found.title,
+    'title': found.name,
     'count': found.ownContents.length,
-    // An empty folder with no picture is drawn as an outline.
-    if (docked)
-      'bare':
-          found.ownContents.isEmpty &&
-          !ref.watch(
-            configProvider.select(
-              (config) =>
-                  config.value?.iconOverrides.containsKey(Layout.iconKey(id)) ??
-                  false,
-            ),
+    // An empty pane with no picture is drawn as an outline.
+    'bare':
+        found.ownContents.isEmpty &&
+        !ref.watch(
+          configProvider.select(
+            (config) =>
+                config.value?.iconOverrides.containsKey(Layout.iconKey(id)) ??
+                false,
           ),
-    if (docked)
+        ),
+    if (found.isDocked)
       openVar:
           ref.watch(runtimeVarsProvider.select((all) => all[id]?[openVar])) ==
           true,

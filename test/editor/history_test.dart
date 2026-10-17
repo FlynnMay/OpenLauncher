@@ -37,7 +37,7 @@ const _entities = [
 TvState _state() => TvState(
   entities: _entities,
   config: LauncherConfig(layout: homeLayout(['system:app/a', 'system:app/b'])),
-  components: const [],
+  visuals: const [],
 );
 
 void main() {

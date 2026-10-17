@@ -7,12 +7,10 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/docked_pane.dart';
-import 'package:openlauncher/features/home/focus_tile.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
-import 'package:openlauncher/features/home/pane_scrollbar.dart';
+import 'package:openlauncher/features/home/focus_navigation.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/wallpaper/wallpaper_background.dart';
 
@@ -59,7 +57,7 @@ class HomeScreen extends ConsumerWidget {
         });
       }
     });
-    Widget docked(Component pane) => KeyedSubtree(
+    Widget docked(Node pane) => KeyedSubtree(
       key: keys.putIfAbsent(pane.id, GlobalKey.new),
       child: DockedPane(pane: pane),
     );
@@ -140,10 +138,8 @@ class HomeScreen extends ConsumerWidget {
                               padding: EdgeInsets.all(root.box.padding ?? 0),
                               child: PaneGrid(
                                 pane: root,
-                                tile: (entry) => ComponentView(
-                                  component: entry,
-                                  focus: focus,
-                                ),
+                                tile: (entry) =>
+                                    NodeView(component: entry, focus: focus),
                               ),
                             ),
                           )
@@ -152,7 +148,7 @@ class HomeScreen extends ConsumerWidget {
                         // One opened in place is drawn by what opens it.
                         for (final pane in root.all)
                           if (pane.isDocked &&
-                              pane.dock != Component.inline &&
+                              pane.dock != DockModule.inline &&
                               layerOf(above, pane.id) == null)
                             docked(pane),
                         for (final id in layer.holds)
@@ -210,10 +206,10 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  static Widget _scrolling(Component root, Widget child) => PaneScrollbars.over(
+  static Widget _scrolling(Node root, Widget child) => PaneScrollbars.over(
     root,
-    root.style,
-    root.scrollsDown ? SingleChildScrollView(child: child) : child,
+    root.scroll,
+    root.scrollsDown ? ScreenScrollView(child: child) : child,
   );
 
   /// Whether something placed opens the settings.

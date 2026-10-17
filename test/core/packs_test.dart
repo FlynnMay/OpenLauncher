@@ -285,10 +285,10 @@ void main() {
               (pane) => pane.copyWith(
                 children: [
                   ...pane.children,
-                  const Component(
-                    id: 'b',
-                    kind: 'button',
-                    options: {'label': 'Lamp', 'icon': 'mdi:lamp'},
+                  drawn(
+                    'b',
+                    iconModule.name,
+                    values: const {'icon': 'mdi:lamp'},
                   ),
                 ],
               ),

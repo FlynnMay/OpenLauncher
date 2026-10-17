@@ -61,7 +61,7 @@ void main() {
                   ),
                 ],
                 config: LauncherConfig(layout: homeLayout(['system:app/a'])),
-                components: const [],
+                visuals: const [],
               ),
             ),
           ),
@@ -133,7 +133,7 @@ void main() {
               'names': {'system:app/a': 'Films'},
               'wallpaperEvery': 5,
             },
-            'components': [],
+            'visuals': [],
             'widgetProviders': [],
           };
           return http.StreamedResponse(

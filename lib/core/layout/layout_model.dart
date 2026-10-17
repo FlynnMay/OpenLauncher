@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layer.dart';
+import 'package:openlauncher/core/layout/tree.dart';
+import 'package:openlauncher/core/modules/modules.dart';
+import 'package:openlauncher/core/nodes/node.dart';
 
 /// The saved layout: the layers of the screen, the home screen first.
 @immutable
@@ -39,21 +41,23 @@ class Layout {
   }
 
   /// Every component of every layer.
-  Iterable<Component> get all => layers.expand((layer) => layer.root.all);
+  Iterable<Node> get all => layers.expand((layer) => layer.root.all);
 
   /// Everything that is not a pane.
-  Iterable<Component> get items => all.where((item) => !item.isPane);
+  Iterable<Node> get items => all.where((item) => !item.isPane);
 
-  /// The sidebars and folders.
-  Iterable<Component> get docked => all.where((pane) => pane.isDocked);
+  /// The docked panes.
+  Iterable<Node> get docked => all.where((pane) => pane.isDocked);
 
-  Component? pane(String id) =>
+  Node? pane(String id) =>
       all.where((pane) => pane.isPane && pane.id == id).firstOrNull;
 
   /// The folder [item] opens, if it is an instance handed one.
-  String? folderOf(Component item) => !item.isInstance
+  String? folderOf(Node item) => !item.isInstance
       ? null
-      : item.handed.where((id) => pane(id)?.isDocked ?? false).firstOrNull;
+      : item.handed
+            .where((id) => docked.any((pane) => pane.id == id))
+            .firstOrNull;
 
   /// The `iconOverrides` key for a folder's picture.
   static String iconKey(String paneId) => 'folder:$paneId';
@@ -87,7 +91,7 @@ class Layout {
 
   /// Rebuilds every pane's children with [change]; only [layer]'s if given.
   Layout rebuild(
-    List<Component> Function(Component pane, List<Component> items) change, {
+    List<Node> Function(Node pane, List<Node> items) change, {
     Set<String>? removed,
     String? layer,
   }) => copyWith(
@@ -101,13 +105,13 @@ class Layout {
   );
 
   /// Replaces pane [id], a layer's root included, with what [change] returns.
-  Layout withPane(String id, Component Function(Component pane) change) {
-    Component mapped(Component pane) => pane.id == id
+  Layout withPane(String id, Node Function(Node pane) change) {
+    Node mapped(Node pane) => pane.id == id
         ? change(pane)
         : pane.copyWith(
             children: [
               for (final child in pane.children)
-                child.isPane ? mapped(child) : child,
+                child.isPane || child.isInstance ? mapped(child) : child,
             ],
           );
     return copyWith(
@@ -127,7 +131,7 @@ class Layout {
   );
 
   /// Adds [item] to pane [paneId].
-  Layout withAdded(Component item, String paneId) => rebuild(
+  Layout withAdded(Node item, String paneId) => rebuild(
     (pane, items) => pane.id == paneId ? [...items, item] : items,
     removed: {...removed}..removeAll(item.handed),
   );

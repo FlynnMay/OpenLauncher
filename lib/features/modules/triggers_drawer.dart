@@ -5,6 +5,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/features/modules/focus_drawer.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 
 /// [act] with the templates in its arguments read in [scope].
@@ -16,11 +17,7 @@ Act actIn(Act act, Watch watch, Map<String, Object?> scope) => Act(act.name, {
 });
 
 /// The children of [pane] whose press can be done as its variables stand.
-List<Component> offeredFor(
-  Component pane,
-  Watch watch,
-  Iterable<Entity> entities,
-) {
+List<Node> offeredFor(Node pane, Watch watch, Iterable<Entity> entities) {
   final scope = scopeOf(watch, pane.id, pane.vars, const {}).inner;
   return [
     for (final item in pane.children)
@@ -60,7 +57,6 @@ class TileActions {
     this.component,
     this.scope = const {},
     this.popup,
-    this.closes = false,
   });
 
   final BuildContext _context;
@@ -72,13 +68,22 @@ class TileActions {
 
   final String? component;
 
-  /// The hovering folder the tile is in, if any.
+  /// The docked pane the tile is in, if a press closes it.
   final String? popup;
 
-  /// Whether a press closes that folder first.
-  final bool closes;
-
   bool has(Trigger trigger) => triggers[trigger]?.isNotEmpty ?? false;
+
+  /// What the remote does to a focusable node: press, hold, and focus or
+  /// blur, each only if it has a chain.
+  RemoteCalls get remote => (
+    press: () => fire(Trigger.press),
+    hold: has(Trigger.hold)
+        ? (bool held) => fire(Trigger.hold, held: held)
+        : null,
+    focus: has(Trigger.focus) || has(Trigger.blur)
+        ? (bool focused) => fire(focused ? Trigger.focus : Trigger.blur)
+        : null,
+  );
 
   Future<void> fire(Trigger trigger, {bool held = false}) async {
     final acts = triggers[trigger] ?? const [];
@@ -86,7 +91,7 @@ class TileActions {
     final messenger = ScaffoldMessenger.of(_context);
     final navigator = Navigator.of(_context);
     final actions = _ref.read(actionRunnerProvider);
-    final closed = closes && trigger == Trigger.press;
+    final closed = popup != null && trigger == Trigger.press;
     void close() {
       if (popup case final id?) {
         _ref.read(runtimeVarsProvider.notifier).set(id, openVar, false);

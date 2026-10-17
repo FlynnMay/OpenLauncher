@@ -7,10 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/editor/editing/docked_prefabs.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
@@ -32,17 +35,17 @@ const materialPack = Pack(
 );
 
 /// The launcher's own System pack as it is in `packs/system`.
-final systemPack = Pack(
-  id: 'system',
-  name: 'System',
-  version: '1',
-  builtIn: true,
-  files: [
-    for (final file in Directory('packs/system').listSync(recursive: true))
-      if (file is File && !file.path.endsWith('pack.json'))
-        file.path.substring('packs/system/'.length),
-  ]..sort(),
-);
+final systemPack =
+    Pack.fromJson(
+      jsonDecode(File('packs/system/pack.json').readAsStringSync()),
+    )!.copyWith(
+      builtIn: true,
+      files: [
+        for (final file in Directory('packs/system').listSync(recursive: true))
+          if (file is File && !file.path.endsWith('pack.json'))
+            file.path.substring('packs/system/'.length),
+      ]..sort(),
+    );
 
 /// The System pack's prefabs as the launcher reads them, by file name: the
 /// app card first.
@@ -55,16 +58,127 @@ final _systemContents = PackContents.parse(systemPack, {
 
 /// The System pack's starting layout, with [order] placed in its inbox.
 Layout homeLayout([List<String> order = const []]) {
-  final home = _systemContents.layouts[startingLayoutId]!;
+  final home = _systemContents.layouts[_systemContents.start]!;
   return home.rebuild(
     (pane, items) => pane.id != home.inbox
         ? items
-        : [
-            ...items,
-            for (final id in order) Component.of(id, id: Component.autoId(id)),
-          ],
+        : [...items, for (final id in order) cardOf(id, id: Node.autoId(id))],
   );
 }
+
+// What the System pack names, as tests write it.
+const cardPrefabId = 'system:app-card';
+const folderPrefabId = 'system:folder-card';
+const folderId = 'system:folder';
+const sidebarId = 'system:sidebar';
+const appCategory = 'app';
+const inputCategory = 'input';
+const launcherCategory = 'launcher';
+const sourceEntity = '{{source.id}}';
+String appId(String package) => 'system:app/$package';
+String inputId(String input) => 'system:input/$input';
+
+/// The System pack's prefab [id].
+Prefab systemPrefab(String id) =>
+    systemPrefabs.firstWhere((prefab) => prefab.id == id);
+
+/// The System pack's prefabs by id.
+Map<String, Prefab> get systemPrefabMap => {
+  for (final prefab in systemPrefabs) prefab.id: prefab,
+};
+
+/// An instance of [prefab], the app card unless said, handed [entityId] in
+/// its `source` variable, as the System pack's cards take it.
+Node cardOf(
+  String entityId, {
+  required String id,
+  String prefab = cardPrefabId,
+  double w = 1,
+  double h = 1,
+  double? x,
+  double? y,
+  String? variant,
+  Overrides overrides = const {},
+  Style style = const {},
+  Triggers on = const {},
+}) => Node.of(
+  entityId,
+  id: id,
+  prefab: prefab,
+  variable: 'source',
+  w: w,
+  h: h,
+  x: x,
+  y: y,
+  variant: variant,
+  overrides: overrides,
+  style: style,
+  on: on,
+);
+
+/// A node drawing [visual] with [values], as tests write one. A press or a
+/// hold among [on] gives it the focus, as the editor does.
+Node drawn(
+  String id,
+  String visual, {
+  Map<String, Object?> values = const {},
+  double w = 1,
+  double h = 1,
+  double? x,
+  double? y,
+  Style style = const {},
+  Triggers on = const {},
+  Variables vars = const {},
+}) => Node(
+  id: id,
+  modules: {
+    visual: values,
+    if (style.isNotEmpty) styleModule.name: style,
+    if (vars.isNotEmpty) variablesModule.name: variablesToJson(vars),
+    if (on.isNotEmpty) triggersModule.name: triggersToJson(on),
+    if (on.containsKey(Trigger.press) || on.containsKey(Trigger.hold))
+      focusModule.name: const {},
+  },
+).sized(w, h, x: x, y: y);
+
+/// [cardOf] as `withEntities` places an entity.
+Node? placedCard(String entityId, String id) => cardOf(entityId, id: id);
+
+/// [instance] holding [nodes] in its slot [slot].
+Node holding(Node instance, List<Node> nodes, {String slot = 'content'}) =>
+    instance.copyWith(
+      children: [
+        for (final holder in instance.children)
+          holder.slotVariable == slot
+              ? holder.copyWith(children: nodes)
+              : holder,
+      ],
+    );
+
+/// A new folder holding [children], as the editor makes it from the System
+/// pack's prefab.
+Node folderPane(
+  String id, {
+  String title = '',
+  List<Node> children = const [],
+}) => holding(
+  dockedInstance(systemPrefab(folderId), id),
+  children,
+).copyWith(name: title);
+
+/// A new sidebar on [edge] holding [children], as the editor makes it from
+/// the System pack's prefab.
+Node sidebarPane(String id, String edge, {List<Node> children = const []}) =>
+    holding(dockedInstance(systemPrefab(sidebarId), id, dock: edge), children);
+
+/// [instance] as the launcher draws it: a plain pane.
+Node drawnPane(Node instance) => resolved(instance, systemPrefabMap);
+
+/// The chains of the System pack's sidebar.
+Triggers barTriggers() => systemPrefab(sidebarId).root.on;
+
+/// The chains of the System pack's folder.
+Triggers folderTriggers() => systemPrefab(folderId).root.on;
 
 /// A new config, as the store gives it: the starting layout, not the user's.
 LauncherConfig get startingConfig =>
@@ -175,4 +289,9 @@ class BundledPacks extends CachingAssetBundle {
     if (zips[id] case final zip?) return ByteData.sublistView(zip);
     throw FlutterError('No asset $key');
   }
+}
+
+extension Holds on Node {
+  /// This instance holding [children] in its `content` slot.
+  Node holds({required List<Node> children}) => holding(this, children);
 }

@@ -1,0 +1,94 @@
+{
+  "id": "sidebar",
+  "name": "Sidebar",
+  "root": {
+    "id": "root",
+    "modules": {
+      "layout": {
+        "mode": "flow",
+        "columns": 8
+      },
+      "slot": {
+        "variable": "content"
+      },
+      "dock": {
+        "position": "top",
+        "closed": 0
+      },
+      "scroll": {
+        "down": true
+      },
+      "triggers": {
+        "focus": [
+          {
+            "run": "launcher://variables/set",
+            "with": {
+              "var": "open",
+              "value": true
+            }
+          }
+        ],
+        "blur": [
+          {
+            "run": "launcher://variables/set",
+            "with": {
+              "var": "open",
+              "value": false
+            }
+          }
+        ],
+        "reveal": [
+          {
+            "run": "launcher://layers/new"
+          },
+          {
+            "run": "launcher://layers/raise"
+          }
+        ],
+        "hide": [
+          {
+            "run": "launcher://layers/close"
+          }
+        ]
+      },
+      "variables": {
+        "content": {
+          "value": null,
+          "type": "nodes"
+        }
+      }
+    }
+  },
+  "variants": {
+    "across": {
+      "label": "Across the top or bottom"
+    },
+    "side": {
+      "label": "Down a side",
+      "overrides": {
+        "root": {
+          "modules": {
+            "layout": {
+              "columns": 1,
+              "rowHeight": 36,
+              "itemW": 1,
+              "itemH": 1
+            },
+            "prefabRules": {
+              "app-card": {
+                "variant": "row"
+              },
+              "folder-card": {
+                "variant": "row"
+              }
+            },
+            "dock": {
+              "position": "left",
+              "closed": 96
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,8 @@
 /// The layout model, placement and navigation.
 library;
 
-export 'package:openlauncher/core/components/component.dart';
+export 'package:openlauncher/core/modules/modules.dart';
+export 'package:openlauncher/core/nodes/node.dart';
 export 'package:openlauncher/core/style/box_style.dart';
 export 'package:openlauncher/core/style/scrollbar_style.dart';
 export 'package:openlauncher/core/style/style.dart';
@@ -14,4 +15,4 @@ export 'layout_repair.dart';
 export 'layout_view.dart';
 export 'navigation.dart';
 export 'placement.dart';
-export 'rules.dart';
+export 'tree.dart';

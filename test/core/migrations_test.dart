@@ -1,8 +1,14 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
+
+import '../support/packs.dart';
 
 void main() {
   test('the release named in the code is the one in pubspec.yaml', () {
@@ -187,7 +193,9 @@ void main() {
     });
     expect(mine['feed'], {'url': 'http://ha/x', 'every': 30});
     expect(now['feed'], 'launcher://clock');
-    final on = (next['layout']! as Map)['layers'][0]['root']['on'];
+    // The rest of the step makes nodes of them: triggers are a module.
+    final on =
+        (next['layout']! as Map)['layers'][0]['root']['modules']['triggers'];
     expect(on['reveal'], [
       {
         'run': 'launcher://layers/new',
@@ -284,20 +292,23 @@ void main() {
     final prefab = (next['prefabs']! as List).single as Map;
     // Their edit of the launcher's weather is still that weather, edited.
     expect(prefab['id'], 'system:weather');
-    expect(prefab['root']['vars']['source']['value'], 'system:weather');
+    expect(
+      prefab['root']['modules']['variables']['source']['value'],
+      'system:weather',
+    );
     final layout = next['layout']! as Map;
     expect(layout['removed'], ['system:app/gone', 'mine']);
     final root = layout['layers'][0]['root'] as Map;
-    expect(root['options']['prefabRules'], {
+    expect(root['modules']['prefabRules'], {
       'system:app-card': {'variant': 'row'},
       'mine': {'variant': 'x'},
     });
     final [card, note] = root['children'] as List;
     expect(card['prefab'], 'system:app-card');
-    expect(card['vars']['source']['value'], 'system:settings');
+    expect(card['modules']['variables']['source']['value'], 'system:settings');
     // Quoted text and the user's own are left as they are.
     expect(
-      note['options']['text'],
+      note['modules']['text']['text'],
       "{{system:clock.time}} {{system:media.playing ? 'clock' : mine.x}}",
     );
   });
@@ -333,15 +344,601 @@ void main() {
     });
     final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
     expect(root['children'], [
-      {'id': 'main', 'kind': 'pane'},
+      {
+        'id': 'main',
+        'modules': {
+          'layout': {'mode': 'flow'},
+          'scroll': {'down': true},
+        },
+      },
       // Its own look is kept; what it was made with is the prefab's.
       {
         'id': 'quick-actions',
         'prefab': 'system:quick-actions',
-        'options': {'width': 500},
-        'style': {'borderWidth': 6},
+        'modules': {
+          'dock': {'width': 500},
+          'style': {'borderWidth': 6},
+        },
       },
     ]);
+  });
+
+  test('2 to 3: folders and sidebars are the System pack\'s instances', () {
+    final next = migrate({
+      'v': 2,
+      'layout': {
+        'v': 2,
+        'layers': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'kind': 'pane',
+              'children': [
+                {'id': 'main', 'kind': 'pane'},
+                {
+                  'id': 'games',
+                  'kind': 'pane',
+                  'options': {'dock': 'center'},
+                },
+                {
+                  'id': 'left',
+                  'kind': 'pane',
+                  'options': {'dock': 'left', 'closed': 96},
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    expect(
+      [for (final Map pane in root['children']) pane['prefab']],
+      [null, 'system:folder', 'system:sidebar'],
+    );
+  });
+
+  test('2 to 3: a docked pane says whether a press closes it', () {
+    Map pane(String id, Map options) => {
+      'id': id,
+      'kind': 'pane',
+      'options': options,
+    };
+    final next = migrate({
+      'v': 2,
+      'layout': {
+        'v': 2,
+        'layers': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'kind': 'pane',
+              'children': [
+                {'id': 'main', 'kind': 'pane'},
+                pane('games', {'dock': 'center'}),
+                pane('near', {'dock': 'inline'}),
+                pane('left', {'dock': 'left', 'closed': 96}),
+              ],
+            },
+          },
+        ],
+      },
+      'prefabs': [
+        {
+          'id': 'menu',
+          'name': 'Menu',
+          'root': pane('root', {'dock': 'center'}),
+        },
+      ],
+    });
+    // Drawn, the folder closes on a press as its prefab does; the one
+    // opened in place and the sidebar do not.
+    final layout = Layout.fromJson(next['layout']! as Map);
+    final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
+    expect(
+      [
+        for (final pane in layout.home.root.children)
+          resolved(pane, prefabs).closeOnPress,
+      ],
+      [false, true, false, false],
+    );
+    final menu = (next['prefabs']! as List).single as Map;
+    expect(menu['root']['modules']['dock']['closeOnPress'], isTrue);
+  });
+
+  group('2 to 3: nodes with modules', () {
+    Json converted(Json layout, [List<Json> prefabs = const []]) {
+      final save = <String, Object?>{'layout': layout, 'prefabs': prefabs};
+      nodesAndModules(save, Device.unknown);
+      return save;
+    }
+
+    Json home(Json root) => {
+      'layers': [
+        {'id': 'home', 'root': root},
+      ],
+    };
+
+    List<dynamic> children(dynamic node) => node['children'] as List;
+
+    test('a free pane\'s children sit where their cells were drawn', () {
+      final save = converted(
+        home({
+          'id': 'home/root',
+          'kind': 'pane',
+          'options': {'mode': 'free', 'columns': 13},
+          'children': [
+            {
+              'id': 'main',
+              'kind': 'pane',
+              'transform': {'w': 7, 'h': 5, 'x': 5, 'y': 3},
+            },
+            // No position: in a row below the rest.
+            {
+              'id': 'loose',
+              'kind': 'text',
+              'transform': {'w': 2},
+            },
+            // Docked, by itself or by its prefab: drawn by its layer.
+            {
+              'id': 'side',
+              'kind': 'pane',
+              'options': {'dock': 'right', 'closed': 64},
+            },
+            {'id': 'quick-actions', 'prefab': 'system:quick-actions'},
+          ],
+        }),
+      );
+      final root =
+          ((save['layout']! as Json)['layers'] as List).single['root'] as Json;
+      expect((root as Map).containsKey('modules'), isFalse);
+      final [main, loose, side, menu] = children(root);
+      // As the launcher drew it on cells: 13 columns over 960 pixels, gaps
+      // of 20 across and 16 down, rows 1.45 times narrower than wide.
+      const width = 960.0, columns = 13;
+      const cell = (width - (columns - 1) * 20) / columns, row = cell / 1.45;
+      Rect cells(double x, double y, double w, double h) => Rect.fromLTWH(
+        x * (cell + 20),
+        y * (row + 16),
+        w * cell + (w - 1) * 20,
+        h * row + (h - 1) * 16,
+      );
+      void at(dynamic node, Rect rect) {
+        final drawn = NodeTransform.fromJson(node['transform'])
+            .rectIn(const Size(width, 540));
+        for (final (a, b) in [
+          (drawn.left, rect.left),
+          (drawn.top, rect.top),
+          (drawn.right, rect.right),
+          (drawn.bottom, rect.bottom),
+        ]) {
+          expect(a, closeTo(b, 0.1), reason: '${node['id']}');
+        }
+      }
+
+      at(main, cells(5, 3, 7, 5));
+      at(loose, cells(0, 8, 2, 1));
+      // Across it keeps its share of any width.
+      expect((main['transform'] as Json)['anchors'], [
+        closeTo(5 / 13, 0.0001),
+        0,
+        closeTo(12 / 13, 0.0001),
+        0,
+      ]);
+      expect(main['modules'], {
+        'layout': {'mode': 'flow'},
+        'scroll': {'down': true},
+      });
+      expect((side as Map).containsKey('transform'), isFalse);
+      expect((menu as Map).containsKey('transform'), isFalse);
+      expect(side['modules']['dock'], {'position': 'right', 'closed': 64});
+    });
+
+    test('what a pane said is in its modules', () {
+      final save = converted(
+        home({
+          'id': 'root',
+          'kind': 'pane',
+          'options': {
+            'title': 'Apps',
+            'mode': 'grid',
+            'columns': 4,
+            'rowHeight': 40,
+            'scrollX': true,
+            'scrollbar': 'thumb',
+            'scrollbarShow': 'auto',
+            'prefabRules': {
+              'system:app-card': {
+                'variant': 'row',
+                'overrides': {
+                  'picture': {
+                    'options': {'pad': 2},
+                  },
+                },
+              },
+            },
+          },
+          'style': {'background': '#000000', 'scrollbarSize': 8},
+          'children': [
+            {
+              'id': 'card',
+              'prefab': 'system:app-card',
+              'transform': {'w': 2, 'x': 1, 'y': 0},
+              'overrides': {
+                'name': {
+                  'hidden': true,
+                  'style': {'fontSize': 20},
+                  'transform': {'flex': 0},
+                },
+              },
+            },
+            for (final (mode, scroll) in [
+              ('column', {'scrollY': true}),
+              ('row', {'scrollX': true}),
+              ('flow', {'scrollY': false}),
+              ('row', <String, Object?>{}),
+            ])
+              {
+                'id': 'in-$mode-${scroll.length}',
+                'kind': 'pane',
+                'options': {'mode': mode, ...scroll},
+              },
+          ],
+        }),
+      );
+      final root =
+          ((save['layout']! as Json)['layers'] as List).single['root'] as Json;
+      expect(root['name'], 'Apps');
+      expect(root['modules'], {
+        'layout': {'mode': 'grid', 'columns': 4, 'rowHeight': 40},
+        'prefabRules': {
+          'system:app-card': {
+            'variant': 'row',
+            'overrides': {
+              'picture': {
+                'modules': {
+                  'picture': {'pad': 2},
+                },
+              },
+            },
+          },
+        },
+        // Cells scrolled down unless told not to.
+        'scroll': {
+          'across': true,
+          'down': true,
+          'bar': 'thumb',
+          'show': 'auto',
+          'scrollbarSize': 8,
+        },
+        'style': {'background': '#000000'},
+      });
+      final [card, column, row, flow, still] = children(root);
+      expect(card['modules'], {
+        'sizing': {'w': 2, 'x': 1, 'y': 0},
+      });
+      expect(card['overrides'], {
+        'name': {
+          'modules': {
+            'style': {'fontSize': 20},
+            'sizing': {'flex': 0},
+          },
+          'hidden': true,
+        },
+      });
+      expect(column['modules']['scroll'], {'down': true});
+      expect(row['modules']['scroll'], {'across': true});
+      expect(flow['modules'].containsKey('scroll'), isFalse);
+      expect(still['modules'].containsKey('scroll'), isFalse);
+    });
+
+    test('what a node drew is its visual module; what is pressed takes the '
+        'focus, shown where a part was framed', () {
+      final save = converted(
+        home({
+          'id': 'root',
+          'kind': 'pane',
+          'children': [
+            {
+              'id': 'tile',
+              'kind': 'pane',
+              'options': {'mode': 'column'},
+              'on': {
+                'press': [
+                  {'do': 'open', 'entity': '{{source.id}}'},
+                ],
+              },
+              'children': [
+                {
+                  'id': 'art',
+                  'kind': 'folder',
+                  'options': {
+                    'folder': '{{source.id}}',
+                    'frame': true,
+                    'bare': '{{source.bare}}',
+                  },
+                },
+                {
+                  'id': 'words',
+                  'kind': 'text',
+                  'options': {'text': 'Hi', 'overflow': 'wrap'},
+                },
+              ],
+            },
+            {
+              'id': 'gauge',
+              'kind': 'meter',
+              'options': {'value': '{{clock.second}}', 'max': 60},
+            },
+            {
+              'id': 'widget',
+              'kind': 'android',
+              'options': {'provider': 'a/b'},
+            },
+            {
+              'id': 'go',
+              'kind': 'button',
+              'options': {'label': 'Open', 'icon': 'material:play_arrow'},
+              'on': {
+                'press': [
+                  {'do': 'open', 'entity': 'system:app/a'},
+                ],
+              },
+            },
+            // A pane on cells never took the focus.
+            {
+              'id': 'cells',
+              'kind': 'pane',
+              'on': {
+                'press': [
+                  {'do': 'open', 'entity': 'system:app/a'},
+                ],
+              },
+            },
+          ],
+        }),
+      );
+      final root =
+          ((save['layout']! as Json)['layers'] as List).single['root'] as Json;
+      final [tile, gauge, widget, go, cells] = children(root);
+      expect(tile['modules']['focus'], {
+        'target': 'art',
+        'bare': '{{source.bare}}',
+      });
+      final [art, words] = children(tile);
+      expect(art['modules'], {
+        'preview': {'node': '{{source.id}}'},
+      });
+      expect(words['modules'], {
+        'text': {'text': 'Hi', 'overflow': 'wrap'},
+      });
+      expect(gauge['modules'], {
+        'meter': {'value': '{{clock.second}}', 'max': 60},
+      });
+      expect(widget['modules'], {
+        'appWidget': {'provider': 'a/b'},
+      });
+      // A button is the System pack's, told its words.
+      expect(go['prefab'], 'system:button');
+      expect(go['modules']['variables'], {
+        'label': 'Open',
+        'icon': 'material:play_arrow',
+      });
+      expect(go['modules'].containsKey('focus'), isFalse);
+      expect(cells['modules'].containsKey('focus'), isFalse);
+    });
+
+    test('how a pressed node showed its focus is written out', () {
+      final press = {
+        'press': [
+          {'do': 'open', 'entity': 'system:app/a'},
+        ],
+      };
+      final save = converted(
+        home({
+          'id': 'root',
+          'kind': 'pane',
+          'children': [
+            {'id': 'leaf', 'kind': 'text', 'on': press},
+            {
+              'id': 'row',
+              'kind': 'pane',
+              'options': {'mode': 'row'},
+              'on': press,
+            },
+            {
+              'id': 'column',
+              'kind': 'pane',
+              'options': {'mode': 'column'},
+              'style': {'padding': 4},
+              'on': press,
+            },
+            {
+              'id': 'framed',
+              'kind': 'pane',
+              'options': {'mode': 'column'},
+              'on': press,
+              'children': [
+                {
+                  'id': 'art',
+                  'kind': 'picture',
+                  'options': {'frame': true},
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      final root =
+          ((save['layout']! as Json)['layers'] as List).single['root'] as Json;
+      final [leaf, row, column, framed] = children(root);
+      expect(leaf['modules']['focus'], {'scale': 103});
+      expect(leaf['modules'].containsKey('style'), isFalse);
+      expect(row['modules']['focus'], {'scale': 104});
+      expect(row['modules']['style'], {'padding': 8});
+      expect(column['modules']['focus'], isEmpty);
+      expect(column['modules']['style'], {'padding': 4});
+      expect(framed['modules']['focus'], {'target': 'art', 'bare': false});
+    });
+
+    test('a copy of a template is an instance holding what was in it', () {
+      final card = {
+        'id': 'tv',
+        'prefab': 'system:app-card',
+        'modules': {
+          'variables': {
+            'source': {'value': 'system:input/tv', 'type': 'entity'},
+          },
+        },
+      };
+      final save = <String, Object?>{
+        'layout': home({
+          'id': 'root',
+          'children': [
+            {
+              'id': 'right',
+              'template': 'system:sidebar',
+              'modules': {
+                'layout': {
+                  'mode': 'grid',
+                  'columns': 1,
+                  'rowHeight': 16,
+                  'itemW': 1,
+                  'itemH': 1,
+                },
+                'prefabRules': {
+                  'system:app-card': {'variant': 'row'},
+                  'system:folder-card': {'variant': 'row'},
+                },
+                'dock': {'position': 'right', 'closed': 64},
+                'scroll': {'down': true},
+              },
+              'children': [card],
+            },
+            // A user's own template is linked too, and becomes a prefab.
+            {
+              'id': 'shelf',
+              'name': 'Games',
+              'template': 'shelf',
+              'modules': {
+                'layout': {'mode': 'flow'},
+                'dock': {'position': 'bottom'},
+              },
+            },
+            // One whose template is gone stays a plain pane.
+            {'id': 'lost', 'template': 'acme:gone'},
+          ],
+        }),
+        'prefabs': [
+          {
+            'id': 'shelf',
+            'name': 'Shelf',
+            'template': true,
+            'root': {
+              'id': 'root',
+              'modules': {
+                'layout': {'mode': 'flow'},
+                'dock': {'position': 'bottom'},
+              },
+            },
+          },
+        ],
+      };
+      templatesLinked(save, Device.unknown);
+      final root =
+          ((save['layout']! as Json)['layers'] as List).single['root'] as Json;
+      final [right, shelf, lost] = children(root);
+      // Nearest the variant down a side; only what differs is its own, and
+      // where it docks always is. The chains it was made without stay unset.
+      expect(right, {
+        'id': 'right',
+        'prefab': 'system:sidebar',
+        'variant': 'side',
+        'modules': {
+          'layout': {'mode': 'grid', 'rowHeight': 16},
+          'dock': {'position': 'right', 'closed': 64},
+          'triggers': {
+            'focus': null,
+            'blur': null,
+            'reveal': null,
+            'hide': null,
+          },
+          'variables': {
+            'content': [card],
+          },
+        },
+      });
+      expect(shelf, {
+        'id': 'shelf',
+        'name': 'Games',
+        'prefab': 'shelf',
+        'modules': {
+          'dock': {'position': 'bottom'},
+          'variables': {'content': <Object?>[]},
+        },
+      });
+      expect(lost, {'id': 'lost'});
+      final dynamic prefab = (save['prefabs']! as List).single;
+      expect((prefab as Map).containsKey('template'), isFalse);
+      expect(prefab['root']['modules']['slot'], {'variable': 'content'});
+      expect(prefab['root']['modules']['variables'], {
+        'content': {'value': null, 'type': 'nodes'},
+      });
+    });
+
+    test('a prefab\'s variants are overrides of its own nodes', () {
+      final save = converted(home({'id': 'root', 'kind': 'pane'}), [
+        {
+          'id': 'tile',
+          'name': 'Tile',
+          'root': {
+            'id': 'root',
+            'kind': 'pane',
+            'transform': {'w': 2},
+            'options': {'mode': 'row', 'fit': true},
+            'children': [
+              {
+                'id': 'pic',
+                'kind': 'picture',
+                'options': {'fit': 'cover'},
+              },
+            ],
+          },
+          'variants': {
+            'tight': {
+              'label': 'Tight',
+              'overrides': {
+                'root': {
+                  'options': {'fit': false, 'title': 'Small'},
+                },
+                'pic': {
+                  'options': {'fit': 'contain'},
+                },
+              },
+            },
+          },
+        },
+      ]);
+      final dynamic prefab = (save['prefabs']! as List).single;
+      expect(prefab['root']['modules']['sizing'], {'w': 2});
+      expect(prefab['root']['modules']['layout'], {'mode': 'row', 'fit': true});
+      // The same key is a Layout's on a pane and a Picture's on a picture.
+      expect(prefab['variants']['tight']['overrides'], {
+        'root': {
+          'modules': {
+            'layout': {'fit': false},
+          },
+          'name': 'Small',
+        },
+        'pic': {
+          'modules': {
+            'picture': {'fit': 'contain'},
+          },
+        },
+      });
+    });
   });
 
   test('1 to 2: force stop and automatic setup are taken out', () {

@@ -30,12 +30,9 @@ class LayoutOperationsManager implements OperationsManager {
             run.arg('to') ??
             (holds(layout.inbox) ? layout.inbox : layer.root.id);
         if (!holds(to)) return 'There is no pane "$to" there.';
-        await _ref
-            .read(configProvider.notifier)
-            .addItem(
-              instanceFor(entity, layout, _ref.read(prefabsProvider)),
-              to,
-            );
+        final item = instanceFor(entity, layout, _ref.read(prefabsProvider));
+        if (item == null) return '${entity.label} has no card to show it.';
+        await _ref.read(configProvider.notifier).addItem(item, to);
         return '${entity.label} was added.';
       },
     ),

@@ -71,48 +71,88 @@ class StyleScope extends InheritedWidget {
       !mapEquals(values, oldWidget.values);
 }
 
-/// Paints [style] behind [child]. An empty style adds nothing.
-class StyledBox extends StatelessWidget {
-  const StyledBox({
-    super.key,
-    required this.style,
-    required this.child,
-    this.radius = 10,
+/// What a box takes where its style sets nothing.
+@immutable
+class BoxDefaults {
+  const BoxDefaults({
     this.padding = 8,
+    this.corner = 10,
+    this.padsBare = false,
+    this.clips = false,
   });
 
-  final BoxStyle style;
-  final Widget child;
+  final double padding, corner;
 
-  /// Defaults when [style] sets none.
-  final double radius, padding;
+  /// Padded even when it paints nothing.
+  final bool padsBare;
+
+  /// What is in it is cut off at the box.
+  final bool clips;
+
+  /// Padding inside [box].
+  double paddingOf(BoxStyle box) =>
+      box.padding ?? (padsBare || !box.isEmpty ? padding : 0);
+}
+
+/// How far a focused child may show past a box that cuts off what is in it
+/// but paints nothing.
+const overhang = 12.0;
+
+/// Clips [by] outside the box.
+class Inflated extends CustomClipper<Rect> {
+  const Inflated(this.by);
+
+  final double by;
+
+  @override
+  Rect getClip(Size size) => (Offset.zero & size).inflate(by);
+
+  @override
+  bool shouldReclip(Inflated oldClipper) => oldClipper.by != by;
+}
+
+/// Paints a node's Style around [child]: fill and shadow behind, border over
+/// it, taking no space. Padding and opacity are applied by the node.
+class NodeBox extends StatelessWidget {
+  const NodeBox({
+    super.key,
+    required this.box,
+    required this.defaults,
+    required this.child,
+  });
+
+  final BoxStyle box;
+  final BoxDefaults defaults;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    if (style.isEmpty && style.padding == null) {
-      return styleOpacity(style, child);
+    if (box.isEmpty) {
+      return defaults.clips
+          ? ClipRect(clipper: const Inflated(overhang), child: child)
+          : child;
     }
-    final fill = styleFill(style);
-    return styleOpacity(
-      style,
-      DecoratedBox(
+    final fill = styleFill(box);
+    final shape = styleShape(box, defaults.corner);
+    final border = box.border;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: fill.color,
+        gradient: fill.gradient,
+        borderRadius: shape,
+        boxShadow: styleShadow(box),
+      ),
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          color: fill.color,
-          gradient: fill.gradient,
-          borderRadius: styleShape(style, radius),
-          boxShadow: styleShadow(style),
-          border: switch (style.border) {
-            null => null,
-            final border => Border.all(
-              color: Color(border),
-              width: style.borderWidth,
-            ),
-          },
+          borderRadius: shape,
+          border: border == null
+              ? null
+              : Border.all(color: Color(border), width: box.borderWidth),
         ),
-        child: Padding(
-          padding: EdgeInsets.all(style.padding ?? padding),
-          child: child,
-        ),
+        child: defaults.clips
+            ? ClipRRect(borderRadius: shape, child: child)
+            : child,
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 
@@ -67,14 +68,25 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
   }
 
   /// What an act can be aimed at, under headings: entity variables in scope,
-  /// then every entity with an action. Saved targets are kept.
+  /// then every entity with an action, by pack, with the categories packs
+  /// name and hold several of on their own. Saved targets are kept.
   Map<String, Map<String, String>> _targets(List<Entity> entities) {
-    Map<String, String> where(bool Function(Entity entity) which) => {
+    final acting = [
       for (final entity in entities)
-        if (entity.actions.isNotEmpty && which(entity)) entity.id: entity.label,
+        if (entity.actions.isNotEmpty) entity,
+    ];
+    final named = ref.watch(categoriesProvider);
+    final packs = {
+      for (final pack in ref.watch(packsProvider).value ?? const <Pack>[])
+        pack.id: pack.name,
     };
-    const listed = {appCategory, inputCategory, userCategory};
-    final groups = {
+    final sizes = <String, int>{};
+    for (final entity in acting) {
+      sizes[entity.category] = (sizes[entity.category] ?? 0) + 1;
+    }
+    bool alone(Entity entity) =>
+        !named.containsKey(entity.category) || sizes[entity.category] == 1;
+    final groups = <String, Map<String, String>>{
       'Variables': {
         for (final MapEntry(key: name, value: variable) in widget.scope.entries)
           if (variable.type == VarType.entity)
@@ -83,13 +95,33 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
               _ => name,
             },
       },
-      'System': where((entity) => !listed.contains(entity.category)),
-      'Custom': where((entity) => entity.category == userCategory),
-      'Inputs': where((entity) => entity.category == inputCategory),
-      'Apps': where((entity) => entity.category == appCategory),
-      'Launcher': _areas(Operation.launcher),
-      'TV': _areas(Operation.device),
     };
+    void add(String heading, Iterable<Entity> which) {
+      if (which.isEmpty) return;
+      groups[heading] = {
+        ...?groups[heading],
+        for (final entity in which) entity.id: entity.label,
+      };
+    }
+
+    for (final entity in acting) {
+      if (entity.category == userCategory) {
+        add('Custom', [entity]);
+      } else if (alone(entity)) {
+        final pack = entity.id.contains(':')
+            ? entity.id.substring(0, entity.id.indexOf(':'))
+            : '';
+        add(packs[pack] ?? (pack.isEmpty ? 'Other' : pack), [entity]);
+      }
+    }
+    for (final MapEntry(key: category, value: label) in named.entries) {
+      add(label, acting.where((e) => e.category == category && !alone(e)));
+    }
+    groups['Launcher'] = {
+      ...?groups['Launcher'],
+      ..._areas(Operation.launcher),
+    };
+    groups['TV'] = {...?groups['TV'], ..._areas(Operation.device)};
     for (final trigger in widget.triggers) {
       for (final act in _acts(trigger)) {
         final target = act.arg(entityArg);

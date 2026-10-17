@@ -8,9 +8,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/component_view.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
-import 'package:openlauncher/features/home/pane_grid.dart';
+import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
@@ -127,20 +126,20 @@ void main() {
       return c;
     }
 
-    Layout layout(List<Component> items) => Layout(
+    Layout layout(List<Node> items) => Layout(
       inbox: 'main',
       layers: [
         Layer(
           id: Layout.homeId,
-          root: Component.pane(id: 'main', children: items),
+          root: Node.pane(id: 'main', children: items),
         ),
       ],
     );
 
     test('who may read a variable is as it says', () async {
-      final item = Component(
-        id: 'box',
-        kind: 'text',
+      final item = drawn(
+        'box',
+        textModule.name,
         vars: const {
           'secret': Variable('s', access: VarAccess.private),
           'handed': Variable('h'),
@@ -196,9 +195,9 @@ void main() {
     });
 
     test('set while the launcher runs, what reads it follows', () async {
-      final item = Component(
-        id: 'lamp',
-        kind: 'button',
+      final item = drawn(
+        'lamp',
+        textModule.name,
         vars: const {'on': Variable(false, access: VarAccess.public)},
       );
       final c = container(layout([item]));
@@ -235,10 +234,15 @@ void main() {
     test("the launcher's own prefabs are made the same way", () {
       Prefab prefab(String id) =>
           systemPrefabs.firstWhere((prefab) => prefab.id == id);
-      // What each is drawn from is a variable like any other.
+      // What each is drawn from is a variable like any other; one with a
+      // slot is given nodes, and a button is given words, not an entity.
       for (final own in systemPrefabs) {
-        if (own.id != folderPrefabId) {
-          expect(own.vars.keys, contains('source'), reason: own.id);
+        if (own.id != folderPrefabId && own.slots.isEmpty) {
+          expect(
+            own.vars.keys,
+            contains(own.id == 'system:button' ? 'label' : 'source'),
+            reason: own.id,
+          );
         }
       }
       expect(prefab('system:weather').vars['icon']!.isConditional, isTrue);
@@ -261,7 +265,7 @@ void main() {
           artist: 'Band',
           playing: true,
         );
-      final item = Component.of(
+      final item = cardOf(
         'system:media',
         id: 'np',
         prefab: 'system:now-playing',
@@ -286,7 +290,7 @@ void main() {
                         ?.where((entity) => entity.id == 'system:media')
                         .firstOrNull) {
                       null => const SizedBox(),
-                      _ => ComponentView(component: item),
+                      _ => NodeView(component: item),
                     },
                   ),
                 ),
@@ -320,20 +324,21 @@ void main() {
           layers: [
             Layer(
               id: Layout.homeId,
-              root: Component.pane(
+              root: Node.pane(
                 id: 'main',
-                title: 'Apps',
+                name: 'Apps',
                 vars: const {
                   'tint': Variable('red', access: VarAccess.public),
                   'kept': Variable('x'),
                 },
                 children: [
-                  Component.of('system:app/a', id: 'a'),
+                  cardOf('system:app/a', id: 'a'),
                   // Docked: in the pane's tree, not among what it counts.
                   folderPane(
                     'games',
                     title: 'Games',
-                  ).copyWith(children: [Component.of('system:app/a', id: 'g')]),
+                    children: [cardOf('system:app/a', id: 'g')],
+                  ),
                 ],
               ),
             ),
@@ -385,25 +390,26 @@ void main() {
           layers: [
             Layer(
               id: Layout.homeId,
-              root: Component.pane(
+              root: Node.pane(
                 id: 'main',
                 columns: 2,
-                rules: const {'rowHeight': 200},
+                layout: const {'rowHeight': 200},
                 vars: const {'greeting': Variable('Hello')},
                 children: [
-                  const Component(
-                    id: 't',
-                    kind: 'text',
-                    options: {'text': '{{greeting}} there'},
-                    style: {'fontSize': 14},
+                  drawn(
+                    't',
+                    textModule.name,
+                    values: const {'text': '{{greeting}} there'},
+                    style: const {'fontSize': 14},
                   ),
-                  Component.of('games', id: 'f', prefab: folderPrefabId),
-                  Component.pane(
+                  cardOf('games', id: 'f', prefab: folderPrefabId),
+                  Node.pane(
                     id: 'games',
-                    title: 'Games',
+                    name: 'Games',
                     columns: 1,
-                    rules: const {'dock': Component.inline, 'rowHeight': 60},
-                    children: [Component.of('system:app/a', id: 'g')],
+                    layout: const {'rowHeight': 60},
+                    dock: const {'position': DockModule.inline},
+                    children: [cardOf('system:app/a', id: 'g')],
                   ),
                 ],
               ),

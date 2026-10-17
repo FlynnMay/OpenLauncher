@@ -1,10 +1,12 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/component.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
+import 'package:openlauncher/core/layout/tree.dart';
+import 'package:openlauncher/core/modules/modules.dart';
+import 'package:openlauncher/core/nodes/node.dart';
 
-/// The cells a component covers. Fractions only in [PaneMode.free].
+/// The cells a node covers.
 @immutable
 class Placement {
   const Placement(this.x, this.y, this.w, this.h);
@@ -29,11 +31,11 @@ class Placement {
 /// The placement of each of [items] on a grid [columns] wide.
 ///
 /// Flow follows CSS grid auto-placement. Grid uses explicit positions;
-/// unplaced or colliding items take the first free space. Free uses positions
-/// as given; unplaced items line up below the rest.
+/// unplaced or colliding items take the first free space. Without a layout
+/// there are no cells.
 ///
 /// A docked pane takes no cells: it gets an empty placement.
-List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
+List<Placement> placeItems(List<Node> items, int columns, PaneMode mode) {
   if (items.any((item) => item.isDocked)) {
     final rest = placeItems(
       [
@@ -50,31 +52,9 @@ List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
             : (rest..moveNext()).current,
     ];
   }
+  // Without a layout children sit where their transforms say.
   if (mode == PaneMode.free) {
-    double width(Component item) => min(item.w, columns * 1.0);
-    // Unplaced items go below everything that has a position.
-    final below = items
-        .where((item) => item.x != null && item.y != null)
-        .fold(0.0, (rows, item) => max(rows, item.y! + item.h))
-        .ceilToDouble();
-    var x = 0.0, y = below, rowHeight = 0.0;
-    return [
-      for (final item in items)
-        if (item.x != null && item.y != null)
-          Placement(item.x!, item.y!, width(item), item.h)
-        else
-          () {
-            if (x > 0 && x + width(item) > columns) {
-              x = 0;
-              y += rowHeight;
-              rowHeight = 0;
-            }
-            final placed = Placement(x, y, width(item), item.h);
-            x += width(item);
-            rowHeight = max(rowHeight, item.h);
-            return placed;
-          }(),
-    ];
+    return [for (final _ in items) const Placement(0, 0, 0, 0)];
   }
   final taken = <(int, int)>{};
   bool free(int x, int y, int w, int h) {
@@ -131,13 +111,12 @@ List<Placement> placeItems(List<Component> items, int columns, PaneMode mode) {
 }
 
 /// [pane]'s children placed as drawn.
-List<Placement> placementsOf(Component pane) =>
+List<Placement> placementsOf(Node pane) =>
     placeItems(pane.shown, pane.reach, pane.mode);
 
 /// The columns of [pane]'s grid: its own, and as many more as its children
 /// reach when it scrolls across.
-int columnsOf(Component pane, [List<Placement>? placements]) =>
-    !pane.scrollsAcross
+int columnsOf(Node pane, [List<Placement>? placements]) => !pane.scrollsAcross
     ? pane.columns
     : (placements ?? placementsOf(pane)).fold(
         pane.columns,

@@ -1,5 +1,5 @@
 /// The type of an option; decides which editor field it gets.
-enum OptionKind {
+enum FieldKind {
   /// Text that may contain `{{...}}`.
   template,
 
@@ -7,7 +7,7 @@ enum OptionKind {
   number,
   toggle,
 
-  /// One of [ComponentOption.choices].
+  /// One of [Field.choices].
   choice,
 
   /// `#RRGGBBAA`.
@@ -25,7 +25,7 @@ enum OptionKind {
   /// Free text parsed by [typedValue].
   value,
 
-  /// A repeating group of [ComponentOption.fields].
+  /// A repeating group of [Field.fields].
   list,
 }
 
@@ -39,8 +39,8 @@ Object? typedValue(String text) => switch (text.trim()) {
 
 /// One setting, described as data: its key, label and type. Editor forms are
 /// generated from these.
-class ComponentOption {
-  const ComponentOption(
+class Field {
+  const Field(
     this.key,
     this.label,
     this.kind, {
@@ -59,7 +59,7 @@ class ComponentOption {
   });
 
   final String key, label;
-  final OptionKind kind;
+  final FieldKind kind;
 
   /// The default; not saved.
   final Object? defaultValue;
@@ -80,7 +80,7 @@ class ComponentOption {
   final bool Function(Map<String, Object?> options)? when;
 
   /// For a list: the fields of one entry. [label] is the add button's text.
-  final List<ComponentOption> Function(Map<String, Object?> one)? fields;
+  final List<Field> Function(Map<String, Object?> one)? fields;
 
   /// For a list: a new entry's values.
   final Map<String, Object?> blank;
