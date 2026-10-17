@@ -39,6 +39,13 @@ const styleProps = [
   StyleProp('radius', 'Corners', FieldKind.corners, max: 120, step: 2),
   StyleProp('padding', 'Padding', FieldKind.number, max: 80, step: 2),
   StyleProp(
+    'clip',
+    'Clip contents',
+    FieldKind.toggle,
+    defaultValue: false,
+    unset: null,
+  ),
+  StyleProp(
     'opacity',
     'Opacity %',
     FieldKind.number,
@@ -195,6 +202,7 @@ const boxStyle = [
   'borderWidth',
   'radius',
   'padding',
+  'clip',
   'opacity',
   'shadow',
 ];

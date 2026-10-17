@@ -310,6 +310,7 @@ void main() {
                 // A folder: docked, so off the cells of the pane it is in.
                 drawnPane(folderPane('games', title: 'Games'))
                     .withValue(layoutModule.name, 'mode', 'grid')
+                    .withValue(layoutModule.name, 'columns', 4)
                     .copyWith(
                       children: [
                         _item('a', x: 9, y: 2, w: 2, h: 99),
@@ -513,7 +514,7 @@ void main() {
 
     test('matches items to entities, folders, widgets and panes', () {
       final config = LauncherConfig(
-        iconOverrides: {'folder:games': '/games.png'},
+        iconOverrides: {'node:games': '/games.png'},
         layout: Layout(
           inbox: 'main',
           removed: const {'system:app/c'},
@@ -544,13 +545,17 @@ void main() {
       );
       final [folder, clock, pane, games] = view.home.root.children;
 
-      // Handed a folder, not an entity.
-      expect(config.layout.folderOf(folder), 'games');
+      // Handed a node, not an entity.
+      expect(config.layout.node(folder.handed.single)?.id, 'games');
       expect(clock.visual, textModule);
       // The entity placed nowhere turns up in the inbox pane; the removed
       // one does not.
       expect(pane.children.single.handed.firstOrNull, 'system:app/a');
-      expect(games.children.single.handed.firstOrNull, 'system:app/b');
+      // Under the folder's heading.
+      expect(
+        games.children.last.children.single.handed.firstOrNull,
+        'system:app/b',
+      );
       // The folder is docked: on the layer, off its cells.
       expect(view.docked.map((p) => p.id), ['games']);
       expect(

@@ -26,7 +26,7 @@ class PrefabScreen extends ConsumerWidget {
     if (pane == null || root == null) {
       return SizedBox.fromSize(size: TvScreen.size);
     }
-    if (root.isDocked && root.dock != DockModule.inline) {
+    if (root.isDocked) {
       return SizedBox.fromSize(
         size: TvScreen.size,
         child: Material(

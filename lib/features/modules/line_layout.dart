@@ -9,6 +9,7 @@ class LinePane extends StatelessWidget {
     required this.pane,
     required this.tile,
     this.inner = false,
+    this.hug = false,
   });
 
   final Node pane;
@@ -18,6 +19,10 @@ class LinePane extends StatelessWidget {
 
   /// Nested in another row or column.
   final bool inner;
+
+  /// As long as what is in it, where it has the room; what has a flex takes
+  /// no more than it needs.
+  final bool hug;
 
   /// Whether it scrolls along its line.
   bool get _scrolls =>
@@ -40,7 +45,13 @@ class LinePane extends StatelessWidget {
     if (child.aspect case final aspect?) {
       placed = AspectRatio(aspectRatio: aspect, child: placed);
     }
-    return flex == null ? placed : Expanded(flex: flex.round(), child: placed);
+    return flex == null
+        ? placed
+        : Flexible(
+            flex: flex.round(),
+            fit: hug ? FlexFit.loose : FlexFit.tight,
+            child: placed,
+          );
   }
 
   @override
@@ -48,7 +59,7 @@ class LinePane extends StatelessWidget {
     final row = pane.mode == PaneMode.row;
     final flex = Flex(
       direction: row ? Axis.horizontal : Axis.vertical,
-      mainAxisSize: pane.fit || inner || _scrolls
+      mainAxisSize: pane.fit || inner || hug || _scrolls
           ? MainAxisSize.min
           : MainAxisSize.max,
       mainAxisAlignment: inner

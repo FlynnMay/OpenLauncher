@@ -196,7 +196,7 @@ void main() {
     await tester.pumpAndSettle();
     // What is in the folder, laid out only while it shows.
     final held = find.byWidgetPredicate(
-      (widget) => widget is PaneGrid && widget.pane.id == 'games',
+      (widget) => widget is PaneGrid && widget.pane.id == 'games/content',
     );
     expect(held, findsNothing);
 

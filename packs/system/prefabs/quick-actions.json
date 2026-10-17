@@ -6,24 +6,14 @@
     "name": "{{source.label}}",
     "modules": {
       "layout": {
-        "mode": "flow",
-        "columns": 1,
-        "rowHeight": 40,
-        "spacing": 4
+        "mode": "column",
+        "gap": 10
       },
       "dock": {
         "position": "center",
         "width": 432,
         "opening": "instant",
         "closeOnPress": true
-      },
-      "scroll": {
-        "down": true
-      },
-      "style": {
-        "background": "#1a1c23fa",
-        "radius": 18,
-        "padding": 28
       },
       "variables": {
         "source": {
@@ -49,83 +39,123 @@
             "run": "launcher://layers/close"
           }
         ]
+      },
+      "style": {
+        "background": "#1a1c23fa",
+        "radius": 18,
+        "padding": 28,
+        "clip": true
       }
     },
     "children": [
       {
-        "id": "open",
-        "prefab": "button",
+        "id": "heading",
         "modules": {
-          "variables": {
-            "label": "Open",
-            "icon": "material:play_arrow"
+          "text": {
+            "text": "{{source.label}}",
+            "overflow": "ellipsis"
           },
-          "triggers": {
-            "press": [
-              {
-                "do": "open",
-                "entity": "{{source.id}}"
-              }
-            ]
+          "style": {
+            "fontSize": 16,
+            "fontWeight": "medium",
+            "color": "#ffffffb3",
+            "textAlign": "left"
           }
         }
       },
       {
-        "id": "info",
-        "prefab": "button",
+        "id": "list",
         "modules": {
-          "variables": {
-            "label": "App info",
-            "icon": "material:info"
+          "layout": {
+            "mode": "flow",
+            "columns": 1,
+            "rowHeight": 40,
+            "spacing": 4
           },
-          "triggers": {
-            "press": [
-              {
-                "do": "info",
-                "entity": "{{source.id}}"
-              }
-            ]
-          }
-        }
-      },
-      {
-        "id": "uninstall",
-        "prefab": "button",
-        "modules": {
-          "variables": {
-            "label": "Uninstall",
-            "icon": "material:delete"
+          "scroll": {
+            "down": true
           },
-          "triggers": {
-            "press": [
-              {
-                "do": "uninstall",
-                "entity": "{{source.id}}"
-              }
-            ]
+          "sizing": {
+            "flex": 1
           }
-        }
-      },
-      {
-        "id": "remove",
-        "prefab": "button",
-        "modules": {
-          "variables": {
-            "label": "Remove",
-            "icon": "material:do_not_disturb_on"
+        },
+        "children": [
+          {
+            "id": "open",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "Open",
+                "icon": "material:play_arrow"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "do": "open",
+                    "entity": "{{source.id}}"
+                  }
+                ]
+              }
+            }
           },
-          "triggers": {
-            "press": [
-              {
-                "run": "launcher://layout/remove",
-                "with": {
-                  "layer": "home",
-                  "what": "{{source.id}}"
-                }
+          {
+            "id": "info",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "App info",
+                "icon": "material:info"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "do": "info",
+                    "entity": "{{source.id}}"
+                  }
+                ]
               }
-            ]
+            }
+          },
+          {
+            "id": "uninstall",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "Uninstall",
+                "icon": "material:delete"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "do": "uninstall",
+                    "entity": "{{source.id}}"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "remove",
+            "prefab": "button",
+            "modules": {
+              "variables": {
+                "label": "Remove",
+                "icon": "material:do_not_disturb_on"
+              },
+              "triggers": {
+                "press": [
+                  {
+                    "run": "launcher://layout/remove",
+                    "with": {
+                      "layer": "home",
+                      "what": "{{source.id}}"
+                    }
+                  }
+                ]
+              }
+            }
           }
-        }
+        ]
       }
     ]
   }

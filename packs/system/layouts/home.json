@@ -32,6 +32,10 @@
               },
               "scroll": {
                 "down": true
+              },
+              "style": {
+                "padding": 16,
+                "clip": true
               }
             }
           },

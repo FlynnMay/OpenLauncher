@@ -78,8 +78,8 @@ String? whyNot(WidgetRef ref, Dragged dragged, String paneId) {
   return refusal(layout, dragged.item, paneId);
 }
 
-/// Places what was dragged, or reports why it cannot go there. A new folder
-/// is named first.
+/// Places what was dragged, or reports why it cannot go there. A new
+/// instance its card opens is named first.
 Future<void> placeDragged(
   BuildContext context,
   WidgetRef ref,
@@ -96,8 +96,8 @@ Future<void> placeDragged(
   if (opens != null) {
     final name = await askName(context, opens.name);
     if (name == null || !context.mounted) return;
-    opens = opens.copyWith(id: layout.paneIdFor(name, 'pane'), name: name);
-    // Point the card at the pane's final id.
+    opens = opens.withId(layout.paneIdFor(name, 'pane')).copyWith(name: name);
+    // Point the card at its final id.
     item = item
         .copyWith(id: freeId(slugOf(name), {...layout.itemIds, opens.id}))
         .withVars({

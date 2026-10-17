@@ -71,31 +71,14 @@ class StyleScope extends InheritedWidget {
       !mapEquals(values, oldWidget.values);
 }
 
-/// What a box takes where its style sets nothing.
-@immutable
-class BoxDefaults {
-  const BoxDefaults({
-    this.padding = 8,
-    this.corner = 10,
-    this.padsBare = false,
-    this.clips = false,
-  });
+/// Corner radius of a box whose style sets none.
+const defaultCorner = 10.0;
 
-  final double padding, corner;
+/// Padding inside [box]: its own, else some once it paints something.
+double paddingOf(BoxStyle box) => box.padding ?? (box.isEmpty ? 0 : 8);
 
-  /// Padded even when it paints nothing.
-  final bool padsBare;
-
-  /// What is in it is cut off at the box.
-  final bool clips;
-
-  /// Padding inside [box].
-  double paddingOf(BoxStyle box) =>
-      box.padding ?? (padsBare || !box.isEmpty ? padding : 0);
-}
-
-/// How far a focused child may show past a box that cuts off what is in it
-/// but paints nothing.
+/// How far a focused child may show past a box that clips what is in it but
+/// paints nothing.
 const overhang = 12.0;
 
 /// Clips [by] outside the box.
@@ -112,28 +95,23 @@ class Inflated extends CustomClipper<Rect> {
 }
 
 /// Paints a node's Style around [child]: fill and shadow behind, border over
-/// it, taking no space. Padding and opacity are applied by the node.
+/// it, taking no space, and clips it if asked. Padding and opacity are
+/// applied by the node.
 class NodeBox extends StatelessWidget {
-  const NodeBox({
-    super.key,
-    required this.box,
-    required this.defaults,
-    required this.child,
-  });
+  const NodeBox({super.key, required this.box, required this.child});
 
   final BoxStyle box;
-  final BoxDefaults defaults;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     if (box.isEmpty) {
-      return defaults.clips
+      return box.clip
           ? ClipRect(clipper: const Inflated(overhang), child: child)
           : child;
     }
     final fill = styleFill(box);
-    final shape = styleShape(box, defaults.corner);
+    final shape = styleShape(box, defaultCorner);
     final border = box.border;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -150,9 +128,7 @@ class NodeBox extends StatelessWidget {
               ? null
               : Border.all(color: Color(border), width: box.borderWidth),
         ),
-        child: defaults.clips
-            ? ClipRRect(borderRadius: shape, child: child)
-            : child,
+        child: box.clip ? ClipRRect(borderRadius: shape, child: child) : child,
       ),
     );
   }

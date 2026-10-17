@@ -52,15 +52,14 @@ class Layout {
   Node? pane(String id) =>
       all.where((pane) => pane.isPane && pane.id == id).firstOrNull;
 
-  /// The folder [item] opens, if it is an instance handed one.
-  String? folderOf(Node item) => !item.isInstance
-      ? null
-      : item.handed
-            .where((id) => docked.any((pane) => pane.id == id))
-            .firstOrNull;
+  /// The node of id [id] that holds or draws others, if any: what an
+  /// instance can be handed as well as an entity.
+  Node? node(String id) => all
+      .where((node) => node.id == id && (node.isPane || node.isInstance))
+      .firstOrNull;
 
-  /// The `iconOverrides` key for a folder's picture.
-  static String iconKey(String paneId) => 'folder:$paneId';
+  /// The `iconOverrides` key for a node's picture.
+  static String pictureKey(String nodeId) => 'node:$nodeId';
 
   /// Throws [FormatException] on malformed JSON. Older versions are migrated
   /// first. The result still needs [normalised].

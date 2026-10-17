@@ -12,7 +12,6 @@ String barName(String dock) => switch (dock) {
   'top' => 'Top',
   'bottom' => 'Bottom',
   'center' => 'Centre',
-  DockModule.inline => 'Inline',
   _ => dock,
 };
 
@@ -106,7 +105,7 @@ List<Widget> dockFields(
   );
   return [
     ...fields([dock]),
-    if (pane.isDocked && pane.dock != DockModule.inline) ...[
+    if (pane.isDocked) ...[
       ExtentBox(
         label: 'Width',
         value: pane.dockWidth,
@@ -123,7 +122,7 @@ List<Widget> dockFields(
       ),
     ],
     ...fields(rest),
-    if (pane.isDocked && pane.dock != DockModule.inline) const _Replay(),
+    if (pane.isDocked) const _Replay(),
   ];
 }
 

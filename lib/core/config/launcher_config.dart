@@ -98,7 +98,7 @@ class LauncherConfig {
   /// read from the pack and not saved.
   final bool ownLayout;
 
-  /// Entity id -> image path. A folder's picture is under `Layout.iconKey`.
+  /// Entity id -> image path. A node's picture is under `Layout.pictureKey`.
   /// In the editor the paths are the TV's URLs.
   final Map<String, String> iconOverrides;
 

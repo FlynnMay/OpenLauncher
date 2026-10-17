@@ -71,6 +71,7 @@ const cardPrefabId = 'system:app-card';
 const folderPrefabId = 'system:folder-card';
 const folderId = 'system:folder';
 const sidebarId = 'system:sidebar';
+const paneId = 'system:pane';
 const appCategory = 'app';
 const inputCategory = 'input';
 const launcherCategory = 'launcher';
@@ -165,6 +166,23 @@ Node folderPane(
   dockedInstance(systemPrefab(folderId), id),
   children,
 ).copyWith(name: title);
+
+/// A pane headed [name], an instance of the System pack's Pane holding
+/// [children], laid out as [layout] says.
+Node headedPane(
+  String id,
+  String name, {
+  Map<String, Object?> layout = const {},
+  List<Node> children = const [],
+}) => holding(systemPrefab(paneId).blank(id), children).copyWith(
+  name: name,
+  overrides: {
+    if (layout.isNotEmpty)
+      'content': {
+        'modules': {'layout': layout},
+      },
+  },
+);
 
 /// A new sidebar on [edge] holding [children], as the editor makes it from
 /// the System pack's prefab.

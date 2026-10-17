@@ -19,6 +19,9 @@ import 'package:openlauncher/server/config_server.dart';
 import '../support/packs.dart';
 
 /// Panes drawn as nodes, nearest first.
+/// The box a pane on cells was given before it was a Style's own.
+const _boxed = {'padding': 16, 'clip': true};
+
 final _panel = find.byWidgetPredicate(
   (widget) => widget is NodeView && widget.component.isPane,
 );
@@ -281,11 +284,10 @@ void main() {
             layers: [
               home(
                 [
-                  Node.pane(
-                    id: 'top',
-                    name: 'Favourites',
-                    mode: PaneMode.grid,
-                    columns: 4,
+                  headedPane(
+                    'top',
+                    'Favourites',
+                    layout: const {'mode': 'grid', 'columns': 4},
                     children: [
                       cardOf(
                         'games',
@@ -467,7 +469,7 @@ void main() {
       Node pane(String id, String package, Style style) => Node.pane(
         id: id,
         columns: 2,
-        style: style,
+        style: {...style, 'padding': 16},
         children: [entity(package)],
       );
       await pumpApp(
@@ -511,14 +513,8 @@ void main() {
         (alpha, box('Alpha')),
         (beta, box('Beta')),
       ]) {
-        expect(
-          entity.left - pane.left,
-          closeTo(LayoutModule.defaultPadding, 1e-6),
-        );
-        expect(
-          entity.top - pane.top,
-          closeTo(LayoutModule.defaultPadding, 1e-6),
-        );
+        expect(entity.left - pane.left, closeTo(16, 1e-6));
+        expect(entity.top - pane.top, closeTo(16, 1e-6));
       }
     });
 
@@ -544,6 +540,7 @@ void main() {
                     Node.pane(
                       id: 'short',
                       columns: 2,
+                      style: _boxed,
                       children: [entity('pkg.a'), entity('pkg.b')],
                       x: 2,
                       y: 1,
@@ -604,6 +601,7 @@ void main() {
                 Node.pane(
                   id: 'p',
                   columns: 2,
+                  style: _boxed,
                   scroll: scroll,
                   children: [entity('pkg.a'), entity('pkg.b'), entity('pkg.c')],
                 ),
@@ -1049,7 +1047,8 @@ void main() {
             inbox: 'main',
             layers: [
               home(
-                [Node.pane(id: 'main')],
+                // Padded, so what is in it sits below the bar's edge.
+                [Node.pane(id: 'main', style: _boxed)],
                 [
                   sidebarPane('top', 'top').holds(children: [entity('pkg.c')]),
                 ],

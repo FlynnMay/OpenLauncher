@@ -13,6 +13,7 @@ class BoxStyle {
     this.borderWidth = 2,
     this.corners,
     this.padding,
+    this.clip = false,
     this.opacity = 1,
     this.shadow = 0,
   });
@@ -47,6 +48,10 @@ class BoxStyle {
 
   /// Null for the default.
   final double? padding;
+
+  /// What is in it is cut off at its edges; a little past them when it
+  /// paints nothing, so a focused child can grow.
+  final bool clip;
 
   /// 0 to 1.
   final double opacity;
@@ -125,6 +130,7 @@ class BoxStyle {
         },
       },
       padding: number(style['padding'], 0, 80),
+      clip: style['clip'] == true,
       opacity: (number(style['opacity'], 0, 100) ?? 100) / 100,
       shadow: number(style['shadow'], 0, 60) ?? 0,
     );

@@ -549,51 +549,48 @@ void main() {
     );
   });
 
-  test(
-    'a folder\'s picture goes with the folder, and its file stays',
-    () async {
-      Map<String, Object?> layout(List<Object?> folders) => {
-        'layers': [
-          {
-            'id': 'home',
-            'root': {'id': 'home/root', 'children': folders},
-          },
-        ],
-      };
-      await call(
-        'PUT',
-        '/api/layout',
-        body: layout([
-          {
-            'id': 'games',
-            'name': 'Games',
-            'modules': {
-              'layout': {'mode': 'flow'},
-              'dock': {'position': 'center'},
-            },
-          },
-        ]),
-      );
-      final id = await upload(_png);
-      await call(
-        'PUT',
-        '/api/config',
-        body: {
-          'iconOverrides': {'folder:games': id},
+  test('a node\'s picture goes with the node, and its file stays', () async {
+    Map<String, Object?> layout(List<Object?> folders) => {
+      'layers': [
+        {
+          'id': 'home',
+          'root': {'id': 'home/root', 'children': folders},
         },
-      );
-      expect((await state())['config']['iconOverrides'], {'folder:games': id});
-      final response = await call('GET', '/api/media/$id');
-      expect(response.headers['content-type'], 'image/png');
+      ],
+    };
+    await call(
+      'PUT',
+      '/api/layout',
+      body: layout([
+        {
+          'id': 'games',
+          'name': 'Games',
+          'modules': {
+            'layout': {'mode': 'flow'},
+            'dock': {'position': 'center'},
+          },
+        },
+      ]),
+    );
+    final id = await upload(_png);
+    await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'iconOverrides': {'node:games': id},
+      },
+    );
+    expect((await state())['config']['iconOverrides'], {'node:games': id});
+    final response = await call('GET', '/api/media/$id');
+    expect(response.headers['content-type'], 'image/png');
 
-      await call('PUT', '/api/layout', body: layout([]));
-      expect(store.config.iconOverrides, isEmpty);
-      // Only the media manager deletes files.
-      expect(await media(), [
-        {'id': id, 'bytes': _png.length, 'used': false},
-      ]);
-    },
-  );
+    await call('PUT', '/api/layout', body: layout([]));
+    expect(store.config.iconOverrides, isEmpty);
+    // Only the media manager deletes files.
+    expect(await media(), [
+      {'id': id, 'bytes': _png.length, 'used': false},
+    ]);
+  });
 
   test('plain settings are set as they are saved', () async {
     var response = await call(

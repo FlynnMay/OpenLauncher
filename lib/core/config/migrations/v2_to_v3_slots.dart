@@ -1,7 +1,8 @@
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 
 /// The System pack's folder and sidebar as 0.2.0 ships them: the root's name
-/// and modules, and what each variant changes on the root.
+/// and modules, what each variant changes on the root, and the part, if not
+/// the root, that holds the slot and lays out what is in it.
 const Map<String, Json> _systemTemplates = {
   'system:sidebar': {
     'name': '',
@@ -45,6 +46,7 @@ const Map<String, Json> _systemTemplates = {
   },
   'system:folder': {
     'name': 'Folder',
+    'part': 'content',
     'modules': {
       'layout': {'mode': 'flow', 'columns': 4},
       'dock': {
@@ -70,6 +72,9 @@ const Map<String, Json> _systemTemplates = {
     'variants': {},
   },
 };
+
+/// What lays out a slot's nodes, on the part that holds it.
+const _slotModules = {'layout', 'scroll', 'prefabRules'};
 
 bool _same(Object? a, Object? b) => switch ((a, b)) {
   (final Json a, final Json b) =>
@@ -157,7 +162,19 @@ void templatesLinked(Json save, Device device) {
     final root = nearest == null
         ? base
         : _merged(base, _json(variants[nearest]));
-    final changed = _differences(modules, root);
+    final all = _differences(modules, root);
+    // How what is in it is laid out is the slot's part's.
+    final part = template['part'];
+    bool laysOut(String module) =>
+        part is String && _slotModules.contains(module);
+    final changed = {
+      for (final MapEntry(:key, :value) in all.entries)
+        if (!laysOut(key)) key: value,
+    };
+    final slotted = {
+      for (final MapEntry(:key, :value) in all.entries)
+        if (laysOut(key)) key: value,
+    };
     final dock = _json(modules['dock'])['position'];
     final name = copy['name'];
     return {
@@ -168,6 +185,10 @@ void templatesLinked(Json save, Device device) {
       if (nearest != null && nearest != variants.keys.first) 'variant': nearest,
       'transform': ?copy['transform'],
       'hidden': ?copy['hidden'],
+      if (slotted.isNotEmpty)
+        'overrides': {
+          part: {'modules': slotted},
+        },
       'modules': {
         ...changed,
         if (dock != null) 'dock': {..._json(changed['dock']), 'position': dock},

@@ -30,4 +30,15 @@ extension NodeSlot on Node {
 
   /// A node made to hold an instance's nodes for one slot.
   bool get holdsSlot => id.contains('#') && slotVariable != null;
+
+  /// With id [id], and the nodes holding its slots named after it.
+  Node withId(String id) => copyWith(
+    id: id,
+    children: [
+      for (final child in children)
+        child.holdsSlot
+            ? child.copyWith(id: slotHolderId(id, child.slotVariable!))
+            : child,
+    ],
+  );
 }

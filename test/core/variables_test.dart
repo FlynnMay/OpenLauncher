@@ -379,8 +379,7 @@ void main() {
       expect(reads("{{games.open == true ? 'open' : 'shut'}}"), 'open');
     });
 
-    testWidgets('what is in a pane reads the pane, and a folder in place '
-        'shows where it is', (tester) async {
+    testWidgets('what is in a pane reads the pane', (tester) async {
       final platform = FakeLauncherPlatform([
         InstalledApp(packageName: 'a', label: 'Alpha', isBanner: true),
       ], const []);
@@ -402,22 +401,12 @@ void main() {
                     values: const {'text': '{{greeting}} there'},
                     style: const {'fontSize': 14},
                   ),
-                  cardOf('games', id: 'f', prefab: folderPrefabId),
-                  Node.pane(
-                    id: 'games',
-                    name: 'Games',
-                    columns: 1,
-                    layout: const {'rowHeight': 60},
-                    dock: const {'position': DockModule.inline},
-                    children: [cardOf('system:app/a', id: 'g')],
-                  ),
                 ],
               ),
             ),
           ],
         ).normalised(),
       );
-      late WidgetRef ref;
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -425,35 +414,11 @@ void main() {
             configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
             launcherPlatformProvider.overrideWithValue(platform),
           ],
-          child: MaterialApp(
-            home: Consumer(
-              builder: (context, r, _) {
-                ref = r;
-                return const HomeScreen();
-              },
-            ),
-          ),
+          child: const MaterialApp(home: HomeScreen()),
         ),
       );
       await tester.pumpAndSettle();
       expect(find.text('Hello there'), findsOneWidget);
-      final held = find.byWidgetPredicate(
-        (widget) => widget is PaneGrid && widget.pane.id == 'games',
-      );
-      // Shut, the folder is its name; what it holds is not laid out.
-      expect(find.text('Games'), findsOneWidget);
-      expect(held, findsNothing);
-
-      ref.read(runtimeVarsProvider.notifier).set('games', openVar, true);
-      await tester.pumpAndSettle();
-      // In place: no popup over the screen, and what it holds is there.
-      expect(find.byType(Dialog), findsNothing);
-      expect(held, findsOneWidget);
-      expect(find.text('Hello there'), findsOneWidget);
-
-      ref.read(runtimeVarsProvider.notifier).set('games', openVar, false);
-      await tester.pumpAndSettle();
-      expect(held, findsNothing);
     });
   });
 }

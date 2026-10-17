@@ -20,8 +20,8 @@ String paneName(Node pane) {
 }
 
 /// A node's display name: for an instance its own, else its entity's or the
-/// folder's it opens, else its prefab's and where it docks; for others their
-/// own name, else what they draw.
+/// node's it is handed, else its prefab's and where it docks; for others
+/// their own name, else what they draw.
 String objectName(
   Node item,
   Layout? layout,
@@ -31,10 +31,9 @@ String objectName(
   if (item.isInstance) {
     if (item.name.isNotEmpty && !item.name.contains('{{')) return item.name;
     final handed = item.handed.firstOrNull;
-    final opened = layout?.docked.where((pane) => pane.id == handed);
     if (entities.byId(handed)?.label case final label?) return label;
-    if (opened?.firstOrNull case final folder?) {
-      return objectName(folder, layout, entities, prefabs: prefabs);
+    if (layout?.node(handed ?? '') case final node? when node.id != item.id) {
+      return objectName(node, layout, entities, prefabs: prefabs);
     }
     final name = prefabs[item.prefab]?.name ?? 'Prefab';
     return switch (item.edge) {
@@ -77,7 +76,7 @@ class ObjectTree extends ConsumerWidget {
     final selection = ref.watch(selectionProvider);
     final prefab = ref.watch(editedPrefabProvider);
     final prefabs = ref.watch(prefabsProvider);
-    // Folders are named from the real layout.
+    // Handed nodes are named from the real layout.
     final real = ref.watch(configProvider).value?.layout;
     final theme = Theme.of(context);
 

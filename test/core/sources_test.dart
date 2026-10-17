@@ -194,17 +194,20 @@ void main() {
         c.read(prefabsProvider),
       ).pane('quick-actions')!;
       expect((pane.dock, pane.hiddenWhenClosed), ('center', true));
-      expect(pane.children.map((button) => button.vars['label']?.value), [
+      // Under a heading, a list of buttons.
+      final list = pane.children.last;
+      expect(list.children.map((button) => button.vars['label']?.value), [
         'Open',
         'App info',
         'Uninstall',
         'Remove',
       ]);
-      expect(pane.children.first.id, 'quick-actions/open');
+      expect(list.children.first.id, 'quick-actions/open');
       expect(pane.vars.keys, ['source']);
     });
 
-    test('has a folder and a sidebar that hold what is put in them', () {
+    test('has a folder, a pane and a sidebar that hold what is put in '
+        'them', () {
       expect(
         [
           for (final prefab in systemPrefabs)
@@ -213,6 +216,7 @@ void main() {
         ],
         [
           ('system:folder', 'system:folder-card', 'content'),
+          ('system:pane', null, 'content'),
           ('system:sidebar', null, 'content'),
         ],
       );

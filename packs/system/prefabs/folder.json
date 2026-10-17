@@ -7,24 +7,19 @@
     "name": "Folder",
     "modules": {
       "layout": {
-        "mode": "flow",
-        "columns": 4
-      },
-      "slot": {
-        "variable": "content"
+        "mode": "column",
+        "gap": 10
       },
       "dock": {
         "position": "center",
         "opening": "instant",
         "closeOnPress": true
       },
-      "scroll": {
-        "down": true
-      },
       "style": {
         "background": "#1a1c23fa",
         "radius": 18,
-        "padding": 28
+        "padding": 28,
+        "clip": true
       },
       "triggers": {
         "reveal": [
@@ -51,6 +46,41 @@
           "type": "nodes"
         }
       }
-    }
+    },
+    "children": [
+      {
+        "id": "heading",
+        "modules": {
+          "text": {
+            "text": "{{instance.name}}",
+            "overflow": "ellipsis"
+          },
+          "style": {
+            "fontSize": 16,
+            "fontWeight": "medium",
+            "color": "#ffffffb3",
+            "textAlign": "left"
+          }
+        }
+      },
+      {
+        "id": "content",
+        "modules": {
+          "layout": {
+            "mode": "flow",
+            "columns": 4
+          },
+          "scroll": {
+            "down": true
+          },
+          "slot": {
+            "variable": "content"
+          },
+          "sizing": {
+            "flex": 1
+          }
+        }
+      }
+    ]
   }
 }

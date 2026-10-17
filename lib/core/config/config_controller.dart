@@ -18,8 +18,8 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     await ref.read(configStoreProvider).save(next);
   }
 
-  /// Replaces the layout, repaired first. The pictures of folders it no
-  /// longer has go with them.
+  /// Replaces the layout, repaired first. The pictures of nodes it no longer
+  /// has go with them.
   Future<void> setLayout(Layout layout) =>
       _update((c) => _withLayout(c, layout.normalised()));
 
@@ -34,13 +34,13 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     Layout next, {
     bool own = true,
   }) {
-    final folders = {for (final pane in next.docked) Layout.iconKey(pane.id)};
+    final nodes = {for (final node in next.all) Layout.pictureKey(node.id)};
     return c.copyWith(
       layout: next,
       ownLayout: own,
       iconOverrides: {
         for (final MapEntry(:key, :value) in c.iconOverrides.entries)
-          if (!key.startsWith(Layout.iconKey('')) || folders.contains(key))
+          if (!key.startsWith(Layout.pictureKey('')) || nodes.contains(key))
             key: value,
       },
     );

@@ -16,17 +16,27 @@ Act actIn(Act act, Watch watch, Map<String, Object?> scope) => Act(act.name, {
         : value,
 });
 
-/// The children of [pane] whose press can be done as its variables stand.
-List<Node> offeredFor(Node pane, Watch watch, Iterable<Entity> entities) {
+/// [pane] without the nodes in it whose press cannot be done as its
+/// variables stand.
+Node offeredIn(Node pane, Watch watch, Iterable<Entity> entities) {
   final scope = scopeOf(watch, pane.id, pane.vars, const {}).inner;
-  return [
-    for (final item in pane.children)
-      if ((item.on[Trigger.press] ?? const []).every(
-        (act) => isProper(actIn(act, watch, scope), entities),
-      ))
-        item,
-  ];
+  bool proper(Node node) => (node.on[Trigger.press] ?? const []).every(
+    (act) => isProper(actIn(act, watch, scope), entities),
+  );
+  Node pruned(Node node) => node.copyWith(
+    children: [
+      for (final child in node.children)
+        if (proper(child)) pruned(child),
+    ],
+  );
+  return pruned(pane);
 }
+
+/// What can be pressed in [pane], of what [offeredIn] leaves.
+List<Node> offeredFor(Node pane, Watch watch, Iterable<Entity> entities) => [
+  for (final node in offeredIn(pane, watch, entities).all.skip(1))
+    if (node.on[Trigger.press]?.isNotEmpty ?? false) node,
+];
 
 /// Runs a pane's chain [acts] in order; a declined one is reported.
 Future<void> runChain(

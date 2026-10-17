@@ -485,7 +485,8 @@ void main() {
       expect((drawn.name, drawn.dock), ('Folder', 'center'));
       expect(drawn.closeOnPress, isTrue);
       expect(drawn.style, folder.root.style);
-      expect(drawn.children.single.id, 'a');
+      // Under its heading.
+      expect(drawn.children.last.children.single.id, 'a');
       // Down a side it is a column of rows; across, a row.
       final left = resolved(
         dockedInstance(sidebar, 'l', dock: 'left'),
@@ -570,11 +571,6 @@ void main() {
       expect(
         dockFieldsOf(centred).map((rule) => rule.key),
         isNot(contains('closed')),
-      );
-      // Moved into what opens it, its chains stay its own.
-      expect(
-        withRule(folder, 'dock', 'position', DockModule.inline).on,
-        folder.on,
       );
       expect(
         withRule(folder, 'dock', 'width', DockModule.fill).dockWidth,

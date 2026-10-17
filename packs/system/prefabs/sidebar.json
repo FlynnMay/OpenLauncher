@@ -51,6 +51,10 @@
           }
         ]
       },
+      "style": {
+        "padding": 16,
+        "clip": true
+      },
       "variables": {
         "content": {
           "value": null,

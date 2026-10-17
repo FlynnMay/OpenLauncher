@@ -145,11 +145,8 @@ class HomeScreen extends ConsumerWidget {
                           )
                         else if (first)
                           const Center(child: Text('Nothing here yet')),
-                        // One opened in place is drawn by what opens it.
                         for (final pane in root.all)
-                          if (pane.isDocked &&
-                              pane.dock != DockModule.inline &&
-                              layerOf(above, pane.id) == null)
+                          if (pane.isDocked && layerOf(above, pane.id) == null)
                             docked(pane),
                         for (final id in layer.holds)
                           if (layout.pane(id) case final pane?

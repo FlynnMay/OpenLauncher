@@ -19,8 +19,7 @@ Map<String, Object?> _kept(
 
 extension LayoutRepair on Layout {
   /// Enforces what the app relies on: the home layer first, unique ids, sizes
-  /// and positions that fit, bounded nesting, no links to missing folders, a
-  /// valid [inbox].
+  /// and positions that fit, bounded nesting, a valid [inbox].
   Layout normalised() {
     final layerIds = <String>{};
     final unique = [
@@ -34,7 +33,7 @@ extension LayoutRepair on Layout {
         if (layer.id != Layout.homeId) layer,
     ];
 
-    // Folder cards name a docked pane by its id, so those keep theirs.
+    // Cards name a docked node by its id, so those keep theirs.
     final docked = {for (final pane in this.docked) pane.id};
     final reserved = {...docked};
     // Panes and other components share one id space.
@@ -65,7 +64,7 @@ extension LayoutRepair on Layout {
       }
       final repaired = item.isPane
           ? repair(item, depth + 1)
-          : item.copyWith(id: fresh(item.id, 'item'));
+          : item.withId(fresh(item.id, 'item'));
       // Only cells have sizes to fit.
       if (parent.mode.inLine || parent.mode == PaneMode.free) {
         yield repaired;
@@ -94,9 +93,7 @@ extension LayoutRepair on Layout {
 
     repair = (pane, depth) {
       // Claim the pane's id before its children's.
-      var sound = pane.copyWith(
-        id: fresh(pane.id, 'pane', docked: pane.isDocked),
-      );
+      var sound = pane.withId(fresh(pane.id, 'pane', docked: pane.isDocked));
       // Clamps a measure; null if invalid.
       double? within(double? value, num low, num high) =>
           value != null && value.isFinite
@@ -177,8 +174,12 @@ extension LayoutRepair on Layout {
     Map<String, String> names = const {},
     Set<String>? known,
   }) {
-    // Folders count as known.
-    final there = {...known ?? entityIds, for (final pane in docked) pane.id};
+    // A node can be handed like an entity.
+    final there = {
+      ...known ?? entityIds,
+      for (final node in all)
+        if (node.isPane || node.isInstance) node.id,
+    };
     final kept = rebuild(
       (_, items) => [
         for (final item in items)

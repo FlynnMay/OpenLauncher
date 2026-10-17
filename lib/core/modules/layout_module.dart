@@ -83,16 +83,10 @@ class LayoutModule extends ModuleType {
 
   static const defaultColumns = 5;
 
-  /// Corner radius of a node with a layout when its style sets none.
-  static const defaultCorner = 14.0;
-
   static const minRowHeight = 16.0, maxRowHeight = 400.0;
 
   /// Default row height of a sidebar.
   static const barRowHeight = 36.0;
-
-  /// Padding of a node with a layout when its style sets none.
-  static const defaultPadding = 16.0;
 
   /// Cell gaps when spacing is unset.
   static const defaultSpacingX = 20.0, defaultSpacingY = 16.0;

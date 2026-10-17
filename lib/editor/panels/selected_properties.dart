@@ -50,14 +50,7 @@ class SelectedProperties extends ConsumerWidget {
         : const <String>{};
 
     final allPanes = items.every((item) => item.isPane);
-    final folders = ref.watch(selectedFoldersProvider);
-    final allFolders =
-        items.every((item) => item.isInstance) &&
-        folders.length == items.length;
-    void eachFolder(Node Function(Node pane) how) => change(
-      (layout) =>
-          folders.keys.fold(layout, (layout, id) => layout.withPane(id, how)),
-    );
+    final handed = ref.watch(selectedHandedProvider);
 
     final transform = {
       'w': [for (final item in items) item.w],
@@ -91,11 +84,11 @@ class SelectedProperties extends ConsumerWidget {
             single.isInstance &&
             (entities.byId(single.handed.firstOrNull)?.placed ?? false))
           _EntityDetails(entityId: single.handed.firstOrNull ?? ''),
-        if (single != null && allFolders)
-          _FolderDetails(
-            folder: folders.values.single,
-            onRenamed: (title) =>
-                eachFolder((pane) => pane.copyWith(name: title)),
+        if (single != null && handed.length == 1)
+          _HandedNode(
+            node: handed.values.single,
+            onChanged: (how) =>
+                change((layout) => layout.withPane(handed.keys.single, how)),
           ),
         if (single != null && !single.isInstance && !single.isPane)
           ComponentSettings(
@@ -222,7 +215,6 @@ class SelectedProperties extends ConsumerWidget {
               .map((item) => item.styleKeys.toSet())
               .reduce((all, own) => all.intersection(own)),
           style: items.first.style,
-          corner: allPanes ? LayoutModule.defaultCorner : 10,
           onChanged: (key, value) =>
               each((item) => item.styled(withStyle(item.style, {key: value}))),
         ),
@@ -251,65 +243,6 @@ class SelectedProperties extends ConsumerWidget {
                 ),
             ],
           ),
-        if (allFolders)
-          Section('Folder', [
-            // The pane's own id, apart from its card's.
-            if (single != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IdLabel(folders.keys.single),
-              ),
-            if (single != null)
-              Wrap(
-                spacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => TvScreen.openPane(folders.keys.single),
-                    icon: const Icon(Icons.folder_open_outlined),
-                    label: const Text('Open'),
-                  ),
-                  TextButton.icon(
-                    onPressed: () async {
-                      if (await sureToRemove(
-                            context,
-                            'Delete the folder?',
-                            'Delete',
-                          ) &&
-                          context.mounted) {
-                        ref.read(selectionProvider.notifier).clear();
-                        change(
-                          (layout) => removeItem(layout, folders.keys.single),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.folder_delete_outlined),
-                    label: const Text('Delete folder'),
-                  ),
-                ],
-              ),
-          ]),
-        // The folder itself is a pane like any other.
-        if (allFolders && single != null) ...[
-          PaneSettings(
-            title: 'Folder pane',
-            prefabs: prefabs,
-            named: false,
-            panes: [folders.values.single],
-            onChanged: eachFolder,
-          ),
-          Section(
-            'Folder look',
-            open: false,
-            styleFields(
-              keys: const [...boxStyle, ...textStyle],
-              style: folders.values.single.style,
-              corner: LayoutModule.defaultCorner,
-              onChanged: (key, value) => eachFolder(
-                (pane) => pane.styled(withStyle(pane.style, {key: value})),
-              ),
-            ),
-          ),
-        ],
         if (!isRoot)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
@@ -426,19 +359,26 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
 }
 
 /// A folder's name and picture.
-class _FolderDetails extends ConsumerWidget {
-  const _FolderDetails({required this.folder, required this.onRenamed});
+/// The node an instance is handed, as a card shows it: its name and picture,
+/// and ways to open it, select it or delete it.
+class _HandedNode extends ConsumerWidget {
+  const _HandedNode({required this.node, required this.onChanged});
 
-  final Node folder;
-  final void Function(String title) onRenamed;
+  final Node node;
+  final void Function(Node Function(Node node) how) onChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(tvApiProvider);
-    final key = Layout.iconKey(folder.id);
+    final key = Layout.pictureKey(node.id);
     final picture = ref.watch(configProvider).value?.iconOverrides[key];
-    return Section('Folder card', [
-      CommitField(label: 'Name', value: folder.name, onChanged: onRenamed),
+    return Section('Handed node', [
+      Align(alignment: Alignment.centerLeft, child: IdLabel(node.id)),
+      CommitField(
+        label: 'Name',
+        value: node.name,
+        onChanged: (name) => onChanged((node) => node.copyWith(name: name)),
+      ),
       PictureSettings(
         picture: picture == null
             ? null
@@ -457,6 +397,42 @@ class _FolderDetails extends ConsumerWidget {
                 ref,
                 (c) => c.setIconOverride(key, null),
               ),
+      ),
+      Wrap(
+        spacing: 8,
+        children: [
+          if (node.isDocked)
+            OutlinedButton.icon(
+              onPressed: () => TvScreen.openPane(node.id),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Open'),
+            ),
+          TextButton(
+            onPressed: () => ref
+                .read(selectionProvider.notifier)
+                .tap(node.id, adding: false),
+            child: const Text('Select'),
+          ),
+          TextButton.icon(
+            onPressed: () async {
+              if (await sureToRemove(
+                    context,
+                    'Delete ${node.name.isEmpty ? 'it' : node.name}?',
+                    'Delete',
+                  ) &&
+                  context.mounted) {
+                ref.read(selectionProvider.notifier).clear();
+                await changeLayout(
+                  context,
+                  ref,
+                  (layout) => removeItem(layout, node.id),
+                );
+              }
+            },
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ],
       ),
     ]);
   }

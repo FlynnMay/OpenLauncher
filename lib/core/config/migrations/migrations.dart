@@ -4,6 +4,7 @@ import 'package:openlauncher/core/config/app_version.dart';
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 
 export 'save_json.dart' show Device, Json;
@@ -61,7 +62,9 @@ const migrations = <Migration>[
         'Operations named by address; feeds are sources; pack ids; quick '
         'actions as a prefab; folders and sidebars record their template; '
         'docked panes say whether a press closes them; nodes with '
-        'modules; folders and sidebars are instances holding what is in them',
+        'modules; folders and sidebars are instances holding what is in them; '
+        'nothing docks inline; panes write out their box, and one with a '
+        'heading is a Pane',
     rules: [
       operationsByAddress,
       feedsAsSources,
@@ -71,6 +74,8 @@ const migrations = <Migration>[
       closeOnPressRecorded,
       nodesAndModules,
       templatesLinked,
+      inlineDocksCentred,
+      panelsWrittenOut,
     ],
   ),
 ];

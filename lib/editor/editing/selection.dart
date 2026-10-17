@@ -80,17 +80,16 @@ class BarReplay extends Notifier<bool> {
   }
 }
 
-/// The folders the selected folder cards open, by id.
-final selectedFoldersProvider = Provider<Map<String, Node>>((ref) {
+/// The nodes the selected instances are handed, rather than entities, by
+/// id.
+final selectedHandedProvider = Provider<Map<String, Node>>((ref) {
   final layout = ref.watch(configProvider).value?.layout;
-  final folders = <String, Node>{};
-  for (final one in ref.watch(selectedProvider)) {
-    final folder = layout?.folderOf(one.item);
-    if (layout?.pane(folder ?? '') case final pane?) {
-      folders[pane.id] = pane;
-    }
-  }
-  return folders;
+  return {
+    for (final one in ref.watch(selectedProvider))
+      if (one.item.isInstance)
+        for (final id in one.item.handed)
+          if (layout?.node(id) != null) id: layout!.node(id)!,
+  };
 });
 
 final inboxProvider = Provider<String?>(

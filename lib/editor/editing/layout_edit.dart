@@ -252,7 +252,7 @@ Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
   );
 }
 
-/// Removes [id] and its contents, and with a folder the cards that open it.
+/// Removes [id] and its contents, and the instances handed it.
 /// Entities left unplaced are marked removed so the TV does not re-add them.
 Layout removeItem(Layout layout, String id) {
   final gone = [
@@ -262,13 +262,13 @@ Layout removeItem(Layout layout, String id) {
         if (item.isPane || item.isInstance) ...item.contents,
       ],
   ];
-  final docked = layout.docked.any((pane) => pane.id == id);
+  final handed = layout.node(id) != null;
   final rest = _rebuilt(
     layout,
     (_, items) => [
       for (final item in items)
         if (item.id != id &&
-            !(docked && item.isInstance && item.handed.contains(id)))
+            !(handed && item.isInstance && item.handed.contains(id)))
           item,
     ],
   );
@@ -279,8 +279,8 @@ Layout removeItem(Layout layout, String id) {
       for (final item in gone)
         if (item.isInstance)
           for (final source in item.handed)
-            // A folder is not an entity to put back.
-            if (!placed.containsKey(source) && rest.pane(source) == null)
+            // A node is not an entity to put back.
+            if (!placed.containsKey(source) && rest.node(source) == null)
               source,
     },
   );

@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/features/home/docked_pane.dart';
 import 'package:openlauncher/features/modules/focus_drawer.dart';
 import 'package:openlauncher/features/modules/layout_drawer.dart';
 import 'package:openlauncher/features/modules/line_layout.dart';
@@ -38,7 +36,8 @@ class TileFrame extends InheritedWidget {
 /// resolved against its prefab, its Variables in scope, what its visual
 /// module draws with its children over it (placed by its Layout, or by their
 /// transforms without one), its Style's padding, its Scroll, its Style's
-/// box, and its Focus wired to its Triggers. Dock is drawn by the layers.
+/// box, and its Focus wired to its Triggers. Dock is drawn by the layers. An
+/// instance's parts read its id and name as `instance`.
 class NodeView extends ConsumerWidget {
   const NodeView({
     super.key,
@@ -50,7 +49,7 @@ class NodeView extends ConsumerWidget {
     this.screen = false,
     this.tall = false,
     this.placeholder,
-    this.tile,
+    this.wrap,
   });
 
   final Node component;
@@ -71,14 +70,14 @@ class NodeView extends ConsumerWidget {
   /// editor, and it centres the focused tile as it scrolls.
   final bool screen;
 
-  /// A panel as tall as what is in it, where it has the room to be.
+  /// As tall as what is in it, where it has the room to be.
   final bool tall;
 
-  /// Shown in a panel while there is nothing in it.
+  /// Shown while there is nothing in it.
   final String? placeholder;
 
-  /// Draws its children instead of a [NodeView] each.
-  final Widget Function(Node child)? tile;
+  /// Wraps what each of its children draws.
+  final Widget Function(Node child, Widget drawn)? wrap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -89,33 +88,26 @@ class NodeView extends ConsumerWidget {
     return frame == null ? drawn : frame.wrap(component, drawn);
   }
 
-  Widget _child(Node child, {bool inLine = false, bool shrink = false}) =>
-      tile?.call(child) ??
-      NodeView(
-        component: child,
-        focus: focus,
-        popup: popup,
-        inLine: inLine,
-        shrink: shrink,
-      );
+  Widget _child(Node child, {bool inLine = false, bool shrink = false}) {
+    final drawn = NodeView(
+      component: child,
+      focus: focus,
+      popup: popup,
+      inLine: inLine,
+      shrink: shrink,
+    );
+    return wrap?.call(child, drawn) ?? drawn;
+  }
 
   Widget _drawn(BuildContext context, WidgetRef ref, {required bool still}) {
     final node = resolved(component, ref.watch(prefabsProvider));
-    if (!screen) {
-      if (openedInPlace(ref, node) case final pane?) {
-        return DockedPane(pane: pane, inPlace: true);
-      }
-    }
-    final scope = scopeOf(
-      ref.watch,
-      node.id,
-      node.vars,
-      TemplateScope.of(context),
-    );
+    // An instance's parts can read it as `instance`.
+    final scope = scopeOf(ref.watch, node.id, node.vars, {
+      ...TemplateScope.of(context),
+      if (component.isInstance) 'instance': {'id': node.id, 'name': node.name},
+    });
     final look = readStyle(ref.watch, node.style, scope.own);
     final box = BoxStyle.of(look);
-    final defaults = boxDefaultsOf(node);
-    final panel = isPanel(node);
 
     // What its visual draws, reading its own private variables too.
     final visual = switch (drawVisual(node, shrink: shrink)) {
@@ -131,6 +123,7 @@ class NodeView extends ConsumerWidget {
                 ? LinePane(
                     pane: node,
                     inner: inLine,
+                    hug: tall,
                     tile: (child, {required shrink}) =>
                         _child(child, inLine: true, shrink: shrink),
                   )
@@ -144,36 +137,20 @@ class NodeView extends ConsumerWidget {
       _ => visual ?? children!,
     };
 
-    // A panel's name is its heading, and may read its own variables.
-    final title = !panel
-        ? ''
-        : !node.name.contains('{{')
-        ? node.name
-        : valueText(readTemplate(ref.watch, node.name, scope.own));
+    if (placeholder != null && node.isEmpty) {
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(placeholder!, style: const TextStyle(color: Colors.white60)),
+          content,
+        ],
+      );
+    }
     // A target part paints the box of a node whose focus it shows.
     final targeted = node.focusable && node.focusTarget != null;
-    final padding = targeted ? 0.0 : defaults.paddingOf(box);
+    final padding = targeted ? 0.0 : paddingOf(box);
     if (padding > 0) {
-      content = Padding(
-        padding: EdgeInsets.fromLTRB(
-          padding,
-          title.isEmpty ? padding : underHeading,
-          padding,
-          padding,
-        ),
-        child: panel && placeholder != null && node.isEmpty
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    placeholder!,
-                    style: const TextStyle(color: Colors.white60),
-                  ),
-                  content,
-                ],
-              )
-            : content,
-      );
+      content = Padding(padding: EdgeInsets.all(padding), child: content);
     }
     content = scrolled(
       node,
@@ -181,20 +158,6 @@ class NodeView extends ConsumerWidget {
       content,
       screen: screen,
     );
-    if (panel) {
-      content = Column(
-        mainAxisSize: tall ? MainAxisSize.min : MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (title.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.fromLTRB(padding, padding, padding, 0),
-              child: PaneTitle(title),
-            ),
-          tall ? Flexible(child: content) : Expanded(child: content),
-        ],
-      );
-    }
 
     // The part a focusable node above names shows that node's focus.
     if (FocusTarget.of(context) case final target?
@@ -210,7 +173,6 @@ class NodeView extends ConsumerWidget {
         node: node,
         box: box,
         bare: bare == true || bare == 'true',
-        corner: defaults.corner,
         autofocus: focus?.take() ?? false,
         still: still,
         calls: TileActions(
@@ -224,7 +186,7 @@ class NodeView extends ConsumerWidget {
         child: content,
       );
     } else {
-      content = NodeBox(box: box, defaults: defaults, child: content);
+      content = NodeBox(box: box, child: content);
     }
     return StyleScope.under(context, look, styleOpacity(box, content));
   }

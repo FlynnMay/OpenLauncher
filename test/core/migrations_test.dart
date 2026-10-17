@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
@@ -285,7 +286,7 @@ void main() {
     expect(next['names'], {'system:app/a.b': 'Movies', 'mine': 'Mine'});
     expect(next['iconOverrides'], {
       'system:input/hw1': 'p.png',
-      'folder:games': 'g.png',
+      'node:games': 'g.png',
     });
     expect(next['iconSources'], {'system:app/a.b': 'system:input/hw1'});
     expect((next['entities']! as List).single['prefab'], 'system:clock');
@@ -349,6 +350,8 @@ void main() {
         'modules': {
           'layout': {'mode': 'flow'},
           'scroll': {'down': true},
+          // The box the launcher gave it.
+          'style': {'padding': 16, 'clip': true},
         },
       },
       // Its own look is kept; what it was made with is the prefab's.
@@ -938,6 +941,156 @@ void main() {
           },
         },
       });
+    });
+  });
+
+  group('2 to 3: panes', () {
+    Json save(List<Json> children, {List<Json> prefabs = const []}) => {
+      'layout': {
+        'layers': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'modules': {
+                'layout': {'mode': 'grid'},
+              },
+              'children': children,
+            },
+          },
+        ],
+      },
+      'prefabs': prefabs,
+    };
+    List<Object?> childrenOf(Json save) =>
+        ((save['layout']! as Map)['layers'] as List)[0]['root']['children']
+            as List;
+    const card = {'id': 'a', 'prefab': 'system:app-card'};
+
+    test('nothing docks inline, and a folder\'s picture is a node\'s', () {
+      final folder = {
+        'id': 'games',
+        'modules': {
+          'dock': {'position': 'inline', 'closeOnPress': true},
+        },
+      };
+      final next = save([folder])
+        ..['iconOverrides'] = {
+          'folder:games': '/games.png',
+          'system:app/a': '/a.png',
+        };
+      inlineDocksCentred(next, Device.unknown);
+      expect(childrenOf(next).single, {
+        'id': 'games',
+        'modules': {
+          'dock': {'position': 'center', 'closeOnPress': true},
+        },
+      });
+      expect(next['iconOverrides'], {
+        'node:games': '/games.png',
+        'system:app/a': '/a.png',
+      });
+    });
+
+    test('a pane writes out its box, and one with a heading is a Pane', () {
+      final next = save(
+        [
+          {
+            'id': 'apps',
+            'name': 'Apps',
+            'modules': {
+              'layout': {'mode': 'grid', 'columns': 4},
+              'sizing': {'w': 6, 'h': 2},
+              'style': {'background': '#112233'},
+            },
+            'children': [card],
+          },
+          {
+            'id': 'plain',
+            'modules': {
+              'layout': {'mode': 'flow'},
+              'scroll': {'down': true},
+              'style': {'padding': 4},
+            },
+          },
+          {
+            'id': 'line',
+            'name': 'Line',
+            'modules': {
+              'layout': {'mode': 'row'},
+            },
+          },
+          {
+            'id': 'named',
+            'name': '{{system:clock.time}}',
+            'modules': {
+              'layout': {'mode': 'flow'},
+            },
+          },
+        ],
+        prefabs: [
+          {
+            'id': 'mine',
+            'root': {
+              'id': 'root',
+              'name': 'Mine',
+              'modules': {
+                'layout': {'mode': 'flow'},
+              },
+            },
+          },
+        ],
+      );
+      panelsWrittenOut(next, Device.unknown);
+      final [apps, plain, line, named] = childrenOf(next);
+      expect(apps, {
+        'id': 'apps',
+        'name': 'Apps',
+        'prefab': 'system:pane',
+        'overrides': {
+          'content': {
+            'modules': {
+              'layout': {'mode': 'grid', 'columns': 4},
+              // It did not scroll.
+              'scroll': {'down': false},
+            },
+          },
+        },
+        'modules': {
+          'sizing': {'w': 6, 'h': 2},
+          'style': {'background': '#112233'},
+          'variables': {
+            'content': [card],
+          },
+        },
+      });
+      // Padded where it said nothing, cut off at its edges; rounded only
+      // where it paints.
+      expect((plain as Map)['modules']['style'], {'padding': 4, 'clip': true});
+      expect((line as Map)['modules'].containsKey('style'), isFalse);
+      // A name reading variables is read by the heading itself.
+      expect((named as Map)['overrides']['heading'], {
+        'modules': {
+          'text': {'text': '{{system:clock.time}}'},
+        },
+      });
+      // The layer's root is as it was; a prefab's root gets its box.
+      final root =
+          ((next['layout']! as Map)['layers'] as List)[0]['root'] as Map;
+      expect(root['modules'], {
+        'layout': {'mode': 'grid'},
+      });
+      final prefab = (next['prefabs']! as List).single as Map;
+      expect(prefab['root']['modules']['style'], {'padding': 16, 'clip': true});
+
+      // Drawn, the Pane lays out what it holds as the pane did.
+      final drawn = resolved(Node.fromJson(apps as Json), systemPrefabMap);
+      final [heading, content] = drawn.children;
+      expect(heading.visual, textModule);
+      expect((content.mode, content.columns), (PaneMode.grid, 4));
+      expect(content.scrollsDown, isFalse);
+      expect(content.children.single.id, 'a');
+      expect(drawn.style['radius'], 14);
     });
   });
 

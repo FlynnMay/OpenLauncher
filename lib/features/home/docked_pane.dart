@@ -1,11 +1,9 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
@@ -23,36 +21,14 @@ class DockHold extends InheritedWidget {
       !ids.containsAll(oldWidget.ids) || !oldWidget.ids.containsAll(ids);
 }
 
-/// The folder docked in place that [node] opens, while it is open, unless
-/// its own chain moved it to a layer. [node] is then drawn as that folder.
-Node? openedInPlace(WidgetRef ref, Node node) {
-  final handed = node.handed.firstOrNull;
-  if (!node.isPane || !node.mode.inLine || handed == null) return null;
-  return switch (ref.watch(layoutViewProvider).value?.pane(handed)) {
-    final folder?
-        when folder.dock == DockModule.inline &&
-            layerOf(ref.watch(layersProvider), folder.id) == null &&
-            ref.watch(
-              runtimeVarsProvider.select(
-                (all) => all[folder.id]?[openVar] == true,
-              ),
-            ) =>
-      folder,
-    _ => null,
-  };
-}
-
-/// A docked pane, on an edge, in the middle or in what opens it. It is open
+/// A docked pane, on an edge or in the middle. It is open
 /// while its `open` variable is set; closed, it shows its `closed` strip or
 /// is not there at all. On an edge it is laid out at its open size, so its
 /// contents do not move as it opens.
 class DockedPane extends ConsumerStatefulWidget {
-  const DockedPane({super.key, required this.pane, this.inPlace = false});
+  const DockedPane({super.key, required this.pane});
 
   final Node pane;
-
-  /// Drawn in the box of what opened it, filling it.
-  final bool inPlace;
 
   @override
   ConsumerState<DockedPane> createState() => _DockedPaneState();
@@ -124,12 +100,6 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   }
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.inPlace) _first = FirstFocus();
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _held =
@@ -154,8 +124,7 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   };
 
   /// [tile] with the reveal animation applied.
-  Widget _appearing(Widget tile, Alignment edge) =>
-      _reveal == 'always' || widget.inPlace
+  Widget _appearing(Widget tile, Alignment edge) => _reveal == 'always'
       ? tile
       : AnimatedBuilder(
           animation: _opened,
@@ -178,12 +147,10 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   /// be done to it.
   Node _offered() => subjectOf(ref, _pane.id) == null
       ? _pane
-      : _pane.copyWith(
-          children: offeredFor(
-            _pane,
-            ref.watch,
-            ref.watch(entitiesProvider).value ?? const [],
-          ),
+      : offeredIn(
+          _pane,
+          ref.watch,
+          ref.watch(entitiesProvider).value ?? const [],
         );
 
   /// The pane [shown] in its box. Keyed so it keeps its state as what is
@@ -195,11 +162,10 @@ class _DockedPaneState extends ConsumerState<DockedPane>
       component: shown,
       screen: true,
       tall: shrink,
+      focus: _first,
+      popup: popup,
       placeholder: 'Nothing here yet. Add things from the web page.',
-      tile: (component) => _appearing(
-        NodeView(component: component, focus: _first, popup: popup),
-        from,
-      ),
+      wrap: (_, drawn) => _appearing(drawn, from),
     );
     return FocusBounds(
       key: _contents,
@@ -211,7 +177,7 @@ class _DockedPaneState extends ConsumerState<DockedPane>
     );
   }
 
-  /// Runs the focus and blur chains, and lets Back close one opened in place.
+  /// Runs the focus and blur chains.
   Widget _watched(Widget child) => Focus(
     canRequestFocus: false,
     skipTraversal: true,
@@ -224,22 +190,6 @@ class _DockedPaneState extends ConsumerState<DockedPane>
         _pane.id,
       );
     },
-    onKeyEvent: !widget.inPlace
-        ? null
-        : (_, event) {
-            final key = event.logicalKey;
-            if (key != LogicalKeyboardKey.goBack &&
-                key != LogicalKeyboardKey.escape &&
-                key != LogicalKeyboardKey.browserBack) {
-              return KeyEventResult.ignored;
-            }
-            if (event is KeyDownEvent) {
-              ref
-                  .read(runtimeVarsProvider.notifier)
-                  .set(_pane.id, openVar, false);
-            }
-            return KeyEventResult.handled;
-          },
     child: child,
   );
 
@@ -247,7 +197,6 @@ class _DockedPaneState extends ConsumerState<DockedPane>
   Widget build(BuildContext context) {
     final pane = _pane;
     final shown = _offered();
-    if (widget.inPlace) return _watched(_contentsOf(shown, Alignment.center));
     final open =
         _held ||
         ref.watch(

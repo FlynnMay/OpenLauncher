@@ -14,11 +14,9 @@ bool _atEdge(Map<String, Object?> values) =>
     _edges.containsKey(values['position']);
 bool _docked(Map<String, Object?> values) =>
     DockModule.positions.contains(values['position']);
-bool _drawnApart(Map<String, Object?> values) =>
-    _docked(values) && values['position'] != DockModule.inline;
 
-/// Takes it off its parent's cells and docks it at an edge, the middle, or in
-/// the box of what opens it, shown while its `open` variable is set.
+/// Takes it off its parent's cells and docks it at an edge or in the middle,
+/// shown while its `open` variable is set.
 class DockModule extends ModuleType {
   const DockModule()
     : super(
@@ -30,7 +28,7 @@ class DockModule extends ModuleType {
             'Position',
             FieldKind.choice,
             unset: 'None',
-            choices: {..._edges, 'center': 'Centre', inline: 'Inline'},
+            choices: {..._edges, 'center': 'Centre'},
           ),
           // 0 leaves it at its edge with nothing showing; unset, it is not
           // there.
@@ -61,7 +59,7 @@ class DockModule extends ModuleType {
               'fade': 'Fade',
               'instant': 'None',
             },
-            when: _drawnApart,
+            when: _docked,
           ),
           Field(
             'reveal',
@@ -74,7 +72,7 @@ class DockModule extends ModuleType {
               'late': 'Fade after opening',
               'slide': 'Slide',
             },
-            when: _drawnApart,
+            when: _docked,
           ),
         ],
       );
@@ -85,9 +83,8 @@ class DockModule extends ModuleType {
   /// Largest docked size, in TV pixels.
   static const maxExtent = 960.0;
 
-  /// The edges, the middle, or in the box of what opens it.
-  static const positions = ['left', 'right', 'top', 'bottom', 'center', inline];
-  static const inline = 'inline';
+  /// The edges, or the middle.
+  static const positions = ['left', 'right', 'top', 'bottom', 'center'];
 }
 
 const dockModule = DockModule();

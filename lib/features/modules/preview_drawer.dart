@@ -14,5 +14,5 @@ class PreviewVisual extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FolderArt(folder: visualText(context, ref, values['node']).trim());
+      NodeArt(node: visualText(context, ref, values['node']).trim());
 }

@@ -1,0 +1,63 @@
+{
+  "id": "pane",
+  "name": "Pane",
+  "root": {
+    "id": "root",
+    "modules": {
+      "layout": {
+        "mode": "column",
+        "gap": 10
+      },
+      "style": {
+        "padding": 16,
+        "radius": 14,
+        "clip": true
+      },
+      "variables": {
+        "content": {
+          "value": null,
+          "type": "nodes"
+        }
+      },
+      "sizing": {
+        "w": 6,
+        "h": 3
+      }
+    },
+    "children": [
+      {
+        "id": "heading",
+        "modules": {
+          "text": {
+            "text": "{{instance.name}}",
+            "overflow": "ellipsis"
+          },
+          "style": {
+            "fontSize": 16,
+            "fontWeight": "medium",
+            "color": "#ffffffb3",
+            "textAlign": "left"
+          }
+        }
+      },
+      {
+        "id": "content",
+        "modules": {
+          "layout": {
+            "mode": "flow",
+            "columns": 5
+          },
+          "scroll": {
+            "down": true
+          },
+          "slot": {
+            "variable": "content"
+          },
+          "sizing": {
+            "flex": 1
+          }
+        }
+      }
+    ]
+  }
+}

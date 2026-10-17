@@ -117,7 +117,7 @@ class _StageState extends ConsumerState<Stage> {
           ? handle(entity.label, EntityArt(entity: entity, padding: 4), still)
           : handle(
               source.isEmpty ? 'Prefab' : source,
-              FolderArt(folder: source),
+              NodeArt(node: source),
               still,
             ),
     );

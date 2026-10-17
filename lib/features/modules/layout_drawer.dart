@@ -50,40 +50,5 @@ class PaneGrid extends StatelessWidget {
   }
 }
 
-/// Whether [node] is a panel: it draws nothing itself and arranges its
-/// children on cells or by transform. A panel is padded and rounded more,
-/// what is in it is cut off at its box, and its name is its heading.
-bool isPanel(Node node) => node.isPane && !node.mode.inLine;
-
-/// What [node]'s box takes where its style sets nothing.
-BoxDefaults boxDefaultsOf(Node node) => isPanel(node)
-    ? const BoxDefaults(
-        padding: LayoutModule.defaultPadding,
-        corner: LayoutModule.defaultCorner,
-        padsBare: true,
-        clips: true,
-      )
-    : const BoxDefaults();
-
-/// The corners of [pane]'s box.
-BorderRadius shapeOf(Node pane) =>
-    styleShape(pane.box, boxDefaultsOf(pane).corner);
-
-/// Padding between a panel's heading and what is in it.
-const underHeading = 10.0;
-
-/// A panel's heading.
-class PaneTitle extends StatelessWidget {
-  const PaneTitle(this.title, {super.key});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    title,
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-    style: Theme.of(context).textTheme.titleMedium
-        ?.copyWith(color: Colors.white70),
-  );
-}
+/// The corners of [node]'s box.
+BorderRadius shapeOf(Node node) => styleShape(node.box, defaultCorner);
