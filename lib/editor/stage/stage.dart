@@ -5,6 +5,7 @@ export 'layers.dart';
 export 'prefab_bar.dart';
 export 'prefab_screen.dart';
 export 'resize_handles.dart';
+export 'show_hidden.dart';
 export 'snapping.dart';
 export 'stage_geometry.dart';
 export 'stage_view.dart';
