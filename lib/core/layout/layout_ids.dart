@@ -44,9 +44,9 @@ String freeId(String wanted, Set<String> used) {
 }
 
 extension LayoutIds on Layout {
-  /// Ids in use. Containers and other nodes share one id space.
+  /// Ids in use. Screens, containers and other nodes share one id space.
   Set<String> get itemIds => {
-    Layout.homeId,
+    for (final screen in screens) screen.id,
     for (final component in all) component.id,
   };
 

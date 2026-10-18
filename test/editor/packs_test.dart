@@ -154,7 +154,7 @@ void main() {
     final tv = _Tv();
     final home = homeLayout(['system:app/a']);
     final using = home.withContainer(
-      home.home.root.id,
+      home.start.root.id,
       (container) => container.copyWith(
         children: [
           ...container.children,

@@ -24,6 +24,9 @@ enum ModuleUse {
 
   /// On the screen, outside any prefab.
   onScreen,
+
+  /// On a screen's root.
+  screenRoot,
 }
 
 /// Machinery a node takes on: what it draws, how it arranges its children,

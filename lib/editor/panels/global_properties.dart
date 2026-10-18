@@ -27,12 +27,12 @@ class GlobalProperties extends ConsumerWidget {
           child: Text('Screen', style: Theme.of(context).textTheme.titleSmall),
         ),
         ModuleSections(
-          nodes: [config.layout.home.root],
+          nodes: [config.layout.start.root],
           parents: const [],
           onChanged: (how) => changeLayout(
             context,
             ref,
-            (layout) => layout.withContainer(layout.home.root.id, how),
+            (layout) => layout.withContainer(layout.start.root.id, how),
           ),
           onLayout: (how) => changeLayout(context, ref, how),
         ),

@@ -5,6 +5,7 @@ import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/updates/updates.dart';
@@ -56,6 +57,11 @@ final List<Override> tvOverrides = [
   }),
   // The page is the config server's guest; it does not run one.
   configServerProvider.overrideWith((ref) async => null),
+  // Uploaded files are reached on the TV.
+  mediaPathProvider.overrideWith(
+    (ref) async =>
+        (_, id) => ref.watch(tvApiProvider).mediaUrl(id),
+  ),
 ];
 
 /// The TV's config. Saving sends what changed.

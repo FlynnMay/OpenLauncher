@@ -18,26 +18,21 @@ Map<String, Object?> _kept(
 };
 
 extension LayoutRepair on Layout {
-  /// Enforces what the app relies on: the home screen first, unique ids,
-  /// sizes and positions that fit, bounded nesting, a valid [inbox].
+  /// Enforces what the app relies on: a screen at least, unique ids, sizes
+  /// and positions that fit, bounded nesting, a valid [inbox] and [startup].
   Layout normalised() {
     final screenIds = <String>{};
     final unique = [
       for (final screen in screens)
         if (screen.id.isNotEmpty && screenIds.add(screen.id)) screen,
     ];
-    final ordered = [
-      unique.where((screen) => screen.id == Layout.homeId).firstOrNull ??
-          Screen.empty(Layout.homeId),
-      for (final screen in unique)
-        if (screen.id != Layout.homeId) screen,
-    ];
+    final ordered = unique.isEmpty ? [Screen.empty(Layout.homeId)] : unique;
 
     // Cards name a node that opens by its id, so those keep theirs.
     final docked = {for (final container in opening) container.id};
     final reserved = {...docked};
-    // Containers and other nodes share one id space.
-    final ids = <String>{};
+    // Containers, other nodes and screens share one id space.
+    final ids = {for (final screen in ordered) screen.id};
     String fresh(String wanted, String fallback, {bool docked = false}) {
       final id = docked && reserved.remove(wanted)
           ? wanted
@@ -156,7 +151,9 @@ extension LayoutRepair on Layout {
     final result = [
       for (final screen in ordered) screen.withRoot(repair(screen.root, 1)),
     ];
-    final home = result.first;
+    final start =
+        result.where((screen) => screen.id == startup.screen).firstOrNull ??
+        result.first;
     final placed = {
       for (final screen in result)
         for (final item in screen.root.contents)
@@ -165,9 +162,15 @@ extension LayoutRepair on Layout {
     return Layout(
       screens: result,
       removed: removed.difference(placed),
-      inbox: home.root.cellContainers.any((container) => container.id == inbox)
+      inbox:
+          result.any(
+            (screen) => screen.root.cellContainers.any(
+              (container) => container.id == inbox,
+            ),
+          )
           ? inbox
-          : home.root.id,
+          : start.root.id,
+      startup: Startup(start.id, remember: startup.remember),
     );
   }
 

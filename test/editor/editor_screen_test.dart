@@ -82,7 +82,7 @@ void main() {
     final ref = await pump(tester, const Size(1600, 900));
     await tester.tap(find.text('Objects'));
     await tester.pumpAndSettle();
-    expect(inTree('Home screen'), findsOneWidget);
+    expect(inTree('home'), findsOneWidget);
 
     await tester.tap(inTree('Alpha'));
     await tester.pumpAndSettle();
@@ -106,7 +106,7 @@ void main() {
       {'text': picked.item.id},
     ]);
 
-    await tester.tap(inTree('Home screen'));
+    await tester.tap(inTree('home'));
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), isEmpty);
   });
@@ -181,7 +181,7 @@ void main() {
     // own do, with where it is docked.
     await tester.tap(find.text('Objects'));
     await tester.pumpAndSettle();
-    await tester.tap(inTree('Home screen'));
+    await tester.tap(inTree('home'));
     await tester.pumpAndSettle();
     expect(ref.read(selectionProvider), isEmpty);
     expect(find.text('Sidebars'), findsNothing);

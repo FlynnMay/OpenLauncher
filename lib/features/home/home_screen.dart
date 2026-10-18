@@ -6,6 +6,7 @@ import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
@@ -26,7 +27,7 @@ final _homeFocusProvider = Provider((ref) {
 /// and back.
 final _dockKeysProvider = Provider((ref) => <String, GlobalKey>{});
 
-/// Draws the home screen, then what is open over it, in the order it opened.
+/// Draws the screen shown, then what is open over it, in the order it opened.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -38,6 +39,7 @@ class HomeScreen extends ConsumerWidget {
     final layout = ref.watch(layoutViewProvider);
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
     final overlays = ref.watch(overlaysProvider);
+    final current = ref.watch(currentScreenProvider);
     final keys = ref.watch(_dockKeysProvider);
     final held = context.dependOnInheritedWidgetOfExactType<DockHold>()?.ids;
     void shut(OpenOverlay overlay) =>
@@ -66,11 +68,13 @@ class HomeScreen extends ConsumerWidget {
       child: DockedNode(container: container),
     );
     return PopScope(
-      // Back only closes the top modal overlay.
+      // Back closes the top modal overlay, else goes to the screen before.
       canPop: false,
       onPopInvokedWithResult: (_, _) {
         if (overlays.where((open) => open.modal).lastOrNull case final top?) {
           shut(top);
+        } else {
+          ref.read(shownScreensProvider.notifier).back();
         }
       },
       child: Scaffold(
@@ -96,7 +100,7 @@ class HomeScreen extends ConsumerWidget {
                   ],
                   data: (layout) {
                     final focus = FirstFocus();
-                    final root = layout.home.root;
+                    final root = (current ?? layout.start).root;
                     final over = {for (final open in overlays) open.id};
                     final empty = root.children.every(
                       (child) =>
@@ -139,7 +143,9 @@ class HomeScreen extends ConsumerWidget {
                     // An overlay: its backdrop, then its node, docked, placed
                     // by its transform, or lifted from its spot.
                     List<Widget> shown(OpenOverlay overlay) {
-                      final node = layout.find(overlay.id);
+                      final node = root.all
+                          .where((node) => node.id == overlay.id)
+                          .firstOrNull;
                       if (node == null) return const [];
                       return [
                         if (overlay.blur > 0 || overlay.dim > 0)

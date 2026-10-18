@@ -66,6 +66,13 @@ class Overlays extends Notifier<List<OpenOverlay>> {
     }
   }
 
+  /// Closes every one.
+  void closeAll() {
+    for (final open in [...state.reversed]) {
+      close(open.id);
+    }
+  }
+
   /// Takes [id] off, leaving its `open` variable.
   void remove(String id) {
     if (state.every((open) => open.id != id)) return;

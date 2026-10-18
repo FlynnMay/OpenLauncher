@@ -216,7 +216,7 @@ List<Node> settle(List<Node> items, int columns, {String? fixed}) {
 }
 
 /// [layout] with every container's children changed, and [added] (a new docked
-/// container) put on the home screen.
+/// container) put on the startup screen.
 Layout _rebuilt(
   Layout layout,
   List<Node> Function(Node container, List<Node> items) change, {
@@ -227,7 +227,7 @@ Layout _rebuilt(
   return added == null
       ? next
       : next.withContainer(
-          next.home.root.id,
+          next.start.root.id,
           (root) => root.copyWith(children: [...root.children, added]),
         );
 }
@@ -589,7 +589,7 @@ Layout withBar(Layout layout, String edge, Prefab prefab) =>
     barOn(layout, edge) != null
     ? layout
     : layout.withContainer(
-        layout.home.root.id,
+        layout.start.root.id,
         (root) => root.copyWith(
           children: [
             ...root.children,

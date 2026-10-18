@@ -8,6 +8,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/sources/sources.dart';
 import 'package:openlauncher/server/auth.dart';

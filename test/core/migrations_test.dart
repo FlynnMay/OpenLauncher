@@ -441,7 +441,7 @@ void main() {
     final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
     expect(
       [
-        for (final pane in layout.home.root.children)
+        for (final pane in layout.start.root.children)
           resolved(pane, prefabs).closeOnPress,
       ],
       [false, true, false, false],

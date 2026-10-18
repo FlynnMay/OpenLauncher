@@ -6,24 +6,30 @@ import 'package:openlauncher/core/layout/tree.dart';
 import 'package:openlauncher/core/modules/modules.dart';
 import 'package:openlauncher/core/nodes/node.dart';
 
-/// The saved layout: the screens, home first.
+/// The saved layout: the screens, and the one the launcher opens on.
 @immutable
 class Layout {
   const Layout({
     required this.screens,
     required this.inbox,
     this.removed = const {},
+    this.startup = const Startup(''),
   });
 
-  /// The home screen, and the entity that adds to and removes from it.
+  /// The screen a blank layout has.
   static const homeId = 'home';
 
   /// Only a home screen, receiving entities in its root; for when no pack
   /// gives a starting layout.
-  factory Layout.blank() =>
-      Layout(inbox: Screen.rootId(homeId), screens: [Screen.empty(homeId)]);
+  factory Layout.blank() => Layout(
+    inbox: Screen.rootId(homeId),
+    screens: [Screen.empty(homeId)],
+    startup: const Startup(homeId),
+  );
 
   final List<Screen> screens;
+
+  final Startup startup;
 
   /// The container that receives unplaced entities, e.g. new apps.
   final String inbox;
@@ -31,7 +37,8 @@ class Layout {
   /// Entities the user removed; they are not put back in the [inbox].
   final Set<String> removed;
 
-  Screen get home => screen(homeId)!;
+  /// The screen [startup] names, else the first.
+  Screen get start => screen(startup.screen) ?? screens.first;
 
   Screen? screen(String id) {
     for (final screen in screens) {
@@ -79,6 +86,7 @@ class Layout {
       removed: {
         ...?jsonOptional<List<Object?>>(json, 'removed')?.whereType<String>(),
       },
+      startup: Startup.fromJson(json['startup']),
     );
   }
 
@@ -86,6 +94,7 @@ class Layout {
     'v': saveVersion,
     'inbox': inbox,
     'removed': removed.toList(),
+    'startup': startup.toJson(),
     'screens': [for (final screen in screens) screen.toJson()],
   };
 
@@ -93,10 +102,12 @@ class Layout {
     List<Screen>? screens,
     String? inbox,
     Set<String>? removed,
+    Startup? startup,
   }) => Layout(
     screens: screens ?? this.screens,
     inbox: inbox ?? this.inbox,
     removed: removed ?? this.removed,
+    startup: startup ?? this.startup,
   );
 
   /// Rebuilds every container's children with [change]; only [screen]'s if

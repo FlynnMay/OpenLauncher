@@ -9,6 +9,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
@@ -154,7 +155,7 @@ void main() {
     return [
       for (final item in (await container.read(
         layoutViewProvider.future,
-      )).home.root.ownContents)
+      )).start.root.ownContents)
         if (all.byId(item.handed.firstOrNull) case final entity?
             when entity.category == appCategory ||
                 entity.category == inputCategory)
@@ -513,7 +514,7 @@ void main() {
     expect(response.statusCode, 200);
 
     final saved = store.config.layout;
-    final [top, rest, games] = saved.home.root.children;
+    final [top, rest, games] = saved.start.root.children;
     expect((top.mode, top.columns), (LayoutMode.grid, 4));
     expect((top.name, saved.inbox), ('Favourites', rest.id));
     // Too wide for the container. A card for a folder that does not exist is
@@ -531,7 +532,7 @@ void main() {
     expect(await onTv(), ['system:app/b', 'system:input/tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
     expect(view.all.map((item) => item.id), isNot(contains('i3')));
-    final folder = view.home.root.contents.elementAt(1);
+    final folder = view.start.root.contents.elementAt(1);
     expect(folder.prefab, folderPrefabId);
     expect(
       view

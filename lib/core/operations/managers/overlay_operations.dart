@@ -4,6 +4,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 
 /// Nodes drawn over the screen, and the popup an action fired in.
@@ -14,7 +15,13 @@ class OverlayOperationsManager implements OperationsManager {
 
   Overlays get _overlays => _ref.read(overlaysProvider.notifier);
 
-  Layout? get _layout => _ref.read(layoutViewProvider).value;
+  /// The node [id] on the screen shown.
+  Node? _find(String id) => _ref
+      .read(currentScreenProvider)
+      ?.root
+      .all
+      .where((node) => node.id == id)
+      .firstOrNull;
 
   @override
   late final List<Operation> operations = [
@@ -31,7 +38,7 @@ class OverlayOperationsManager implements OperationsManager {
       },
       run: (run) async {
         final id = run.arg('of') ?? run.component;
-        final node = id == null ? null : _layout?.find(id);
+        final node = id == null ? null : _find(id);
         if (node == null) {
           debugPrint('overlay/open: no node "$id" on this screen');
           return null;
@@ -82,11 +89,9 @@ class OverlayOperationsManager implements OperationsManager {
 
   /// The open overlay holding [component], if any.
   String? _around(String? component) {
-    final layout = _layout;
-    if (component == null || layout == null) return null;
+    if (component == null) return null;
     for (final open in _ref.read(overlaysProvider).reversed) {
-      if (layout.find(open.id)?.all.any((node) => node.id == component) ??
-          false) {
+      if (_find(open.id)?.all.any((node) => node.id == component) ?? false) {
         return open.id;
       }
     }

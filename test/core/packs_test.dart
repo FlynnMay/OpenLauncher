@@ -281,7 +281,7 @@ void main() {
           .read(configProvider.notifier)
           .setLayout(
             home.withContainer(
-              home.home.root.id,
+              home.start.root.id,
               (container) => container.copyWith(
                 children: [
                   ...container.children,

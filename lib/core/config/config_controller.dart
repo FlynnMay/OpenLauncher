@@ -66,6 +66,9 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     (c) => c.copyWith(layout: c.layout.withAdded(item, container).normalised()),
   );
 
+  Future<void> setLastScreen(String id) =>
+      _update((c) => c.copyWith(lastScreen: () => id));
+
   Future<void> setWallpapers(List<String> paths) =>
       _update((c) => c.copyWith(wallpapers: List.unmodifiable(paths)));
 

@@ -82,6 +82,7 @@ class ModuleSections extends ConsumerWidget {
         ModuleUse.anywhere => true,
         ModuleUse.inPrefab => inPrefab,
         ModuleUse.onScreen => !inPrefab,
+        ModuleUse.screenRoot => !inPrefab && parents.isEmpty,
       } &&
       !drawn.any((node) => node.added(type.name)) &&
       // One visual each.

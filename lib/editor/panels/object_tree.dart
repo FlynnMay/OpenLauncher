@@ -128,7 +128,7 @@ class ObjectTree extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           TreeView<String>.pick(
-            nodes: under(layout.home.root),
+            nodes: under(layout.start.root),
             picked: selection,
             onPicked: ref.read(selectionProvider.notifier).press,
           ),
@@ -145,13 +145,17 @@ class ObjectTree extends ConsumerWidget {
               TreeNode(
                 id: '$_screen${screen.id}',
                 value: '$_screen${screen.id}',
-                label: screen.id == Layout.homeId ? 'Home screen' : screen.id,
+                label: screen.root.name.isNotEmpty
+                    ? screen.root.name
+                    : screen.id.split(':').last,
                 leading: _icon(Icons.tv_outlined),
                 children: under(screen.root),
               ),
           ],
           // With no selection the launcher's own settings show.
-          picked: selection.isEmpty ? {'$_screen${Layout.homeId}'} : selection,
+          picked: selection.isEmpty
+              ? {'$_screen${layout.startup.screen}'}
+              : selection,
           onPicked: (value) => value.startsWith(_screen)
               ? ref.read(selectionProvider.notifier).clear()
               : ref.read(selectionProvider.notifier).press(value),

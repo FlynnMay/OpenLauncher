@@ -3,28 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-
-/// What an upload is for: where it is kept and what it may be.
-enum MediaUse {
-  picture('custom-icons', 8 * 1024 * 1024, video: false),
-  wallpaper('wallpaper', 300 * 1024 * 1024, video: true);
-
-  const MediaUse(this.folder, this.maxBytes, {required this.video});
-
-  final String folder;
-  final int maxBytes;
-  final bool video;
-}
-
-final mediaDirProvider = FutureProvider.family<Directory, MediaUse>((
-  ref,
-  use,
-) async {
-  final support = await getApplicationSupportDirectory();
-  return Directory(p.join(support.path, use.folder));
-});
 
 final mediaStoreProvider = Provider<MediaStore>(MediaStore.new);
 
@@ -136,6 +117,8 @@ class MediaStore {
     return {
       for (final path in config.iconOverrides.values) idOf(path),
       for (final path in config.wallpapers) idOf(path),
+      for (final screen in config.layout.screens)
+        ...?screen.root.wallpaperFiles,
     };
   }
 

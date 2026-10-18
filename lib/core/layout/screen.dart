@@ -39,3 +39,33 @@ class Screen {
 
   Map<String, Object?> toJson() => {'id': id, 'root': root.toJson()};
 }
+
+/// Which screen the launcher opens on: [screen], or the one shown last if it
+/// should [remember] and there is one.
+@immutable
+class Startup {
+  const Startup(this.screen, {this.remember = false});
+
+  final String screen;
+  final bool remember;
+
+  factory Startup.fromJson(Object? json) => switch (json) {
+    {'screen': final String screen} => Startup(
+      screen,
+      remember: json['remember'] == true,
+    ),
+    _ => const Startup(''),
+  };
+
+  Map<String, Object?> toJson() => {
+    'screen': screen,
+    if (remember) 'remember': true,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is Startup && other.screen == screen && other.remember == remember;
+
+  @override
+  int get hashCode => Object.hash(screen, remember);
+}

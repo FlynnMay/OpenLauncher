@@ -28,7 +28,7 @@ Layout prefabAsLayout(Prefab prefab, [String? variant, double? rowHeight]) =>
 
 /// The prefab's root in a layout made by [prefabAsLayout], if still there.
 Node? prefabRootIn(Layout layout, String rootId) =>
-    layout.home.root.children.where((child) => child.id == rootId).firstOrNull;
+    layout.start.root.children.where((child) => child.id == rootId).firstOrNull;
 
 Node _everywhere(Node component, Node Function(Node component) change) =>
     change(

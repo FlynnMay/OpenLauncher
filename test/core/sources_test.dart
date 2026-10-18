@@ -183,7 +183,7 @@ void main() {
       final (:id, layout: start) = await c.read(startingLayoutProvider.future);
       expect(id, 'system:home');
       expect(start.inbox, 'main');
-      final menu = start.home.root.children.last;
+      final menu = start.start.root.children.last;
       expect((menu.id, menu.prefab), ('quick-actions', 'system:quick-actions'));
 
       // Drawn, the instance is a folder in the middle, holding the prefab's

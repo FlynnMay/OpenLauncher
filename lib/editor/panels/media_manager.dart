@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
@@ -12,6 +13,8 @@ final mediaProvider = FutureProvider.autoDispose<List<MediaFile>>((ref) {
       (config) => Object.hashAll([
         ...?config.value?.wallpapers,
         ...?config.value?.iconOverrides.values,
+        for (final screen in config.value?.layout.screens ?? const <Screen>[])
+          ...?screen.root.wallpaperFiles,
       ]),
     ),
   );

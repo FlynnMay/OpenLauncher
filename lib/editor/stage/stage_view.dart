@@ -176,7 +176,7 @@ class _StageState extends ConsumerState<Stage> {
     final item = dragged.item;
     // The last docked container showing under the pointer, else the home
     // screen.
-    var container = layout.home.root;
+    var container = layout.start.root;
     String? bar;
     for (final dock in layout.docked) {
       // What an instance holds goes in its slot.
