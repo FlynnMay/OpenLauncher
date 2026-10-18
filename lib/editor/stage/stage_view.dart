@@ -75,7 +75,14 @@ class _StageState extends ConsumerState<Stage> {
       container.slotHolder ?? container.id,
       GlobalKey.new,
     ),
-    child: grid,
+    child: widget.editing && container.mode == LayoutMode.free
+        ? Consumer(
+            builder: (context, ref, child) => ref.watch(snapProvider)
+                ? SnapGrid(step: ref.watch(snapStepProvider), child: child!)
+                : child!,
+            child: grid,
+          )
+        : grid,
   );
 
   Widget _plainTile(Node item, Widget tile) => tile;
@@ -220,7 +227,11 @@ class _StageState extends ConsumerState<Stage> {
       grid.size,
       grid.globalToLocal(pointer),
       item,
-      stepIn(container, snap: ref.read(snapProvider)),
+      stepIn(
+        container,
+        snap: ref.read(snapProvider),
+        step: ref.read(snapStepProvider),
+      ),
     );
 
     // The marker is computed from the resulting layout so it cannot disagree
@@ -333,7 +344,11 @@ class _StageState extends ConsumerState<Stage> {
     if (grid == null || screen == null) return;
     // In the container's own pixels, which a prefab's are enlarged from.
     final by = moved / grid.getTransformTo(screen).getMaxScaleOnAxis();
-    final step = stepIn(container, snap: ref.read(snapProvider));
+    final step = stepIn(
+      container,
+      snap: ref.read(snapProvider),
+      step: ref.read(snapStepProvider),
+    );
     final Layout next;
     if (container.mode == LayoutMode.free) {
       next = placeItem(
