@@ -10,6 +10,7 @@ import 'package:openlauncher/editor/modules/sizing_editor.dart';
 import 'package:openlauncher/editor/modules/style_editor.dart';
 import 'package:openlauncher/editor/modules/triggers_editor.dart';
 import 'package:openlauncher/editor/modules/variables_editor.dart';
+import 'package:openlauncher/editor/modules/wallpaper_editor.dart';
 
 /// Modules whose section needs more than fields generated from their own.
 /// A module not listed gets those.
@@ -23,6 +24,7 @@ final moduleEditors = <String, ModuleEditor>{
   triggersModule.name: triggersEditor,
   variablesModule.name: variablesEditor,
   prefabRulesModule.name: prefabRulesEditor,
+  wallpaperModule.name: wallpaperEditor,
 };
 
 /// The body of [edit]'s section.

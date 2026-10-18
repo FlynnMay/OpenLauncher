@@ -42,7 +42,7 @@ class ModuleEdit {
   /// Whether each has the module switched on.
   final List<bool> on;
 
-  /// Their parents; none for a layer's root.
+  /// Their parents; none for a screen's root.
   final List<Node> parents;
 
   /// Called with a change to apply to each node.

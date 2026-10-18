@@ -30,7 +30,7 @@ Entity _entity(String name) => Entity(
   placed: true,
 );
 
-Layer _home(Node root) => Layer(id: 'home', root: root);
+Screen _home(Node root) => Screen(id: 'home', root: root);
 
 void main() {
   group('placeItems', () {
@@ -265,9 +265,12 @@ void main() {
         'system:app/c',
       ]);
 
-      final layout = Layout(inbox: 'inner', layers: [_home(root)]).normalised();
+      final layout = Layout(
+        inbox: 'inner',
+        screens: [_home(root)],
+      ).normalised();
       expect(layout.inbox, 'inner');
-      final outer = layout.home.root.children.last;
+      final outer = layout.start.root.children.last;
       expect((outer.x, outer.y, outer.w, outer.h), (0.5, 1, 3, 2.5));
       final json = layout.toJson();
       expect(Layout.fromJson(json).normalised().toJson(), json);
@@ -305,8 +308,8 @@ void main() {
       );
       final layout = Layout(
         inbox: 'nowhere',
-        layers: [
-          Layer(
+        screens: [
+          Screen(
             id: 'over',
             root: Node.layout(
               id: 'rail',
@@ -333,17 +336,17 @@ void main() {
               ],
             ),
           ),
-          Layer.empty('over'),
+          Screen.empty('over'),
         ],
       ).normalised();
 
-      // Home was missing: it comes first, with a root container that becomes
-      // the inbox.
-      expect(layout.layers.map((l) => l.id), ['home', 'over']);
-      expect(layout.inbox, layout.home.root.id);
-      expect(layout.home.root.mode, LayoutMode.grid);
+      // One of two screens with the same id goes. The one left is what it
+      // opens on, and its root the inbox.
+      expect(layout.screens.map((l) => l.id), ['over']);
+      expect(layout.startup.screen, 'over');
+      expect(layout.inbox, layout.start.root.id);
 
-      final rail = layout.layer('over')!.root;
+      final rail = layout.screen('over')!.root;
       expect(rail.columns, 4);
       final [first, other, inRail, games] = rail.children;
       expect((first.id, first.w), ('a', 3));
@@ -377,7 +380,7 @@ void main() {
       );
       final layout = Layout(
         inbox: 'f',
-        layers: [
+        screens: [
           _home(
             container(
               'global',
@@ -386,7 +389,7 @@ void main() {
           ),
         ],
       ).normalised();
-      final [free, grid] = layout.home.root.contents.toList();
+      final [free, grid] = layout.start.root.contents.toList();
       expect((free.x, free.y, free.w, free.h), (3.6, 0.3, 1.5, 0.1));
       // Kept inside the container, in whole cells.
       expect((grid.x, grid.y, grid.w, grid.h), (2, 0, 2, 1));
@@ -400,7 +403,7 @@ void main() {
       ).withValue(layoutModule.name, 'mode', 'grid');
       final layout = Layout(
         inbox: 'main',
-        layers: [
+        screens: [
           _home(Node.layout(id: 'root', children: [bar])),
         ],
       ).normalised();
@@ -411,12 +414,12 @@ void main() {
 
     test('rejects what is not a layout', () {
       expect(
-        () => Layout.fromJson(const {'layers': 'no'}),
+        () => Layout.fromJson(const {'screens': 'no'}),
         throwsFormatException,
       );
       expect(
         () => Layout.fromJson(const {
-          'layers': [
+          'screens': [
             {
               'id': 'home',
               'root': {
@@ -438,7 +441,7 @@ void main() {
       final layout = homeLayout(['system:app/b', 'system:app/gone'])
           .withEntities(['system:app/a', 'system:app/b'], instance: placedCard);
       // The quick actions come after it, an instance of the System pack's.
-      final [item, menu] = layout.home.root.children;
+      final [item, menu] = layout.start.root.children;
       expect(menu.prefab, 'system:quick-actions');
       expect(item.children.map((i) => i.handed.firstOrNull), [
         'system:app/b',
@@ -462,7 +465,7 @@ void main() {
     );
     final layout = Layout(
       inbox: 'a',
-      layers: [
+      screens: [
         _home(
           Node.layout(
             id: 'global',
@@ -476,7 +479,7 @@ void main() {
         ),
       ],
     ).normalised();
-    final containers = layout.home.root.containers.toList();
+    final containers = layout.start.root.containers.toList();
     expect(containers.map((p) => p.spacing), [
       4,
       null,
@@ -491,7 +494,7 @@ void main() {
     expect(
       layout
           .withEntities(['system:app/x'], instance: placedCard)
-          .home
+          .start
           .root
           .spacing,
       4,
@@ -501,7 +504,7 @@ void main() {
   test('a container keeps the padding it is given, within reason', () {
     final layout = Layout.fromJson(const {
       'v': saveVersion,
-      'layers': [
+      'screens': [
         {
           'id': 'home',
           'root': {
@@ -522,7 +525,7 @@ void main() {
         },
       ],
     }).normalised();
-    expect(layout.home.root.containers.map((p) => p.box.padding), [
+    expect(layout.start.root.containers.map((p) => p.box.padding), [
       24,
       80,
       null,
@@ -540,7 +543,7 @@ void main() {
         layout: Layout(
           inbox: 'main',
           removed: const {'system:app/c'},
-          layers: [
+          screens: [
             _home(
               Node.layout(
                 id: 'global',
@@ -565,7 +568,7 @@ void main() {
         entities,
         systemPrefabMap,
       );
-      final [folder, clock, container, games] = view.home.root.children;
+      final [folder, clock, container, games] = view.start.root.children;
 
       // Handed a node, not an entity.
       expect(config.layout.node(folder.handed.single)?.id, 'games');
@@ -581,7 +584,7 @@ void main() {
       // The folder is docked: on the layer, off its cells.
       expect(view.docked.map((p) => p.id), ['games']);
       expect(
-        placeItems(view.home.root.children, 5, LayoutMode.flow).last,
+        placeItems(view.start.root.children, 5, LayoutMode.flow).last,
         const Placement(0, 0, 0, 0),
       );
     });
@@ -590,7 +593,7 @@ void main() {
       final config = LauncherConfig(
         layout: Layout(
           inbox: 'global',
-          layers: [
+          screens: [
             _home(
               Node.layout(
                 id: 'global',
@@ -607,7 +610,7 @@ void main() {
         config.layout,
         entities,
         systemPrefabMap,
-      ).home.root.children.where((e) => e.isInstance);
+      ).start.root.children.where((e) => e.isInstance);
       expect(entries.map((e) => e.handed.firstOrNull), [
         'system:app/a',
         'system:app/a',
@@ -634,7 +637,7 @@ void main() {
         (BarEdge.top, DockModule.fill, 120, 0),
       );
       // It opens while it has the focus, by what is written on it.
-      expect(left.on.keys, Trigger.values.skip(2));
+      expect(left.on.keys, [Trigger.focus, Trigger.blur]);
       // A folder is hidden while closed; in the middle it is as tall as what
       // is in it.
       final folder = drawnInstance(folderOf('games'));
@@ -656,7 +659,7 @@ void main() {
 
     Layout holding(List<Node> docked) => Layout(
       inbox: 'main',
-      layers: [_home(Node.layout(id: 'root', children: docked))],
+      screens: [_home(Node.layout(id: 'root', children: docked))],
     ).normalised();
 
     test('sizes are written, read back and kept within bounds', () {
@@ -768,10 +771,10 @@ void main() {
       };
       final layout = Layout(
         inbox: 'p',
-        layers: [_home(Node.layout(id: 'p', style: style))],
+        screens: [_home(Node.layout(id: 'p', style: style))],
       ).normalised();
-      expect(layout.home.root.style, style);
-      final read = Node.fromJson(layout.home.root.toJson());
+      expect(layout.start.root.style, style);
+      final read = Node.fromJson(layout.start.root.toJson());
       expect(read.style, style);
       expect(read.box.corners, [0, 8, 20, 4]);
     });
@@ -780,7 +783,7 @@ void main() {
       final view = layoutWith(
         Layout(
           inbox: 'main',
-          layers: [
+          screens: [
             _home(
               Node.layout(
                 id: 'main',
@@ -795,7 +798,7 @@ void main() {
         const [Entity(id: 'system:app/a', category: appCategory, label: 'A')],
         systemPrefabMap,
       );
-      expect(view.home.root.shown.first.variant, 'row');
+      expect(view.start.root.shown.first.variant, 'row');
     });
   });
 
@@ -833,14 +836,14 @@ void main() {
 
     test('a broken layout does not lose the rest', () {
       final config = LauncherConfig.fromJson(const {
-        'layout': {'layers': 7},
+        'layout': {'screens': 7},
         'wallpapers': ['/w.png'],
       });
       expect(config.wallpapers, ['/w.png']);
       expect(config.wallpaperEvery, 0);
       // The store gives it the starting layout.
       expect(config.ownLayout, isFalse);
-      expect(config.layout.home.root.children, isEmpty);
+      expect(config.layout.start.root.children, isEmpty);
     });
   });
 }

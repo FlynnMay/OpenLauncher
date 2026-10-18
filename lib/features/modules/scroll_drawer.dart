@@ -3,7 +3,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/features/modules/scroll_bars.dart';
 import 'package:openlauncher/features/modules/style_drawer.dart';
 
-/// Scrolls a whole screen of tiles, a layer's root or a docked container, which
+/// Scrolls a whole screen of tiles, a screen's root or a docked container, which
 /// centres the focused one.
 class ScreenScrollController extends ScrollController {}
 

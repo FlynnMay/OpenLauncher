@@ -26,7 +26,7 @@ class ModuleSections extends ConsumerWidget {
   /// As saved.
   final List<Node> nodes;
 
-  /// Their parents; none for a layer's root.
+  /// Their parents; none for a screen's root.
   final List<Node> parents;
 
   final void Function(Node Function(Node node) how) onChanged;
@@ -41,7 +41,7 @@ class ModuleSections extends ConsumerWidget {
     final laidOut =
         parents.isNotEmpty &&
         parents.every((parent) => parent.has(layoutModule.name)) &&
-        !drawn.any((node) => node.isDocked);
+        !drawn.any((node) => node.offCells);
     ModuleEdit edit(ModuleType type) => ModuleEdit(
       type: type,
       nodes: nodes,
@@ -82,6 +82,7 @@ class ModuleSections extends ConsumerWidget {
         ModuleUse.anywhere => true,
         ModuleUse.inPrefab => inPrefab,
         ModuleUse.onScreen => !inPrefab,
+        ModuleUse.screenRoot => !inPrefab && parents.isEmpty,
       } &&
       !drawn.any((node) => node.added(type.name)) &&
       // One visual each.

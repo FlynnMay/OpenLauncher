@@ -4,29 +4,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/core/layers/layers.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/core/overlays/overlays.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
+import 'package:openlauncher/features/modules/lifted.dart';
 import 'package:openlauncher/features/settings/settings_screen.dart';
 import 'package:openlauncher/features/wallpaper/wallpaper_background.dart';
 
 /// The home screen's focus scope, kept so focus can return from a modal
-/// layer.
+/// overlay.
 final _homeFocusProvider = Provider((ref) {
   final node = FocusScopeNode(debugLabel: 'home');
   ref.onDispose(node.dispose);
   return node;
 });
 
-/// One key per docked container so its state survives moving between layers.
+/// One key per docked container so its state survives going over the screen
+/// and back.
 final _dockKeysProvider = Provider((ref) => <String, GlobalKey>{});
 
-/// Draws the layers: the saved ones, the home screen first, then those made
-/// since.
+/// Draws the screen shown, then what is open over it, in the order it opened.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -37,23 +38,28 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = ref.watch(layoutViewProvider);
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    final above = ref.watch(layersProvider);
+    final overlays = ref.watch(overlaysProvider);
+    final current = ref.watch(currentScreenProvider);
     final keys = ref.watch(_dockKeysProvider);
-    // Hides everything on [layer], which closes it.
-    void shut(Layer layer) {
-      for (final id in layer.holds) {
-        ref.read(runtimeVarsProvider.notifier).set(id, openVar, false);
-      }
-    }
+    final held = context.dependOnInheritedWidgetOfExactType<DockHold>()?.ids;
+    void shut(OpenOverlay overlay) =>
+        ref.read(overlaysProvider.notifier).close(overlay.id);
 
-    // When the last modal layer closes, focus returns to the home screen.
+    // A modal overlay closing gives the focus back to what opened it, else to
+    // the home screen.
     final home = ref.watch(_homeFocusProvider);
-    ref.listen(layersProvider, (before, now) {
-      bool keeps(List<Layer>? layers) =>
-          layers?.any((layer) => layer.modal) ?? false;
-      if (keeps(before) && !keeps(now)) {
+    ref.listen(overlaysProvider, (before, now) {
+      for (final gone in before ?? const <OpenOverlay>[]) {
+        if (!gone.modal || now.any((open) => open.id == gone.id)) continue;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (home.context != null) home.requestFocus();
+          final opener = gone.opener;
+          if (opener != null &&
+              opener.context != null &&
+              opener.canRequestFocus) {
+            opener.requestFocus();
+          } else if (home.context != null && !now.any((open) => open.modal)) {
+            home.requestFocus();
+          }
         });
       }
     });
@@ -62,11 +68,13 @@ class HomeScreen extends ConsumerWidget {
       child: DockedNode(container: container),
     );
     return PopScope(
-      // Back only closes the top modal layer.
+      // Back closes the top modal overlay, else goes to the screen before.
       canPop: false,
       onPopInvokedWithResult: (_, _) {
-        if (above.where((layer) => layer.modal).lastOrNull case final top?) {
+        if (overlays.where((open) => open.modal).lastOrNull case final top?) {
           shut(top);
+        } else {
+          ref.read(shownScreensProvider.notifier).back();
         }
       },
       child: Scaffold(
@@ -92,105 +100,118 @@ class HomeScreen extends ConsumerWidget {
                   ],
                   data: (layout) {
                     final focus = FirstFocus();
-                    // A layer's backdrop, its own container, and the docked
-                    // containers on it: its own that have not been moved, and
-                    // those moved to it.
-                    List<Widget> shown(Layer layer) {
-                      final root = layer.root;
-                      final first = layer.id == Layout.homeId;
-                      final empty = root.children.every(
-                        (child) =>
-                            child.isDocked ||
-                            child.isContainer && child.isEmpty,
-                      );
+                    final root = (current ?? layout.start).root;
+                    final over = {for (final open in overlays) open.id};
+                    final empty = root.children.every(
+                      (child) =>
+                          child.offCells || child.isContainer && child.isEmpty,
+                    );
+                    // The screen: its root filling it, what is docked and not
+                    // over it, and an Overlay the editor holds open.
+                    final screen = [
+                      if (!empty)
+                        // Margins are the user's.
+                        _scrolling(
+                          root,
+                          Padding(
+                            padding: EdgeInsets.all(root.box.padding ?? 0),
+                            child: ChildrenLayout(
+                              container: root,
+                              tile: (entry) =>
+                                  NodeView(component: entry, focus: focus),
+                            ),
+                          ),
+                        )
+                      else
+                        const Center(child: Text('Nothing here yet')),
+                      for (final node in root.all)
+                        if (!over.contains(node.id))
+                          if (node.isDocked)
+                            docked(node)
+                          else if (node.isOverlay &&
+                              (held?.contains(node.id) ?? false))
+                            _Placed(node: node),
+                      Positioned(
+                        top: _padding.top,
+                        right: _padding.right,
+                        child: _Header(
+                          settingsPlaced: _hasSettings(layout, entities),
+                        ),
+                      ),
+                    ];
+
+                    // An overlay: its backdrop, then its node, docked, placed
+                    // by its transform, or lifted from its spot.
+                    List<Widget> shown(OpenOverlay overlay) {
+                      final node = root.all
+                          .where((node) => node.id == overlay.id)
+                          .firstOrNull;
+                      if (node == null) return const [];
                       return [
-                        if (layer.blur > 0 || layer.dim > 0)
+                        if (overlay.blur > 0 || overlay.dim > 0)
                           Positioned.fill(
                             child: IgnorePointer(
                               child: ClipRect(
                                 child: BackdropFilter(
                                   filter: ImageFilter.blur(
-                                    sigmaX: layer.blur,
-                                    sigmaY: layer.blur,
+                                    sigmaX: overlay.blur,
+                                    sigmaY: overlay.blur,
                                   ),
                                   child: ColoredBox(
                                     color: Colors.black.withValues(
-                                      alpha: layer.dim,
+                                      alpha: overlay.dim,
                                     ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        // Tapping outside a modal layer closes it.
-                        if (layer.modal)
+                        // Tapping outside a modal overlay closes it.
+                        if (overlay.modal)
                           Positioned.fill(
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
-                              onTap: () => shut(layer),
+                              onTap: () => shut(overlay),
                             ),
                           ),
-                        if (!empty)
-                          // The root container fills the screen; margins are
-                          // the user's.
-                          _scrolling(
-                            root,
-                            Padding(
-                              padding: EdgeInsets.all(root.box.padding ?? 0),
-                              child: ChildrenLayout(
-                                container: root,
-                                tile: (entry) =>
-                                    NodeView(component: entry, focus: focus),
-                              ),
-                            ),
-                          )
-                        else if (first)
-                          const Center(child: Text('Nothing here yet')),
-                        for (final container in root.all)
-                          if (container.isDocked &&
-                              layerOf(above, container.id) == null)
-                            docked(container),
-                        for (final id in layer.holds)
-                          if (layout.container(id) case final container?
-                              when container.isDocked)
-                            docked(container),
-                        if (first)
-                          Positioned(
-                            top: _padding.top,
-                            right: _padding.right,
-                            child: _Header(
-                              settingsPlaced: _hasSettings(layout, entities),
-                            ),
+                        if (node.isDocked)
+                          docked(node)
+                        else if (node.isOverlay)
+                          _Placed(node: node)
+                        else
+                          Lifted(
+                            id: node.id,
+                            child: NodeView(component: node, lifted: true),
                           ),
                       ];
                     }
 
-                    final layers = [...layout.layers, ...above];
                     return [
-                      // Layers that are not modal share one focus scope, so
-                      // the D-pad moves between them.
+                      // The screen and overlays that are not modal share one
+                      // focus scope, so the D-pad moves between them.
                       Positioned.fill(
                         child: FocusScope(
                           node: home,
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              for (final layer in layers)
-                                if (!layer.modal) ...shown(layer),
+                              ...screen,
+                              for (final overlay in overlays)
+                                if (!overlay.modal) ...shown(overlay),
                             ],
                           ),
                         ),
                       ),
-                      // Modal layers on top, lowest first, each with the
+                      // Modal overlays on top, lowest first, each with the
                       // focus to itself.
-                      for (final layer in layers)
-                        if (layer.modal)
+                      for (final overlay in overlays)
+                        if (overlay.modal)
                           Positioned.fill(
-                            key: ValueKey('layer ${layer.id}'),
+                            key: ValueKey('overlay ${overlay.id}'),
                             child: _Held(
                               child: Stack(
                                 fit: StackFit.expand,
-                                children: shown(layer),
+                                children: shown(overlay),
                               ),
                             ),
                           ),
@@ -224,6 +245,33 @@ class HomeScreen extends ConsumerWidget {
   static const _settings = 'launcher://settings/open';
 }
 
+/// An Overlay that does not dock, where its transform puts it on the screen.
+class _Placed extends StatefulWidget {
+  const _Placed({required this.node});
+
+  final Node node;
+
+  @override
+  State<_Placed> createState() => _PlacedState();
+}
+
+class _PlacedState extends State<_Placed> {
+  /// The first tile in it takes the focus as it opens.
+  final _first = FirstFocus();
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, screen) => Stack(
+      children: [
+        Positioned.fromRect(
+          rect: widget.node.transform.rectIn(screen.biggest),
+          child: NodeView(component: widget.node, screen: true, focus: _first),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Traps the focus and takes it on appearing.
 class _Held extends StatefulWidget {
   const _Held({required this.child});
@@ -235,7 +283,7 @@ class _Held extends StatefulWidget {
 }
 
 class _HeldState extends State<_Held> {
-  final _scope = FocusScopeNode(debugLabel: 'modal layer');
+  final _scope = FocusScopeNode(debugLabel: 'modal overlay');
 
   @override
   void initState() {

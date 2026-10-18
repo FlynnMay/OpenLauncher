@@ -90,9 +90,11 @@ class TvApi {
 
   Uri _at(String path) => _base.resolve(path);
 
-  String _mediaUrl(String id) => _at('/api/media/$id').toString();
+  /// Where the editor reaches uploaded file [id].
+  String mediaUrl(String id) => _at('/api/media/$id').toString();
 
-  static String _mediaId(String url) => Uri.parse(url).pathSegments.last;
+  /// The id of the uploaded file at [url].
+  static String mediaIdOf(String url) => Uri.parse(url).pathSegments.last;
 
   /// Follows the TV's event stream, reconnecting when it drops. Fails only if
   /// the first connection does.
@@ -138,9 +140,9 @@ class TvApi {
       config: config.copyWith(
         iconOverrides: {
           for (final MapEntry(:key, value: id) in config.iconOverrides.entries)
-            key: _mediaUrl(id),
+            key: mediaUrl(id),
         },
-        wallpapers: [for (final id in config.wallpapers) _mediaUrl(id)],
+        wallpapers: [for (final id in config.wallpapers) mediaUrl(id)],
       ),
       visuals: [
         for (final Map visual in json['visuals'] as List)
@@ -254,17 +256,20 @@ class TvApi {
   Future<void> revertLayout() => _ask('DELETE', '/api/layout');
 
   /// Sends the changed config keys, files as ids.
-  Future<void> setConfig(Map<String, Object?> changed) =>
-      _ask('PUT', '/api/config', {
-        ...changed,
-        if (changed['iconOverrides'] case final Map<Object?, Object?> pictures)
-          'iconOverrides': {
-            for (final MapEntry(:key, :value) in pictures.entries)
-              key: _mediaId(value as String),
-          },
-        if (changed['wallpapers'] case final List<Object?> wallpapers)
-          'wallpapers': [for (final url in wallpapers) _mediaId(url as String)],
-      });
+  Future<void> setConfig(Map<String, Object?> changed) => _ask(
+    'PUT',
+    '/api/config',
+    {
+      ...changed,
+      if (changed['iconOverrides'] case final Map<Object?, Object?> pictures)
+        'iconOverrides': {
+          for (final MapEntry(:key, :value) in pictures.entries)
+            key: mediaIdOf(value as String),
+        },
+      if (changed['wallpapers'] case final List<Object?> wallpapers)
+        'wallpapers': [for (final url in wallpapers) mediaIdOf(url as String)],
+    },
+  );
 
   /// Uploads [file] and returns its URL; nothing points at it until the
   /// config does.
@@ -273,7 +278,7 @@ class TvApi {
       file,
       '/api/media?as=${wallpaper ? 'wallpaper' : 'picture'}',
     );
-    return _mediaUrl(reply['id'] as String);
+    return mediaUrl(reply['id'] as String);
   }
 
   /// Every uploaded file, newest first.
@@ -281,7 +286,7 @@ class TvApi {
     for (final Map file in (await _ask('GET', '/api/media') as Map)['files'])
       (
         id: file['id'] as String,
-        url: _mediaUrl(file['id'] as String),
+        url: mediaUrl(file['id'] as String),
         bytes: (file['bytes'] as num).toInt(),
         used: file['used'] == true,
       ),

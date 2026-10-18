@@ -9,6 +9,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
@@ -154,7 +155,7 @@ void main() {
     return [
       for (final item in (await container.read(
         layoutViewProvider.future,
-      )).home.root.ownContents)
+      )).start.root.ownContents)
         if (all.byId(item.handed.firstOrNull) case final entity?
             when entity.category == appCategory ||
                 entity.category == inputCategory)
@@ -208,7 +209,7 @@ void main() {
     final page = await state();
     // Nothing has been arranged yet, so every entity is in the one section.
     // It sits in the screen's global container.
-    final section = page['layout']['layers'][0]['root']['children'].first;
+    final section = page['layout']['screens'][0]['root']['children'].first;
     expect(page['layout']['inbox'], section['id']);
     expect(
       (section['children'] as List).map(
@@ -230,7 +231,7 @@ void main() {
       'preview',
     ]);
     // The quick actions are an instance of the System pack's menu.
-    final menu = (page['layout']['layers'][0]['root']['children'] as List)
+    final menu = (page['layout']['screens'][0]['root']['children'] as List)
         .firstWhere((item) => item['id'] == 'quick-actions');
     expect(menu['prefab'], 'system:quick-actions');
     expect(page['ownLayout'], isFalse);
@@ -245,7 +246,7 @@ void main() {
 
   test('the layout is reverted to the System pack\'s', () async {
     List<Object?> ids(Map<String, dynamic> page) => [
-      for (final item in page['layout']['layers'][0]['root']['children'])
+      for (final item in page['layout']['screens'][0]['root']['children'])
         item['id'],
     ];
     final start = await state();
@@ -253,7 +254,7 @@ void main() {
 
     // Edited, it is the user's and saved.
     final layout = (start['layout'] as Map).cast<String, Object?>();
-    (layout['layers'] as List)[0]['root']['children'].removeLast();
+    (layout['screens'] as List)[0]['root']['children'].removeLast();
     expect((await call('PUT', '/api/layout', body: layout)).statusCode, 200);
     expect(ids(await state()), ['main']);
     expect((await state())['ownLayout'], isTrue);
@@ -429,7 +430,7 @@ void main() {
       '/api/layout',
       body: {
         'inbox': 'rest',
-        'layers': [
+        'screens': [
           {
             'id': 'home',
             'root': {
@@ -513,7 +514,7 @@ void main() {
     expect(response.statusCode, 200);
 
     final saved = store.config.layout;
-    final [top, rest, games] = saved.home.root.children;
+    final [top, rest, games] = saved.start.root.children;
     expect((top.mode, top.columns), (LayoutMode.grid, 4));
     expect((top.name, saved.inbox), ('Favourites', rest.id));
     // Too wide for the container. A card for a folder that does not exist is
@@ -531,7 +532,7 @@ void main() {
     expect(await onTv(), ['system:app/b', 'system:input/tv/HW1']);
     final view = await container.read(layoutViewProvider.future);
     expect(view.all.map((item) => item.id), isNot(contains('i3')));
-    final folder = view.home.root.contents.elementAt(1);
+    final folder = view.start.root.contents.elementAt(1);
     expect(folder.prefab, folderPrefabId);
     expect(
       view
@@ -540,7 +541,8 @@ void main() {
           .map((entry) => entry.handed.firstOrNull),
       ['system:app/a'],
     );
-    final shown = (await state())['layout']['layers'][0]['root']['children'][1];
+    final shown =
+        (await state())['layout']['screens'][0]['root']['children'][1];
     expect(
       (shown['children'] as List).map(
         (i) => i['modules']?['variables']?['source']?['value'],
@@ -551,7 +553,7 @@ void main() {
 
   test('a node\'s picture goes with the node, and its file stays', () async {
     Map<String, Object?> layout(List<Object?> folders) => {
-      'layers': [
+      'screens': [
         {
           'id': 'home',
           'root': {'id': 'home/root', 'children': folders},
@@ -731,7 +733,7 @@ void main() {
   test('entities left out of the layout are removed, not put back', () async {
     final page = await state();
     final layout = page['layout'] as Map<String, dynamic>;
-    final section = layout['layers'][0]['root']['children'][0];
+    final section = layout['screens'][0]['root']['children'][0];
     // What the page does to remove an entity: drop its item and say so.
     (section['children'] as List).removeWhere(
       (i) =>
@@ -752,7 +754,7 @@ void main() {
 
     // Adding it again, twice: an entity can be in more than one place.
     final again = after['layout'] as Map<String, dynamic>;
-    (again['layers'][0]['root']['children'][0]['children'] as List).addAll([
+    (again['screens'][0]['root']['children'][0]['children'] as List).addAll([
       for (final id in ['x1', 'x2'])
         {
           'id': id,
@@ -1036,7 +1038,7 @@ void main() {
         'PUT',
         '/api/layout',
         body: {
-          'layers': [1],
+          'screens': [1],
         },
       ),
       400,

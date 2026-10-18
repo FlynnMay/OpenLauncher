@@ -14,24 +14,24 @@ extension NodeTree on Node {
     }
   }
 
-  /// The same, skipping docked ones.
+  /// The same, skipping those off the cells.
   Iterable<Node> get cellContainers sync* {
     if (!isInstance) yield this;
     for (final child in children) {
-      if (!child.isDocked) yield* child.cellContainers;
+      if (!child.offCells) yield* child.cellContainers;
     }
   }
 
   /// Every node in this container and the containers inside it that is not a
-  /// container, or an instance that docks.
+  /// container, or an instance off the cells.
   Iterable<Node> get contents => containers
       .expand((container) => container.children)
-      .where((child) => !child.isContainer && !child.isDocked);
+      .where((child) => !child.isContainer && !child.offCells);
 
-  /// The same, skipping what is in docked containers.
+  /// The same, skipping what is in containers off the cells.
   Iterable<Node> get ownContents => cellContainers
       .expand((container) => container.children)
-      .where((child) => !child.isContainer && !child.isDocked);
+      .where((child) => !child.isContainer && !child.offCells);
 
   /// True if it holds nothing but empty containers.
   bool get isEmpty =>

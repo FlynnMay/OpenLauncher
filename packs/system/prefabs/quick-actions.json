@@ -15,30 +15,15 @@
         "opening": "instant",
         "closeOnPress": true
       },
+      "overlay": {
+        "dim": 54,
+        "modal": true
+      },
       "variables": {
         "source": {
           "value": null,
           "type": "entity"
         }
-      },
-      "triggers": {
-        "reveal": [
-          {
-            "run": "launcher://layers/new",
-            "with": {
-              "dim": 0.54,
-              "modal": true
-            }
-          },
-          {
-            "run": "launcher://layers/raise"
-          }
-        ],
-        "hide": [
-          {
-            "run": "launcher://layers/close"
-          }
-        ]
       },
       "style": {
         "background": "#1a1c23fa",

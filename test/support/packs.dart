@@ -58,7 +58,7 @@ final _systemContents = PackContents.parse(systemPack, {
 
 /// The System pack's starting layout, with [order] placed in its inbox.
 Layout homeLayout([List<String> order = const []]) {
-  final home = _systemContents.layouts[_systemContents.start]!;
+  final home = _systemContents.starting!;
   return home.rebuild(
     (container, items) => container.id != home.inbox
         ? items

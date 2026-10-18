@@ -23,7 +23,7 @@ List<Widget> triggersEditor(ModuleEdit edit) {
         Trigger.hold,
         Trigger.focus,
         Trigger.blur,
-        if (edit.shown.isDocked) ...[Trigger.reveal, Trigger.hide],
+        if (edit.shown.offCells) ...[Trigger.reveal, Trigger.hide],
       ],
       onChanged: (on) => edit.onChanged((node) => withPressable(node, on)),
     ),

@@ -17,8 +17,8 @@ void main() {
   test('new things are named after what they are, without repeating', () {
     final layout = Layout(
       inbox: 'home/root',
-      layers: [
-        Layer(
+      screens: [
+        Screen(
           id: 'home',
           root: Node.layout(
             id: 'home/root',

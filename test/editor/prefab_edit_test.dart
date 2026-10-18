@@ -26,8 +26,8 @@ void main() {
 
   test('a prefab is edited as a layout of its root alone', () {
     final layout = prefabAsLayout(card);
-    expect(layout.home.root.id, prefabStageId);
-    expect(layout.home.root.children.single.toJson(), card.root.toJson());
+    expect(layout.start.root.id, prefabStageId);
+    expect(layout.start.root.children.single.toJson(), card.root.toJson());
     // Its parts are found like anything on the screen, and new ids are free
     // among them.
     final name = findItems(layout, {'name'}).single;

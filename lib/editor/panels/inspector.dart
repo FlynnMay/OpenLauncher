@@ -21,6 +21,11 @@ class Inspector extends ConsumerWidget {
     final found = ref.watch(selectedProvider);
     final prefab = ref.watch(editedPrefabProvider);
     final layout = ref.watch(editedLayoutProvider);
+    final launcher = ref.watch(inspectLauncherProvider);
+    final screenRoot = layout?.start.root;
+    final screenName = screenRoot == null || screenRoot.name.isEmpty
+        ? (layout?.start.id.split(':').last ?? 'Screen')
+        : screenRoot.name;
 
     String name(Found one) => prefab != null
         ? one.item.id
@@ -48,7 +53,9 @@ class Inspector extends ConsumerWidget {
                     Flexible(
                       child: Text(
                         switch (found.length) {
-                          0 => prefab?.name ?? 'Launcher',
+                          0 =>
+                            prefab?.name ??
+                                (launcher ? 'Launcher' : screenName),
                           1 => name(found.single),
                           final count => '$count selected',
                         },
@@ -95,7 +102,7 @@ class Inspector extends ConsumerWidget {
           onChanged: ref.read(selectSeveralProvider.notifier).set,
         ),
         if (found.isEmpty && prefab == null)
-          const GlobalProperties()
+          launcher ? const GlobalProperties() : const ScreenProperties()
         else if (found.isEmpty) ...[
           PrefabDetails(prefab: prefab!),
           // The root is the prefab: its variables, actions, style and size.

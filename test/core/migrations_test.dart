@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_overlays.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -194,16 +196,13 @@ void main() {
     });
     expect(mine['feed'], {'url': 'http://ha/x', 'every': 30});
     expect(now['feed'], 'launcher://clock');
-    // The rest of the step makes nodes of them: triggers are a module.
-    final on =
-        (next['layout']! as Map)['layers'][0]['root']['modules']['triggers'];
-    expect(on['reveal'], [
-      {
-        'run': 'launcher://layers/new',
-        'with': {'dim': 0.5},
-      },
-      {'run': 'launcher://layers/raise'},
-    ]);
+    // The rest of the step makes nodes of them: triggers are a module, and
+    // one that put itself on a new layer is an Overlay.
+    final modules =
+        (next['layout']! as Map)['screens'][0]['root']['modules'] as Map;
+    final on = modules['triggers'];
+    expect(modules['overlay'], {'dim': 50});
+    expect(on['reveal'], isNull);
     expect(on['press'], [
       {
         'run': 'launcher://variables/set',
@@ -211,7 +210,7 @@ void main() {
       },
       {
         'run': 'launcher://layout/remove',
-        'with': {'layer': 'home', 'what': 'system:app/a'},
+        'with': {'screen': 'home', 'what': 'system:app/a'},
       },
       {'do': 'access', 'entity': 'system:device', 'access': 'homeButton'},
       {'do': 'open', 'entity': '{{source.id}}'},
@@ -299,7 +298,7 @@ void main() {
     );
     final layout = next['layout']! as Map;
     expect(layout['removed'], ['system:app/gone', 'mine']);
-    final root = layout['layers'][0]['root'] as Map;
+    final root = layout['screens'][0]['root'] as Map;
     expect(root['modules']['prefabRules'], {
       'system:app-card': {'variant': 'row'},
       'mine': {'variant': 'x'},
@@ -343,7 +342,7 @@ void main() {
         ],
       },
     });
-    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    final root = (next['layout']! as Map)['screens'][0]['root'] as Map;
     expect(root['children'], [
       {
         'id': 'main',
@@ -395,7 +394,7 @@ void main() {
         ],
       },
     });
-    final root = (next['layout']! as Map)['layers'][0]['root'] as Map;
+    final root = (next['layout']! as Map)['screens'][0]['root'] as Map;
     expect(
       [for (final Map pane in root['children']) pane['prefab']],
       [null, 'system:folder', 'system:sidebar'],
@@ -442,7 +441,7 @@ void main() {
     final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
     expect(
       [
-        for (final pane in layout.home.root.children)
+        for (final pane in layout.start.root.children)
           resolved(pane, prefabs).closeOnPress,
       ],
       [false, true, false, false],
@@ -1201,6 +1200,110 @@ void main() {
     expect((next['prefabs']! as List)[0]['root']['children'], isEmpty);
     expect((next['entities']! as List)[0]['actions'], {
       'forceStop': {'run': 'launchApp'},
+    });
+  });
+
+  test('2 to 3: layers are screens, and what made them makes Overlays', () {
+    Json button(List<Object?> press) => {
+      'id': 'b',
+      'modules': {
+        'triggers': {'press': press},
+      },
+    };
+    // Mutable all through, as a save read from JSON is.
+    final save = jsonDecode(
+      jsonEncode({
+        'layout': {
+          'layers': [
+            {
+              'id': 'home',
+              'blur': 3,
+              'root': {
+                'id': 'home/root',
+                'children': [
+                  button([
+                    {
+                      'run': 'launcher://layers/new',
+                      'with': {'dim': 0.4, 'modal': true},
+                    },
+                    {
+                      'run': 'launcher://layers/raise',
+                      'with': {'of': 'menu'},
+                    },
+                  ]),
+                ],
+              },
+            },
+            {
+              'id': 'top',
+              'dim': 0.25,
+              'modal': true,
+              'root': {'id': 'top/root', 'children': <Object?>[]},
+            },
+          ],
+        },
+        'prefabs': [
+          {
+            'id': 'bar',
+            'root': {
+              'id': 'bar',
+              'modules': {
+                'dock': {'position': 'left'},
+                'triggers': {
+                  'focus': [
+                    {'run': 'launcher://variables/set'},
+                  ],
+                  'reveal': [
+                    {'run': 'launcher://layers/new'},
+                    {'run': 'launcher://layers/raise'},
+                  ],
+                  'hide': [
+                    {'run': 'launcher://layers/close'},
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        'entities': [
+          {
+            'id': 'me:shut',
+            'actions': {
+              'shut': {
+                'run': 'launcher://layers/close',
+                'with': {'of': 'menu'},
+              },
+            },
+          },
+        ],
+      }),
+    ) as Json;
+    overlaysForLayers(save, Device.unknown);
+    final layout = save['layout']! as Json;
+    expect(layout.containsKey('layers'), isFalse);
+    final [home] = layout['screens']! as List;
+    expect((home as Map).keys, ['id', 'root']);
+    final [first, top] = home['root']['children'] as List;
+    // A new layer then a raise opens what is raised, with the backdrop.
+    expect(first['modules']['triggers']['press'], [
+      {
+        'run': 'launcher://overlay/open',
+        'with': {'of': 'menu', 'dim': 40, 'modal': true},
+      },
+    ]);
+    // A layer above home is an Overlay on it.
+    expect(top['id'], 'top/root');
+    expect(top['name'], 'top');
+    expect(top['modules'], {
+      'overlay': {'dim': 25, 'modal': true},
+    });
+    // What put itself on a layer as it showed is an Overlay.
+    final bar = ((save['prefabs']! as List).single as Map)['root']['modules'];
+    expect(bar['overlay'], <String, Object?>{});
+    expect((bar['triggers'] as Map).keys, ['focus']);
+    expect(((save['entities']! as List).single as Map)['actions']['shut'], {
+      'run': 'launcher://overlay/close',
+      'with': {'of': 'menu'},
     });
   });
 }

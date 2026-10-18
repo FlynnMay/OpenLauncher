@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
@@ -10,15 +11,9 @@ class WallpaperSettings extends ConsumerStatefulWidget {
   const WallpaperSettings({super.key});
 
   /// Rotation intervals, in minutes.
-  static const turns = {
-    0: 'Stay on the first',
-    1: 'Every minute',
-    5: 'Every 5 minutes',
-    15: 'Every 15 minutes',
-    30: 'Every half hour',
-    60: 'Every hour',
-    180: 'Every 3 hours',
-    1440: 'Every day',
+  static final turns = {
+    for (final MapEntry(:key, :value) in wallpaperTurns.entries)
+      int.parse(key): value,
   };
 
   @override

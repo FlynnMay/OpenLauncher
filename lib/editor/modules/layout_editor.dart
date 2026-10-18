@@ -14,7 +14,7 @@ List<Widget> layoutEditor(ModuleEdit edit) => [
           !edit.node.isInstance &&
           !edit.inPrefab &&
           !edit.inDock &&
-          !edit.shown.isDocked &&
+          !edit.shown.offCells &&
           edit.parents.isNotEmpty)
     Consumer(
       builder: (context, ref, _) => TickBox(

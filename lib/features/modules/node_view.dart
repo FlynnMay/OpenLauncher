@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/modules/focus_drawer.dart';
 import 'package:openlauncher/features/modules/layout_drawer.dart';
+import 'package:openlauncher/features/modules/lifted.dart';
 import 'package:openlauncher/features/modules/line_layout.dart';
 import 'package:openlauncher/features/modules/scroll_drawer.dart';
 import 'package:openlauncher/features/modules/style_drawer.dart';
@@ -36,8 +38,9 @@ class TileFrame extends InheritedWidget {
 /// resolved against its prefab, its Variables in scope, what its visual
 /// module draws with its children over it (placed by its Layout, or by their
 /// transforms without one), its Style's padding, its Scroll, its Style's
-/// box, and its Focus wired to its Triggers. Dock is drawn by the layers. An
-/// instance's parts read its id and name as `instance`.
+/// box, and its Focus wired to its Triggers. Dock and Overlay are drawn by
+/// the screen. An instance's parts read its id and name as `instance`. One
+/// opened over the screen leaves an empty spot here.
 class NodeView extends ConsumerWidget {
   const NodeView({
     super.key,
@@ -50,6 +53,7 @@ class NodeView extends ConsumerWidget {
     this.tall = false,
     this.placeholder,
     this.wrap,
+    this.lifted = false,
   });
 
   final Node component;
@@ -79,13 +83,24 @@ class NodeView extends ConsumerWidget {
   /// Wraps what each of its children draws.
   final Widget Function(Node child, Widget drawn)? wrap;
 
+  /// It is drawn over the screen, not in its spot.
+  final bool lifted;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final frame = screen
         ? null
         : context.dependOnInheritedWidgetOfExactType<TileFrame>();
     final drawn = _drawn(context, ref, still: frame?.still ?? false);
-    return frame == null ? drawn : frame.wrap(component, drawn);
+    final framed = frame == null ? drawn : frame.wrap(component, drawn);
+    final id = component.id;
+    final away =
+        !lifted &&
+        !component.offCells &&
+        ref.watch(
+          overlaysProvider.select((all) => all.any((open) => open.id == id)),
+        );
+    return away ? LiftedSpot(id: id, child: framed) : framed;
   }
 
   Widget _child(Node child, {bool inLine = false, bool shrink = false}) {

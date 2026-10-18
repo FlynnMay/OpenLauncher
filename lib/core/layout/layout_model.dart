@@ -1,29 +1,35 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/layout/json_read.dart';
-import 'package:openlauncher/core/layout/layer.dart';
+import 'package:openlauncher/core/layout/screen.dart';
 import 'package:openlauncher/core/layout/tree.dart';
 import 'package:openlauncher/core/modules/modules.dart';
 import 'package:openlauncher/core/nodes/node.dart';
 
-/// The saved layout: the layers of the screen, the home screen first.
+/// The saved layout: the screens, and the one the launcher opens on.
 @immutable
 class Layout {
   const Layout({
-    required this.layers,
+    required this.screens,
     required this.inbox,
     this.removed = const {},
+    this.startup = const Startup(''),
   });
 
-  /// The bottom layer, and the entity that adds to and removes from it.
+  /// The screen a blank layout has.
   static const homeId = 'home';
 
-  /// Only a home layer, receiving entities in its root; for when no pack
+  /// Only a home screen, receiving entities in its root; for when no pack
   /// gives a starting layout.
-  factory Layout.blank() =>
-      Layout(inbox: Layer.rootId(homeId), layers: [Layer.empty(homeId)]);
+  factory Layout.blank() => Layout(
+    inbox: Screen.rootId(homeId),
+    screens: [Screen.empty(homeId)],
+    startup: const Startup(homeId),
+  );
 
-  final List<Layer> layers;
+  final List<Screen> screens;
+
+  final Startup startup;
 
   /// The container that receives unplaced entities, e.g. new apps.
   final String inbox;
@@ -31,27 +37,36 @@ class Layout {
   /// Entities the user removed; they are not put back in the [inbox].
   final Set<String> removed;
 
-  Layer get home => layer(homeId)!;
+  /// The screen [startup] names, else the first.
+  Screen get start => screen(startup.screen) ?? screens.first;
 
-  Layer? layer(String id) {
-    for (final layer in layers) {
-      if (layer.id == id) return layer;
+  Screen? screen(String id) {
+    for (final screen in screens) {
+      if (screen.id == id) return screen;
     }
     return null;
   }
 
-  /// Every component of every layer.
-  Iterable<Node> get all => layers.expand((layer) => layer.root.all);
+  /// Every component of every screen.
+  Iterable<Node> get all => screens.expand((screen) => screen.root.all);
 
   /// Everything that is not a container.
   Iterable<Node> get items => all.where((item) => !item.isContainer);
 
-  /// The docked containers.
-  Iterable<Node> get docked => all.where((container) => container.isDocked);
+  /// The docked containers of the [start] screen.
+  Iterable<Node> get docked =>
+      start.root.all.where((container) => container.isDocked);
+
+  /// The nodes that open and close: docked, or with an Overlay.
+  Iterable<Node> get opening =>
+      all.where((node) => node.isDocked || node.isOverlay);
 
   Node? container(String id) => all
       .where((container) => !container.isInstance && container.id == id)
       .firstOrNull;
+
+  /// The node of id [id], if any.
+  Node? find(String id) => all.where((node) => node.id == id).firstOrNull;
 
   /// The node of id [id] that holds or draws others, if any: what an
   /// instance can be handed as well as an entity.
@@ -67,11 +82,12 @@ class Layout {
   factory Layout.fromJson(Map<Object?, Object?> saved) {
     final json = migrateLayout(saved);
     return Layout(
-      layers: jsonList(json, 'layers', Layer.fromJson),
+      screens: jsonList(json, 'screens', Screen.fromJson),
       inbox: jsonOptional<String>(json, 'inbox') ?? '',
       removed: {
         ...?jsonOptional<List<Object?>>(json, 'removed')?.whereType<String>(),
       },
+      startup: Startup.fromJson(json['startup']),
     );
   }
 
@@ -79,33 +95,39 @@ class Layout {
     'v': saveVersion,
     'inbox': inbox,
     'removed': removed.toList(),
-    'layers': [for (final layer in layers) layer.toJson()],
+    'startup': startup.toJson(),
+    'screens': [for (final screen in screens) screen.toJson()],
   };
 
-  Layout copyWith({List<Layer>? layers, String? inbox, Set<String>? removed}) =>
-      Layout(
-        layers: layers ?? this.layers,
-        inbox: inbox ?? this.inbox,
-        removed: removed ?? this.removed,
-      );
+  Layout copyWith({
+    List<Screen>? screens,
+    String? inbox,
+    Set<String>? removed,
+    Startup? startup,
+  }) => Layout(
+    screens: screens ?? this.screens,
+    inbox: inbox ?? this.inbox,
+    removed: removed ?? this.removed,
+    startup: startup ?? this.startup,
+  );
 
-  /// Rebuilds every container's children with [change]; only [layer]'s if
+  /// Rebuilds every container's children with [change]; only [screen]'s if
   /// given.
   Layout rebuild(
     List<Node> Function(Node container, List<Node> items) change, {
     Set<String>? removed,
-    String? layer,
+    String? screen,
   }) => copyWith(
     removed: removed,
-    layers: [
-      for (final one in layers)
-        layer == null || one.id == layer
+    screens: [
+      for (final one in screens)
+        screen == null || one.id == screen
             ? one.withRoot(one.root.rebuild(change))
             : one,
     ],
   );
 
-  /// Replaces container [id], a layer's root included, with what [change]
+  /// Replaces container [id], a screen's root included, with what [change]
   /// returns.
   Layout withContainer(String id, Node Function(Node container) change) {
     Node mapped(Node container) => container.id == id
@@ -114,18 +136,20 @@ class Layout {
             children: [for (final child in container.children) mapped(child)],
           );
     return copyWith(
-      layers: [for (final layer in layers) layer.withRoot(mapped(layer.root))],
+      screens: [
+        for (final screen in screens) screen.withRoot(mapped(screen.root)),
+      ],
     );
   }
 
-  /// Removes [entityIds] from [layer], or from every layer, and marks them
+  /// Removes [entityIds] from [screen], or from every screen, and marks them
   /// [removed].
-  Layout without(Set<String> entityIds, {String? layer}) => rebuild(
+  Layout without(Set<String> entityIds, {String? screen}) => rebuild(
     (_, items) => [
       for (final item in items)
         if (!item.isInstance || !item.handed.any(entityIds.contains)) item,
     ],
-    layer: layer,
+    screen: screen,
     removed: {...removed, ...entityIds},
   );
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 
@@ -31,8 +32,9 @@ Entity? subjectOf(WidgetRef ref, String id) {
   );
 }
 
-/// Watches each docked container's `open` variable and runs its reveal or hide
-/// chain when it changes.
+/// Watches the `open` variable of each node that opens and runs its reveal or
+/// hide chain when it changes. An Overlay, or one an action asked to open over
+/// the screen, goes on the overlays while open.
 class DockHost extends ConsumerStatefulWidget {
   const DockHost({super.key, required this.child});
 
@@ -47,9 +49,10 @@ class _DockHostState extends ConsumerState<DockHost> {
   final _was = <String, bool>{};
 
   void _sync(Map<String, Map<String, Object?>> all) {
-    final containers = ref.read(layoutViewProvider).value?.docked;
+    final containers = ref.read(layoutViewProvider).value?.opening;
     if (containers == null || !mounted) return;
     final vars = ref.read(runtimeVarsProvider.notifier);
+    final overlays = ref.read(overlaysProvider.notifier);
     for (final container in containers) {
       final id = container.id;
       final open = all[id]?[openVar] == true;
@@ -64,6 +67,22 @@ class _DockHostState extends ConsumerState<DockHost> {
         }
       }
       _was[id] = open;
+      if (!open) {
+        overlays.remove(id);
+      } else {
+        overlays.opened(
+          id,
+          container.isOverlay
+              ? OpenOverlay(
+                  id,
+                  dim: container.overlayDim,
+                  blur: container.overlayBlur,
+                  modal: container.overlayModal,
+                  opener: FocusManager.instance.primaryFocus,
+                )
+              : null,
+        );
+      }
       runChain(
         context,
         ref,

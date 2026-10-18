@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/operations/managers/app_operations.dart';
 import 'package:openlauncher/core/operations/managers/input_operations.dart';
-import 'package:openlauncher/core/operations/managers/layer_operations.dart';
 import 'package:openlauncher/core/operations/managers/layout_operations.dart';
 import 'package:openlauncher/core/operations/managers/media_operations.dart';
+import 'package:openlauncher/core/operations/managers/overlay_operations.dart';
+import 'package:openlauncher/core/operations/managers/screen_operations.dart';
 import 'package:openlauncher/core/operations/managers/system_operations.dart';
 import 'package:openlauncher/core/operations/managers/update_operations.dart';
 import 'package:openlauncher/core/operations/managers/variable_operations.dart';
@@ -34,7 +35,7 @@ class OperationsRegistry {
   /// The areas there are, in the order their operations were added.
   Iterable<String> get areas => {for (final operation in all) operation.area};
 
-  /// What is at [area], e.g. `launcher://layers`.
+  /// What is at [area], e.g. `launcher://overlay`.
   List<Operation> inArea(String area) => [
     for (final operation in all)
       if (operation.area == area) operation,
@@ -51,7 +52,8 @@ final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
     MediaOperationsManager(platform),
     SystemOperationsManager(ref),
     UpdateOperationsManager(ref),
-    LayerOperationsManager(ref),
+    OverlayOperationsManager(ref),
+    ScreenOperationsManager(ref),
     VariableOperationsManager(ref),
     LayoutOperationsManager(ref),
   ];

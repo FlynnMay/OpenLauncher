@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
 /// Runtime values of components' variables.
@@ -18,7 +19,11 @@ class VariableOperationsManager implements OperationsManager {
       args: const {'var': [], 'value': [], 'of': []},
       run: (run) async {
         // Defaults to the component that fired it.
-        final component = run.arg('of') ?? run.component;
+        final component = switch (run.arg('of')) {
+          // A node of the screen shown, by the id it is named with there.
+          final of? => _ref.read(currentScreenProvider)?.find(of)?.id ?? of,
+          null => run.component,
+        };
         final name = run.arg('var');
         if (component == null || name == null) return null;
         final value = switch (run.args['value']) {

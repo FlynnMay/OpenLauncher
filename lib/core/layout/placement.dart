@@ -34,20 +34,20 @@ class Placement {
 /// unplaced or colliding items take the first free space. Without a layout
 /// there are no cells.
 ///
-/// A docked container takes no cells: it gets an empty placement.
+/// One off the cells (docked or an Overlay) gets an empty placement.
 List<Placement> placeItems(List<Node> items, int columns, LayoutMode mode) {
-  if (items.any((item) => item.isDocked)) {
+  if (items.any((item) => item.offCells)) {
     final rest = placeItems(
       [
         for (final item in items)
-          if (!item.isDocked) item,
+          if (!item.offCells) item,
       ],
       columns,
       mode,
     ).iterator;
     return [
       for (final item in items)
-        item.isDocked
+        item.offCells
             ? const Placement(0, 0, 0, 0)
             : (rest..moveNext()).current,
     ];

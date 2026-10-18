@@ -39,10 +39,10 @@ Node withoutLayout(Node container) {
   final children = container.children;
   final transforms = <NodeTransform?>[];
   if (container.mode.inLine) {
-    final count = children.where((child) => !child.isDocked).length;
+    final count = children.where((child) => !child.offCells).length;
     var index = 0;
     for (final child in children) {
-      if (child.isDocked) {
+      if (child.offCells) {
         transforms.add(null);
         continue;
       }
@@ -61,7 +61,7 @@ Node withoutLayout(Node container) {
     for (final (index, child) in children.indexed) {
       final cell = placed[index];
       transforms.add(
-        child.isDocked
+        child.offCells
             ? null
             : NodeTransform(
                 minX: cell.x / columns,

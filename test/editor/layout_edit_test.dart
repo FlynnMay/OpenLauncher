@@ -21,7 +21,7 @@ List<Field> dockFieldsOf(Node container) => [
 Layout home(Node root, {Set<String> removed = const {}}) => Layout(
   inbox: root.id,
   removed: removed,
-  layers: [Layer(id: Layout.homeId, root: root)],
+  screens: [Screen(id: Layout.homeId, root: root)],
 );
 
 List<String> ids(Layout layout, String container) => [
@@ -30,7 +30,7 @@ List<String> ids(Layout layout, String container) => [
 ];
 
 (double?, double?) at(Layout layout, String id) {
-  for (final container in layout.home.root.containers) {
+  for (final container in layout.start.root.containers) {
     for (final item in container.children) {
       if (item.id == id) return (item.x, item.y);
     }
@@ -181,7 +181,7 @@ void main() {
           const Drop('p'),
           opens: folderOf('f', title: 'Games'),
         );
-        final folder = dropped.home.root.children.last;
+        final folder = dropped.start.root.children.last;
         expect((folder.id, folder.prefab), ('f', folderId));
         final drawn = drawnInstance(folder);
         expect((drawn.name, drawn.hiddenWhenClosed), ('Games', true));
@@ -206,7 +206,7 @@ void main() {
       'a container cannot go inside itself or deeper than containers go',
       () {
         final layout = home(nest(Node.maxDepth, 'p'));
-        final inner = layout.home.root.children.single;
+        final inner = layout.start.root.children.single;
         expect(refusal(layout, inner, 'p++'), contains('inside itself'));
         expect(
           refusal(layout, Node.layout(id: 'new'), 'p+++'),
@@ -248,12 +248,12 @@ void main() {
         ),
       );
       // Settling moves what collides, and leaves the sidebar alone.
-      final [a, bar, c] = settle(layout.home.root.children, 2);
+      final [a, bar, c] = settle(layout.start.root.children, 2);
       expect((a.x, a.y, c.x, c.y), (0, 0, 1, 0));
       expect((bar.id, bar.x), ('left', null));
       final [inRoot, inBar] = findItems(layout, {'a', 'b'});
       expect((inRoot.dock, inBar.dock?.id), (null, 'left'));
-      expect(inBar.layer.id, Layout.homeId);
+      expect(inBar.screen.id, Layout.homeId);
     });
   });
 
@@ -394,7 +394,7 @@ void main() {
     test(
       'a container keeps things where they were when its placement changes',
       () {
-        final inner = layout.home.root.children.last;
+        final inner = layout.start.root.children.last;
         final grid = withMode(inner, LayoutMode.grid);
         expect(
           [for (final item in grid.children) (item.id, item.x, item.y)],
@@ -418,7 +418,7 @@ void main() {
     );
 
     test('fewer columns narrow and move what no longer fits', () {
-      final narrowed = withColumns(layout.home.root, 2);
+      final narrowed = withColumns(layout.start.root, 2);
       final inner = narrowed.children.last;
       expect((inner.w, inner.x), (2, 0));
       expect(narrowed.columns, 2);
@@ -557,7 +557,7 @@ void main() {
       final folder = folderOf('f')
           .withValue(dockModule.name, 'position', 'right');
       Layout withFolder(Node folder) => full.withContainer(
-        full.home.root.id,
+        full.start.root.id,
         (root) => root.copyWith(children: [...root.children, folder]),
       );
       expect(freeEdges(withFolder(folder)), ['right', 'top', 'bottom']);

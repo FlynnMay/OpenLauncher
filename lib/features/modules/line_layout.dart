@@ -30,7 +30,7 @@ class LineLayout extends StatelessWidget {
       : container.scrollsDown;
 
   Widget? _place(Node child) {
-    if (child.isDocked || child.hidden && !child.keep) return null;
+    if (child.offCells || child.hidden && !child.keep) return null;
     // Nothing is shared out when the container is fitted or scrolls.
     final flex = _scrolls ? null : child.flex;
     final sized = !container.fit && (flex != null || child.aspect != null);

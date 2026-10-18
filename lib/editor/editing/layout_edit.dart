@@ -63,18 +63,23 @@ Node withAnchors(
   ).covering(item.transform.rectIn(size), size),
 );
 
-/// A container with its layer, the docked container it is or is in (if any),
-/// and its depth counted from that, or from the layer's root (1).
-typedef FoundContainer = ({Layer layer, Node container, Node? dock, int depth});
+/// A container with its screen, the docked container it is or is in (if any),
+/// and its depth counted from that, or from the screen's root (1).
+typedef FoundContainer = ({
+  Screen screen,
+  Node container,
+  Node? dock,
+  int depth,
+});
 
 /// An instance's id finds the node holding its first slot.
 FoundContainer? findContainer(Layout layout, String id) {
-  FoundContainer? inside(Layer layer, Node container, Node? dock, int depth) {
-    if (container.isDocked) (dock, depth) = (container, 1);
+  FoundContainer? inside(Screen screen, Node container, Node? dock, int depth) {
+    if (container.offCells) (dock, depth) = (container, 1);
     if (container.id == id && container.isInstance) {
       return switch (container.children.firstOrNull) {
         final holder? => (
-          layer: layer,
+          screen: screen,
           container: holder,
           dock: dock,
           depth: depth,
@@ -83,18 +88,18 @@ FoundContainer? findContainer(Layout layout, String id) {
       };
     }
     if (container.id == id) {
-      return (layer: layer, container: container, dock: dock, depth: depth);
+      return (screen: screen, container: container, dock: dock, depth: depth);
     }
     for (final inner in container.children) {
       // What an instance holds is as deep as the instance.
       final deeper = container.isInstance ? depth : depth + 1;
-      if (inside(layer, inner, dock, deeper) case final found?) return found;
+      if (inside(screen, inner, dock, deeper) case final found?) return found;
     }
     return null;
   }
 
-  for (final layer in layout.layers) {
-    if (inside(layer, layer.root, null, 1) case final found?) return found;
+  for (final screen in layout.screens) {
+    if (inside(screen, screen.root, null, 1) case final found?) return found;
   }
   return null;
 }
@@ -103,7 +108,7 @@ int _deepest(Node container) =>
     1 +
     container.children.fold(
       0,
-      (most, inner) => inner.isContainer && !inner.isDocked
+      (most, inner) => inner.isContainer && !inner.offCells
           ? max(most, _deepest(inner))
           : most,
     );
@@ -128,18 +133,18 @@ String? refusal(Layout layout, Node item, String containerId) {
 ///
 /// Docked containers take no cells and are left as they are.
 List<Node> settle(List<Node> items, int columns, {String? fixed}) {
-  if (items.any((item) => item.isDocked)) {
+  if (items.any((item) => item.offCells)) {
     final rest = settle(
       [
         for (final item in items)
-          if (!item.isDocked) item,
+          if (!item.offCells) item,
       ],
       columns,
       fixed: fixed,
     ).iterator;
     return [
       for (final item in items)
-        item.isDocked ? item : (rest..moveNext()).current,
+        item.offCells ? item : (rest..moveNext()).current,
     ];
   }
   final taken = <(int, int)>{};
@@ -211,7 +216,7 @@ List<Node> settle(List<Node> items, int columns, {String? fixed}) {
 }
 
 /// [layout] with every container's children changed, and [added] (a new docked
-/// container) put on the home layer.
+/// container) put on the startup screen.
 Layout _rebuilt(
   Layout layout,
   List<Node> Function(Node container, List<Node> items) change, {
@@ -222,7 +227,7 @@ Layout _rebuilt(
   return added == null
       ? next
       : next.withContainer(
-          next.home.root.id,
+          next.start.root.id,
           (root) => root.copyWith(children: [...root.children, added]),
         );
 }
@@ -312,33 +317,38 @@ Layout removeItem(Layout layout, String id) {
   );
 }
 
-/// A component with its parent container, its layer and the docked container it
+/// A component with its parent container, its screen and the docked container it
 /// is in, if any.
-typedef Found = ({Node item, Node parent, Layer layer, Node? dock});
+typedef Found = ({Node item, Node parent, Screen screen, Node? dock});
 
 /// The components [ids], in layout order; missing ids are skipped.
 List<Found> findItems(Layout layout, Set<String> ids) {
   final found = <Found>[];
-  void under(Layer layer, Node container, Node? dock) {
-    final inside = container.isDocked ? container : dock;
+  void under(Screen screen, Node container, Node? dock) {
+    final inside = container.offCells ? container : dock;
     for (final item in container.children) {
       if (ids.contains(item.id)) {
-        found.add((item: item, parent: container, layer: layer, dock: inside));
+        found.add((
+          item: item,
+          parent: container,
+          screen: screen,
+          dock: inside,
+        ));
       }
     }
     for (final item in container.children) {
-      if (!item.isInstance) under(layer, item, inside);
+      if (!item.isInstance) under(screen, item, inside);
       // What an instance holds is found in the node holding its slot.
       if (item.isInstance) {
         for (final holder in item.children) {
-          under(layer, holder, item.isDocked ? item : inside);
+          under(screen, holder, item.offCells ? item : inside);
         }
       }
     }
   }
 
-  for (final layer in layout.layers) {
-    under(layer, layer.root, null);
+  for (final screen in layout.screens) {
+    under(screen, screen.root, null);
   }
   return found;
 }
@@ -488,7 +498,8 @@ Node withDock(Node container, String? dock) {
   if (dock != null) {
     return container.withValue(dockModule.name, 'position', dock);
   }
-  // What only a docked container has goes with the dock.
+  // Showing and hiding go with the dock, unless it is an Overlay.
+  if (container.isOverlay) return container.withModule(dockModule.name, null);
   return container.withModule(dockModule.name, null).triggered({
     for (final MapEntry(:key, :value) in container.on.entries)
       if (key == Trigger.press || key == Trigger.hold) key: value,
@@ -578,7 +589,7 @@ Layout withBar(Layout layout, String edge, Prefab prefab) =>
     barOn(layout, edge) != null
     ? layout
     : layout.withContainer(
-        layout.home.root.id,
+        layout.start.root.id,
         (root) => root.copyWith(
           children: [
             ...root.children,

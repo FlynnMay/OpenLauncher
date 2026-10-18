@@ -21,7 +21,7 @@ class PrefabScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final container = ref.watch(editedLayoutProvider)?.home.root;
+    final container = ref.watch(editedLayoutProvider)?.start.root;
     final root = container?.children.firstOrNull;
     if (container == null || root == null) {
       return SizedBox.fromSize(size: TvScreen.size);

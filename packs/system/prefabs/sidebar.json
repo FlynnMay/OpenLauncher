@@ -15,6 +15,7 @@
         "position": "top",
         "closed": 0
       },
+      "overlay": {},
       "scroll": {
         "down": true
       },
@@ -35,19 +36,6 @@
               "var": "open",
               "value": false
             }
-          }
-        ],
-        "reveal": [
-          {
-            "run": "launcher://layers/new"
-          },
-          {
-            "run": "launcher://layers/raise"
-          }
-        ],
-        "hide": [
-          {
-            "run": "launcher://layers/close"
           }
         ]
       },

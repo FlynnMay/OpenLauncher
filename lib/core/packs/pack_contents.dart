@@ -3,15 +3,17 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entity.dart';
+import 'package:openlauncher/core/layout/json_read.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/layout_repair.dart';
+import 'package:openlauncher/core/layout/screen.dart';
 import 'package:openlauncher/core/packs/icon_sets.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/sources/generator.dart';
 import 'package:openlauncher/core/sources/source.dart';
 
-/// A pack's entities, sources, generators, prefabs and layouts. A pack writes short
+/// A pack's entities, sources, generators, prefabs and screens. A pack writes short
 /// names; each is its own unless it says another pack's, `other:name`, and
 /// is read as `<pack>:<name>`.
 @immutable
@@ -22,8 +24,9 @@ class PackContents {
     this.sources = const {},
     this.generators = const {},
     this.prefabs = const [],
-    this.layouts = const {},
+    this.screens = const {},
     this.start,
+    this.inbox,
   });
 
   static const folders = [
@@ -31,7 +34,7 @@ class PackContents {
     'sources',
     'generators',
     'prefabs',
-    'layouts',
+    'screens',
   ];
 
   final Pack pack;
@@ -43,12 +46,26 @@ class PackContents {
 
   final List<Prefab> prefabs;
 
-  /// Whole screens to start from, by id.
-  final Map<String, Layout> layouts;
+  /// Screens to start from, by id, in file order.
+  final Map<String, Screen> screens;
 
-  /// The layout of its marked `"start": true`, if any: what a new home screen
-  /// is.
+  /// The screen marked `"start": true`, if any: what the launcher opens on
+  /// when this pack's screens are the layout.
   final String? start;
+
+  /// The container named by the [start] screen's `"inbox"`: where new apps
+  /// go.
+  final String? inbox;
+
+  /// Its screens as a layout opening on [start]; null without one.
+  Layout? get starting => switch (start) {
+    final start? => Layout(
+      screens: [...screens.values],
+      inbox: inbox ?? Screen.rootId(start),
+      startup: Startup(start),
+    ).normalised(),
+    null => null,
+  };
 
   /// Whether [path] is one of the files read here.
   static bool reads(String path) =>
@@ -76,8 +93,8 @@ class PackContents {
     final sources = <String, Source>{};
     final generators = <String, Generator>{};
     final prefabs = <Prefab>[];
-    final layouts = <String, Layout>{};
-    String? start;
+    final screens = <String, Screen>{};
+    String? start, inbox;
     for (final MapEntry(key: path, value: json) in decoded.entries) {
       final [folder, file] = path.split('/');
       final name = file.substring(0, file.length - '.json'.length);
@@ -105,12 +122,15 @@ class PackContents {
             throw FormatException('$path needs an "id" and a "root"');
           }
           prefabs.add(prefab);
-        case 'layouts':
+        case 'screens':
           if (glue.defined(path, json)
               case {'id': final String id} &&
                   final Map<Object?, Object?> json) {
-            layouts[id] = Layout.fromJson(json).normalised();
-            if (json['start'] == true) start ??= id;
+            screens[id] = Screen.fromJson(json);
+            if (json['start'] == true && start == null) {
+              start = id;
+              inbox = jsonOptional<String>(json, 'inbox');
+            }
           } else {
             throw FormatException('$path needs an "id"');
           }
@@ -151,8 +171,9 @@ class PackContents {
       sources: sources,
       generators: generators,
       prefabs: prefabs,
-      layouts: layouts,
+      screens: screens,
       start: start,
+      inbox: inbox,
     );
   }
 }

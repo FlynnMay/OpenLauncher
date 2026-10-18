@@ -1,8 +1,8 @@
 import 'package:openlauncher/core/layout/json_read.dart';
-import 'package:openlauncher/core/layout/layer.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
+import 'package:openlauncher/core/layout/screen.dart';
 import 'package:openlauncher/core/layout/tree.dart';
 import 'package:openlauncher/core/modules/modules.dart';
 import 'package:openlauncher/core/nodes/field.dart';
@@ -18,26 +18,21 @@ Map<String, Object?> _kept(
 };
 
 extension LayoutRepair on Layout {
-  /// Enforces what the app relies on: the home layer first, unique ids, sizes
-  /// and positions that fit, bounded nesting, a valid [inbox].
+  /// Enforces what the app relies on: a screen at least, unique ids, sizes
+  /// and positions that fit, bounded nesting, a valid [inbox] and [startup].
   Layout normalised() {
-    final layerIds = <String>{};
+    final screenIds = <String>{};
     final unique = [
-      for (final layer in layers)
-        if (layer.id.isNotEmpty && layerIds.add(layer.id)) layer,
+      for (final screen in screens)
+        if (screen.id.isNotEmpty && screenIds.add(screen.id)) screen,
     ];
-    final ordered = [
-      unique.where((layer) => layer.id == Layout.homeId).firstOrNull ??
-          Layer.empty(Layout.homeId),
-      for (final layer in unique)
-        if (layer.id != Layout.homeId) layer,
-    ];
+    final ordered = unique.isEmpty ? [Screen.empty(Layout.homeId)] : unique;
 
-    // Cards name a docked node by its id, so those keep theirs.
-    final docked = {for (final container in this.docked) container.id};
+    // Cards name a node that opens by its id, so those keep theirs.
+    final docked = {for (final container in opening) container.id};
     final reserved = {...docked};
-    // Containers and other nodes share one id space.
-    final ids = <String>{};
+    // Containers, other nodes and screens share one id space.
+    final ids = {for (final screen in ordered) screen.id};
     String fresh(String wanted, String fallback, {bool docked = false}) {
       final id = docked && reserved.remove(wanted)
           ? wanted
@@ -51,14 +46,14 @@ extension LayoutRepair on Layout {
     /// [item] fitted to [parent]: flattened if nested too deep.
     Iterable<Node> fitted(Node item, Node parent, int depth) sync* {
       // Too deep: children move up a level.
-      if (item.isContainer && !item.isDocked && depth >= Node.maxDepth) {
+      if (item.isContainer && !item.offCells && depth >= Node.maxDepth) {
         for (final child in item.children) {
           yield* fitted(child, parent, depth);
         }
         return;
       }
-      // A docked container starts the count again and takes no cells.
-      if (item.isDocked) {
+      // One off the cells starts the count again.
+      if (item.offCells) {
         yield repair(item, 1);
         return;
       }
@@ -94,7 +89,7 @@ extension LayoutRepair on Layout {
     repair = (container, depth) {
       // Claim the container's id before its children's.
       var sound = container.withId(
-        fresh(container.id, 'layout', docked: container.isDocked),
+        fresh(container.id, 'layout', docked: container.offCells),
       );
       // Clamps a measure; null if invalid.
       double? within(double? value, num low, num high) =>
@@ -154,20 +149,28 @@ extension LayoutRepair on Layout {
     };
 
     final result = [
-      for (final layer in ordered) layer.withRoot(repair(layer.root, 1)),
+      for (final screen in ordered) screen.withRoot(repair(screen.root, 1)),
     ];
-    final home = result.first;
+    final start =
+        result.where((screen) => screen.id == startup.screen).firstOrNull ??
+        result.first;
     final placed = {
-      for (final layer in result)
-        for (final item in layer.root.contents)
+      for (final screen in result)
+        for (final item in screen.root.contents)
           if (item.isInstance) ...item.handed,
     };
     return Layout(
-      layers: result,
+      screens: result,
       removed: removed.difference(placed),
-      inbox: home.root.cellContainers.any((container) => container.id == inbox)
+      inbox:
+          result.any(
+            (screen) => screen.root.cellContainers.any(
+              (container) => container.id == inbox,
+            ),
+          )
           ? inbox
-          : home.root.id,
+          : start.root.id,
+      startup: Startup(start.id, remember: startup.remember),
     );
   }
 

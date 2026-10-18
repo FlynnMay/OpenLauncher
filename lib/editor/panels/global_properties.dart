@@ -21,20 +21,17 @@ class GlobalProperties extends ConsumerWidget {
       children: [
         const WallpaperSettings(),
         if (config.ownLayout) const _RevertLayout(),
-        // The home screen's root.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text('Screen', style: Theme.of(context).textTheme.titleSmall),
-        ),
-        ModuleSections(
-          nodes: [config.layout.home.root],
-          parents: const [],
-          onChanged: (how) => changeLayout(
+        SwitchListTile(
+          dense: true,
+          title: const Text('Remember the last screen'),
+          subtitle: const Text('Otherwise it starts on the startup screen'),
+          value: config.layout.startup.remember,
+          onChanged: (remember) => runLauncher(
             context,
             ref,
-            (layout) => layout.withContainer(layout.home.root.id, how),
+            'launcher://screen/startup',
+            {'remember': remember},
           ),
-          onLayout: (how) => changeLayout(context, ref, how),
         ),
         ValuesSettings(
           entities: config.entities,
@@ -60,6 +57,46 @@ class GlobalProperties extends ConsumerWidget {
   }
 }
 
+/// The screen shown on the stage: its modules, and its startup.
+class ScreenProperties extends ConsumerWidget {
+  const ScreenProperties({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final screen = ref.watch(editedLayoutProvider)?.start;
+    if (screen == null) return const SizedBox.shrink();
+    final startup = ref.watch(
+      configProvider.select((config) => config.value?.layout.startup),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          dense: true,
+          title: const Text('Startup screen'),
+          value: startup?.screen == screen.id,
+          onChanged: (on) => on
+              ? runLauncher(context, ref, 'launcher://screen/startup', {
+                  'id': screen.id,
+                  'remember': startup?.remember ?? false,
+                })
+              : null,
+        ),
+        ModuleSections(
+          nodes: [screen.root],
+          parents: const [],
+          onChanged: (how) => changeLayout(
+            context,
+            ref,
+            (layout) => layout.withContainer(layout.start.root.id, how),
+          ),
+          onLayout: (how) => changeLayout(context, ref, how),
+        ),
+      ],
+    );
+  }
+}
+
 /// Puts back the home screen its pack starts with.
 class _RevertLayout extends ConsumerWidget {
   const _RevertLayout();
@@ -76,7 +113,7 @@ class _RevertLayout extends ConsumerWidget {
           if (!await confirm(
             context,
             'Revert the screen to $pack?',
-            'Every layer goes back to how $pack starts it. Your changes to '
+            'Every screen goes back to how $pack starts it. Your changes to '
                 'the layout are lost; Undo brings them back.',
             'Revert',
           )) {

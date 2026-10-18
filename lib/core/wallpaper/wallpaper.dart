@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/media/media_dirs.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:path/path.dart' as p;
 
 enum WallpaperKind { image, video }
@@ -38,17 +41,35 @@ class Wallpaper {
   int get hashCode => Object.hash(path, kind);
 }
 
-/// Every wallpaper, in the user's order.
-final wallpapersProvider = Provider<List<Wallpaper>>(
-  (ref) => [
+/// The shown screen's root, if it has its own Wallpaper.
+final _ownProvider = Provider<Node?>((ref) {
+  final root = ref.watch(currentScreenProvider)?.root;
+  return root?.wallpaperFiles == null ? null : root;
+});
+
+/// Every wallpaper of the shown screen, in the user's order: its own, else
+/// the launcher's.
+final wallpapersProvider = Provider<List<Wallpaper>>((ref) {
+  if (ref.watch(_ownProvider) case final root?) {
+    final path = ref.watch(mediaPathProvider).value;
+    if (path == null) return const [];
+    return [
+      for (final id in root.wallpaperFiles!)
+        ?Wallpaper.fromPath(path(MediaUse.wallpaper, id)),
+    ];
+  }
+  return [
     for (final path in ref.watch(configProvider).value?.wallpapers ?? const [])
       ?Wallpaper.fromPath(path),
-  ],
-);
+  ];
+});
 
 /// Minutes per wallpaper; 0 for no rotation.
 final wallpaperEveryProvider = Provider<int>(
-  (ref) => ref.watch(configProvider).value?.wallpaperEvery ?? 0,
+  (ref) =>
+      ref.watch(_ownProvider)?.wallpaperEvery ??
+      ref.watch(configProvider).value?.wallpaperEvery ??
+      0,
 );
 
 /// Counts rotations since first watched.

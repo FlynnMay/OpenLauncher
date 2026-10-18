@@ -128,8 +128,8 @@ void main() {
 
     Layout layout(List<Node> items) => Layout(
       inbox: 'main',
-      layers: [
-        Layer(
+      screens: [
+        Screen(
           id: Layout.homeId,
           root: Node.layout(id: 'main', children: items),
         ),
@@ -321,8 +321,8 @@ void main() {
       final c = container(
         Layout(
           inbox: 'main',
-          layers: [
-            Layer(
+          screens: [
+            Screen(
               id: Layout.homeId,
               root: Node.layout(
                 id: 'main',
@@ -386,8 +386,8 @@ void main() {
       final config = LauncherConfig(
         layout: Layout(
           inbox: 'main',
-          layers: [
-            Layer(
+          screens: [
+            Screen(
               id: Layout.homeId,
               root: Node.layout(
                 id: 'main',

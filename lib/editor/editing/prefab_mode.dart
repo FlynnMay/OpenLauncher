@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/prefab_edit.dart';
 
@@ -104,7 +105,9 @@ final editedPrefabProvider = Provider<Prefab?>((ref) {
   return mode == null ? null : ref.watch(prefabsProvider)[mode.id];
 });
 
-/// What the editing tools work on: the layout, or the edited prefab as one.
+/// What the editing tools work on: the layout with the screen shown as its
+/// [Layout.start], or the edited prefab as one. Changes put the real
+/// [Startup] back, see `changeLayout`.
 final editedLayoutProvider = Provider<Layout?>((ref) {
   final layout = ref.watch(
     configProvider.select((config) => config.value?.layout),
@@ -112,7 +115,15 @@ final editedLayoutProvider = Provider<Layout?>((ref) {
   final prefab = ref.watch(editedPrefabProvider);
   final mode = ref.watch(prefabModeProvider);
   if (layout == null) return null;
+  final shown = ref.watch(currentScreenProvider.select((one) => one?.id));
   return prefab == null
-      ? withSlotLayoutsIn(layout, ref.watch(prefabsProvider))
+      ? withSlotLayoutsIn(
+          shown == null
+              ? layout
+              : layout.copyWith(
+                  startup: Startup(shown, remember: layout.startup.remember),
+                ),
+          ref.watch(prefabsProvider),
+        )
       : prefabAsLayout(prefab, mode?.variant, mode?.height);
 });

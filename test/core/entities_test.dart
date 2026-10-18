@@ -140,7 +140,7 @@ void main() {
       return [
         for (final item in (await container.read(
           layoutViewProvider.future,
-        )).home.root.ownContents)
+        )).start.root.ownContents)
           if (all.byId(item.handed.firstOrNull) case final entity?
               when entity.category != launcherCategory)
             entity,
@@ -277,10 +277,10 @@ void main() {
         expect(platform.launched.last, 'a');
 
         // Taking it off the screen is the launcher's to do, told what and
-        // from which layer.
+        // from which screen.
         await actions.run(
           const Act('launcher://layout/remove', {
-            'layer': 'home',
+            'screen': 'system:home',
             'what': 'system:app/a',
           }),
         );
@@ -294,7 +294,7 @@ void main() {
         expect(
           await actions.run(
             const Act('launcher://layout/add', {
-              'layer': 'home',
+              'screen': 'system:home',
               'what': 'system:app/a',
             }),
           ),
@@ -313,7 +313,7 @@ void main() {
         expect(
           await actions.run(
             const Act('launcher://layout/add', {
-              'layer': 'home',
+              'screen': 'system:home',
               'what': 'system:app/b',
               'to': 'no',
             }),
@@ -440,11 +440,10 @@ void main() {
       }
       expect(Operation.areaOf('os://apps/launch'), 'os://apps');
       final registry = c.read(operationsRegistryProvider);
-      expect(registry.areas, containsAll(['os://apps', 'launcher://layers']));
-      expect(registry.inArea('launcher://layers').map((one) => one.name), [
-        'launcher://layers/new',
-        'launcher://layers/raise',
-        'launcher://layers/close',
+      expect(registry.areas, containsAll(['os://apps', 'launcher://overlay']));
+      expect(registry.inArea('launcher://overlay').map((one) => one.name), [
+        'launcher://overlay/open',
+        'launcher://overlay/close',
       ]);
     });
 
@@ -678,7 +677,7 @@ void main() {
       expect(all.last.id, 'desk');
       final view = await c.read(layoutViewProvider.future);
       expect(
-        view.home.root.ownContents.map((entry) => entry.handed.firstOrNull),
+        view.start.root.ownContents.map((entry) => entry.handed.firstOrNull),
         contains('desk'),
       );
       // What it holds is read like anything else's.
@@ -746,7 +745,7 @@ void main() {
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);
       expect(
-        view.home.root.ownContents.map((entry) => entry.handed.firstOrNull),
+        view.start.root.ownContents.map((entry) => entry.handed.firstOrNull),
         ['system:app/a', 'system:settings'],
       );
       expect((await data(c, 'system:clock'))['time'], '15:04');

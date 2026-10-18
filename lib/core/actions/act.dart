@@ -22,7 +22,7 @@ const entityArg = 'entity';
 /// One saved action: either an entity's action by name, with the
 /// [entityArg] that defines and does it and its other arguments
 /// (`{"do": "open", "entity": "..."}`), or an address called directly with
-/// what it is told (`{"run": "launcher://layers/new", "with": {...}}`).
+/// what it is told (`{"run": "launcher://overlay/open", "with": {...}}`).
 @immutable
 class Act {
   const Act(this.name, [this.args = const {}]);

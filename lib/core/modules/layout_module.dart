@@ -111,7 +111,7 @@ class LayoutModule extends ModuleType {
   static const defaultSpacingX = 20.0, defaultSpacingY = 16.0;
   static const maxSpacing = 80.0;
 
-  /// Columns of a new layer's root.
+  /// Columns of a new screen's root.
   static const globalColumns = 12;
   static const maxColumns = 24;
 

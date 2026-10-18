@@ -5,6 +5,7 @@ import 'package:openlauncher/core/modules/icon_module.dart';
 import 'package:openlauncher/core/modules/layout_module.dart';
 import 'package:openlauncher/core/modules/meter_module.dart';
 import 'package:openlauncher/core/modules/module.dart';
+import 'package:openlauncher/core/modules/overlay_module.dart';
 import 'package:openlauncher/core/modules/picture_module.dart';
 import 'package:openlauncher/core/modules/prefab_rules_module.dart';
 import 'package:openlauncher/core/modules/preview_module.dart';
@@ -15,6 +16,7 @@ import 'package:openlauncher/core/modules/style_module.dart';
 import 'package:openlauncher/core/modules/text_module.dart';
 import 'package:openlauncher/core/modules/triggers_module.dart';
 import 'package:openlauncher/core/modules/variables_module.dart';
+import 'package:openlauncher/core/modules/wallpaper_module.dart';
 import 'package:openlauncher/core/nodes/node.dart';
 
 /// Every module, in the order the editor lists them. A new one goes here.
@@ -31,10 +33,12 @@ const moduleTypes = <ModuleType>[
   sizingModule,
   scrollModule,
   dockModule,
+  overlayModule,
   focusModule,
   triggersModule,
   variablesModule,
   prefabRulesModule,
+  wallpaperModule,
 ];
 
 final _byName = {for (final type in moduleTypes) type.name: type};
