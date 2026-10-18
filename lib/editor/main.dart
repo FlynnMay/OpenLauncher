@@ -158,6 +158,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 children: [
                   const HistoryButtons(),
                   const SnapButton(),
+                  if (roomy) const ShowHiddenButton(),
                   const LayersButton(),
                   if (roomy) ...const [MediaButton(), PacksButton()],
                   // Without the room, the two share a menu.

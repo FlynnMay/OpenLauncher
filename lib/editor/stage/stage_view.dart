@@ -407,6 +407,7 @@ class _StageState extends ConsumerState<Stage> {
       child: TileFrame(
         wrap: editing ? _editTile : _plainTile,
         still: editing,
+        showHidden: ref.watch(showHiddenProvider),
         child: DragTarget<Dragged>(
           onWillAcceptWithDetails: (_) => editing,
           onMove: (details) =>

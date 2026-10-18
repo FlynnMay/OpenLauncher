@@ -368,6 +368,68 @@ void main() {
       expect(find.text('Always'), findsOneWidget);
     });
 
+    testWidgets('the editor can show hidden parts faded or leave them out', (
+      tester,
+    ) async {
+      final node = Node.fromJson({
+        'id': 'a',
+        'modules': {
+          'layout': {'mode': 'column'},
+        },
+        'children': [
+          {
+            'id': 'flagged',
+            'hidden': true,
+            'modules': {
+              'text': {'text': 'Flagged'},
+            },
+          },
+          {
+            'id': 'asked',
+            'visible': '{{1 > 2}}',
+            'modules': {
+              'text': {'text': 'Asked'},
+            },
+          },
+          {
+            'id': 'plain',
+            'modules': {
+              'text': {'text': 'Plain'},
+            },
+          },
+        ],
+      });
+      Future<void> draw(bool showHidden) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              ...packOverrides,
+              configStoreProvider.overrideWithValue(MemoryConfigStore()),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: TileFrame(
+                  wrap: (node, tile) => tile,
+                  showHidden: showHidden,
+                  child: NodeView(component: node),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await draw(true);
+      expect(find.text('Flagged'), findsOneWidget);
+      expect(find.text('Asked'), findsOneWidget);
+      expect(find.text('Plain'), findsOneWidget);
+      await draw(false);
+      expect(find.text('Flagged'), findsNothing);
+      expect(find.text('Asked'), findsNothing);
+      expect(find.text('Plain'), findsOneWidget);
+    });
+
     testWidgets('the media card hides itself while nothing is playing', (
       tester,
     ) async {

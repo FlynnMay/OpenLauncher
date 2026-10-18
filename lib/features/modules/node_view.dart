@@ -22,6 +22,7 @@ class TileFrame extends InheritedWidget {
     super.key,
     required this.wrap,
     this.still = false,
+    this.showHidden = true,
     required super.child,
   });
 
@@ -30,9 +31,15 @@ class TileFrame extends InheritedWidget {
   /// Tiles do nothing when pressed.
   final bool still;
 
+  /// Nodes that are hidden are drawn faded; otherwise they are left out, as
+  /// on the TV.
+  final bool showHidden;
+
   @override
   bool updateShouldNotify(TileFrame oldWidget) =>
-      wrap != oldWidget.wrap || still != oldWidget.still;
+      wrap != oldWidget.wrap ||
+      still != oldWidget.still ||
+      showHidden != oldWidget.showHidden;
 }
 
 /// Draws any node by composing its modules, in this order: the instance
@@ -104,14 +111,20 @@ class NodeView extends ConsumerWidget {
     return away ? LiftedSpot(id: id, child: framed) : framed;
   }
 
-  Widget _child(Node child, {bool inLine = false, bool shrink = false}) {
-    final drawn = NodeView(
+  Widget _child(
+    Node child, {
+    bool inLine = false,
+    bool shrink = false,
+    bool faded = false,
+  }) {
+    Widget drawn = NodeView(
       component: child,
       focus: focus,
       popup: popup,
       inLine: inLine,
       shrink: shrink,
     );
+    if (faded) drawn = Opacity(opacity: 0.4, child: drawn);
     return wrap?.call(child, drawn) ?? drawn;
   }
 
@@ -122,25 +135,29 @@ class NodeView extends ConsumerWidget {
       ...TemplateScope.of(context),
       if (component.isInstance) 'instance': {'id': node.id, 'name': node.name},
     });
-    // The editor shows every node, so each can be picked.
-    final editing =
-        context.dependOnInheritedWidgetOfExactType<TileFrame>() != null;
+    final frame = context.dependOnInheritedWidgetOfExactType<TileFrame>();
+    // The editor can show every node, so each can be picked.
+    final showAll = frame != null && frame.showHidden;
     if (!screen &&
-        !editing &&
+        !showAll &&
         node.visible != null &&
         !isTruthy(readTemplate(ref.watch, node.visible!, scope.own))) {
       return const SizedBox.shrink();
     }
     final prefabs = ref.watch(prefabsProvider);
-    // A part that is not shown leaves no gap.
-    final shown = editing
-        ? node
-        : node.copyWith(
-            children: [
-              for (final child in node.children)
-                if (isShown(ref.watch, child, prefabs, scope.inner)) child,
-            ],
-          );
+    // A part that is not shown leaves no gap, or in the editor is faded.
+    final faded = <String>{};
+    final kept = <Node>[];
+    for (final child in node.children) {
+      final unseen = !isShown(ref.watch, child, prefabs, scope.inner);
+      if (showAll && (unseen || child.hidden)) {
+        faded.add(child.id);
+        kept.add(child.copyWith(hidden: false));
+      } else if (!unseen) {
+        kept.add(child);
+      }
+    }
+    final shown = node.copyWith(children: kept);
     final look = readStyle(ref.watch, node.style, scope.own);
     final box = BoxStyle.of(look);
 
@@ -159,10 +176,18 @@ class NodeView extends ConsumerWidget {
                     container: shown,
                     inner: inLine,
                     hug: tall,
-                    tile: (child, {required shrink}) =>
-                        _child(child, inLine: true, shrink: shrink),
+                    tile: (child, {required shrink}) => _child(
+                      child,
+                      inLine: true,
+                      shrink: shrink,
+                      faded: faded.contains(child.id),
+                    ),
                   )
-                : ChildrenLayout(container: shown, tile: _child),
+                : ChildrenLayout(
+                    container: shown,
+                    tile: (child) =>
+                        _child(child, faded: faded.contains(child.id)),
+                  ),
           );
     Widget content = switch ((visual, children)) {
       (final visual?, final children?) => Stack(
