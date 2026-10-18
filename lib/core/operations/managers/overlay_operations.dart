@@ -15,13 +15,8 @@ class OverlayOperationsManager implements OperationsManager {
 
   Overlays get _overlays => _ref.read(overlaysProvider.notifier);
 
-  /// The node [id] on the screen shown.
-  Node? _find(String id) => _ref
-      .read(currentScreenProvider)
-      ?.root
-      .all
-      .where((node) => node.id == id)
-      .firstOrNull;
+  /// The node [id] names on the screen shown.
+  Node? _find(String id) => _ref.read(currentScreenProvider)?.find(id);
 
   @override
   late final List<Operation> operations = [
@@ -73,7 +68,10 @@ class OverlayOperationsManager implements OperationsManager {
       // `of` is a node id; empty, the overlay it fired in, else the top one.
       args: const {'of': []},
       run: (run) async {
-        _overlays.close(run.arg('of') ?? _around(run.component));
+        final of = run.arg('of');
+        _overlays.close(
+          of == null ? _around(run.component) : _find(of)?.id ?? of,
+        );
         return null;
       },
     ),

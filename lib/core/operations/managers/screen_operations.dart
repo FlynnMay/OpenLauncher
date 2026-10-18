@@ -24,6 +24,17 @@ class ScreenOperationsManager implements OperationsManager {
     await _ref.read(configProvider.notifier).setLayout(change(config.layout));
   }
 
+  /// [pictures] with the entries of the nodes in [renamed] repeated for
+  /// their new ids.
+  static Map<String, String> _copied(
+    Map<String, String> pictures,
+    Map<String, String> renamed,
+  ) => {
+    ...pictures,
+    for (final MapEntry(:key, :value) in renamed.entries)
+      Layout.pictureKey(value): ?pictures[Layout.pictureKey(key)],
+  };
+
   @override
   late final List<Operation> operations = [
     Operation(
@@ -109,24 +120,28 @@ class ScreenOperationsManager implements OperationsManager {
       label: 'Copy a screen',
       args: const {'id': []},
       run: (run) async {
-        final screen = await _named(run);
-        if (screen == null) return 'There is no such screen.';
+        final original = await _named(run);
+        if (original == null) return 'There is no such screen.';
         final layout = (await _ref.read(configProvider.future)).layout;
-        final id = freeId(screen.id, layout.itemIds);
-        final copy = Screen(
-          id: id,
-          root: screen.root.copyWith(id: Screen.rootId(id)),
-        );
-        await _edit(
-          (layout) => layout.copyWith(
-            screens: [
-              for (final one in layout.screens) ...[
-                one,
-                if (one.id == screen.id) copy,
-              ],
-            ],
-          ),
-        );
+        final id = freeId(original.id, layout.itemIds);
+        final (:screen, :renamed) = original.copied(id);
+        await _ref
+            .read(configProvider.notifier)
+            .change(
+              (c) => c.copyWith(
+                // Pictures set on a node go with its copy.
+                iconOverrides: _copied(c.iconOverrides, renamed),
+                iconSources: _copied(c.iconSources, renamed),
+                layout: c.layout.copyWith(
+                  screens: [
+                    for (final one in c.layout.screens) ...[
+                      one,
+                      if (one.id == original.id) screen,
+                    ],
+                  ],
+                ),
+              ),
+            );
         return 'Screen "$id" was added.';
       },
     ),

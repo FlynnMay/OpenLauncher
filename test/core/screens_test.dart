@@ -237,4 +237,58 @@ void main() {
     expect(await run('launcher://screen/remove', {'id': 'a'}), isNotNull);
     expect(ids(), ['a']);
   });
+
+  test(
+    'a copied screen is new nodes that name each other, not the original',
+    () {
+      final original = Screen(
+        id: 'a',
+        root: Node.fromJson({
+          'id': 'a/root',
+          'children': [
+            {
+              'id': 'menu',
+              'modules': {
+                'variables': {
+                  'content': [
+                    {'id': 'inner'},
+                  ],
+                },
+              },
+            },
+            {
+              'id': 'card',
+              'modules': {
+                'variables': {
+                  'source': {'value': 'menu', 'type': 'entity'},
+                },
+                'triggers': {
+                  'press': {
+                    'run': 'launcher://overlay/open',
+                    'with': {'of': 'menu'},
+                  },
+                },
+              },
+            },
+          ],
+        }),
+      );
+      final (:screen, :renamed) = original.copied('b');
+      expect(renamed['menu'], 'b/menu');
+      expect(screen.root.id, 'b/root');
+      expect(screen.root.all.map((n) => n.id), ['b/root', 'b/menu', 'b/card']);
+      final json = jsonEncode(screen.root.toJson());
+      expect(json, contains('"of":"b/menu"'));
+      expect(json, contains('"value":"b/menu"'));
+      expect(json, contains('"id":"b/inner"'));
+      expect(json, isNot(contains('"menu"')));
+      // The original is untouched, and each finds its own node by the bare id.
+      expect(original.find('menu')!.id, 'menu');
+      expect(screen.find('menu')!.id, 'b/menu');
+      expect(screen.find('b/menu')!.id, 'b/menu');
+      expect(screen.find('nothing'), isNull);
+      // Copying the copy does not stack the prefix.
+      expect(screen.copied('c').screen.find('card')!.id, 'c/card');
+    },
+  );
 }

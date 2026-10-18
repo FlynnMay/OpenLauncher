@@ -26,6 +26,18 @@ class Screen {
 
   Screen withRoot(Node root) => Screen(id: id, root: root);
 
+  /// The node [reference] names on this screen: one of that id, else this
+  /// screen's own copy of it (see [copied]). A prefab can name a node of the
+  /// screen it is on without knowing which screen that is.
+  Node? find(String reference) {
+    Node? copy;
+    for (final node in root.all) {
+      if (node.id == reference) return node;
+      if (node.id == '$id/$reference') copy = node;
+    }
+    return copy;
+  }
+
   factory Screen.fromJson(Map<Object?, Object?> json) {
     final id = jsonRequired<String>(json, 'id');
     return Screen(
