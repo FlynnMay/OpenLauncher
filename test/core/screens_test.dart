@@ -205,6 +205,11 @@ void main() {
     expect(shown(), 'b');
     expect(await run('launcher://screen/open', {'id': 'zz'}), isNotNull);
     expect(shown(), 'b');
+    expect(await run('launcher://screen/back'), isNull);
+    expect(shown(), 'a');
+    expect(await run('launcher://screen/back'), isNotNull);
+    expect(shown(), 'a');
+    await run('launcher://screen/open', {'id': 'b'});
 
     await run('launcher://screen/add', {'name': 'Games'});
     expect(ids(), ['a', 'b', 'games']);

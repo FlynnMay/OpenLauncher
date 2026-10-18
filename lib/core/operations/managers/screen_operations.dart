@@ -51,6 +51,16 @@ class ScreenOperationsManager implements OperationsManager {
       },
     ),
     Operation(
+      name: 'launcher://screen/back',
+      label: 'Show the screen before',
+      run: (run) async {
+        if (!_ref.read(shownScreensProvider.notifier).back()) {
+          return 'There is no screen before.';
+        }
+        return null;
+      },
+    ),
+    Operation(
       name: 'launcher://screen/add',
       label: 'Add an empty screen',
       // `id` is wanted, not promised; `name` is its label.
