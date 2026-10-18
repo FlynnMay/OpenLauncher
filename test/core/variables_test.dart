@@ -317,6 +317,255 @@ void main() {
       expect(packIcon('material:play_arrow'), findsOneWidget);
     });
 
+    testWidgets('a part is shown while its visible expression holds', (
+      tester,
+    ) async {
+      final node = Node.fromJson({
+        'id': 'a',
+        'modules': {
+          'layout': {'mode': 'column'},
+          'variables': {
+            'n': {'value': 5},
+          },
+        },
+        'children': [
+          {
+            'id': 'big',
+            'modules': {
+              'visibility': {'visible': '{{n * 2 > 8}}'},
+              'text': {'text': 'Big'},
+            },
+          },
+          {
+            'id': 'small',
+            'modules': {
+              'visibility': {'visible': '{{n <= 3 ? true : false}}'},
+              'text': {'text': 'Small'},
+            },
+          },
+          {
+            'id': 'always',
+            'modules': {
+              'text': {'text': 'Always'},
+            },
+          },
+        ],
+      });
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...packOverrides,
+            configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(body: NodeView(component: node)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Big'), findsOneWidget);
+      expect(find.text('Small'), findsNothing);
+      expect(find.text('Always'), findsOneWidget);
+    });
+
+    testWidgets('the editor can show hidden parts faded or leave them out', (
+      tester,
+    ) async {
+      final node = Node.fromJson({
+        'id': 'a',
+        'modules': {
+          'layout': {'mode': 'column'},
+        },
+        'children': [
+          {
+            'id': 'flagged',
+            'modules': {
+              'visibility': {'visible': false},
+              'text': {'text': 'Flagged'},
+            },
+          },
+          {
+            'id': 'asked',
+            'modules': {
+              'visibility': {'visible': '{{1 > 2}}'},
+              'text': {'text': 'Asked'},
+            },
+          },
+          {
+            'id': 'plain',
+            'modules': {
+              'text': {'text': 'Plain'},
+            },
+          },
+        ],
+      });
+      Future<void> draw(bool showHidden) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              ...packOverrides,
+              configStoreProvider.overrideWithValue(MemoryConfigStore()),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: TileFrame(
+                  wrap: (node, tile) => tile,
+                  showHidden: showHidden,
+                  child: NodeView(component: node),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await draw(true);
+      expect(find.text('Flagged'), findsOneWidget);
+      expect(find.text('Asked'), findsOneWidget);
+      expect(find.text('Plain'), findsOneWidget);
+      await draw(false);
+      expect(find.text('Flagged'), findsNothing);
+      expect(find.text('Asked'), findsNothing);
+      expect(find.text('Plain'), findsOneWidget);
+    });
+
+    testWidgets('a hidden part closes up unless it keeps its space', (
+      tester,
+    ) async {
+      Future<double> where(
+        String mode,
+        Map<String, Object?> middle, {
+        bool flagged = false,
+      }) async {
+        final node = Node.fromJson({
+          'id': 'a',
+          'modules': {
+            'layout': {'mode': mode, 'columns': 3},
+          },
+          'children': [
+            {
+              'id': 'x',
+              'modules': {
+                'text': {'text': 'A'},
+                'sizing': {'w': 1},
+              },
+            },
+            {
+              'id': 'y',
+              'modules': {
+                'visibility': {
+                  'visible': flagged ? false : '{{1 > 2}}',
+                  ...middle,
+                },
+                'text': {'text': 'B'},
+                'sizing': {'w': 1},
+              },
+            },
+            {
+              'id': 'z',
+              'modules': {
+                'text': {'text': 'C'},
+                'sizing': {'w': 1},
+              },
+            },
+          ],
+        });
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              ...packOverrides,
+              configStoreProvider.overrideWithValue(MemoryConfigStore()),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 600,
+                    height: 200,
+                    child: NodeView(component: node),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return tester.getTopLeft(find.text('C')).dx;
+      }
+
+      for (final mode in ['flow', 'row']) {
+        for (final flagged in [false, true]) {
+          final closed = await where(mode, {}, flagged: flagged);
+          final kept = await where(mode, {'keep': true}, flagged: flagged);
+          expect(closed, lessThan(kept), reason: '$mode $flagged');
+        }
+      }
+    });
+
+    testWidgets('the media card hides itself while nothing is playing', (
+      tester,
+    ) async {
+      final platform = FakeLauncherPlatform(const [], const []);
+      final item = cardOf(
+        'system:media',
+        id: 'np',
+        prefab: 'system:now-playing',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...packOverrides,
+            configStoreProvider.overrideWithValue(MemoryConfigStore()),
+            launcherPlatformProvider.overrideWithValue(platform),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  const Text('Before'),
+                  SizedBox(
+                    width: 400,
+                    height: 80,
+                    child: Consumer(
+                      builder: (context, ref, _) => switch (ref
+                          .watch(entitiesProvider)
+                          .value
+                          ?.where((entity) => entity.id == 'system:media')
+                          .firstOrNull) {
+                        null => const SizedBox(),
+                        _ => NodeView(component: item),
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Before'), findsOneWidget);
+      expect(find.text('Nothing is playing'), findsNothing);
+      expect(find.byType(InkWell), findsNothing);
+
+      platform.playing = NowPlaying(
+        packageName: 'p',
+        appLabel: 'Player',
+        title: 'Song',
+        playing: false,
+      );
+      platform.notifyNowPlayingChanged();
+      await tester.pumpAndSettle();
+      expect(find.text('Song'), findsOneWidget);
+
+      platform.playing = null;
+      platform.notifyNowPlayingChanged();
+      await tester.pumpAndSettle();
+      expect(find.text('Song'), findsNothing);
+    });
+
     test('a container and a folder are read by their ids', () async {
       final c = container(
         Layout(

@@ -8,6 +8,7 @@ import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_overlays.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_visibility.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 
@@ -22,6 +23,97 @@ void main() {
     expect(appVersion, version);
     // Plain X.Y.Z: the Android version code is worked out from it.
     expect(appVersion, matches(RegExp(r'^\d+\.\d{1,2}\.\d{1,2}$')));
+  });
+
+  test('hidden and keep become the Visibility module', () {
+    final save = jsonDecode(
+      jsonEncode({
+        'layout': {
+          'screens': [
+            {
+              'root': {
+                'id': 'a',
+                'hidden': true,
+                'children': [
+                  {
+                    'id': 'b',
+                    'hidden': false,
+                    'modules': {
+                      'sizing': {'w': 2, 'keep': true},
+                    },
+                    'overrides': {
+                      'part': {'hidden': true},
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        'prefabs': [
+          {
+            'variants': {
+              'row': {
+                'overrides': {
+                  'name': {
+                    'modules': {
+                      'sizing': {'flex': 1, 'keep': false},
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      }),
+    ) as Json;
+    visibilityAsModule(save, Device.unknown);
+    expect(save, {
+      'layout': {
+        'screens': [
+          {
+            'root': {
+              'id': 'a',
+              'modules': {
+                'visibility': {'visible': false},
+              },
+              'children': [
+                {
+                  'id': 'b',
+                  'modules': {
+                    'sizing': {'w': 2},
+                    'visibility': {'keep': true},
+                  },
+                  'overrides': {
+                    'part': {
+                      'modules': {
+                        'visibility': {'visible': false},
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      'prefabs': [
+        {
+          'variants': {
+            'row': {
+              'overrides': {
+                'name': {
+                  'modules': {
+                    'sizing': {'flex': 1},
+                    'visibility': {'keep': false},
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    });
   });
 
   test('a config is saved with its format and the release that wrote it', () {

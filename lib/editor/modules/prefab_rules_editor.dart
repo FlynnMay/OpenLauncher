@@ -145,11 +145,13 @@ class PrefabRulesSettings extends ConsumerWidget {
         ChoiceBox<String>(
           value: shared(
             containers.map(
-              (container) => switch (overridesFromJson(
-                container.prefabRules[prefab.id]?['overrides'],
-              )[part.id]?['hidden']) {
-                true => 'hidden',
-                false => 'shown',
+              (container) => switch (modulesFromJson(
+                overridesFromJson(
+                  container.prefabRules[prefab.id]?['overrides'],
+                )[part.id]?['modules'],
+              )[visibilityModule.name]?['visible']) {
+                false => 'hidden',
+                true => 'shown',
                 _ => _each,
               },
             ),
@@ -164,12 +166,13 @@ class PrefabRulesSettings extends ConsumerWidget {
               overridesFromJson(container.prefabRules[prefab.id]?['overrides']),
               part.id,
               {
-                'hidden': switch (shown) {
-                  'shown' => false,
-                  'hidden' => true,
+                'visible': switch (shown) {
+                  'shown' => true,
+                  'hidden' => false,
                   _ => null,
                 },
               },
+              visibilityModule.name,
             );
             return _ruled(
               container,

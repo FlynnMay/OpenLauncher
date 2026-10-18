@@ -7,6 +7,7 @@ import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_overlays.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_visibility.dart';
 
 export 'save_json.dart' show Device, Json;
 
@@ -66,7 +67,7 @@ const migrations = <Migration>[
         'modules; folders and sidebars are instances holding what is in them; '
         'nothing docks inline; panes write out their box, and one with a '
         'heading is a Section; layers are gone, screens and Overlays take '
-        'their place',
+        'their place; visibility is a module every node has',
     rules: [
       operationsByAddress,
       feedsAsSources,
@@ -79,6 +80,7 @@ const migrations = <Migration>[
       inlineDocksCentred,
       panelsWrittenOut,
       overlaysForLayers,
+      visibilityAsModule,
     ],
   ),
 ];

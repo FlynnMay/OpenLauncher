@@ -58,7 +58,6 @@ const _fixedModules = {'variables', 'triggers'};
 String _shape(Node node, {required bool root}) {
   final json = node.toJson()
     ..remove('modules')
-    ..remove('hidden')
     ..remove('name')
     ..remove('children');
   if (!root) json.remove('transform');
@@ -79,7 +78,10 @@ Map<String, Object?> _changed(
 };
 
 /// What an override sets for a Sizing value that was taken away.
-const _sizingUnset = {'w': 1, 'h': 1, 'flex': 0, 'aspect': 0, 'keep': false};
+const _sizingUnset = {'w': 1, 'h': 1, 'flex': 0, 'aspect': 0};
+
+/// The same for Visibility.
+const _visibilityUnset = {'visible': true, 'keep': false};
 
 /// What [edited] changes in [base]'s tree, as overrides. Null if they differ
 /// in what overrides cannot hold: children, modules taken away, variables,
@@ -90,7 +92,12 @@ Overrides? overridesBetween(Node base, Node edited) {
     // An override can add a module but not take one away.
     if (_shape(was, root: root) != _shape(now, root: root) ||
         was.children.length != now.children.length ||
-        !was.modules.keys.every(now.added)) {
+        !was.modules.keys.every(
+          (name) =>
+              now.added(name) ||
+              moduleNamed(name)?.mandatory == true ||
+              name == sizingModule.name,
+        )) {
       return false;
     }
     final modules = {
@@ -104,6 +111,9 @@ Overrides? overridesBetween(Node base, Node edited) {
                 // An override cannot remove; the default says the same.
                 if (name == styleModule.name) return null;
                 if (name == sizingModule.name) return _sizingUnset[key];
+                if (name == visibilityModule.name) {
+                  return _visibilityUnset[key];
+                }
                 return moduleNamed(name)?.fields
                         .where((field) => field.key == key)
                         .firstOrNull
@@ -117,7 +127,6 @@ Overrides? overridesBetween(Node base, Node edited) {
       if (modules.isNotEmpty) 'modules': modules,
       if (!root && was.transform != now.transform)
         'transform': now.transform.toJson(),
-      if (was.hidden != now.hidden) 'hidden': now.hidden,
       if (was.name != now.name) 'name': now.name,
     };
     if (set.isNotEmpty) result[was.id] = set;
@@ -400,7 +409,6 @@ const prefabCellWidth = 150.0;
       prefab: id,
       transform: item.transform,
       modules: {sizingModule.name: ?item.modules[sizingModule.name]},
-      hidden: item.hidden,
     ),
   );
 }

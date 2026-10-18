@@ -55,7 +55,7 @@ void main() {
         layout,
         {'name'},
         (item, _) => item
-            .copyWith(hidden: true)
+            .withVisible(false)
             .styled(withStyle(item.style, {'fontSize': 20})),
       ),
       'row',
@@ -66,7 +66,7 @@ void main() {
     final name = row.variants['row']!.overrides['name']!;
     Map<Object?, Object?> modules(Map<String, Object?> set) =>
         set['modules']! as Map;
-    expect(name['hidden'], true);
+    expect((modules(name)['visibility']! as Map)['visible'], false);
     expect(modules(name)['style'], {'textAlign': 'left', 'fontSize': 20});
     // What the variant already said is kept.
     expect(
@@ -126,7 +126,11 @@ void main() {
             cardPrefabId: {
               'variant': 'row',
               'overrides': {
-                'name': {'hidden': true},
+                'name': {
+                  'modules': {
+                    'visibility': {'visible': false},
+                  },
+                },
               },
             },
           })
@@ -136,7 +140,11 @@ void main() {
                 id: 'a',
                 prefab: cardPrefabId,
                 overrides: {
-                  'name': {'hidden': true},
+                  'name': {
+                    'modules': {
+                      'visibility': {'visible': false},
+                    },
+                  },
                   'picture': {
                     'modules': {
                       'picture': {'pad': 2},
@@ -149,7 +157,11 @@ void main() {
                 id: 'b',
                 prefab: folderPrefabId,
                 overrides: {
-                  'name': {'hidden': true},
+                  'name': {
+                    'modules': {
+                      'visibility': {'visible': false},
+                    },
+                  },
                 },
               ),
             ],

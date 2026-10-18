@@ -284,7 +284,6 @@ Node resolved(Node instance, Map<String, Prefab> prefabs, [int depth = 0]) {
                   value,
                 ),
       },
-      hidden: instance.hidden,
     ),
     [for (final child in root.children) part(child)],
   );

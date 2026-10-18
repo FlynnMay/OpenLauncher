@@ -8,6 +8,7 @@ import 'package:openlauncher/editor/stage/anchor_marks.dart';
 import 'package:openlauncher/editor/stage/layer_stack.dart';
 import 'package:openlauncher/editor/stage/prefab_screen.dart';
 import 'package:openlauncher/editor/stage/resize_handles.dart';
+import 'package:openlauncher/editor/stage/show_hidden.dart';
 import 'package:openlauncher/editor/stage/snapping.dart';
 import 'package:openlauncher/editor/stage/stage_geometry.dart';
 import 'package:openlauncher/editor/stage/tv_screen.dart';
@@ -407,6 +408,7 @@ class _StageState extends ConsumerState<Stage> {
       child: TileFrame(
         wrap: editing ? _editTile : _plainTile,
         still: editing,
+        showHidden: ref.watch(showHiddenProvider),
         child: DragTarget<Dragged>(
           onWillAcceptWithDetails: (_) => editing,
           onMove: (details) =>

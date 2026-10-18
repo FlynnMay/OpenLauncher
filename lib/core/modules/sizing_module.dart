@@ -19,7 +19,6 @@ class SizingModule extends ModuleType {
   static bool _none(String key, Object? value) => switch (key) {
     'flex' || 'aspect' => value is num && value <= 0,
     'w' || 'h' => value == 1,
-    'keep' => value == false,
     _ => false,
   };
 
@@ -93,9 +92,6 @@ extension NodeSizing on Node {
   /// none, so a variant can unset its prefab's.
   double? get flex => _positive(_number('flex'));
   double? get aspect => _positive(_number('aspect'));
-
-  /// Keeps its space in a row or column while hidden.
-  bool get keep => _sizing['keep'] == true;
 
   /// With its cells set; omitted [x] and [y] are cleared, and so is a value
   /// of 1 for [w] or [h].

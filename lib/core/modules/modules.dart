@@ -20,4 +20,5 @@ export 'style_module.dart';
 export 'text_module.dart';
 export 'triggers_module.dart';
 export 'variables_module.dart';
+export 'visibility_module.dart';
 export 'wallpaper_module.dart';

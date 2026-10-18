@@ -168,15 +168,16 @@ void main() {
     await press(tester, inTree('name'));
     expect(find.text('Variant overrides'), findsOneWidget);
     await press(tester, find.text('Visible'));
-    expect(card().variants['row']!.overrides['name']!['hidden'], true);
+    Object? visible() =>
+        ((card().variants['row']!.overrides['name']!['modules']!
+                as Map)['visibility']
+            as Map?)?['visible'];
+    expect(visible(), false);
     expect(card().root.children.every((part) => !part.hidden), isTrue);
     expect(inTree('Text · hidden'), findsOneWidget);
     // Which is listed, and can be handed back.
     await press(tester, find.byTooltip('Revert').last);
-    expect(
-      card().variants['row']!.overrides['name']!.containsKey('hidden'),
-      isFalse,
-    );
+    expect(visible(), isNull);
     // What a variant cannot hold is refused.
     await press(tester, find.text('Add'));
     await press(

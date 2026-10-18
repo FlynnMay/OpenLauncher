@@ -728,7 +728,11 @@ void main() {
           cardPrefabId: {
             'variant': 'row',
             'overrides': {
-              'name': {'hidden': true},
+              'name': {
+                'modules': {
+                  'visibility': {'visible': false},
+                },
+              },
             },
           },
         };
@@ -746,7 +750,11 @@ void main() {
         expect((entity.w, entity.h), (2, 2));
         expect(entity.variant, 'row');
         expect(entity.overrides, {
-          'name': {'hidden': true},
+          'name': {
+            'modules': {
+              'visibility': {'visible': false},
+            },
+          },
         });
         // Only entities and folders are decided for.
         expect((widget.w, inner.w), (4, 5));

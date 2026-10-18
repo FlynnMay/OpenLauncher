@@ -4,6 +4,9 @@
   "root": {
     "id": "root",
     "modules": {
+      "visibility": {
+        "visible": "{{source.title}}"
+      },
       "layout": {
         "mode": "row",
         "gap": 12

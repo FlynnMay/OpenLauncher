@@ -46,6 +46,24 @@ Object? readTemplate(Watch watch, String template, Map<String, Object?> scope) {
   return parsed.evaluate((root) => values[root]);
 }
 
+/// Whether [node] is shown: its `visible` expression holds, read in its own
+/// scope over [outer].
+bool isShown(
+  Watch watch,
+  Node node,
+  Map<String, Prefab> prefabs,
+  Map<String, Object?> outer,
+) {
+  final found = resolved(node, prefabs);
+  final visible = found.visibleWhen;
+  if (visible == null) return true;
+  final scope = scopeOf(watch, found.id, found.vars, {
+    ...outer,
+    if (node.isInstance) 'instance': {'id': found.id, 'name': found.name},
+  });
+  return isTruthy(readTemplate(watch, visible, scope.own));
+}
+
 /// A component's variables, evaluated.
 typedef Scope = ({
   /// Everything it can read.

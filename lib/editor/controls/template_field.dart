@@ -110,7 +110,8 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
           ).keys.where((path) => path != entity.id).take(_mostParts),
         ],
     };
-    final reads = widget.value.contains('{{')
+    final problem = Template.parse(widget.value).problem;
+    final reads = widget.value.contains('{{') && problem == null
         ? ref.watch(templateProvider(widget.value))
         : null;
     return Padding(
@@ -133,7 +134,17 @@ class _TemplateFieldState extends ConsumerState<TemplateField> {
             ),
             onSubmitted: (_) => _take(),
           ),
-          if (reads != null)
+          if (problem != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 2),
+              child: Text(
+                problem,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            )
+          else if (reads != null)
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 2),
               child: Text(
