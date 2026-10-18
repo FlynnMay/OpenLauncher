@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/media/media_dirs.dart';
+import 'package:openlauncher/core/operations/operation.dart';
+import 'package:openlauncher/core/operations/operations_registry.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/screens/screens.dart';
@@ -180,5 +182,59 @@ void main() {
       expect(read.layout.screens.map((one) => one.id), ['a']);
       expect(File('${dir.path}/screens/b.json.corrupt').existsSync(), isTrue);
     });
+  });
+
+  test('launcher://screen swaps, adds, renames, copies, starts and removes '
+      'screens', () async {
+    final c = await launcher(
+      LauncherConfig(
+        layout: Layout(
+          inbox: '',
+          screens: [screen('a'), screen('b')],
+          startup: const Startup('a'),
+        ).normalised(),
+      ),
+    );
+    Future<String?> run(String name, [Map<String, Object?> args = const {}]) =>
+        c.read(operationsRegistryProvider)[name]!.run(OperationRun(args));
+    Layout layout() => c.read(configProvider).requireValue.layout;
+    String? shown() => c.read(currentScreenProvider)?.id;
+    List<String> ids() => [for (final s in layout().screens) s.id];
+
+    expect(await run('launcher://screen/open', {'id': 'b'}), isNull);
+    expect(shown(), 'b');
+    expect(await run('launcher://screen/open', {'id': 'zz'}), isNotNull);
+    expect(shown(), 'b');
+
+    await run('launcher://screen/add', {'name': 'Games'});
+    expect(ids(), ['a', 'b', 'games']);
+    expect(layout().screen('games')!.root.name, 'Games');
+
+    // Empty `id` is the screen shown.
+    await run('launcher://screen/rename', {'name': 'Second'});
+    expect(layout().screen('b')!.root.name, 'Second');
+
+    await run('launcher://screen/duplicate', {'id': 'b'});
+    expect(ids(), ['a', 'b', 'b-2', 'games']);
+    expect(layout().screen('b-2')!.root.id, Screen.rootId('b-2'));
+    expect(layout().all.map((n) => n.id).toSet().length, layout().all.length);
+
+    await run('launcher://screen/startup', {'id': 'games', 'remember': true});
+    expect(layout().startup, const Startup('games', remember: true));
+    await run('launcher://screen/startup', {'remember': false});
+    expect(layout().startup, const Startup('games'));
+
+    // The screen shown goes: another is drawn, and startup moves on if it
+    // was the one removed.
+    await run('launcher://screen/remove', {'id': 'games'});
+    expect(ids(), ['a', 'b', 'b-2']);
+    expect(layout().startup.screen, 'a');
+    await run('launcher://screen/remove');
+    expect(ids(), ['a', 'b-2']);
+    await c.read(layoutViewProvider.future);
+    expect(shown(), 'a');
+    await run('launcher://screen/remove', {'id': 'b-2'});
+    expect(await run('launcher://screen/remove', {'id': 'a'}), isNotNull);
+    expect(ids(), ['a']);
   });
 }
