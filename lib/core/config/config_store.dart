@@ -22,7 +22,7 @@ final startingLayoutProvider = FutureProvider<({String? id, Layout layout})>((
 ) async {
   try {
     for (final pack in await ref.watch(packContentsProvider.future)) {
-      if (pack.layouts[pack.start] case final layout?) {
+      if (pack.screens[pack.start] case final layout?) {
         return (id: pack.start, layout: layout);
       }
     }

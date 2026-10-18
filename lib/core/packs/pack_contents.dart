@@ -11,7 +11,7 @@ import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/sources/generator.dart';
 import 'package:openlauncher/core/sources/source.dart';
 
-/// A pack's entities, sources, generators, prefabs and layouts. A pack writes short
+/// A pack's entities, sources, generators, prefabs and screens. A pack writes short
 /// names; each is its own unless it says another pack's, `other:name`, and
 /// is read as `<pack>:<name>`.
 @immutable
@@ -22,7 +22,7 @@ class PackContents {
     this.sources = const {},
     this.generators = const {},
     this.prefabs = const [],
-    this.layouts = const {},
+    this.screens = const {},
     this.start,
   });
 
@@ -31,7 +31,7 @@ class PackContents {
     'sources',
     'generators',
     'prefabs',
-    'layouts',
+    'screens',
   ];
 
   final Pack pack;
@@ -43,10 +43,10 @@ class PackContents {
 
   final List<Prefab> prefabs;
 
-  /// Whole screens to start from, by id.
-  final Map<String, Layout> layouts;
+  /// Screens to start from, by file id.
+  final Map<String, Layout> screens;
 
-  /// The layout of its marked `"start": true`, if any: what a new home screen
+  /// The file of its marked `"start": true`, if any: what a new home screen
   /// is.
   final String? start;
 
@@ -76,7 +76,7 @@ class PackContents {
     final sources = <String, Source>{};
     final generators = <String, Generator>{};
     final prefabs = <Prefab>[];
-    final layouts = <String, Layout>{};
+    final screens = <String, Layout>{};
     String? start;
     for (final MapEntry(key: path, value: json) in decoded.entries) {
       final [folder, file] = path.split('/');
@@ -105,11 +105,11 @@ class PackContents {
             throw FormatException('$path needs an "id" and a "root"');
           }
           prefabs.add(prefab);
-        case 'layouts':
+        case 'screens':
           if (glue.defined(path, json)
               case {'id': final String id} &&
                   final Map<Object?, Object?> json) {
-            layouts[id] = Layout.fromJson(json).normalised();
+            screens[id] = Layout.fromJson(json).normalised();
             if (json['start'] == true) start ??= id;
           } else {
             throw FormatException('$path needs an "id"');
@@ -151,7 +151,7 @@ class PackContents {
       sources: sources,
       generators: generators,
       prefabs: prefabs,
-      layouts: layouts,
+      screens: screens,
       start: start,
     );
   }
