@@ -94,7 +94,8 @@ extension NodeSizing on Node {
   double? get flex => _positive(_number('flex'));
   double? get aspect => _positive(_number('aspect'));
 
-  /// Keeps its space in a row or column while hidden.
+  /// Keeps its space in a row, column or cells while hidden; otherwise the
+  /// others close up.
   bool get keep => _sizing['keep'] == true;
 
   /// With its cells set; omitted [x] and [y] are cleared, and so is a value

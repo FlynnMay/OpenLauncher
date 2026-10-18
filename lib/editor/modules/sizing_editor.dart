@@ -48,7 +48,7 @@ List<Widget> sizingEditor(ModuleEdit edit) {
       },
       onChanged: set,
     ),
-    if (parents.every((parent) => parent.mode.inLine))
+    if (parents.every((parent) => parent.mode != LayoutMode.free))
       TickBox(
         label: 'Keep space when hidden',
         value: shared(nodes.map((node) => node.keep)) ?? false,

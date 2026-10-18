@@ -430,6 +430,77 @@ void main() {
       expect(find.text('Plain'), findsOneWidget);
     });
 
+    testWidgets('a hidden part closes up unless it keeps its space', (
+      tester,
+    ) async {
+      Future<double> where(
+        String mode,
+        Map<String, Object?> middle, {
+        bool flagged = false,
+      }) async {
+        final node = Node.fromJson({
+          'id': 'a',
+          'modules': {
+            'layout': {'mode': mode, 'columns': 3},
+          },
+          'children': [
+            {
+              'id': 'x',
+              'modules': {
+                'text': {'text': 'A'},
+                'sizing': {'w': 1},
+              },
+            },
+            {
+              'id': 'y',
+              if (flagged) 'hidden': true else 'visible': '{{1 > 2}}',
+              'modules': {
+                'text': {'text': 'B'},
+                'sizing': {'w': 1, ...middle},
+              },
+            },
+            {
+              'id': 'z',
+              'modules': {
+                'text': {'text': 'C'},
+                'sizing': {'w': 1},
+              },
+            },
+          ],
+        });
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              ...packOverrides,
+              configStoreProvider.overrideWithValue(MemoryConfigStore()),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 600,
+                    height: 200,
+                    child: NodeView(component: node),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return tester.getTopLeft(find.text('C')).dx;
+      }
+
+      for (final mode in ['flow', 'row']) {
+        for (final flagged in [false, true]) {
+          final closed = await where(mode, {}, flagged: flagged);
+          final kept = await where(mode, {'keep': true}, flagged: flagged);
+          expect(closed, lessThan(kept), reason: '$mode $flagged');
+        }
+      }
+    });
+
     testWidgets('the media card hides itself while nothing is playing', (
       tester,
     ) async {

@@ -138,8 +138,10 @@ class NodeView extends ConsumerWidget {
     final frame = context.dependOnInheritedWidgetOfExactType<TileFrame>();
     // The editor can show every node, so each can be picked.
     final showAll = frame != null && frame.showHidden;
+    // One its parent kept the space of is drawn whole, and shown by it.
     if (!screen &&
         !showAll &&
+        !component.hidden &&
         node.visible != null &&
         !isTruthy(readTemplate(ref.watch, node.visible!, scope.own))) {
       return const SizedBox.shrink();
@@ -153,8 +155,11 @@ class NodeView extends ConsumerWidget {
       if (showAll && (unseen || child.hidden)) {
         faded.add(child.id);
         kept.add(child.copyWith(hidden: false));
-      } else if (!unseen) {
+      } else if (!unseen && !child.hidden) {
         kept.add(child);
+      } else if (child.keep) {
+        // Drawn as nothing but still taking its place.
+        kept.add(child.copyWith(hidden: true));
       }
     }
     final shown = node.copyWith(children: kept);
