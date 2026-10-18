@@ -9,6 +9,7 @@ export 'layout_module.dart';
 export 'meter_module.dart';
 export 'module.dart';
 export 'module_registry.dart';
+export 'overlay_module.dart';
 export 'picture_module.dart';
 export 'prefab_rules_module.dart';
 export 'preview_module.dart';

@@ -3,7 +3,7 @@
   "start": true,
   "inbox": "main",
   "removed": [],
-  "layers": [
+  "screens": [
     {
       "id": "home",
       "root": {

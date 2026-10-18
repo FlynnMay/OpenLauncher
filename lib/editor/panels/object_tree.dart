@@ -56,16 +56,18 @@ IconData objectIcon(Node item) => item.isInstance
     ? Icons.view_sidebar_outlined
     : item.isDocked
     ? Icons.folder_open_outlined
+    : item.isOverlay
+    ? Icons.layers_outlined
     : Icons.dashboard_outlined;
 
-/// What is being edited as a tree: each layer and what is on it, or the open
+/// What is being edited as a tree: each screen and what is on it, or the open
 /// prefab's parts by id. Clicking anything selects it; a docked container is
 /// held open on the screen while it or something in it is selected.
 class ObjectTree extends ConsumerWidget {
   const ObjectTree({super.key});
 
-  /// Prefix of a layer's node, which is not a component to select.
-  static const _layer = 'layer:';
+  /// Prefix of a screen's node, which is not a component to select.
+  static const _screen = 'screen:';
 
   static Widget _icon(IconData icon) => Icon(icon, size: 16);
 
@@ -139,18 +141,18 @@ class ObjectTree extends ConsumerWidget {
       children: [
         TreeView<String>.pick(
           nodes: [
-            for (final layer in layout.layers)
+            for (final screen in layout.screens)
               TreeNode(
-                id: '$_layer${layer.id}',
-                value: '$_layer${layer.id}',
-                label: layer.id == Layout.homeId ? 'Home screen' : layer.id,
+                id: '$_screen${screen.id}',
+                value: '$_screen${screen.id}',
+                label: screen.id == Layout.homeId ? 'Home screen' : screen.id,
                 leading: _icon(Icons.tv_outlined),
-                children: under(layer.root),
+                children: under(screen.root),
               ),
           ],
           // With no selection the launcher's own settings show.
-          picked: selection.isEmpty ? {'$_layer${Layout.homeId}'} : selection,
-          onPicked: (value) => value.startsWith(_layer)
+          picked: selection.isEmpty ? {'$_screen${Layout.homeId}'} : selection,
+          onPicked: (value) => value.startsWith(_screen)
               ? ref.read(selectionProvider.notifier).clear()
               : ref.read(selectionProvider.notifier).press(value),
         ),

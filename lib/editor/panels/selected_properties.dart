@@ -301,7 +301,7 @@ class _HandedNode extends ConsumerWidget {
       Wrap(
         spacing: 8,
         children: [
-          if (node.isDocked)
+          if (node.offCells)
             OutlinedButton.icon(
               onPressed: () => TvScreen.openDocked(node.id),
               icon: const Icon(Icons.open_in_new),

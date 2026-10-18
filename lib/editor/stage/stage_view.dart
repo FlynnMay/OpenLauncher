@@ -440,7 +440,7 @@ class _StageState extends ConsumerState<Stage> {
                         // Where its anchors are in its parent.
                         if (picked != null &&
                             picked.found.parent.mode == LayoutMode.free &&
-                            !picked.found.item.isDocked)
+                            !picked.found.item.offCells)
                           Positioned.fill(
                             child: IgnorePointer(
                               child: CustomPaint(
@@ -510,7 +510,7 @@ class _StageState extends ConsumerState<Stage> {
         if (editing && !ref.watch(barReplayProvider)) ...{
           ?_over,
           for (final one in ref.watch(selectedProvider)) ...[
-            if (one.item.isDocked) one.item.id,
+            if (one.item.offCells) one.item.id,
             ?one.dock?.id,
           ],
         },

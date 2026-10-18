@@ -21,7 +21,7 @@ List<Field> dockFieldsOf(Node container) => [
 Layout home(Node root, {Set<String> removed = const {}}) => Layout(
   inbox: root.id,
   removed: removed,
-  layers: [Layer(id: Layout.homeId, root: root)],
+  screens: [Screen(id: Layout.homeId, root: root)],
 );
 
 List<String> ids(Layout layout, String container) => [
@@ -253,7 +253,7 @@ void main() {
       expect((bar.id, bar.x), ('left', null));
       final [inRoot, inBar] = findItems(layout, {'a', 'b'});
       expect((inRoot.dock, inBar.dock?.id), (null, 'left'));
-      expect(inBar.layer.id, Layout.homeId);
+      expect(inBar.screen.id, Layout.homeId);
     });
   });
 

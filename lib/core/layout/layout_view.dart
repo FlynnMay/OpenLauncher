@@ -41,15 +41,15 @@ Node? instanceFor(Entity entity, Layout layout, Map<String, Prefab> prefabs) =>
       null => null,
     };
 
-/// [item] as the container it resolves to, if that is docked: an instance of a
-/// docked prefab docks like one.
+/// [item] as the container it resolves to, if that is drawn over the screen:
+/// an instance of a docked or Overlay prefab is drawn like one.
 Node? dockedForm(Node item, Map<String, Prefab> prefabs) {
   if (!item.isInstance) return null;
   final container = resolved(item, prefabs);
-  return container.isDocked ? container : null;
+  return container.offCells ? container : null;
 }
 
-/// [layout] with its instances of docked containers resolved.
+/// [layout] with its instances of docked and Overlay containers resolved.
 Layout withDockedInstances(Layout layout, Map<String, Prefab> prefabs) =>
     layout.rebuild(
       (_, items) => [

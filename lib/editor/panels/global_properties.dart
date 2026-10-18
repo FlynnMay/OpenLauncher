@@ -76,7 +76,7 @@ class _RevertLayout extends ConsumerWidget {
           if (!await confirm(
             context,
             'Revert the screen to $pack?',
-            'Every layer goes back to how $pack starts it. Your changes to '
+            'Every screen goes back to how $pack starts it. Your changes to '
                 'the layout are lost; Undo brings them back.',
             'Revert',
           )) {

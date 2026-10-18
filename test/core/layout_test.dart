@@ -30,7 +30,7 @@ Entity _entity(String name) => Entity(
   placed: true,
 );
 
-Layer _home(Node root) => Layer(id: 'home', root: root);
+Screen _home(Node root) => Screen(id: 'home', root: root);
 
 void main() {
   group('placeItems', () {
@@ -265,7 +265,10 @@ void main() {
         'system:app/c',
       ]);
 
-      final layout = Layout(inbox: 'inner', layers: [_home(root)]).normalised();
+      final layout = Layout(
+        inbox: 'inner',
+        screens: [_home(root)],
+      ).normalised();
       expect(layout.inbox, 'inner');
       final outer = layout.home.root.children.last;
       expect((outer.x, outer.y, outer.w, outer.h), (0.5, 1, 3, 2.5));
@@ -305,8 +308,8 @@ void main() {
       );
       final layout = Layout(
         inbox: 'nowhere',
-        layers: [
-          Layer(
+        screens: [
+          Screen(
             id: 'over',
             root: Node.layout(
               id: 'rail',
@@ -333,17 +336,17 @@ void main() {
               ],
             ),
           ),
-          Layer.empty('over'),
+          Screen.empty('over'),
         ],
       ).normalised();
 
       // Home was missing: it comes first, with a root container that becomes
       // the inbox.
-      expect(layout.layers.map((l) => l.id), ['home', 'over']);
+      expect(layout.screens.map((l) => l.id), ['home', 'over']);
       expect(layout.inbox, layout.home.root.id);
       expect(layout.home.root.mode, LayoutMode.grid);
 
-      final rail = layout.layer('over')!.root;
+      final rail = layout.screen('over')!.root;
       expect(rail.columns, 4);
       final [first, other, inRail, games] = rail.children;
       expect((first.id, first.w), ('a', 3));
@@ -377,7 +380,7 @@ void main() {
       );
       final layout = Layout(
         inbox: 'f',
-        layers: [
+        screens: [
           _home(
             container(
               'global',
@@ -400,7 +403,7 @@ void main() {
       ).withValue(layoutModule.name, 'mode', 'grid');
       final layout = Layout(
         inbox: 'main',
-        layers: [
+        screens: [
           _home(Node.layout(id: 'root', children: [bar])),
         ],
       ).normalised();
@@ -411,12 +414,12 @@ void main() {
 
     test('rejects what is not a layout', () {
       expect(
-        () => Layout.fromJson(const {'layers': 'no'}),
+        () => Layout.fromJson(const {'screens': 'no'}),
         throwsFormatException,
       );
       expect(
         () => Layout.fromJson(const {
-          'layers': [
+          'screens': [
             {
               'id': 'home',
               'root': {
@@ -462,7 +465,7 @@ void main() {
     );
     final layout = Layout(
       inbox: 'a',
-      layers: [
+      screens: [
         _home(
           Node.layout(
             id: 'global',
@@ -501,7 +504,7 @@ void main() {
   test('a container keeps the padding it is given, within reason', () {
     final layout = Layout.fromJson(const {
       'v': saveVersion,
-      'layers': [
+      'screens': [
         {
           'id': 'home',
           'root': {
@@ -540,7 +543,7 @@ void main() {
         layout: Layout(
           inbox: 'main',
           removed: const {'system:app/c'},
-          layers: [
+          screens: [
             _home(
               Node.layout(
                 id: 'global',
@@ -590,7 +593,7 @@ void main() {
       final config = LauncherConfig(
         layout: Layout(
           inbox: 'global',
-          layers: [
+          screens: [
             _home(
               Node.layout(
                 id: 'global',
@@ -634,7 +637,7 @@ void main() {
         (BarEdge.top, DockModule.fill, 120, 0),
       );
       // It opens while it has the focus, by what is written on it.
-      expect(left.on.keys, Trigger.values.skip(2));
+      expect(left.on.keys, [Trigger.focus, Trigger.blur]);
       // A folder is hidden while closed; in the middle it is as tall as what
       // is in it.
       final folder = drawnInstance(folderOf('games'));
@@ -656,7 +659,7 @@ void main() {
 
     Layout holding(List<Node> docked) => Layout(
       inbox: 'main',
-      layers: [_home(Node.layout(id: 'root', children: docked))],
+      screens: [_home(Node.layout(id: 'root', children: docked))],
     ).normalised();
 
     test('sizes are written, read back and kept within bounds', () {
@@ -768,7 +771,7 @@ void main() {
       };
       final layout = Layout(
         inbox: 'p',
-        layers: [_home(Node.layout(id: 'p', style: style))],
+        screens: [_home(Node.layout(id: 'p', style: style))],
       ).normalised();
       expect(layout.home.root.style, style);
       final read = Node.fromJson(layout.home.root.toJson());
@@ -780,7 +783,7 @@ void main() {
       final view = layoutWith(
         Layout(
           inbox: 'main',
-          layers: [
+          screens: [
             _home(
               Node.layout(
                 id: 'main',
@@ -833,7 +836,7 @@ void main() {
 
     test('a broken layout does not lose the rest', () {
       final config = LauncherConfig.fromJson(const {
-        'layout': {'layers': 7},
+        'layout': {'screens': 7},
         'wallpapers': ['/w.png'],
       });
       expect(config.wallpapers, ['/w.png']);

@@ -54,11 +54,11 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   Future<void> patch(Map<String, Object?> json) =>
       _update((c) => c.patched(json));
 
-  /// Removes an entity from [layer], or from every layer, until it is placed
-  /// again.
-  Future<void> removeEntity(String id, {String? layer}) => _update(
+  /// Removes an entity from [screen], or from every screen, until it is
+  /// placed again.
+  Future<void> removeEntity(String id, {String? screen}) => _update(
     (c) =>
-        c.copyWith(layout: c.layout.without({id}, layer: layer).normalised()),
+        c.copyWith(layout: c.layout.without({id}, screen: screen).normalised()),
   );
 
   /// Adds [item] to container [container].

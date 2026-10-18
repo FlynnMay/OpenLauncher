@@ -87,21 +87,22 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// A home layer of [containers] one under another, each five rows tall,
+    /// A home screen of [containers] one under another, each five rows tall,
     /// with room on the left for a sidebar, and [docked] on it.
-    Layer home(List<Node> containers, [List<Node> docked = const []]) => Layer(
-      id: Layout.homeId,
-      root: Node.layout(
-        id: 'global',
-        mode: LayoutMode.grid,
-        columns: 12,
-        children: [
-          for (final (index, container) in containers.indexed)
-            container.sized(10, 5, x: 2, y: index * 5.0),
-          ...docked,
-        ],
-      ),
-    );
+    Screen home(List<Node> containers, [List<Node> docked = const []]) =>
+        Screen(
+          id: Layout.homeId,
+          root: Node.layout(
+            id: 'global',
+            mode: LayoutMode.grid,
+            columns: 12,
+            children: [
+              for (final (index, container) in containers.indexed)
+                container.sized(10, 5, x: 2, y: index * 5.0),
+              ...docked,
+            ],
+          ),
+        );
 
     /// The docked container [id] as drawn.
     Finder dock(String id) => find.byWidgetPredicate(
@@ -177,7 +178,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            layers: [
+            screens: [
               home(
                 [Node.layout(id: 'main')],
                 [
@@ -229,7 +230,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            layers: [
+            screens: [
               home([
                 Node.layout(
                   id: 'main',
@@ -281,7 +282,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            layers: [
+            screens: [
               home(
                 [
                   section(
@@ -347,7 +348,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            layers: [
+            screens: [
               home([
                 Node.layout(
                   id: 'main',
@@ -414,7 +415,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            layers: [
+            screens: [
               home([
                 Node.layout(
                   id: 'main',
@@ -478,7 +479,7 @@ void main() {
           layout: Layout(
             inbox: 'plain',
             removed: const {'system:app/pkg.c', 'system:settings'},
-            layers: [
+            screens: [
               home([
                 container('plain', 'pkg.a', const {}),
                 container('painted', 'pkg.b', const {
@@ -527,8 +528,8 @@ void main() {
           layout: Layout(
             inbox: 'short',
             removed: const {'system:app/pkg.c', 'system:settings'},
-            layers: [
-              Layer(
+            screens: [
+              Screen(
                 id: Layout.homeId,
                 root: Node.layout(
                   id: 'global',
@@ -596,7 +597,7 @@ void main() {
           layout: Layout(
             inbox: 'p',
             removed: const {'system:settings'},
-            layers: [
+            screens: [
               home([
                 Node.layout(
                   id: 'p',
@@ -766,7 +767,7 @@ void main() {
             layout: Layout(
               inbox: 'p',
               removed: const {'system:settings'},
-              layers: [
+              screens: [
                 home([
                   Node.layout(
                     id: 'p',
@@ -887,8 +888,8 @@ void main() {
               'system:app/pkg.c',
               'system:settings',
             },
-            layers: [
-              Layer(
+            screens: [
+              Screen(
                 id: Layout.homeId,
                 root: Node.layout(
                   id: 'global',
@@ -949,7 +950,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            layers: [
+            screens: [
               home(
                 [Node.layout(id: 'main')],
                 [
@@ -997,7 +998,7 @@ void main() {
             LauncherConfig(
               layout: Layout(
                 inbox: 'main',
-                layers: [
+                screens: [
                   home(
                     [Node.layout(id: 'main')],
                     [
@@ -1045,7 +1046,7 @@ void main() {
         LauncherConfig(
           layout: Layout(
             inbox: 'main',
-            layers: [
+            screens: [
               home(
                 // Padded, so what is in it sits below the bar's edge.
                 [Node.layout(id: 'main', style: _boxed)],

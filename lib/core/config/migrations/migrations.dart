@@ -4,6 +4,7 @@ import 'package:openlauncher/core/config/app_version.dart';
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 import 'package:openlauncher/core/config/migrations/v1_to_v2.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher/core/config/migrations/v2_to_v3_overlays.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 
@@ -64,7 +65,8 @@ const migrations = <Migration>[
         'docked panes say whether a press closes them; nodes with '
         'modules; folders and sidebars are instances holding what is in them; '
         'nothing docks inline; panes write out their box, and one with a '
-        'heading is a Section',
+        'heading is a Section; layers are gone, screens and Overlays take '
+        'their place',
     rules: [
       operationsByAddress,
       feedsAsSources,
@@ -76,6 +78,7 @@ const migrations = <Migration>[
       templatesLinked,
       inlineDocksCentred,
       panelsWrittenOut,
+      overlaysForLayers,
     ],
   ),
 ];

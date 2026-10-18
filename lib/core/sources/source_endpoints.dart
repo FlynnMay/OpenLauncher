@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
-import 'package:openlauncher/core/layers/layers.dart';
+import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
@@ -113,15 +113,9 @@ final Map<String, SourceEndpoint> sourceEndpoints = {
       'error': update.error,
     };
   },
-  // The saved layers and those made since.
-  'launcher://layers': (ref, watch) => {
-    'count':
-        ref.watch(layersProvider).length +
-        ref.watch(
-          configProvider.select(
-            (config) => config.value?.layout.layers.length ?? 1,
-          ),
-        ),
+  // What is open over the screen.
+  'launcher://overlays': (ref, watch) => {
+    'count': ref.watch(overlaysProvider).length,
   },
 };
 

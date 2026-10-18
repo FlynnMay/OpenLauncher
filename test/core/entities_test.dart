@@ -277,10 +277,10 @@ void main() {
         expect(platform.launched.last, 'a');
 
         // Taking it off the screen is the launcher's to do, told what and
-        // from which layer.
+        // from which screen.
         await actions.run(
           const Act('launcher://layout/remove', {
-            'layer': 'home',
+            'screen': 'home',
             'what': 'system:app/a',
           }),
         );
@@ -294,7 +294,7 @@ void main() {
         expect(
           await actions.run(
             const Act('launcher://layout/add', {
-              'layer': 'home',
+              'screen': 'home',
               'what': 'system:app/a',
             }),
           ),
@@ -313,7 +313,7 @@ void main() {
         expect(
           await actions.run(
             const Act('launcher://layout/add', {
-              'layer': 'home',
+              'screen': 'home',
               'what': 'system:app/b',
               'to': 'no',
             }),
@@ -440,11 +440,10 @@ void main() {
       }
       expect(Operation.areaOf('os://apps/launch'), 'os://apps');
       final registry = c.read(operationsRegistryProvider);
-      expect(registry.areas, containsAll(['os://apps', 'launcher://layers']));
-      expect(registry.inArea('launcher://layers').map((one) => one.name), [
-        'launcher://layers/new',
-        'launcher://layers/raise',
-        'launcher://layers/close',
+      expect(registry.areas, containsAll(['os://apps', 'launcher://overlay']));
+      expect(registry.inArea('launcher://overlay').map((one) => one.name), [
+        'launcher://overlay/open',
+        'launcher://overlay/close',
       ]);
     });
 

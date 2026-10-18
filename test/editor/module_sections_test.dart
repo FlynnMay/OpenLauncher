@@ -327,6 +327,7 @@ void main() {
     // It draws text already, so nothing else that draws is offered.
     expect(find.text('Picture'), findsNothing);
     expect(find.text('Slot'), findsNothing, reason: 'only in a prefab');
+    await tester.ensureVisible(find.text('Focus').last);
     await tester.tap(find.text('Focus').last);
     await tester.pumpAndSettle();
     expect(node.focusable, isTrue);

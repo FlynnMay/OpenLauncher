@@ -237,19 +237,19 @@ void main() {
         of: find.byType(SearchBox),
         matching: find.byType(TextField),
       ),
-      'layers',
+      'overlay',
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('launcher://layers').last);
+    await tester.tap(find.text('launcher://overlay').last);
     await tester.pumpAndSettle();
     // The area's first operation, then any of the others there.
-    expect(on[Trigger.press], [const Act('launcher://layers/new')]);
+    expect(on[Trigger.press], [const Act('launcher://overlay/open')]);
     await choose(
       tester,
-      find.text('Create a new layer'),
-      'Move a component to the top layer',
+      find.text('Open a node over the screen'),
+      'Close a node over the screen',
     );
-    expect(on[Trigger.press], [const Act('launcher://layers/raise')]);
+    expect(on[Trigger.press], [const Act('launcher://overlay/close')]);
     expect(find.text('of (component ID)'), findsOneWidget);
 
     // Aimed at an entity, it is that entity's action again.

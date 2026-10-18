@@ -195,7 +195,7 @@ void main() {
         ],
         'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
         // Not set this way: left alone.
-        'layout': {'layers': []},
+        'layout': {'screens': []},
       });
       expect(jsonEncode(store.config.layout), layout);
       final read = LauncherConfig.fromJson(store.config.toJson());

@@ -66,7 +66,7 @@ class _FocusTileState extends State<FocusTile> {
   /// Margin kept around a tile when scrolling to it, for its focused size.
   static const _overhang = 12.0;
 
-  /// Scrolls the tile into view. A layer's root centres it; a container scrolls
+  /// Scrolls the tile into view. A screen's root centres it; a container scrolls
   /// as little as needed, showing the top of a tile taller than itself.
   void _reveal() {
     final object = context.findRenderObject();

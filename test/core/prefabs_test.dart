@@ -291,8 +291,8 @@ void main() {
     // A layout sees them, and can change them.
     final layout = Layout(
       inbox: 'home/root',
-      layers: [
-        Layer(
+      screens: [
+        Screen(
           id: Layout.homeId,
           root: Node.layout(id: 'home/root', children: [instance]),
         ),

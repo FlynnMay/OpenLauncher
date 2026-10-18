@@ -78,8 +78,8 @@ class CellsLayout extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 for (final (index, child) in shown.indexed)
-                  // A docked container is drawn by its layer.
-                  if (!child.hidden && !child.isDocked)
+                  // One off the cells is drawn by the screen.
+                  if (!child.hidden && !child.offCells)
                     Positioned.fromRect(
                       key: ValueKey(child.id),
                       rect: metrics.rectOf(placements[index]),

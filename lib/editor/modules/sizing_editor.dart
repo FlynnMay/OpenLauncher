@@ -11,7 +11,7 @@ List<Widget> sizingEditor(ModuleEdit edit) {
   final parents = edit.parents;
   if (parents.isEmpty ||
       !parents.every((parent) => parent.has(layoutModule.name)) ||
-      edit.drawn.any((node) => node.isDocked)) {
+      edit.drawn.any((node) => node.offCells)) {
     return const [Text('Only a child of a node with a Layout is sized by it.')];
   }
   final nodes = edit.nodes;

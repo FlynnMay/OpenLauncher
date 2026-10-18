@@ -146,7 +146,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
                 false,
           ),
         ),
-    if (found.isDocked)
+    if (found.offCells)
       openVar:
           ref.watch(runtimeVarsProvider.select((all) => all[id]?[openVar])) ==
           true,

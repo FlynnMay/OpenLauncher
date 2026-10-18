@@ -36,7 +36,7 @@ class FreeLayout extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 for (final child in node.shown)
-                  if (!child.hidden && !child.isDocked)
+                  if (!child.hidden && !child.offCells)
                     Positioned.fromRect(
                       key: ValueKey(child.id),
                       rect: child.transform.rectIn(size),

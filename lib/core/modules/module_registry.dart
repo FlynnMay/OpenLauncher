@@ -5,6 +5,7 @@ import 'package:openlauncher/core/modules/icon_module.dart';
 import 'package:openlauncher/core/modules/layout_module.dart';
 import 'package:openlauncher/core/modules/meter_module.dart';
 import 'package:openlauncher/core/modules/module.dart';
+import 'package:openlauncher/core/modules/overlay_module.dart';
 import 'package:openlauncher/core/modules/picture_module.dart';
 import 'package:openlauncher/core/modules/prefab_rules_module.dart';
 import 'package:openlauncher/core/modules/preview_module.dart';
@@ -31,6 +32,7 @@ const moduleTypes = <ModuleType>[
   sizingModule,
   scrollModule,
   dockModule,
+  overlayModule,
   focusModule,
   triggersModule,
   variablesModule,
