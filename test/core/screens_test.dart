@@ -12,6 +12,7 @@ import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
@@ -294,6 +295,28 @@ void main() {
       expect(screen.find('nothing'), isNull);
       // Copying the copy does not stack the prefix.
       expect(screen.copied('c').screen.find('card')!.id, 'c/card');
+    },
+  );
+
+  test(
+    'the editor works on the screen shown, and keeps the startup screen',
+    () async {
+      final c = await launcher(
+        LauncherConfig(
+          layout: Layout(
+            inbox: '',
+            screens: [screen('a'), screen('b')],
+            startup: const Startup('a'),
+          ).normalised(),
+        ),
+      );
+      c.listen(editedLayoutProvider, (_, _) {});
+      expect(c.read(editedLayoutProvider)?.start.id, 'a');
+      c.read(shownScreensProvider.notifier).open('b');
+      final edited = c.read(editedLayoutProvider)!;
+      expect(edited.start.id, 'b');
+      // What the editor saves is the real startup.
+      expect((await c.read(configProvider.future)).layout.startup.screen, 'a');
     },
   );
 }

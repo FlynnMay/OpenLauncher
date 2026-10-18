@@ -53,8 +53,9 @@ class Layout {
   /// Everything that is not a container.
   Iterable<Node> get items => all.where((item) => !item.isContainer);
 
-  /// The docked containers.
-  Iterable<Node> get docked => all.where((container) => container.isDocked);
+  /// The docked containers of the [start] screen.
+  Iterable<Node> get docked =>
+      start.root.all.where((container) => container.isDocked);
 
   /// The nodes that open and close: docked, or with an Overlay.
   Iterable<Node> get opening =>

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/operations/operation.dart';
+import 'package:openlauncher/core/operations/operations_registry.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
@@ -26,7 +28,13 @@ Future<void> changeLayout(
   final prefab = ref.read(editedPrefabProvider);
   try {
     if (prefab == null) {
-      await ref.read(configProvider.notifier).setLayout(change(layout));
+      final startup = ref.read(configProvider).value?.layout.startup;
+      final changed = change(layout);
+      await ref
+          .read(configProvider.notifier)
+          .setLayout(
+            startup == null ? changed : changed.copyWith(startup: startup),
+          );
     } else if (await saveEdited(ref, prefab, change(layout))
         case final reason?) {
       messenger.showSnackBar(SnackBar(content: Text(reason)));
@@ -36,6 +44,20 @@ Future<void> changeLayout(
     // Reload from the TV.
     ref.invalidate(configProvider);
   }
+}
+
+/// Runs the launcher operation [name] and shows what it answers.
+Future<void> runLauncher(
+  BuildContext context,
+  WidgetRef ref,
+  String name, [
+  Map<String, Object?> args = const {},
+]) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final message = await ref
+      .read(operationsRegistryProvider)[name]
+      ?.run(OperationRun(args));
+  if (message != null) messenger.showSnackBar(SnackBar(content: Text(message)));
 }
 
 /// Changes the config through its controller; a change the TV refuses is

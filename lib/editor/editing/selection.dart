@@ -46,6 +46,19 @@ class Selection extends Notifier<Set<String>> {
   void restore(Set<String> ids) => state = ids;
 }
 
+/// With nothing selected, whether the inspector shows the launcher's settings
+/// rather than the screen shown's.
+final inspectLauncherProvider = NotifierProvider<InspectLauncher, bool>(
+  InspectLauncher.new,
+);
+
+class InspectLauncher extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void set(bool launcher) => state = launcher;
+}
+
 /// Multi-select without a modifier key, for touch.
 final selectSeveralProvider = NotifierProvider<SelectSeveral, bool>(
   SelectSeveral.new,
