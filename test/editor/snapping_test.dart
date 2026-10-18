@@ -9,6 +9,7 @@ void main() {
     final grid = Node.layout(id: 'p', mode: LayoutMode.grid);
     expect(stepIn(free, snap: true), freeStep);
     expect(stepIn(free, snap: false), 1);
+    expect(stepIn(free, snap: true, step: 20), 20);
     expect(stepIn(grid, snap: true), 1);
     expect(stepIn(grid, snap: false), 1);
     expect(stepIn(Node.layout(id: 'p'), snap: false), 1);
