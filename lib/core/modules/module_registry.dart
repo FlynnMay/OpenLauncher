@@ -16,11 +16,13 @@ import 'package:openlauncher/core/modules/style_module.dart';
 import 'package:openlauncher/core/modules/text_module.dart';
 import 'package:openlauncher/core/modules/triggers_module.dart';
 import 'package:openlauncher/core/modules/variables_module.dart';
+import 'package:openlauncher/core/modules/visibility_module.dart';
 import 'package:openlauncher/core/modules/wallpaper_module.dart';
 import 'package:openlauncher/core/nodes/node.dart';
 
 /// Every module, in the order the editor lists them. A new one goes here.
 const moduleTypes = <ModuleType>[
+  visibilityModule,
   textModule,
   pictureModule,
   iconModule,

@@ -305,7 +305,11 @@ void main() {
                         x: 2,
                         y: 1,
                         overrides: const {
-                          'date': {'hidden': true},
+                          'date': {
+                            'modules': {
+                              'visibility': {'visible': false},
+                            },
+                          },
                         },
                       ),
                     ],
@@ -424,7 +428,11 @@ void main() {
                       'system:app/pkg.a',
                       id: 'a',
                       overrides: const {
-                        'name': {'hidden': true},
+                        'name': {
+                          'modules': {
+                            'visibility': {'visible': false},
+                          },
+                        },
                       },
                     ),
                   ],

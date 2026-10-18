@@ -416,4 +416,61 @@ void main() {
       isFalse,
     );
   });
+
+  testWidgets('every node has Visibility: it cannot be added or removed', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(500, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var node = Node.layout(id: 'p');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...packOverrides,
+          configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          launcherPlatformProvider.overrideWithValue(
+            FakeLauncherPlatform(const [], const []),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: StatefulBuilder(
+                builder: (context, setState) => ModuleSections(
+                  nodes: [node],
+                  parents: const [],
+                  onChanged: (how) => setState(() => node = how(node)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final section = find.widgetWithText(SectionHeader, 'Visibility');
+    expect(section, findsOneWidget);
+    expect(
+      find.descendant(of: section, matching: find.byType(Checkbox)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: section, matching: find.byTooltip('Module menu')),
+      findsNothing,
+    );
+    // Saying nothing is not saved.
+    expect(node.modules, isNot(contains('visibility')));
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Visible'));
+    await tester.pumpAndSettle();
+    expect(node.hidden, isTrue);
+    expect(
+      node.toJson()['modules'],
+      containsPair('visibility', {'visible': false}),
+    );
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Visible'));
+    await tester.pumpAndSettle();
+    expect(node.hidden, isFalse);
+    expect(node.toJson()['modules'], isNot(contains('visibility')));
+  });
 }

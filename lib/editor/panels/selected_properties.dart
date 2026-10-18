@@ -82,18 +82,6 @@ class SelectedProperties extends ConsumerWidget {
               value: single.name,
               onChanged: (name) => each((item) => item.copyWith(name: name)),
             ),
-          TickBox(
-            label: 'Visible',
-            value: !(shared(items.map((item) => item.hidden)) ?? false),
-            onChanged: (visible) =>
-                each((item) => item.copyWith(hidden: !visible)),
-          ),
-          if (single != null)
-            TemplateField(
-              label: 'Visible when',
-              value: single.visible ?? '',
-              onChanged: (visible) => each((item) => item.withVisible(visible)),
-            ),
         ]),
         if (single != null)
           TransformSettings(

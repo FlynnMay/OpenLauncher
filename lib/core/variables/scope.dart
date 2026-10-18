@@ -55,7 +55,7 @@ bool isShown(
   Map<String, Object?> outer,
 ) {
   final found = resolved(node, prefabs);
-  final visible = found.visible;
+  final visible = found.visibleWhen;
   if (visible == null) return true;
   final scope = scopeOf(watch, found.id, found.vars, {
     ...outer,

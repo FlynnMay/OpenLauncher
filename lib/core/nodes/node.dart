@@ -27,7 +27,7 @@ Map<String, Object?> _map(Object? json) => switch (json) {
 };
 
 /// Sets [values] on node [id]: in module [module], or at the top level
-/// (`hidden`, `name`, `transform`) when [module] is null. Null values are
+/// (`name`, `transform`) when [module] is null. Null values are
 /// removed, and so is anything left empty.
 Overrides withOverride(
   Overrides overrides,
@@ -103,8 +103,6 @@ class Node {
     this.variant,
     this.transform = NodeTransform.fill,
     this.modules = const {},
-    this.hidden = false,
-    this.visible,
     this.children = const [],
     this.overrides = const {},
   });
@@ -219,12 +217,6 @@ class Node {
 
   final Modules modules;
 
-  final bool hidden;
-
-  /// An expression (`{{player.state == 'playing'}}`) that must hold, read in
-  /// the node's own scope, for it to be shown. Null: always.
-  final String? visible;
-
   final List<Node> children;
 
   /// An instance's differences from its prefab's nodes.
@@ -290,22 +282,14 @@ class Node {
       transform: set.containsKey('transform')
           ? NodeTransform.fromJson(set['transform'])
           : transform,
-      modules: {
+      modules: _kept({
         ...modules,
         for (final MapEntry(key: module, :value) in over.entries)
           module: (moduleNamed(module)?.merge ?? mergeValues)(
             modules[module] ?? const {},
             value,
           ),
-      },
-      hidden: switch (set['hidden']) {
-        final bool hidden => hidden,
-        _ => hidden,
-      },
-      visible: switch (set['visible']) {
-        final String visible => visible,
-        _ => visible,
-      },
+      }),
       children: children,
       overrides: overrides,
     );
@@ -336,8 +320,6 @@ class Node {
     String? variant,
     NodeTransform? transform,
     Modules? modules,
-    bool? hidden,
-    String? visible,
     List<Node>? children,
     Overrides? overrides,
   }) => Node(
@@ -347,24 +329,8 @@ class Node {
     variant: variant ?? this.variant,
     transform: transform ?? this.transform,
     modules: modules ?? this.modules,
-    hidden: hidden ?? this.hidden,
-    visible: visible ?? this.visible,
     children: children ?? this.children,
     overrides: overrides ?? this.overrides,
-  );
-
-  /// Sets or clears the `visible` expression (copyWith cannot clear).
-  Node withVisible(String? visible) => Node(
-    id: id,
-    name: name,
-    prefab: prefab,
-    variant: variant,
-    transform: transform,
-    modules: modules,
-    hidden: hidden,
-    visible: visible == null || visible.isEmpty ? null : visible,
-    children: children,
-    overrides: overrides,
   );
 
   /// Sets or clears the variant (copyWith cannot clear).
@@ -375,8 +341,6 @@ class Node {
     variant: variant,
     transform: transform,
     modules: modules,
-    hidden: hidden,
-    visible: visible,
     children: children,
     overrides: overrides,
   );
@@ -433,12 +397,17 @@ class Node {
       variant: jsonOptional<String>(json, 'variant'),
       transform: NodeTransform.fromJson(json['transform']),
       modules: modules,
-      hidden: json['hidden'] == true,
-      visible: jsonOptional<String>(json, 'visible'),
       children: [...jsonList(json, 'children', Node.fromJson), ...holders],
       overrides: overridesFromJson(json['overrides']),
     );
   }
+
+  /// [modules] without those every node has that say nothing.
+  static Modules _kept(Modules modules) => {
+    for (final MapEntry(:key, :value) in modules.entries)
+      if (value.isNotEmpty || moduleNamed(key)?.nothingWhenEmpty != true)
+        key: value,
+  };
 
   Map<String, Object?> toJson() {
     final holders = isInstance
@@ -466,9 +435,7 @@ class Node {
       'prefab': ?prefab,
       'variant': ?variant,
       if (!transform.isFill) 'transform': transform.toJson(),
-      if (hidden) 'hidden': true,
-      'visible': ?visible,
-      if (saved.isNotEmpty) 'modules': saved,
+      if (_kept(saved).isNotEmpty) 'modules': _kept(saved),
       if (overrides.isNotEmpty) 'overrides': overrides,
       if (own.isNotEmpty) 'children': [for (final child in own) child.toJson()],
     };

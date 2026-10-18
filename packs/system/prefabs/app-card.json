@@ -76,7 +76,7 @@
             "fontSize": 12,
             "fontWeight": "medium"
           },
-          "sizing": {
+          "visibility": {
             "keep": true
           }
         }
@@ -118,7 +118,9 @@
               "textAlign": "left"
             },
             "sizing": {
-              "flex": 1,
+              "flex": 1
+            },
+            "visibility": {
               "keep": false
             }
           }

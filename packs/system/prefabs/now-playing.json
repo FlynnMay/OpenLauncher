@@ -3,8 +3,10 @@
   "name": "Now playing",
   "root": {
     "id": "root",
-    "visible": "{{source.title}}",
     "modules": {
+      "visibility": {
+        "visible": "{{source.title}}"
+      },
       "layout": {
         "mode": "row",
         "gap": 12

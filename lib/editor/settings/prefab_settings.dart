@@ -6,6 +6,7 @@ import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher/editor/modules/visibility_editor.dart';
 import 'package:openlauncher/editor/settings/style_settings.dart';
 
 List<Field> _optionsOf(Node part) => part.visual?.fields ?? const [];
@@ -112,19 +113,19 @@ class InstanceSettings extends StatelessWidget {
             padding: const EdgeInsets.only(top: 12),
             child: Text(id, style: theme.textTheme.labelLarge),
           ),
-          TickBox(
-            label: 'Visible',
-            value: !part.hidden,
-            onChanged: (shown) => _override(id, {
-              'hidden': shown == !base[id]!.hidden ? null : !shown,
-            }),
-          ),
-          TemplateField(
-            label: 'Visible when',
-            value: part.visible ?? '',
-            onChanged: (visible) => _override(id, {
-              'visible': visible == (base[id]!.visible ?? '') ? null : visible,
-            }),
+          VisibilityFields(
+            visible: part.modules['visibility']?['visible'],
+            keep: part.keep,
+            onVisible: (visible) => _override(id, {
+              'visible':
+                  visible ==
+                      (base[id]!.hidden ? false : base[id]!.visibleWhen ?? true)
+                  ? null
+                  : visible,
+            }, 'visibility'),
+            onKeep: (keep) => _override(id, {
+              'keep': keep == base[id]!.keep ? null : keep,
+            }, 'visibility'),
           ),
           ...optionFields(
             options: _optionsOf(part),
@@ -214,8 +215,6 @@ class OverrideList extends StatelessWidget {
             key,
           ),
       if (set.containsKey('transform')) row('Transform', null, 'transform'),
-      if (set.containsKey('hidden')) row('Visible', null, 'hidden'),
-      if (set.containsKey('visible')) row('Visible when', null, 'visible'),
     ];
     if (rows.isEmpty) {
       return Text('None', style: theme.textTheme.bodySmall);

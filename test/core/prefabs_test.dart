@@ -108,7 +108,8 @@ void main() {
           overrides: withOverride(
             withOverride(const {}, 'name', {'fontSize': 20}, 'style'),
             'picture',
-            {'hidden': true},
+            {'visible': false},
+            'visibility',
           ),
         )
         .triggered({Trigger.hold: const []});
@@ -165,9 +166,9 @@ void main() {
         .copyWith(
           overrides: const {
             'name': {
-              'hidden': true,
               'modules': {
                 'style': {'fontSize': 20},
+                'visibility': {'visible': false},
               },
             },
           },
@@ -175,7 +176,11 @@ void main() {
     final ruled = item.underRule(const {
       'variant': 'stacked',
       'overrides': {
-        'name': {'hidden': false},
+        'name': {
+          'modules': {
+            'visibility': {'visible': true},
+          },
+        },
       },
     });
     expect(resolved(ruled, prefabs).mode, LayoutMode.column);

@@ -331,15 +331,15 @@ void main() {
         'children': [
           {
             'id': 'big',
-            'visible': '{{n * 2 > 8}}',
             'modules': {
+              'visibility': {'visible': '{{n * 2 > 8}}'},
               'text': {'text': 'Big'},
             },
           },
           {
             'id': 'small',
-            'visible': "{{n <= 3 ? true : false}}",
             'modules': {
+              'visibility': {'visible': '{{n <= 3 ? true : false}}'},
               'text': {'text': 'Small'},
             },
           },
@@ -379,15 +379,15 @@ void main() {
         'children': [
           {
             'id': 'flagged',
-            'hidden': true,
             'modules': {
+              'visibility': {'visible': false},
               'text': {'text': 'Flagged'},
             },
           },
           {
             'id': 'asked',
-            'visible': '{{1 > 2}}',
             'modules': {
+              'visibility': {'visible': '{{1 > 2}}'},
               'text': {'text': 'Asked'},
             },
           },
@@ -453,10 +453,13 @@ void main() {
             },
             {
               'id': 'y',
-              if (flagged) 'hidden': true else 'visible': '{{1 > 2}}',
               'modules': {
+                'visibility': {
+                  'visible': flagged ? false : '{{1 > 2}}',
+                  ...middle,
+                },
                 'text': {'text': 'B'},
-                'sizing': {'w': 1, ...middle},
+                'sizing': {'w': 1},
               },
             },
             {

@@ -56,7 +56,8 @@ class ModuleSections extends ConsumerWidget {
     );
     final shown = [
       for (final type in moduleTypes)
-        if (drawn.every((node) => node.added(type.name)) ||
+        if (type.mandatory ||
+            drawn.every((node) => node.added(type.name)) ||
             type.inLayout && laidOut)
           type,
     ];
@@ -78,6 +79,7 @@ class ModuleSections extends ConsumerWidget {
   /// Whether Add module offers [type] for nodes drawn as [drawn].
   bool _offered(ModuleType type, List<Node> drawn) =>
       !type.inLayout &&
+      !type.mandatory &&
       switch (type.use) {
         ModuleUse.anywhere => true,
         ModuleUse.inPrefab => inPrefab,
@@ -121,7 +123,7 @@ class ModuleSection extends StatelessWidget {
     final body = editModule(edit);
     return Section(
       type.label,
-      leading: added
+      leading: added && !type.mandatory
           ? Checkbox(
               value: on,
               tristate: on == null,
@@ -132,7 +134,7 @@ class ModuleSection extends StatelessWidget {
               ),
             )
           : null,
-      trailing: added
+      trailing: added && !type.mandatory
           ? PopupMenuButton<VoidCallback>(
               tooltip: 'Module menu',
               icon: const Icon(Icons.more_vert, size: 20),

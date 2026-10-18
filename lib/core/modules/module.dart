@@ -46,6 +46,7 @@ class ModuleType {
     this.needs = const [],
     this.use = ModuleUse.anywhere,
     this.inLayout = false,
+    this.mandatory = false,
   });
 
   /// Its key in a node's `modules`.
@@ -78,6 +79,13 @@ class ModuleType {
 
   /// Only means something on a child of a node with a Layout.
   final bool inLayout;
+
+  /// Every node has it: always listed, never added, removed or switched off.
+  final bool mandatory;
+
+  /// With no values it says nothing, so it is left out of a save and need not
+  /// be kept.
+  bool get nothingWhenEmpty => mandatory || inLayout;
 
   /// [under] (a prefab's) with [over] (an instance's or an override's)
   /// applied.

@@ -138,12 +138,10 @@ class NodeView extends ConsumerWidget {
     final frame = context.dependOnInheritedWidgetOfExactType<TileFrame>();
     // The editor can show every node, so each can be picked.
     final showAll = frame != null && frame.showHidden;
-    // One its parent kept the space of is drawn whole, and shown by it.
     if (!screen &&
         !showAll &&
-        !component.hidden &&
-        node.visible != null &&
-        !isTruthy(readTemplate(ref.watch, node.visible!, scope.own))) {
+        node.visibleWhen != null &&
+        !isTruthy(readTemplate(ref.watch, node.visibleWhen!, scope.own))) {
       return const SizedBox.shrink();
     }
     final prefabs = ref.watch(prefabsProvider);
@@ -151,15 +149,17 @@ class NodeView extends ConsumerWidget {
     final faded = <String>{};
     final kept = <Node>[];
     for (final child in node.children) {
-      final unseen = !isShown(ref.watch, child, prefabs, scope.inner);
-      if (showAll && (unseen || child.hidden)) {
+      final seen = resolved(child, prefabs);
+      final out =
+          seen.hidden || !isShown(ref.watch, child, prefabs, scope.inner);
+      if (showAll && out) {
         faded.add(child.id);
-        kept.add(child.copyWith(hidden: false));
-      } else if (!unseen && !child.hidden) {
+        kept.add(child.withVisible(true));
+      } else if (!out) {
         kept.add(child);
-      } else if (child.keep) {
+      } else if (seen.keep) {
         // Drawn as nothing but still taking its place.
-        kept.add(child.copyWith(hidden: true));
+        kept.add(child.withVisible(false).withKeep(true));
       }
     }
     final shown = node.copyWith(children: kept);
