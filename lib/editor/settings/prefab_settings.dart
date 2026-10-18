@@ -119,6 +119,13 @@ class InstanceSettings extends StatelessWidget {
               'hidden': shown == !base[id]!.hidden ? null : !shown,
             }),
           ),
+          TemplateField(
+            label: 'Visible when',
+            value: part.visible ?? '',
+            onChanged: (visible) => _override(id, {
+              'visible': visible == (base[id]!.visible ?? '') ? null : visible,
+            }),
+          ),
           ...optionFields(
             options: _optionsOf(part),
             values: _visualOf(part),
@@ -208,6 +215,7 @@ class OverrideList extends StatelessWidget {
           ),
       if (set.containsKey('transform')) row('Transform', null, 'transform'),
       if (set.containsKey('hidden')) row('Visible', null, 'hidden'),
+      if (set.containsKey('visible')) row('Visible when', null, 'visible'),
     ];
     if (rows.isEmpty) {
       return Text('None', style: theme.textTheme.bodySmall);

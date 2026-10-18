@@ -88,6 +88,12 @@ class SelectedProperties extends ConsumerWidget {
             onChanged: (visible) =>
                 each((item) => item.copyWith(hidden: !visible)),
           ),
+          if (single != null)
+            TemplateField(
+              label: 'Visible when',
+              value: single.visible ?? '',
+              onChanged: (visible) => each((item) => item.withVisible(visible)),
+            ),
         ]),
         if (single != null)
           TransformSettings(

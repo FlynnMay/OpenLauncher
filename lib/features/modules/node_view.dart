@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/modules/focus_drawer.dart';
 import 'package:openlauncher/features/modules/layout_drawer.dart';
@@ -121,6 +122,25 @@ class NodeView extends ConsumerWidget {
       ...TemplateScope.of(context),
       if (component.isInstance) 'instance': {'id': node.id, 'name': node.name},
     });
+    // The editor shows every node, so each can be picked.
+    final editing =
+        context.dependOnInheritedWidgetOfExactType<TileFrame>() != null;
+    if (!screen &&
+        !editing &&
+        node.visible != null &&
+        !isTruthy(readTemplate(ref.watch, node.visible!, scope.own))) {
+      return const SizedBox.shrink();
+    }
+    final prefabs = ref.watch(prefabsProvider);
+    // A part that is not shown leaves no gap.
+    final shown = editing
+        ? node
+        : node.copyWith(
+            children: [
+              for (final child in node.children)
+                if (isShown(ref.watch, child, prefabs, scope.inner)) child,
+            ],
+          );
     final look = readStyle(ref.watch, node.style, scope.own);
     final box = BoxStyle.of(look);
 
@@ -130,19 +150,19 @@ class NodeView extends ConsumerWidget {
       null => null,
     };
     // Its children, reading what it shares with them.
-    final children = visual != null && node.children.isEmpty
+    final children = visual != null && shown.children.isEmpty
         ? null
         : TemplateScope(
             values: scope.inner,
             child: node.mode.inLine
                 ? LineLayout(
-                    container: node,
+                    container: shown,
                     inner: inLine,
                     hug: tall,
                     tile: (child, {required shrink}) =>
                         _child(child, inLine: true, shrink: shrink),
                   )
-                : ChildrenLayout(container: node, tile: _child),
+                : ChildrenLayout(container: shown, tile: _child),
           );
     Widget content = switch ((visual, children)) {
       (final visual?, final children?) => Stack(

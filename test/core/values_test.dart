@@ -122,6 +122,61 @@ void main() {
       );
     });
 
+    test('sums are worked out', () {
+      const v = <String, Object?>{'n': 7, 'level': 0.456, 'name': 'Ann'};
+      expect(_render('{{n + 3}}', v), '10');
+      expect(_render('{{n - 2 * 3}}', v), '1');
+      expect(_render('{{(n - 2) * 3}}', v), '15');
+      expect(_render('{{n / 2}}', v), '3.5');
+      expect(_render('{{n % 4}}', v), '3');
+      expect(_render('{{-n}}', v), '-7');
+      expect(_render('{{round(level * 100)}}%', v), '46%');
+      expect(_render('{{round(level * 100, 1)}}', v), '45.6');
+      expect(_render('{{max(n, 9, 2)}} {{min(n, 9, 2)}}', v), '9 2');
+      expect(_render('{{clamp(n, 0, 5)}}', v), '5');
+      expect(_render('{{floor(level * 10)}} {{ceil(level * 10)}}', v), '4 5');
+      expect(_render('{{abs(0 - n)}}', v), '7');
+      // Not a number, or divided by nothing: nothing.
+      expect(_render('[{{name * 2}}]', v), '[]');
+      expect(_render('[{{n / 0}}]', v), '[]');
+      expect(_render('{{name + n}}', v), 'Ann7');
+      expect(_render('{{upper(name)}}', v), 'ANN');
+    });
+
+    test('conditions combine', () {
+      const v = <String, Object?>{'a': true, 'b': false, 'n': 5, 'e': ''};
+      expect(_render('{{a && !b}}', v), 'true');
+      expect(_render('{{a && b}}', v), 'false');
+      expect(_render('{{b || n > 3}}', v), 'true');
+      expect(_render("{{e || 'none'}}", v), 'none');
+      expect(_render("{{e ?? 'none'}}", v), 'none');
+      expect(_render("{{n ?? 'none'}}", v), '5');
+      expect(_render("{{n > 3 && n < 9 ? 'in' : 'out'}}", v), 'in');
+      expect(_render("{{if(n > 9, 'big', 'small')}}", v), 'small');
+      // Ternaries nest to the right.
+      expect(_render("{{n < 3 ? 'low' : n < 8 ? 'mid' : 'high'}}", v), 'mid');
+      expect(_render("{{(n + 1) * 2 == 12 ? 'yes' : 'no'}}", v), 'yes');
+      expect(Template.parse('{{a && b || c + d.e}}').roots, {
+        'a',
+        'b',
+        'c',
+        'd',
+      });
+    });
+
+    test('what does not parse reads as nothing and says why', () {
+      expect(_render('[{{n +}}]', const {'n': 1}), '[]');
+      expect(Template.parse('{{n +}}').problem, isNotNull);
+      expect(Template.parse("{{'open}}").problem, isNotNull);
+      expect(Template.parse('{{sparkle(1)}}').problem, isNotNull);
+      expect(Template.parse('{{round()}}').problem, isNotNull);
+      expect(Template.parse('{{(1 + 2}}').problem, isNotNull);
+      expect(Template.parse('{{n + 1}} and {{n}}').problem, isNull);
+      // A pipe still follows the whole expression.
+      expect(_render('{{n * 2 | default:x}}', const {'n': 4}), '8');
+      expect(_render('{{a || b | upper}}', const {'a': '', 'b': 'q'}), 'Q');
+    });
+
     test('every single thing in a value has a path', () {
       expect(valuePaths('lounge', values['lounge']), {
         'lounge.state': '21.46',

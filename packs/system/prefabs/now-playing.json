@@ -3,6 +3,7 @@
   "name": "Now playing",
   "root": {
     "id": "root",
+    "visible": "{{source.title}}",
     "modules": {
       "layout": {
         "mode": "row",

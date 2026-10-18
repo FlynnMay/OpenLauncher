@@ -104,6 +104,7 @@ class Node {
     this.transform = NodeTransform.fill,
     this.modules = const {},
     this.hidden = false,
+    this.visible,
     this.children = const [],
     this.overrides = const {},
   });
@@ -220,6 +221,10 @@ class Node {
 
   final bool hidden;
 
+  /// An expression (`{{player.state == 'playing'}}`) that must hold, read in
+  /// the node's own scope, for it to be shown. Null: always.
+  final String? visible;
+
   final List<Node> children;
 
   /// An instance's differences from its prefab's nodes.
@@ -297,6 +302,10 @@ class Node {
         final bool hidden => hidden,
         _ => hidden,
       },
+      visible: switch (set['visible']) {
+        final String visible => visible,
+        _ => visible,
+      },
       children: children,
       overrides: overrides,
     );
@@ -328,6 +337,7 @@ class Node {
     NodeTransform? transform,
     Modules? modules,
     bool? hidden,
+    String? visible,
     List<Node>? children,
     Overrides? overrides,
   }) => Node(
@@ -338,8 +348,23 @@ class Node {
     transform: transform ?? this.transform,
     modules: modules ?? this.modules,
     hidden: hidden ?? this.hidden,
+    visible: visible ?? this.visible,
     children: children ?? this.children,
     overrides: overrides ?? this.overrides,
+  );
+
+  /// Sets or clears the `visible` expression (copyWith cannot clear).
+  Node withVisible(String? visible) => Node(
+    id: id,
+    name: name,
+    prefab: prefab,
+    variant: variant,
+    transform: transform,
+    modules: modules,
+    hidden: hidden,
+    visible: visible == null || visible.isEmpty ? null : visible,
+    children: children,
+    overrides: overrides,
   );
 
   /// Sets or clears the variant (copyWith cannot clear).
@@ -351,6 +376,7 @@ class Node {
     transform: transform,
     modules: modules,
     hidden: hidden,
+    visible: visible,
     children: children,
     overrides: overrides,
   );
@@ -408,6 +434,7 @@ class Node {
       transform: NodeTransform.fromJson(json['transform']),
       modules: modules,
       hidden: json['hidden'] == true,
+      visible: jsonOptional<String>(json, 'visible'),
       children: [...jsonList(json, 'children', Node.fromJson), ...holders],
       overrides: overridesFromJson(json['overrides']),
     );
@@ -440,6 +467,7 @@ class Node {
       'variant': ?variant,
       if (!transform.isFill) 'transform': transform.toJson(),
       if (hidden) 'hidden': true,
+      'visible': ?visible,
       if (saved.isNotEmpty) 'modules': saved,
       if (overrides.isNotEmpty) 'overrides': overrides,
       if (own.isNotEmpty) 'children': [for (final child in own) child.toJson()],

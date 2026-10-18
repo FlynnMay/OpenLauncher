@@ -317,6 +317,119 @@ void main() {
       expect(packIcon('material:play_arrow'), findsOneWidget);
     });
 
+    testWidgets('a part is shown while its visible expression holds', (
+      tester,
+    ) async {
+      final node = Node.fromJson({
+        'id': 'a',
+        'modules': {
+          'layout': {'mode': 'column'},
+          'variables': {
+            'n': {'value': 5},
+          },
+        },
+        'children': [
+          {
+            'id': 'big',
+            'visible': '{{n * 2 > 8}}',
+            'modules': {
+              'text': {'text': 'Big'},
+            },
+          },
+          {
+            'id': 'small',
+            'visible': "{{n <= 3 ? true : false}}",
+            'modules': {
+              'text': {'text': 'Small'},
+            },
+          },
+          {
+            'id': 'always',
+            'modules': {
+              'text': {'text': 'Always'},
+            },
+          },
+        ],
+      });
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...packOverrides,
+            configStoreProvider.overrideWithValue(MemoryConfigStore()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(body: NodeView(component: node)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Big'), findsOneWidget);
+      expect(find.text('Small'), findsNothing);
+      expect(find.text('Always'), findsOneWidget);
+    });
+
+    testWidgets('the media card hides itself while nothing is playing', (
+      tester,
+    ) async {
+      final platform = FakeLauncherPlatform(const [], const []);
+      final item = cardOf(
+        'system:media',
+        id: 'np',
+        prefab: 'system:now-playing',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...packOverrides,
+            configStoreProvider.overrideWithValue(MemoryConfigStore()),
+            launcherPlatformProvider.overrideWithValue(platform),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  const Text('Before'),
+                  SizedBox(
+                    width: 400,
+                    height: 80,
+                    child: Consumer(
+                      builder: (context, ref, _) => switch (ref
+                          .watch(entitiesProvider)
+                          .value
+                          ?.where((entity) => entity.id == 'system:media')
+                          .firstOrNull) {
+                        null => const SizedBox(),
+                        _ => NodeView(component: item),
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Before'), findsOneWidget);
+      expect(find.text('Nothing is playing'), findsNothing);
+      expect(find.byType(InkWell), findsNothing);
+
+      platform.playing = NowPlaying(
+        packageName: 'p',
+        appLabel: 'Player',
+        title: 'Song',
+        playing: false,
+      );
+      platform.notifyNowPlayingChanged();
+      await tester.pumpAndSettle();
+      expect(find.text('Song'), findsOneWidget);
+
+      platform.playing = null;
+      platform.notifyNowPlayingChanged();
+      await tester.pumpAndSettle();
+      expect(find.text('Song'), findsNothing);
+    });
+
     test('a container and a folder are read by their ids', () async {
       final c = container(
         Layout(

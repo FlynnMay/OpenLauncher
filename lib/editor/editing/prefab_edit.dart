@@ -59,6 +59,7 @@ String _shape(Node node, {required bool root}) {
   final json = node.toJson()
     ..remove('modules')
     ..remove('hidden')
+    ..remove('visible')
     ..remove('name')
     ..remove('children');
   if (!root) json.remove('transform');
@@ -118,6 +119,8 @@ Overrides? overridesBetween(Node base, Node edited) {
       if (!root && was.transform != now.transform)
         'transform': now.transform.toJson(),
       if (was.hidden != now.hidden) 'hidden': now.hidden,
+      if (was.visible != now.visible && now.visible != null)
+        'visible': now.visible,
       if (was.name != now.name) 'name': now.name,
     };
     if (set.isNotEmpty) result[was.id] = set;
@@ -401,6 +404,7 @@ const prefabCellWidth = 150.0;
       transform: item.transform,
       modules: {sizingModule.name: ?item.modules[sizingModule.name]},
       hidden: item.hidden,
+      visible: item.visible,
     ),
   );
 }
