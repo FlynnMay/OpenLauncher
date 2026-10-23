@@ -54,18 +54,20 @@ class _GoneActs {
     if (triggers is! Json) return false;
     var dropped = false;
     for (final acts in triggers.values.whereType<List<Object?>>()) {
-      dropped |= _dropGoneFrom(acts);
-      acts.forEach(_homeButtonAsAccess);
+      dropped |= _tidied(acts);
     }
     return dropped &&
         json['kind'] == 'button' &&
         triggers.values.every((acts) => acts is List && acts.isEmpty);
   }
 
-  /// Whether any of [acts] went.
-  bool _dropGoneFrom(List<Object?> acts) {
+  /// Drops the gone acts in [acts] and makes Home button ones access ones;
+  /// whether any went.
+  bool _tidied(List<Object?> acts) {
     final before = acts.length;
-    acts.removeWhere(_isGone);
+    acts
+      ..removeWhere(_isGone)
+      ..forEach(_homeButtonAsAccess);
     return acts.length != before;
   }
 }

@@ -9,14 +9,16 @@ import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_visibility.dart';
 
-export 'save_json.dart' show Device, Json;
+export 'package:openlauncher/core/config/migrations/save_json.dart'
+    show Device, Json;
 
 /// The current save version, written as `v` on the config and the layout.
 /// It counts changes to the saved format, not releases.
 ///
 /// To change the saved format: add a [Migration] to the end of [migrations]
 /// with its rules in a new file, bump this, and have the models read and
-/// write only the new form. Never edit a shipped step.
+/// write only the new form. Never change what a shipped step does; tidying
+/// one must keep `migrations_test.dart` passing.
 const saveVersion = 3;
 
 /// One in-place change to a save. Rules are JSON only; they never use the
@@ -33,7 +35,8 @@ class Migration {
     this.needsDevice = false,
   });
 
-  final int from, to;
+  final int from;
+  final int to;
 
   /// The release it first shipped in, as in `0.2.0`.
   final String since;
@@ -45,6 +48,12 @@ class Migration {
 
   /// Whether a rule benefits from [Device] info.
   final bool needsDevice;
+
+  void apply(Json save, Device device) {
+    for (final rule in rules) {
+      rule(save, device);
+    }
+  }
 }
 
 /// Every migration, oldest first. Version 1 is the format of release 0.1.0.
@@ -125,13 +134,11 @@ Json migrate(
     });
   }
   final needed = pending(save, steps: steps).toList();
-  if (needed.isEmpty) return save is Json ? save : save.cast();
+  if (needed.isEmpty) return jsonObject(save);
   // A deep, mutable copy.
-  final next = (jsonDecode(jsonEncode(save)) as Map).cast<String, Object?>();
+  final next = jsonObject(jsonDecode(jsonEncode(save)));
   for (final step in needed) {
-    for (final rule in step.rules) {
-      rule(next, device);
-    }
+    step.apply(next, device);
   }
   final version = needed.last.to;
   next['v'] = version;
@@ -148,7 +155,7 @@ Json migrateLayout(
     final num version => version.toInt(),
     _ => saveVersion,
   };
-  if (version == saveVersion) return layout is Json ? layout : layout.cast();
+  if (version == saveVersion) return jsonObject(layout);
   return migrate({'v': version, 'layout': layout}, device: device)['layout']!
       as Json;
 }
