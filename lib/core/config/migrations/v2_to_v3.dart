@@ -341,9 +341,7 @@ void _templatesRecordedIn(Json pane) {
 /// one with no strip, unless it was opened in place.
 void closeOnPressRecorded(Json save, Device device) {
   layerRoots(save).forEach(_closeOnPressRecordedIn);
-  for (final prefab in objectsIn(save, 'prefabs')) {
-    if (prefab['root'] case final Json root) _closeOnPressRecordedIn(root);
-  }
+  prefabRoots(save).forEach(_closeOnPressRecordedIn);
 }
 
 void _closeOnPressRecordedIn(Json pane) {

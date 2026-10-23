@@ -31,6 +31,15 @@ Iterable<Json> layerRoots(Json save) => [
     if (layer['root'] case final Json root) root,
 ];
 
+/// The roots of the save's prefabs.
+Iterable<Json> prefabRoots(Json save) => [
+  for (final prefab in objectsIn(save, 'prefabs'))
+    if (prefab['root'] case final Json root) root,
+];
+
+/// What lays out a slot's nodes, on the part that holds it.
+const slotModules = {'layout', 'scroll', 'prefabRules'};
+
 Iterable<String> stringsIn(Object? json) =>
     json is List<Object?> ? json.whereType<String>() : const [];
 

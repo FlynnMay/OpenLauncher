@@ -104,9 +104,6 @@ const _systemTemplates = {
   ),
 };
 
-/// What lays out a slot's nodes, on the part that holds it.
-const _slotModules = {'layout', 'scroll', 'prefabRules'};
-
 /// [base]'s modules with [over]'s values set, key by key.
 Json _merged(Json base, Json over) => {
   ...base,
@@ -213,8 +210,7 @@ class _TemplateLinker {
     final variant = template.nearestVariant(modules);
     final differences = _differences(modules, template.rootModules(variant));
     final part = template.part;
-    bool laysOut(String module) =>
-        part != null && _slotModules.contains(module);
+    bool laysOut(String module) => part != null && slotModules.contains(module);
     final changed = {
       for (final MapEntry(:key, :value) in differences.entries)
         if (!laysOut(key)) key: value,

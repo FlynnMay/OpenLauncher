@@ -3,28 +3,8 @@ import 'package:openlauncher/core/config/migrations/save_json.dart';
 /// Nothing docks in the box of what opens it any more: such a node docks in
 /// the middle. A folder's picture is any node's picture.
 void inlineDocksCentred(Json save, Device device) {
-  void walk(Json node) {
-    if (node['modules'] case {
-      'dock': {'position': 'inline'} && final Json dock,
-    }) {
-      dock['position'] = 'center';
-    }
-    if (node['modules'] case {'variables': final Json vars}) {
-      for (final value in vars.values) {
-        for (final held in value is List ? value : const []) {
-          if (held is Json) walk(held);
-        }
-      }
-    }
-    objectsIn(node, 'children').forEach(walk);
-  }
-
-  for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {
-    if (layer['root'] case final Json root) walk(root);
-  }
-  for (final prefab in objectsIn(save, 'prefabs')) {
-    if (prefab['root'] case final Json root) walk(root);
-  }
+  layerRoots(save).forEach(_inlineDocksCentredIn);
+  prefabRoots(save).forEach(_inlineDocksCentredIn);
   if (save['iconOverrides'] case final Json pictures) {
     save['iconOverrides'] = {
       for (final MapEntry(:key, :value) in pictures.entries)
@@ -33,109 +13,134 @@ void inlineDocksCentred(Json save, Device device) {
   }
 }
 
+void _inlineDocksCentredIn(Json node) {
+  if (node['modules'] case {
+    'dock': {'position': 'inline'} && final Json dock,
+  }) {
+    dock['position'] = 'center';
+  }
+  _heldNodes(node).forEach(_inlineDocksCentredIn);
+  objectsIn(node, 'children').forEach(_inlineDocksCentredIn);
+}
+
+/// The nodes [node]'s variables hold.
+Iterable<Json> _heldNodes(Json node) => switch (node['modules']) {
+  {'variables': final Json variables} =>
+    variables.values.whereType<List<Object?>>().expand(
+      (held) => held.whereType<Json>(),
+    ),
+  _ => const [],
+};
+
 const _visuals = {'text', 'picture', 'icon', 'meter', 'appWidget', 'preview'};
 
-/// A node that held others on cells or by transform and drew nothing was
-/// given a box by the launcher: padding 16, corners 14, what is in it
-/// clipped, its name as a heading. That box is written out, and one on cells
-/// with a name is an instance of the System pack's Section, which draws
-/// the heading. A layer's root, never drawn with a box, stays as it is; so do
-/// instances, and a prefab's root but for its box.
+/// The box the launcher drew round a node that held others and drew nothing
+/// is written out; one on cells with a name becomes a System pack Section.
+/// Layer roots and instances stay as they are; a prefab's root gets its box.
 void panelsWrittenOut(Json save, Device device) {
-  bool panel(Json node) {
-    final modules = jsonObject(node['modules']);
-    final mode = jsonObject(modules['layout'])['mode'];
-    return node['prefab'] == null &&
-        !modules.keys.any(_visuals.contains) &&
-        mode != 'row' &&
-        mode != 'column';
-  }
-
-  Json boxed(Json node) {
-    final modules = node['modules'] = {...jsonObject(node['modules'])};
-    final style = {...jsonObject(modules['style'])};
-    final paints =
-        style['background'] != null ||
-        style['borderColor'] != null ||
-        (style['shadow'] is num && style['shadow'] != 0);
-    modules['style'] = {
-      ...style,
-      if (!style.containsKey('padding')) 'padding': 16,
-      if (paints && !style.containsKey('radius')) 'radius': 14,
-      if (!style.containsKey('clip')) 'clip': true,
-    };
-    return node;
-  }
-
-  Json headed(Json node) {
-    final modules = jsonObject(node['modules']);
-    const laidOut = {'layout', 'scroll', 'prefabRules'};
-    return {
-      'id': node['id'],
-      'name': node['name'],
-      'prefab': 'system:section',
-      'transform': ?node['transform'],
-      'hidden': ?node['hidden'],
-      'overrides': {
-        // A name that reads variables is read where the heading is.
-        if ((node['name']! as String).contains('{{'))
-          'heading': {
-            'modules': {
-              'text': {'text': node['name']},
-            },
-          },
-        'content': {
-          'modules': {
-            for (final module in laidOut) module: ?modules[module],
-            // The Section scrolls down; one that did not says so.
-            'scroll': {'down': false, ...jsonObject(modules['scroll'])},
-          },
-        },
-      },
-      'modules': {
-        for (final MapEntry(:key, :value) in modules.entries)
-          if (!laidOut.contains(key)) key: value,
-        'variables': {
-          ...jsonObject(modules['variables']),
-          'content': objectsIn(node, 'children'),
-        },
-      },
-    };
-  }
-
-  Json walk(Json node, {bool root = false}) {
-    if (node['children'] is List<Object?>) {
-      node['children'] = [
-        for (final child in objectsIn(node, 'children')) walk(child),
-      ];
-    }
-    final modules = jsonObject(node['modules']);
-    if (modules['variables'] case final Json vars) {
-      for (final MapEntry(:key, :value) in vars.entries) {
-        if (value is List<Object?>) {
-          vars[key] = [
-            for (final held in value)
-              if (held is Json) walk(held) else held,
-          ];
-        }
-      }
-    }
-    if (root || !panel(node)) return node;
-    final mode = jsonObject(modules['layout'])['mode'];
-    final named = node['name'] is String && node['name'] != '';
-    return named && mode != null ? headed(node) : boxed(node);
-  }
-
   for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {
     if (layer['root'] case final Json root) {
-      layer['root'] = walk(root, root: true);
+      layer['root'] = _panelsWrittenOutIn(root, isRoot: true);
     }
   }
   for (final prefab in objectsIn(save, 'prefabs')) {
     if (prefab['root'] case final Json root) {
-      prefab['root'] = panel(root)
-          ? boxed(walk(root, root: true))
-          : walk(root, root: true);
+      final isPanel = _isPanel(root);
+      final written = _panelsWrittenOutIn(root, isRoot: true);
+      prefab['root'] = isPanel ? _boxed(written) : written;
     }
   }
+}
+
+Object? _layoutMode(Json node) =>
+    jsonObject(jsonObject(node['modules'])['layout'])['mode'];
+
+bool _isPanel(Json node) {
+  final modules = jsonObject(node['modules']);
+  final mode = _layoutMode(node);
+  return node['prefab'] == null &&
+      !modules.keys.any(_visuals.contains) &&
+      mode != 'row' &&
+      mode != 'column';
+}
+
+/// [node], with the panels in it and itself, unless [isRoot], written out.
+Json _panelsWrittenOutIn(Json node, {bool isRoot = false}) {
+  if (node['children'] is List<Object?>) {
+    node['children'] = [
+      for (final child in objectsIn(node, 'children'))
+        _panelsWrittenOutIn(child),
+    ];
+  }
+  if (jsonObject(node['modules'])['variables'] case final Json variables) {
+    _heldPanelsWrittenOut(variables);
+  }
+  if (isRoot || !_isPanel(node)) return node;
+  final named = node['name'] is String && node['name'] != '';
+  return named && _layoutMode(node) != null ? _asSection(node) : _boxed(node);
+}
+
+void _heldPanelsWrittenOut(Json variables) {
+  for (final key in [...variables.keys]) {
+    if (variables[key] case final List<Object?> held) {
+      variables[key] = _listPanelsWrittenOut(held);
+    }
+  }
+}
+
+List<Object?> _listPanelsWrittenOut(List<Object?> held) => [
+  for (final item in held)
+    if (item is Json) _panelsWrittenOutIn(item) else item,
+];
+
+/// [node] with the box the launcher drew around it.
+Json _boxed(Json node) {
+  final modules = node['modules'] = {...jsonObject(node['modules'])};
+  final style = {...jsonObject(modules['style'])};
+  final paints =
+      style['background'] != null ||
+      style['borderColor'] != null ||
+      (style['shadow'] is num && style['shadow'] != 0);
+  modules['style'] = {
+    ...style,
+    if (!style.containsKey('padding')) 'padding': 16,
+    if (paints && !style.containsKey('radius')) 'radius': 14,
+    if (!style.containsKey('clip')) 'clip': true,
+  };
+  return node;
+}
+
+/// [node] as an instance of the System pack's Section, holding its children.
+Json _asSection(Json node) {
+  final modules = jsonObject(node['modules']);
+  return {
+    'id': node['id'],
+    'name': node['name'],
+    'prefab': 'system:section',
+    'transform': ?node['transform'],
+    'hidden': ?node['hidden'],
+    'overrides': {
+      // A name that reads variables is read where the heading is.
+      if ((node['name']! as String).contains('{{'))
+        'heading': {
+          'modules': {
+            'text': {'text': node['name']},
+          },
+        },
+      'content': {
+        'modules': {
+          for (final module in slotModules) module: ?modules[module],
+          // The Section scrolls down; one that did not says so.
+          'scroll': {'down': false, ...jsonObject(modules['scroll'])},
+        },
+      },
+    },
+    'modules': {
+      ...without(modules, slotModules),
+      'variables': {
+        ...jsonObject(modules['variables']),
+        'content': objectsIn(node, 'children'),
+      },
+    },
+  };
 }
