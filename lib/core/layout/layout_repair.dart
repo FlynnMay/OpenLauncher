@@ -1,4 +1,4 @@
-import 'package:openlauncher/core/layout/json_read.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';

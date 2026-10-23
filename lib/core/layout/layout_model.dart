@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/config/migrations/migrations.dart';
-import 'package:openlauncher/core/layout/json_read.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 import 'package:openlauncher/core/layout/screen.dart';
 import 'package:openlauncher/core/layout/tree.dart';
 import 'package:openlauncher/core/modules/modules.dart';

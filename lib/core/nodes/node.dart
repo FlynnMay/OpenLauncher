@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/actions/act.dart';
-import 'package:openlauncher/core/layout/json_read.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/layout/layout_ids.dart';
 import 'package:openlauncher/core/modules/modules.dart';
@@ -21,11 +21,6 @@ Overrides overridesFromJson(Object? json) => {
       if (key is String && value is Map<Object?, Object?>) key: value.cast(),
 };
 
-Map<String, Object?> _map(Object? json) => switch (json) {
-  final Map<Object?, Object?> map => map.cast(),
-  _ => const {},
-};
-
 /// Sets [values] on node [id]: in module [module], or at the top level
 /// (`name`, `transform`) when [module] is null. Null values are
 /// removed, and so is anything left empty.
@@ -40,8 +35,8 @@ Overrides withOverride(
   if (module == null) {
     next = {...was, ...values}..removeWhere((_, value) => value == null);
   } else {
-    final modules = _map(was['modules']);
-    final set = {..._map(modules[module]), ...values}
+    final modules = jsonObject(was['modules']);
+    final set = {...jsonObject(modules[module]), ...values}
       ..removeWhere((_, value) => value == null);
     next = {
       ...was,
@@ -66,10 +61,10 @@ Overrides overridesOver(Overrides under, Overrides over) {
   for (final MapEntry(key: id, value: set) in over.entries) {
     for (final MapEntry(:key, :value) in set.entries) {
       if (key == 'modules') {
-        for (final MapEntry(key: module, value: values) in _map(
+        for (final MapEntry(key: module, value: values) in jsonObject(
           value,
         ).entries) {
-          result = withOverride(result, id, _map(values), module);
+          result = withOverride(result, id, jsonObject(values), module);
         }
       } else {
         result = withOverride(result, id, {key: value});

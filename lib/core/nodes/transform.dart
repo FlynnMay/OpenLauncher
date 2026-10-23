@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/layout/json_read.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 
 /// Where a node sits in its parent: each edge is anchored at a fraction of
 /// the parent's box, then moved by an offset in TV pixels. Anchors apart on

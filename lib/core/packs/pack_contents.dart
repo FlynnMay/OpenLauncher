@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/layout/json_read.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 import 'package:openlauncher/core/layout/layout_model.dart';
 import 'package:openlauncher/core/layout/layout_repair.dart';
 import 'package:openlauncher/core/layout/screen.dart';

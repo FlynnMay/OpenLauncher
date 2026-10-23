@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:openlauncher/core/layout/json_read.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 import 'package:openlauncher/core/layout/layout_enums.dart';
 import 'package:openlauncher/core/modules/layout_module.dart';
 import 'package:openlauncher/core/modules/module.dart';

@@ -438,8 +438,6 @@ class _Cells {
 
 double? _number(Object? value) => value is num ? value.toDouble() : null;
 
-Json _json(Object? value) => value is Json ? value : <String, Object?>{};
-
 /// [value] to [places] decimals, whole ones as ints.
 num _tidy(double value, [int places = 2]) {
   final scale = pow(10, places);
@@ -459,11 +457,11 @@ List<(double, double, double, double)> _freeCells(
   bool Function(Json item) docked,
 ) {
   double get(Json item, String key, double otherwise) =>
-      _number(_json(item['transform'])[key]) ?? otherwise;
+      _number(jsonObject(item['transform'])[key]) ?? otherwise;
   double wide(Json item) => min(get(item, 'w', 1), columns * 1.0);
   bool placed(Json item) =>
-      _json(item['transform']).containsKey('x') &&
-      _json(item['transform']).containsKey('y');
+      jsonObject(item['transform']).containsKey('x') &&
+      jsonObject(item['transform']).containsKey('y');
   final below = items
       .where((item) => placed(item) && !docked(item))
       .fold(
@@ -527,7 +525,7 @@ Json _override(Json set, String kind) {
   String? name;
   void put(String module, String key, Object? value) =>
       (modules[module] ??= {})[key] = value;
-  for (final MapEntry(:key, :value) in _json(set['options']).entries) {
+  for (final MapEntry(:key, :value) in jsonObject(set['options']).entries) {
     switch (_moved(kind, key)) {
       case (null, _):
         name = value is String ? value : null;
@@ -539,14 +537,14 @@ Json _override(Json set, String kind) {
         break;
     }
   }
-  for (final MapEntry(:key, :value) in _json(set['style']).entries) {
+  for (final MapEntry(:key, :value) in jsonObject(set['style']).entries) {
     put(
       kind == 'pane' && _scrollbarKeys.contains(key) ? 'scroll' : 'style',
       key,
       value,
     );
   }
-  for (final MapEntry(:key, :value) in _json(set['transform']).entries) {
+  for (final MapEntry(:key, :value) in jsonObject(set['transform']).entries) {
     put('sizing', key, value);
   }
   return {
@@ -558,7 +556,7 @@ Json _override(Json set, String kind) {
 
 /// A pane's prefab rules with their overrides in the new shape.
 Json _rules(Object? rules, Map<String, Map<String, String>> prefabs) => {
-  for (final MapEntry(key: id, value: rule) in _json(rules).entries)
+  for (final MapEntry(key: id, value: rule) in jsonObject(rules).entries)
     if (rule is Json)
       id: {
         ...rule,
@@ -569,7 +567,7 @@ Json _rules(Object? rules, Map<String, Map<String, String>> prefabs) => {
 
 /// [overrides] in the new shape, for the nodes [kinds] says.
 Json _overrides(Object? overrides, Map<String, String> kinds) => {
-  for (final MapEntry(:key, :value) in _json(overrides).entries)
+  for (final MapEntry(:key, :value) in jsonObject(overrides).entries)
     if (value is Json) key: _override(value, kinds[key] ?? 'pane'),
 };
 
@@ -584,7 +582,7 @@ const _systemDocked = {
 Set<String> _dockedPrefabs(Json save) => {
   ..._systemDocked,
   for (final prefab in objectsIn(save, 'prefabs'))
-    if (_json(_json(prefab['root'])['options'])['dock'] is String)
+    if (jsonObject(jsonObject(prefab['root'])['options'])['dock'] is String)
       '${prefab['id']}',
 };
 
@@ -609,10 +607,10 @@ Json _node(
 }) {
   final prefab = node['prefab'];
   final kind = prefab is String ? 'instance' : '${node['kind']}';
-  final options = _json(node['options']);
-  final style = _json(node['style']);
-  final on = _json(node['on']);
-  final transform = _json(node['transform']);
+  final options = jsonObject(node['options']);
+  final style = jsonObject(node['style']);
+  final on = jsonObject(node['on']);
+  final transform = jsonObject(node['transform']);
   final modules = <String, Json>{};
   String name = '';
   void put(String module, String key, Object? value) =>
@@ -689,7 +687,7 @@ Json _node(
   if (modules.containsKey('focus')) {
     Json? framed(Json pane) {
       for (final child in objectsIn(pane, 'children')) {
-        if (_json(child['options'])['frame'] == true) return child;
+        if (jsonObject(child['options'])['frame'] == true) return child;
         if (child['kind'] == 'pane') {
           if (framed(child) case final found?) return found;
         }
@@ -700,7 +698,7 @@ Json _node(
     if (framed(node) case final part?) {
       modules['focus'] = {
         'target': part['id'],
-        'bare': _json(part['options'])['bare'] ?? false,
+        'bare': jsonObject(part['options'])['bare'] ?? false,
       };
     } else {
       // How a whole tile showed its focus: grown less, and a row or column
@@ -722,12 +720,12 @@ Json _node(
   final ownCells = _Cells(options, inner);
   final free = kind == 'pane' && layoutMode == 'free';
   bool docked(Json child) =>
-      _json(child['options'])['dock'] is String ||
+      jsonObject(child['options'])['dock'] is String ||
       docks.contains(child['prefab']);
   final freeAt = free ? _freeCells(children, ownCells.columns, docked) : null;
   Json child(int index, Json child) {
-    final childOptions = _json(child['options']);
-    final childTransform = _json(child['transform']);
+    final childOptions = jsonObject(child['options']);
+    final childTransform = jsonObject(child['transform']);
     final apart = docked(child);
     final double childWidth;
     if (apart) {
@@ -802,9 +800,10 @@ void nodesAndModules(Json save, Device device) {
       prefabs,
       docks,
       mode: 'flow',
-      width: 960 * min(1, (_number(_json(root['transform'])['w']) ?? 1) / 12),
+      width:
+          960 * min(1, (_number(jsonObject(root['transform'])['w']) ?? 1) / 12),
     );
-    for (final variant in _json(prefab['variants']).values) {
+    for (final variant in jsonObject(prefab['variants']).values) {
       if (variant is Json && variant['overrides'] != null) {
         variant['overrides'] = _overrides(variant['overrides'], kinds);
       }

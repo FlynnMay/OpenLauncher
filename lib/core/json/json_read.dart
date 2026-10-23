@@ -1,5 +1,14 @@
-/// JSON helpers for the layout model. Deliberately not in the barrel.
+/// JSON reading helpers. Deliberately not in any barrel.
 library;
+
+typedef Json = Map<String, Object?>;
+
+/// [value] as a JSON object, or an empty one when it is not.
+Json jsonObject(Object? value) => switch (value) {
+  final Json json => json,
+  final Map<Object?, Object?> map => map.cast(),
+  _ => const {},
+};
 
 T? jsonOptional<T>(Map<Object?, Object?> json, String key) {
   final value = json[key];

@@ -1,4 +1,6 @@
-typedef Json = Map<String, Object?>;
+import 'package:openlauncher/core/json/json_read.dart';
+
+export 'package:openlauncher/core/json/json_read.dart' show Json, jsonObject;
 
 /// Device info available to a migration; may be empty.
 class Device {

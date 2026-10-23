@@ -43,8 +43,8 @@ const _visuals = {'text', 'picture', 'icon', 'meter', 'appWidget', 'preview'};
 /// instances, and a prefab's root but for its box.
 void panelsWrittenOut(Json save, Device device) {
   bool panel(Json node) {
-    final modules = _json(node['modules']);
-    final mode = _json(modules['layout'])['mode'];
+    final modules = jsonObject(node['modules']);
+    final mode = jsonObject(modules['layout'])['mode'];
     return node['prefab'] == null &&
         !modules.keys.any(_visuals.contains) &&
         mode != 'row' &&
@@ -52,8 +52,8 @@ void panelsWrittenOut(Json save, Device device) {
   }
 
   Json boxed(Json node) {
-    final modules = node['modules'] = {..._json(node['modules'])};
-    final style = {..._json(modules['style'])};
+    final modules = node['modules'] = {...jsonObject(node['modules'])};
+    final style = {...jsonObject(modules['style'])};
     final paints =
         style['background'] != null ||
         style['borderColor'] != null ||
@@ -68,7 +68,7 @@ void panelsWrittenOut(Json save, Device device) {
   }
 
   Json headed(Json node) {
-    final modules = _json(node['modules']);
+    final modules = jsonObject(node['modules']);
     const laidOut = {'layout', 'scroll', 'prefabRules'};
     return {
       'id': node['id'],
@@ -88,7 +88,7 @@ void panelsWrittenOut(Json save, Device device) {
           'modules': {
             for (final module in laidOut) module: ?modules[module],
             // The Section scrolls down; one that did not says so.
-            'scroll': {'down': false, ..._json(modules['scroll'])},
+            'scroll': {'down': false, ...jsonObject(modules['scroll'])},
           },
         },
       },
@@ -96,7 +96,7 @@ void panelsWrittenOut(Json save, Device device) {
         for (final MapEntry(:key, :value) in modules.entries)
           if (!laidOut.contains(key)) key: value,
         'variables': {
-          ..._json(modules['variables']),
+          ...jsonObject(modules['variables']),
           'content': objectsIn(node, 'children'),
         },
       },
@@ -109,7 +109,7 @@ void panelsWrittenOut(Json save, Device device) {
         for (final child in objectsIn(node, 'children')) walk(child),
       ];
     }
-    final modules = _json(node['modules']);
+    final modules = jsonObject(node['modules']);
     if (modules['variables'] case final Json vars) {
       for (final MapEntry(:key, :value) in vars.entries) {
         if (value is List<Object?>) {
@@ -121,7 +121,7 @@ void panelsWrittenOut(Json save, Device device) {
       }
     }
     if (root || !panel(node)) return node;
-    final mode = _json(modules['layout'])['mode'];
+    final mode = jsonObject(modules['layout'])['mode'];
     final named = node['name'] is String && node['name'] != '';
     return named && mode != null ? headed(node) : boxed(node);
   }
@@ -139,5 +139,3 @@ void panelsWrittenOut(Json save, Device device) {
     }
   }
 }
-
-Json _json(Object? value) => value is Json ? value : <String, Object?>{};

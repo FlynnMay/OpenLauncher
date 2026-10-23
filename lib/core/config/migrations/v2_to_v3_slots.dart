@@ -86,13 +86,11 @@ bool _same(Object? a, Object? b) => switch ((a, b)) {
   _ => a == b,
 };
 
-Json _json(Object? value) => value is Json ? value : <String, Object?>{};
-
 /// [base]'s modules with [over]'s values set, key by key.
 Json _merged(Json base, Json over) => {
   ...base,
   for (final MapEntry(key: module, :value) in over.entries)
-    module: {..._json(base[module]), ..._json(value)},
+    module: {...jsonObject(base[module]), ...jsonObject(value)},
 };
 
 /// What [modules] set differently from [base], key by key within each
@@ -101,11 +99,14 @@ Json _differences(Json modules, Json base) => {
   for (final module in {...modules.keys, ...base.keys})
     if ({
           for (final key in {
-            ..._json(modules[module]).keys,
-            ..._json(base[module]).keys,
+            ...jsonObject(modules[module]).keys,
+            ...jsonObject(base[module]).keys,
           })
-            if (!_same(_json(modules[module])[key], _json(base[module])[key]))
-              key: _json(modules[module])[key],
+            if (!_same(
+              jsonObject(modules[module])[key],
+              jsonObject(base[module])[key],
+            ))
+              key: jsonObject(modules[module])[key],
         }
         case final changed when changed.isNotEmpty)
       module: changed,
@@ -120,11 +121,11 @@ void templatesLinked(Json save, Device device) {
   for (final prefab in objectsIn(save, 'prefabs')) {
     if (prefab['id'] case final String id when prefab['template'] == true) {
       prefab.remove('template');
-      final root = _json(prefab['root']);
-      final modules = root['modules'] = {..._json(root['modules'])};
+      final root = jsonObject(prefab['root']);
+      final modules = root['modules'] = {...jsonObject(root['modules'])};
       modules['slot'] = {'variable': 'content'};
       modules['variables'] = {
-        ..._json(modules['variables']),
+        ...jsonObject(modules['variables']),
         'content': {'value': null, 'type': 'nodes'},
       };
       own[id] = {
@@ -134,11 +135,13 @@ void templatesLinked(Json save, Device device) {
             if (key != 'slot' && key != 'variables') key: value,
         },
         'variants': {
-          for (final MapEntry(:key, :value) in _json(
+          for (final MapEntry(:key, :value) in jsonObject(
             prefab['variants'],
           ).entries)
-            key: _json(
-              _json(_json(_json(value)['overrides'])[root['id']])['modules'],
+            key: jsonObject(
+              jsonObject(
+                jsonObject(jsonObject(value)['overrides'])[root['id']],
+              )['modules'],
             ),
         },
       };
@@ -146,14 +149,16 @@ void templatesLinked(Json save, Device device) {
   }
 
   Json linked(Json copy, Json template, String prefab) {
-    final modules = _json(copy['modules']);
-    final base = _json(template['modules']);
-    final variants = _json(template['variants']);
+    final modules = jsonObject(copy['modules']);
+    final base = jsonObject(template['modules']);
+    final variants = jsonObject(template['variants']);
     // The variant it differs least from; the first on a tie.
     String? nearest;
     var fewest = -1;
     for (final String? name in variants.isEmpty ? [null] : variants.keys) {
-      final root = name == null ? base : _merged(base, _json(variants[name]));
+      final root = name == null
+          ? base
+          : _merged(base, jsonObject(variants[name]));
       final count = _differences(modules, root).values
           .map((set) => (set as Json).length)
           .fold(0, (sum, each) => sum + each);
@@ -161,7 +166,7 @@ void templatesLinked(Json save, Device device) {
     }
     final root = nearest == null
         ? base
-        : _merged(base, _json(variants[nearest]));
+        : _merged(base, jsonObject(variants[nearest]));
     final all = _differences(modules, root);
     // How what is in it is laid out is the slot's part's.
     final part = template['part'];
@@ -175,7 +180,7 @@ void templatesLinked(Json save, Device device) {
       for (final MapEntry(:key, :value) in all.entries)
         if (laysOut(key)) key: value,
     };
-    final dock = _json(modules['dock'])['position'];
+    final dock = jsonObject(modules['dock'])['position'];
     final name = copy['name'];
     return {
       'id': copy['id'],
@@ -191,9 +196,10 @@ void templatesLinked(Json save, Device device) {
         },
       'modules': {
         ...changed,
-        if (dock != null) 'dock': {..._json(changed['dock']), 'position': dock},
+        if (dock != null)
+          'dock': {...jsonObject(changed['dock']), 'position': dock},
         'variables': {
-          ..._json(changed['variables']),
+          ...jsonObject(changed['variables']),
           'content': objectsIn(copy, 'children'),
         },
       },
