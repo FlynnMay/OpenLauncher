@@ -26,3 +26,9 @@ Json? layoutOf(Json save) => switch (save['layout']) {
 
 Iterable<String> stringsIn(Object? json) =>
     json is List<Object?> ? json.whereType<String>() : const [];
+
+/// [json] less [keys].
+Json without(Json json, Set<String> keys) => {
+  for (final MapEntry(:key, :value) in json.entries)
+    if (!keys.contains(key)) key: value,
+};
