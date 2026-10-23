@@ -271,12 +271,6 @@ Json _variablesWithFullIds(Json variables) => {
     },
 };
 
-/// The roots of the save's layers.
-Iterable<Json> _layerRoots(Json save) => [
-  for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers'))
-    if (layer['root'] case final Json root) root,
-];
-
 /// What the launcher made the quick actions menu with.
 const _menuOptions = {
   'title': '{{source.label}}',
@@ -293,7 +287,7 @@ const _menuOptions = {
 /// replaced by an instance of it, keeping the pane's own style and the
 /// options it changed. Its buttons are the prefab's.
 void quickActionsAsPrefab(Json save, Device device) =>
-    _layerRoots(save).forEach(_quickActionsAsPrefabIn);
+    layerRoots(save).forEach(_quickActionsAsPrefabIn);
 
 void _quickActionsAsPrefabIn(Json pane) {
   objectsIn(pane, 'children').forEach(_quickActionsAsPrefabIn);
@@ -325,7 +319,7 @@ Json _quickActionsInstance(Json menu) {
 /// saved ones were the launcher's, now the System pack's. One docked with a
 /// strip is a sidebar; any other docked pane, a folder.
 void templatesRecorded(Json save, Device device) =>
-    _layerRoots(save).forEach(_templatesRecordedIn);
+    layerRoots(save).forEach(_templatesRecordedIn);
 
 void _templatesRecordedIn(Json pane) {
   for (final child in objectsIn(pane, 'children')) {
@@ -346,7 +340,7 @@ void _templatesRecordedIn(Json pane) {
 /// A docked pane says itself whether a press closes it: the launcher closed
 /// one with no strip, unless it was opened in place.
 void closeOnPressRecorded(Json save, Device device) {
-  _layerRoots(save).forEach(_closeOnPressRecordedIn);
+  layerRoots(save).forEach(_closeOnPressRecordedIn);
   for (final prefab in objectsIn(save, 'prefabs')) {
     if (prefab['root'] case final Json root) _closeOnPressRecordedIn(root);
   }

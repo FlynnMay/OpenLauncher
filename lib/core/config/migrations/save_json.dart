@@ -1,6 +1,7 @@
 import 'package:openlauncher/core/json/json_read.dart';
 
-export 'package:openlauncher/core/json/json_read.dart' show Json, jsonObject;
+export 'package:openlauncher/core/json/json_read.dart'
+    show Json, jsonEquals, jsonObject;
 
 /// Device info available to a migration; may be empty.
 class Device {
@@ -23,6 +24,12 @@ Json? layoutOf(Json save) => switch (save['layout']) {
   final Json layout => layout,
   _ => null,
 };
+
+/// The roots of the save's layers.
+Iterable<Json> layerRoots(Json save) => [
+  for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers'))
+    if (layer['root'] case final Json root) root,
+];
 
 Iterable<String> stringsIn(Object? json) =>
     json is List<Object?> ? json.whereType<String>() : const [];

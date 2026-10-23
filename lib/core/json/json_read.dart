@@ -10,6 +10,18 @@ Json jsonObject(Object? value) => switch (value) {
   _ => const {},
 };
 
+/// Whether [a] and [b] hold the same JSON, objects compared in any key order.
+bool jsonEquals(Object? a, Object? b) => switch ((a, b)) {
+  (final Map<Object?, Object?> a, final Map<Object?, Object?> b) =>
+    a.length == b.length &&
+        a.keys.every((key) => b.containsKey(key) && jsonEquals(a[key], b[key])),
+  (final List<Object?> a, final List<Object?> b) =>
+    a.length == b.length &&
+        Iterable.generate(a.length)
+            .every((index) => jsonEquals(a[index], b[index])),
+  _ => a == b,
+};
+
 T? jsonOptional<T>(Map<Object?, Object?> json, String key) {
   final value = json[key];
   if (value == null || value is T) return value as T?;
