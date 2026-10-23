@@ -1,7 +1,5 @@
-/// Components, their registry and option descriptors.
+/// Device data and weather.
 library;
-
-export 'package:openlauncher/core/nodes/field.dart';
 
 export 'device_sources.dart';
 export 'weather.dart';

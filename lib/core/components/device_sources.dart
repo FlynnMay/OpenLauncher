@@ -13,13 +13,13 @@ class NowPlayingNotifier extends AsyncNotifier<NowPlaying?> {
   @override
   Future<NowPlaying?> build() {
     final platform = ref.watch(launcherPlatformProvider);
-    final sub = platform.nowPlayingChanged.listen((_) async {
+    final subscription = platform.nowPlayingChanged.listen((_) async {
       final generation = ++_generation;
       final next = await AsyncValue.guard(platform.nowPlaying);
       // Only the newest of a burst of reloads publishes.
       if (ref.mounted && generation == _generation) state = next;
     });
-    ref.onDispose(sub.cancel);
+    ref.onDispose(subscription.cancel);
     return platform.nowPlaying();
   }
 }
@@ -28,7 +28,7 @@ class NowPlayingNotifier extends AsyncNotifier<NowPlaying?> {
 final widgetProvidersProvider = FutureProvider<List<WidgetProvider>>((ref) {
   final platform = ref.watch(launcherPlatformProvider);
   // New apps can bring new widgets.
-  final sub = platform.appsChanged.listen((_) => ref.invalidateSelf());
-  ref.onDispose(sub.cancel);
+  final subscription = platform.appsChanged.listen((_) => ref.invalidateSelf());
+  ref.onDispose(subscription.cancel);
   return platform.listWidgetProviders();
 });
