@@ -6,4 +6,6 @@ export 'icon_set.dart';
 export 'icon_sets.dart';
 export 'pack.dart';
 export 'pack_contents.dart';
+export 'pack_secrets.dart';
+export 'pack_setting.dart';
 export 'pack_store.dart';

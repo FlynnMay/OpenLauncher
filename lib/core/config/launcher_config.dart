@@ -89,6 +89,7 @@ class LauncherConfig {
     this.place,
     this.prefabs = const [],
     this.updates = const UpdateOptions(),
+    this.packSettings = const {},
     this.lastScreen,
   }) : layout = layout ?? Layout.blank(),
        ownLayout = ownLayout ?? layout != null;
@@ -136,6 +137,10 @@ class LauncherConfig {
   /// What is done about a newer release of the launcher.
   final UpdateOptions updates;
 
+  /// Pack id -> setting key -> value, for the settings its `pack.json` asks
+  /// for. Never a secret: those are kept apart.
+  final Map<String, Map<String, Object?>> packSettings;
+
   /// The screen shown last, kept for a startup that remembers it.
   final String? lastScreen;
 
@@ -151,6 +156,7 @@ class LauncherConfig {
     'names',
     'iconSources',
     'wallpaperEvery',
+    'packSettings',
     ...fileKeys,
   ];
 
@@ -185,6 +191,7 @@ class LauncherConfig {
     Place? Function()? place,
     List<Prefab>? prefabs,
     UpdateOptions? updates,
+    Map<String, Map<String, Object?>>? packSettings,
     String? Function()? lastScreen,
   }) => LauncherConfig(
     layout: layout ?? this.layout,
@@ -199,6 +206,7 @@ class LauncherConfig {
     place: place == null ? this.place : place(),
     prefabs: prefabs ?? this.prefabs,
     updates: updates ?? this.updates,
+    packSettings: packSettings ?? this.packSettings,
     lastScreen: lastScreen == null ? this.lastScreen : lastScreen(),
   );
 
@@ -245,6 +253,7 @@ class LauncherConfig {
       final Map<Object?, Object?> updates => UpdateOptions.fromJson(updates),
       _ => const UpdateOptions(),
     },
+    packSettings: _packSettings(json['packSettings']),
     lastScreen: switch (json['lastScreen']) {
       final String id => id,
       _ => null,
@@ -272,6 +281,28 @@ class LauncherConfig {
           'latitude': place.latitude,
           'longitude': place.longitude,
         };
+
+  /// Pack id -> its saved settings; anything that is not a map of plain
+  /// values is left out.
+  static Map<String, Map<String, Object?>> _packSettings(Object? json) {
+    if (json is! Map) return const {};
+    return {
+      for (final MapEntry(:key, :value) in json.entries)
+        if (key is String) key: _settingValues(value),
+    };
+  }
+
+  /// One pack's setting key -> value, keeping only text, numbers and ticks.
+  static Map<String, Object?> _settingValues(Object? json) {
+    if (json is! Map) return const {};
+    return {
+      for (final MapEntry(:key, :value) in json.entries)
+        if (key is String && _isPlain(value)) key: value,
+    };
+  }
+
+  static bool _isPlain(Object? value) =>
+      value is String || value is num || value is bool;
 
   static Map<String, String> _strings(Object? json) => {
     if (json is Map)
@@ -305,6 +336,7 @@ class LauncherConfig {
     'place': ?placeToJson(place),
     'prefabs': [for (final prefab in prefabs) prefab.toJson()],
     'updates': updates.toJson(),
+    if (packSettings.isNotEmpty) 'packSettings': packSettings,
     'lastScreen': ?lastScreen,
   };
 }

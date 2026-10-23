@@ -67,6 +67,13 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'packs': [
       for (final pack in await ref.watch(packsProvider.future)) pack.toJson(),
     ],
+    // Which secret settings have a value; the values are never sent.
+    'secrets': {
+      for (final MapEntry(:key, :value) in (await ref.watch(
+        packSecretsProvider.future,
+      )).entries)
+        key: value.keys.toList(),
+    },
     'update': ref.watch(updateStateProvider).toJson(),
     // What the user has allowed the launcher in the TV's settings.
     'access': {

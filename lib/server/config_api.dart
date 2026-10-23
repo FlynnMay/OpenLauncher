@@ -141,10 +141,65 @@ class ConfigApi {
       ('DELETE', 'api/packs') => () async {
         if (id == null) throw const FormatException('"id" must name a pack');
         await packs.delete(id);
+        await _ref.read(packSecretsProvider.notifier).forget(id);
         return _ok();
       }(),
+      // A secret setting is only ever sent this way, and never read back.
+      ('PUT', 'api/secret') => _setSecret(request, await _body(request)),
+      ('DELETE', 'api/secret') => _setSecret(request, const {}),
       _ => _error(404, 'Not found'),
     };
+  }
+
+  /// Keeps the `value` in the body as the secret setting `key` of `pack`; no
+  /// value clears it.
+  Future<Response> _setSecret(
+    Request request,
+    Map<String, Object?> body,
+  ) async {
+    final query = request.url.queryParameters;
+    final setting = await _setting(query['pack'], query['key']);
+    if (setting == null || !setting.secret) {
+      throw const FormatException('"pack" and "key" must name a secret');
+    }
+    final value = body['value'];
+    if (value != null && value is! String) {
+      throw const FormatException('"value" must be text');
+    }
+    await _ref
+        .read(packSecretsProvider.notifier)
+        .set(query['pack']!, setting.key, (value as String?) ?? '');
+    return _ok();
+  }
+
+  /// The setting [key] of installed pack [pack], if there is one.
+  Future<PackSetting?> _setting(String? pack, String? key) async {
+    final packs = await _ref.read(packsProvider.future);
+    for (final one in packs) {
+      if (one.id == pack) {
+        return one.settings.where((setting) => setting.key == key).firstOrNull;
+      }
+    }
+    return null;
+  }
+
+  /// Throws unless every value in [settings] is for a plain setting of an
+  /// installed pack and fits its type. Secrets do not go this way.
+  Future<void> _checkPackSettings(Object? settings) async {
+    if (settings is! Map) throw const FormatException('Expected an object');
+    for (final MapEntry(:key, :value) in settings.entries) {
+      await _checkPackValues('$key', value);
+    }
+  }
+
+  Future<void> _checkPackValues(String pack, Object? values) async {
+    if (values is! Map) throw FormatException('Settings of $pack unreadable');
+    for (final MapEntry(:key, :value) in values.entries) {
+      final setting = await _setting(pack, '$key');
+      if (setting == null || setting.secret || !setting.accepts(value)) {
+        throw FormatException('Not a setting of $pack: $key');
+      }
+    }
   }
 
   Response _ok() => Response.ok('{}', headers: _json);
@@ -183,6 +238,9 @@ class ConfigApi {
     );
     if (unknown.isNotEmpty) {
       throw FormatException('Not a setting: ${unknown.join(', ')}');
+    }
+    if (body.containsKey('packSettings')) {
+      await _checkPackSettings(body['packSettings']);
     }
     if (body['names'] case final Map<Object?, Object?> names
         when names.values.any(

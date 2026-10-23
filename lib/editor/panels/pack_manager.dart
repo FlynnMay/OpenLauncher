@@ -4,6 +4,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/panels/media_manager.dart';
+import 'package:openlauncher/editor/panels/pack_settings_form.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
 /// Opens the pack manager.
@@ -136,7 +137,15 @@ class _PackRow extends ConsumerWidget {
         : uses > 0
         ? 'In use in $uses ${uses == 1 ? 'place' : 'places'}'
         : null;
-    return ListTile(
+    final config = ref.watch(configProvider).value;
+    final needs =
+        pack.settings.isNotEmpty &&
+        PackSettingsForm.missing(
+          pack,
+          config?.packSettings[pack.id] ?? const {},
+          ref.watch(tvStateProvider).value?.secrets[pack.id] ?? {},
+        );
+    final tile = ListTile(
       title: Text(pack.name),
       subtitle: Text(
         [
@@ -148,6 +157,7 @@ class _PackRow extends ConsumerWidget {
           ?kept,
           if (pack.requires.isNotEmpty) 'Needs ${pack.requires.join(', ')}',
           if (pack.source.isNotEmpty) pack.source,
+          if (needs) 'Needs its settings',
         ].join('  ·  '),
       ),
       trailing: IconButton(
@@ -155,6 +165,13 @@ class _PackRow extends ConsumerWidget {
         onPressed: kept == null ? onRemove : null,
         icon: const Icon(Icons.delete_outline),
       ),
+    );
+    if (pack.settings.isEmpty) return tile;
+    return ExpansionTile(
+      title: Text(pack.name),
+      subtitle: tile.subtitle,
+      trailing: tile.trailing,
+      children: [PackSettingsForm(pack)],
     );
   }
 }

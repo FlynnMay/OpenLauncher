@@ -39,6 +39,7 @@ final _png = Uint8List.fromList([
 
 void main() {
   late MemoryConfigStore store;
+  late MemorySecretStore secrets;
   late Directory tmp;
   late ProviderContainer container;
   late ConfigApi api;
@@ -47,11 +48,13 @@ void main() {
 
   setUp(() async {
     store = MemoryConfigStore(startingConfig);
+    secrets = MemorySecretStore();
     tmp = await Directory.systemTemp.createTemp('openlauncher_test');
     container = ProviderContainer(
       overrides: [
         configStoreProvider.overrideWithValue(store),
         authStoreProvider.overrideWithValue(MemoryAuthStore()),
+        secretStoreProvider.overrideWithValue(secrets),
         launcherPlatformProvider.overrideWithValue(
           FakeLauncherPlatform(
             [
@@ -1102,6 +1105,99 @@ void main() {
     expect((await call('DELETE', '/api/packs?id=system')).statusCode, 409);
     expect((await call('DELETE', '/api/packs?id=mdi')).statusCode, 200);
     expect(await packs(), ['core', 'system']);
+  });
+
+  test('a pack\'s settings are set, and its secret is kept apart', () async {
+    final response = await call(
+      'POST',
+      '/api/packs',
+      body: zipOf({
+        'pack.json': jsonEncode({
+          'id': 'hub',
+          'settings': {
+            'host': {'label': 'Address', 'type': 'url', 'required': true},
+            'room': {
+              'type': 'choice',
+              'choices': {'a': 'Lounge', 'b': 'Study'},
+            },
+            'token': {'label': 'Access token', 'type': 'secret'},
+            'bad name': {'type': 'text'},
+            'odd': {'type': 'nothing'},
+          },
+        }),
+      }),
+    );
+    expect(response.statusCode, 200);
+    final pack = (await state())['packs'].firstWhere((p) => p['id'] == 'hub');
+    expect(pack['settings'], {
+      'host': {'label': 'Address', 'type': 'url', 'required': true},
+      'room': {
+        'label': 'room',
+        'type': 'choice',
+        'choices': {'a': 'Lounge', 'b': 'Study'},
+      },
+      'token': {'label': 'Access token', 'type': 'secret'},
+    });
+
+    Future<int> set(Object? settings) async => (await call(
+      'PUT',
+      '/api/config',
+      body: {'packSettings': settings},
+    )).statusCode;
+    expect(
+      await set({
+        'hub': {'host': 'http://ha.local:8123', 'room': 'b'},
+      }),
+      200,
+    );
+    expect((await state())['config']['packSettings'], {
+      'hub': {'host': 'http://ha.local:8123', 'room': 'b'},
+    });
+    // Not a url, not a choice, not a setting, a secret, not a pack.
+    for (final bad in [
+      {
+        'hub': {'host': 'ha.local'},
+      },
+      {
+        'hub': {'room': 'c'},
+      },
+      {
+        'hub': {'nope': 1},
+      },
+      {
+        'hub': {'token': 'abc'},
+      },
+      {
+        'other': {'host': 'http://x'},
+      },
+    ]) {
+      expect(await set(bad), 400, reason: '$bad');
+    }
+
+    Future<Response> secret(String method, String key, [Object? body]) =>
+        call(method, '/api/secret?pack=hub&key=$key', body: body);
+    expect((await secret('PUT', 'token', {'value': 's3cret'})).statusCode, 200);
+    expect(
+      secrets.load(),
+      completion({
+        'hub': {'token': 's3cret'},
+      }),
+    );
+    // Only that it is set goes to the page, anywhere in the state.
+    final told = await state();
+    expect(told['secrets'], {
+      'hub': ['token'],
+    });
+    expect(jsonEncode(told), isNot(contains('s3cret')));
+    expect(jsonEncode(store.config.toJson()), isNot(contains('s3cret')));
+    expect((await secret('PUT', 'host', {'value': 'x'})).statusCode, 400);
+    expect((await secret('PUT', 'token', {'value': 1})).statusCode, 400);
+
+    expect((await secret('DELETE', 'token')).statusCode, 200);
+    expect((await state())['secrets'], isEmpty);
+    await secret('PUT', 'token', {'value': 'again'});
+    expect((await call('DELETE', '/api/packs?id=hub')).statusCode, 200);
+    expect(secrets.load(), completion(isEmpty));
   });
 
   test('event stream sends the state now and after each change', () async {
