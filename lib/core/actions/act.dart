@@ -19,10 +19,9 @@ enum Trigger {
 /// The argument naming the entity that does an action. Every act has one.
 const entityArg = 'entity';
 
-/// One saved action: either an entity's action by name, with the
-/// [entityArg] that defines and does it and its other arguments
-/// (`{"do": "open", "entity": "..."}`), or an address called directly with
-/// what it is told (`{"run": "launcher://overlay/open", "with": {...}}`).
+/// One saved action: an entity's action by name (`{"do": "open", "entity":
+/// "..."}`), or an address called directly (`{"run":
+/// "launcher://overlay/open", "with": {...}}`).
 @immutable
 class Act {
   const Act(this.name, [this.args = const {}]);
@@ -43,19 +42,16 @@ class Act {
   static Act? fromJson(Object? json) => switch (json) {
     {'run': final String address} when address.contains('://') => Act(
       address,
-      switch (json['with']) {
-        final Map<Object?, Object?> told => {
-          for (final MapEntry(:key, :value) in told.entries)
-            if (key is String) key: value,
-        },
-        _ => const {},
-      },
+      _stringKeyed(json['with']),
     ),
-    {'do': final String name} => Act(name, {
-      for (final MapEntry(:key, :value) in (json as Map).entries)
-        if (key is String && key != 'do') key: value,
-    }),
+    {'do': final String name} => Act(name, _stringKeyed(json)..remove('do')),
     _ => null,
+  };
+
+  static Map<String, Object?> _stringKeyed(Object? json) => {
+    if (json is Map<Object?, Object?>)
+      for (final MapEntry(:key, :value) in json.entries)
+        if (key is String) key: value,
   };
 
   Map<String, Object?> toJson() => isAddress
@@ -78,10 +74,18 @@ Triggers triggersFromJson(Object? json) => {
   if (json is Map)
     for (final trigger in Trigger.values)
       if (json[trigger.name] case final List<Object?> acts)
-        trigger: [for (final act in acts) ?Act.fromJson(act)],
+        trigger: _actsFromJson(acts),
 };
+
+List<Act> _actsFromJson(List<Object?> json) => [
+  for (final act in json) ?Act.fromJson(act),
+];
 
 Map<String, Object?> triggersToJson(Triggers triggers) => {
   for (final MapEntry(key: trigger, value: acts) in triggers.entries)
-    trigger.name: [for (final act in acts) act.toJson()],
+    trigger.name: _actsToJson(acts),
 };
+
+List<Object?> _actsToJson(List<Act> acts) => [
+  for (final act in acts) act.toJson(),
+];

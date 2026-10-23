@@ -89,3 +89,33 @@ class Field {
   /// it when adding.
   final String? heading, asks;
 }
+
+/// [choices] each labelled with its own value.
+Map<String, String> labelledAsThemselves(Iterable<String> choices) => {
+  for (final choice in choices) choice: choice,
+};
+
+/// The editor's fields for [args], what an act may say: an action's, or an
+/// operation's. Each key starts with [keyPrefix]; an argument without
+/// choices gets a [free] field.
+List<Field> argFields(
+  Map<String, List<String>> args, {
+  String keyPrefix = '',
+  FieldKind free = FieldKind.value,
+  String? unset,
+}) => [
+  for (final MapEntry(key: name, value: choices) in args.entries)
+    choices.isEmpty
+        ? Field(
+            '$keyPrefix$name',
+            name == 'of' ? 'of (component ID)' : name,
+            free,
+          )
+        : Field(
+            '$keyPrefix$name',
+            name,
+            FieldKind.choice,
+            unset: unset,
+            choices: labelledAsThemselves(choices),
+          ),
+];

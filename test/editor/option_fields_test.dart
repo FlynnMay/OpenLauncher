@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -177,7 +176,7 @@ void main() {
                     blank: const {'do': 'set'},
                     // What an act may add is what the action lets it.
                     fields: (act) =>
-                        argOptions(const {'var': [], 'value': [], 'of': []}),
+                        argFields(const {'var': [], 'value': [], 'of': []}),
                   ),
                   records: acts,
                   onChanged: (next) => setState(() => acts = next),

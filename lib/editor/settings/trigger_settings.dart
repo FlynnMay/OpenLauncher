@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/nodes/nodes.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/variables/variable.dart';
@@ -302,7 +303,7 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       else if (args.isNotEmpty) ...[
         const SizedBox(height: 8),
         ...optionFields(
-          options: argOptions(args),
+          options: argFields(args),
           values: {
             for (final MapEntry(:key, :value) in act.args.entries)
               if (key != entityArg) key: value,

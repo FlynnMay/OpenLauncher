@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
@@ -42,36 +41,18 @@ bool isProper(Act act, Iterable<Entity> entities) {
   }
 }
 
-/// The actions an act aimed at [target] can name: that entity's, or every
-/// entity's when the target is only known as it runs.
+/// The actions an act aimed at [target] can name: that entity's, or the
+/// first of each name among every entity's when the target is only known as
+/// it runs.
 Map<String, EntityAction> actionsOf(String? target, Iterable<Entity> entities) {
   if (entities.byId(target) case final entity?) return entity.actions;
-  final all = <String, EntityAction>{};
-  for (final entity in entities) {
-    for (final MapEntry(key: name, value: action) in entity.actions.entries) {
-      all.putIfAbsent(name, () => action);
-    }
+  final everyAction = entities.expand((entity) => entity.actions.entries);
+  final firstOfEach = <String, EntityAction>{};
+  for (final MapEntry(key: name, value: action) in everyAction) {
+    firstOfEach.putIfAbsent(name, () => action);
   }
-  return all;
+  return firstOfEach;
 }
-
-/// The editor's fields for [args], what an act may say: an action's, or an
-/// operation's.
-List<Field> argOptions(Map<String, List<String>> args) => [
-  for (final MapEntry(key: name, value: choices) in args.entries)
-    choices.isEmpty
-        ? Field(
-            name,
-            name == 'of' ? 'of (component ID)' : name,
-            FieldKind.value,
-          )
-        : Field(
-            name,
-            name,
-            FieldKind.choice,
-            choices: {for (final choice in choices) choice: choice},
-          ),
-];
 
 /// [act] aimed at [target] doing [name]: keeps the arguments that action
 /// lets an act add.
@@ -89,32 +70,30 @@ class ActionRunner {
 
   final Ref _ref;
 
-  /// Has the entity [act] names do it: runs the operation its action names,
-  /// with what the action binds and what the act adds. An act that calls an
-  /// address runs that operation with what it says. Throws [ImproperAct] if
-  /// it cannot be done as written. Returns a message for the user, or null.
+  /// Runs [act]'s operation: the address's, or the one its entity's action
+  /// names. Returns a message for the user, or null; throws [ImproperAct] if
+  /// it cannot be done as written.
   Future<String?> run(
     Act act, {
     ActionScreen? screen,
     bool held = false,
     String? component,
   }) async {
-    if (act.isAddress) {
-      final operation = _ref.read(operationsRegistryProvider)[act.name];
-      if (operation == null) {
-        throw ImproperAct('There is nothing at "${act.name}"');
-      }
-      return carryOut(
-        operation,
-        act,
-        OperationRun(
-          act.args,
-          screen: screen,
-          held: held,
-          component: component,
-        ),
-      );
-    }
+    final (operation, arguments) = act.isAddress
+        ? (_operationAt(act.name), act.args)
+        : await _entityOperation(act);
+    return carryOut(
+      operation,
+      act,
+      OperationRun(arguments, screen: screen, held: held, component: component),
+    );
+  }
+
+  Operation _operationAt(String address) =>
+      _ref.read(operationsRegistryProvider)[address] ??
+      (throw ImproperAct('There is nothing at "$address"'));
+
+  Future<(Operation, Map<String, Object?>)> _entityOperation(Act act) async {
     final (:entity, :action) = targetOf(
       act,
       await _ref.read(entitiesProvider.future),
@@ -126,25 +105,21 @@ class ActionRunner {
         'which there is none of',
       );
     }
-    final self = {'self': entity.self};
-    return carryOut(
-      operation,
-      act,
-      OperationRun(
-        {
-          for (final MapEntry(:key, :value) in action.bound.entries)
-            key: value is String && value.contains('{{')
-                ? readTemplate(_ref.read, value, self)
-                : value,
-          // Only what the action lets an act say.
-          for (final name in action.args.keys)
-            if (act.args.containsKey(name)) name: act.args[name],
-        },
-        screen: screen,
-        held: held,
-        component: component,
-      ),
-    );
+    return (operation, _arguments(entity, action, act));
+  }
+
+  /// What [action] binds, its templates read for [entity], and what [act]
+  /// says of only what the action lets it say.
+  Map<String, Object?> _arguments(Entity entity, EntityAction action, Act act) {
+    final scope = {'self': entity.self};
+    return {
+      for (final MapEntry(:key, :value) in action.bound.entries)
+        key: value is String && value.contains('{{')
+            ? readTemplate(_ref.read, value, scope)
+            : value,
+      for (final name in action.args.keys)
+        if (act.args.containsKey(name)) name: act.args[name],
+    };
   }
 
   /// Runs [operation] locally. The web editor overrides this to forward

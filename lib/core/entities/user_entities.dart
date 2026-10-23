@@ -91,22 +91,16 @@ Field userEntityOptions(Iterable<Operation> operations) => Field(
         const Field('label', 'Label', FieldKind.text),
         const Field('icon', 'Icon', FieldKind.icon),
         // What is left empty, the act may say.
-        for (final MapEntry(key: name, value: choices)
-            in (operations
-                        .where((one) => one.name == action['run'])
-                        .firstOrNull
-                        ?.args ??
-                    const <String, List<String>>{})
-                .entries)
-          choices.isEmpty
-              ? Field('$_with$name', name, FieldKind.template)
-              : Field(
-                  '$_with$name',
-                  name,
-                  FieldKind.choice,
-                  unset: 'Set by the action',
-                  choices: {for (final choice in choices) choice: choice},
-                ),
+        ...argFields(
+          operations
+                  .where((operation) => operation.name == action['run'])
+                  .firstOrNull
+                  ?.args ??
+              const {},
+          keyPrefix: _with,
+          free: FieldKind.template,
+          unset: 'Set by the action',
+        ),
       ],
     ),
   ],
