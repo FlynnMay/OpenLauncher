@@ -41,9 +41,9 @@ class ScreenOperationsManager implements OperationsManager {
       name: 'launcher://screen/open',
       label: 'Show a screen',
       args: const {'id': []},
+      requiredArgs: const {'id'},
       run: (run) async {
-        final id = run.arg('id');
-        if (id == null) return null;
+        final id = run.required('id');
         final layout = (await _ref.read(configProvider.future)).layout;
         if (layout.screen(id) == null) return 'There is no screen "$id".';
         _ref.read(shownScreensProvider.notifier).open(id);

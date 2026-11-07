@@ -30,11 +30,9 @@ class SystemOperationsManager implements OperationsManager {
       args: {
         'access': [for (final access in Access.values) access.name],
       },
+      requiredArgs: const {'access'},
       run: (run) async {
-        final access = Access.values.asNameMap()[run.arg('access')];
-        if (access == null) {
-          throw const FormatException('No permission was given');
-        }
+        final access = Access.values.byName(run.required('access'));
         try {
           await _platform.changeAccess(access);
         } on PlatformException {

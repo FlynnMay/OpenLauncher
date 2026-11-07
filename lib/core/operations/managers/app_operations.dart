@@ -9,6 +9,7 @@ class AppOperationsManager implements OperationsManager {
   final LauncherPlatform _platform;
 
   static const _package = {'package': <String>[]};
+  static const _needsPackage = {'package'};
 
   @override
   late final List<Operation> operations = [
@@ -16,8 +17,9 @@ class AppOperationsManager implements OperationsManager {
       name: 'os://apps/launch',
       label: 'Open an app',
       args: _package,
+      requiredArgs: _needsPackage,
       run: (run) async {
-        await _platform.launchApp(_packageOf(run));
+        await _platform.launchApp(run.required('package'));
         return null;
       },
     ),
@@ -25,8 +27,9 @@ class AppOperationsManager implements OperationsManager {
       name: 'os://apps/info',
       label: "Open an app's info screen",
       args: _package,
+      requiredArgs: _needsPackage,
       run: (run) async {
-        await _platform.openAppInfo(_packageOf(run));
+        await _platform.openAppInfo(run.required('package'));
         return null;
       },
     ),
@@ -34,15 +37,11 @@ class AppOperationsManager implements OperationsManager {
       name: 'os://apps/uninstall',
       label: 'Uninstall an app',
       args: _package,
+      requiredArgs: _needsPackage,
       run: (run) async {
-        await _platform.uninstallApp(_packageOf(run));
+        await _platform.uninstallApp(run.required('package'));
         return null;
       },
     ),
   ];
-
-  String _packageOf(OperationRun run) => switch (run.arg('package')) {
-    final String package when package.isNotEmpty => package,
-    _ => throw const FormatException('No package was given'),
-  };
 }

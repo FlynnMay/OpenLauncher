@@ -14,10 +14,9 @@ class InputOperationsManager implements OperationsManager {
       name: 'os://inputs/switch',
       label: 'Switch to a TV input',
       args: const {'input': []},
+      requiredArgs: const {'input'},
       run: (run) async {
-        final input = run.arg('input');
-        if (input == null) throw const FormatException('No input was given');
-        await _platform.switchToInput(input);
+        await _platform.switchToInput(run.required('input'));
         return null;
       },
     ),

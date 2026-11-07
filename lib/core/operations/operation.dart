@@ -8,6 +8,11 @@ abstract interface class ActionScreen {
   void close();
 }
 
+/// An operation was handed arguments it cannot do anything with.
+class BadArguments extends FormatException {
+  const BadArguments(super.message);
+}
+
 /// One operation being run.
 class OperationRun {
   const OperationRun(
@@ -32,6 +37,10 @@ class OperationRun {
     _ => null,
   };
 
+  /// The argument [key]. Only for one the operation declares in `requiredArgs`:
+  /// [Operation.run] has checked it is there.
+  String required(String key) => '${args[key]}';
+
   /// The argument [key] as a number; 0 if it is none.
   double number(String key) => switch (args[key]) {
     final num number => number.toDouble(),
@@ -53,8 +62,9 @@ class Operation {
   const Operation({
     required this.name,
     required this.label,
-    required this.run,
+    required this._run,
     this.args = const {},
+    this.requiredArgs = const {},
   });
 
   static const device = 'os://', launcher = 'launcher://';
@@ -68,6 +78,11 @@ class Operation {
   /// Arguments by name, each with its allowed values (empty = anything).
   final Map<String, List<String>> args;
 
+  /// The arguments it cannot run without, a subset of [args]' names.
+  final Set<String> requiredArgs;
+
+  final Future<String?> Function(OperationRun run) _run;
+
   /// Its address up to the verb, e.g. `os://apps`.
   String get area => areaOf(name);
 
@@ -80,6 +95,28 @@ class Operation {
   /// Whether only the TV can do it. The web editor sends these to the TV.
   bool get onDevice => name.startsWith(device);
 
-  /// Returns a message for the user, or null.
-  final Future<String?> Function(OperationRun run) run;
+  /// Does it, once [run]'s arguments check out. Returns a message for the
+  /// user, or null. Throws [BadArguments] if a required argument is missing
+  /// or one is not among the values allowed for it.
+  Future<String?> run(OperationRun run) async {
+    _check(run.args);
+    return _run(run);
+  }
+
+  void _check(Map<String, Object?> given) {
+    for (final name in requiredArgs) {
+      if (_isBlank(given[name])) throw BadArguments('$name was not given');
+    }
+    for (final MapEntry(key: name, value: allowed) in args.entries) {
+      final value = given[name];
+      if (allowed.isEmpty || _isBlank(value)) continue;
+      if (!allowed.contains('$value')) {
+        throw BadArguments(
+          '"$value" is not a $name; use ${allowed.join(', ')}',
+        );
+      }
+    }
+  }
+
+  static bool _isBlank(Object? value) => value == null || value == '';
 }

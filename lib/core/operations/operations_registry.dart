@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/operations/managers/app_operations.dart';
 import 'package:openlauncher/core/operations/managers/input_operations.dart';
 import 'package:openlauncher/core/operations/managers/layout_operations.dart';
@@ -55,7 +56,7 @@ final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
     OverlayOperationsManager(ref),
     ScreenOperationsManager(ref),
     VariableOperationsManager(ref),
-    LayoutOperationsManager(ref),
+    LayoutOperationsManager(ref.watch(layoutServiceProvider)),
   ];
 });
 

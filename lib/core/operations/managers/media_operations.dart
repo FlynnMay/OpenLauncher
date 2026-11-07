@@ -16,11 +16,9 @@ class MediaOperationsManager implements OperationsManager {
       args: {
         'command': [for (final command in MediaCommand.values) command.name],
       },
+      requiredArgs: const {'command'},
       run: (run) async {
-        final command = MediaCommand.values.asNameMap()[run.arg('command')];
-        if (command == null) {
-          throw FormatException('No media command "${run.args['command']}"');
-        }
+        final command = MediaCommand.values.byName(run.required('command'));
         await _platform.sendMediaCommand(command);
         return null;
       },
