@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/actions/act.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/scope.dart';
+import 'package:openlauncher_domain/actions/act.dart';
 
 class ImproperAct extends FormatException {
   const ImproperAct(super.message);

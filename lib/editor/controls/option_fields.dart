@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/editor/controls/choice_box.dart';
 import 'package:openlauncher/editor/controls/colour_picker.dart';
 import 'package:openlauncher/editor/controls/commit_field.dart';

@@ -1,9 +1,9 @@
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/entity_action.dart';
 import 'package:openlauncher/core/entities/http_feed.dart';
-import 'package:openlauncher/core/layout/layout_ids.dart';
-import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/operations/operation.dart';
+import 'package:openlauncher_domain/layout/layout_ids.dart';
+import 'package:openlauncher_domain/nodes/field.dart';
 
 /// The most entities a user can make.
 const maxUserEntities = 24;

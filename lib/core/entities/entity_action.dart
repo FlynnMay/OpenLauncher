@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/json/json_read.dart';
 import 'package:openlauncher/core/sources/source.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
+import 'package:openlauncher_domain/json/json_read.dart';
 
 /// An action an entity defines: the operation it runs and the arguments it
 /// binds from the entity's own values.

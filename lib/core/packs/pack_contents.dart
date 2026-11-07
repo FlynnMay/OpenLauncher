@@ -3,15 +3,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/json/json_read.dart';
-import 'package:openlauncher/core/layout/layout_model.dart';
-import 'package:openlauncher/core/layout/layout_repair.dart';
-import 'package:openlauncher/core/layout/screen.dart';
 import 'package:openlauncher/core/packs/icon_sets.dart';
 import 'package:openlauncher/core/packs/pack.dart';
-import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/sources/generator.dart';
 import 'package:openlauncher/core/sources/source.dart';
+import 'package:openlauncher_domain/json/json_read.dart';
+import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/layout_repair.dart';
+import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// A pack's entities, sources, generators, prefabs and screens. A pack writes short
 /// names; each is its own unless it says another pack's, `other:name`, and

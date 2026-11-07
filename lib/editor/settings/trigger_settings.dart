@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/core/nodes/nodes.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/packs/packs.dart';
-import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/variables/variable.dart';
 
 /// Action chains per trigger. An act is an entity and one of that entity's
 /// actions, or an address; chains equal to [defaults] are not stored.

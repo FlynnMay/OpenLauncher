@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 

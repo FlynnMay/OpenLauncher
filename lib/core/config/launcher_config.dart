@@ -1,13 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/components/weather.dart';
-import 'package:openlauncher/core/config/app_version.dart';
-import 'package:openlauncher/core/config/migrations/migrations.dart';
 import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/user_entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/nodes/field.dart';
-import 'package:openlauncher/core/prefabs/prefab.dart';
 import 'package:openlauncher/core/updates/update.dart';
+import 'package:openlauncher_domain/config/app_version.dart';
+import 'package:openlauncher_domain/config/migrations/migrations.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 enum ToastPosition { topLeft, topRight, bottomLeft, bottomRight }
 

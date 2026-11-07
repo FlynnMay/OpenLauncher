@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/config/app_version.dart';
-import 'package:openlauncher/core/nodes/field.dart';
+import 'package:openlauncher_domain/config/app_version.dart';
+import 'package:openlauncher_domain/nodes/field.dart';
 
 /// What the launcher does about a newer release of itself.
 enum UpdateMode { off, notify, auto }

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
-import 'package:openlauncher/core/prefabs/prefab.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// The prefabs packs ship, by id; the launcher's own are the System pack's.
 final shippedPrefabsProvider = Provider<Map<String, Prefab>>(

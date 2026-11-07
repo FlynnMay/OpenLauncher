@@ -43,7 +43,7 @@ class Drop {
 /// or pinned to the top left if it filled its last one.
 Node placedAt(Node item, Rect rect, Size size) => item.copyWith(
   transform: item.transform.isFill
-      ? NodeTransform.at(rect)
+      ? transformAt(rect)
       : item.transform.covering(rect, size),
 );
 
@@ -264,7 +264,7 @@ Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
           switch ((drop.rect, drop.size)) {
             (final rect?, final size?) => placedAt(item, rect, size),
             _ => item.copyWith(
-              transform: NodeTransform.at(const Rect.fromLTWH(0, 0, 160, 90)),
+              transform: transformAt(const Rect.fromLTWH(0, 0, 160, 90)),
             ),
           },
         ];

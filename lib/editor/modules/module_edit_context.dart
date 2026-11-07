@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';

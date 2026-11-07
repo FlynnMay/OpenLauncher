@@ -5,7 +5,7 @@ import 'package:openlauncher/core/entities/entity_data.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/values/template.dart';
-import 'package:openlauncher/core/variables/variable.dart';
+import 'package:openlauncher_domain/variables/variable.dart';
 
 /// `ref.watch`, from a widget or a provider.
 typedef Watch = T Function<T>(ProviderListenable<T> provider);

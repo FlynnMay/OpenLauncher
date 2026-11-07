@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 
@@ -125,7 +124,7 @@ void main() {
         const Drop('p', rect: rect, size: Size(800, 400)),
       );
       final n = findItems(dropped, {'n'}).single.item;
-      expect(n.transform, NodeTransform.at(rect));
+      expect(n.transform, transformAt(rect));
       expect(n.transform.rectIn(const Size(400, 200)), rect);
 
       // One anchored to stretch keeps its anchors and is moved by its offsets.

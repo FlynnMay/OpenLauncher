@@ -4,13 +4,13 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_overlays.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_visibility.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_overlays.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_panes.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_slots.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_visibility.dart';
 
 import '../support/packs.dart';
 

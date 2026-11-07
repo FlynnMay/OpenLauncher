@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/core/layout/layout_ids.dart';
-import 'package:openlauncher/core/layout/layout_model.dart';
-import 'package:openlauncher/core/layout/layout_repair.dart';
-import 'package:openlauncher/core/modules/modules.dart';
-import 'package:openlauncher/core/nodes/node.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher_domain/layout/layout_ids.dart';
+import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/layout_repair.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/node.dart';
 
 /// [layout] with missing entities dropped and unplaced auto-placed ones in
 /// the inbox, as instances of their prefabs.

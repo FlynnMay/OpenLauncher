@@ -11,7 +11,7 @@ void main() {
   test('new anchors keep a node where it is', () {
     final node = Node(
       id: 'a',
-      transform: NodeTransform.at(const Rect.fromLTWH(100, 50, 200, 100)),
+      transform: transformAt(const Rect.fromLTWH(100, 50, 200, 100)),
     );
     final stretched = withAnchors(node, (0, 1), (0.5, 0.5), parent);
     expect(stretched.transform.rectIn(parent), node.transform.rectIn(parent));
@@ -34,7 +34,7 @@ void main() {
     addTearDown(tester.view.reset);
     var node = Node(
       id: 'a',
-      transform: NodeTransform.at(const Rect.fromLTWH(100, 50, 200, 100)),
+      transform: transformAt(const Rect.fromLTWH(100, 50, 200, 100)),
     );
     String? placedBy;
     late StateSetter redraw;
