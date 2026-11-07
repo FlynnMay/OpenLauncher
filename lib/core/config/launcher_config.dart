@@ -136,6 +136,21 @@ class LauncherConfig {
 
   static const fileKeys = ['iconOverrides', 'wallpapers'];
 
+  static const maxNameLength = 60;
+
+  /// Why [settings] cannot be kept, or null.
+  static String? settingsValidationError(Map<String, Object?> settings) {
+    final unknown = settings.keys.where((key) => !openKeys.contains(key));
+    if (unknown.isNotEmpty) return 'Not a setting: ${unknown.join(', ')}';
+    if (settings['names'] case final Map<Object?, Object?> names
+        when names.values.any(
+          (name) => name is String && name.trim().length > maxNameLength,
+        )) {
+      return 'That name is too long';
+    }
+    return null;
+  }
+
   Map<String, Object?> get open {
     final json = toJson();
     return {for (final key in openKeys) key: json[key]};

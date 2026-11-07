@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
@@ -17,10 +16,7 @@ class _Tv extends TvApi {
   final files = <MediaFile>[];
 
   @override
-  Future<void> setLayout(Layout layout) async {}
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async {}
+  Future<int> command(Map<String, Object?> command) async => 0;
 
   @override
   Future<List<MediaFile>> media() async => [...files];
@@ -155,16 +151,17 @@ void main() {
     expect(config.names, {'system:app/a': 'Films'});
     expect(config.wallpaperEvery, 5);
 
-    await api.setConfig({
-      'iconOverrides': config.iconOverrides,
-      'wallpapers': config.wallpapers,
-      'names': config.names,
-    });
-    expect(asked.single.url.path, '/api/config');
-    expect(jsonDecode(asked.single.body), {
-      'iconOverrides': {'system:app/a': 'picture-1.png'},
-      'wallpapers': ['wallpaper-2.mp4'],
-      'names': {'system:app/a': 'Films'},
-    });
+    expect(
+      TvApi.withMediaIds({
+        'iconOverrides': config.iconOverrides,
+        'wallpapers': config.wallpapers,
+        'names': config.names,
+      }),
+      {
+        'iconOverrides': {'system:app/a': 'picture-1.png'},
+        'wallpapers': ['wallpaper-2.mp4'],
+        'names': {'system:app/a': 'Films'},
+      },
+    );
   });
 }

@@ -7,7 +7,7 @@ import 'package:openlauncher_domain/layout/screen.dart';
 const noSuchScreen = 'There is no such screen.';
 
 /// An empty screen. [id] is wanted, not promised; [name] is its label.
-class AddScreen extends Command {
+class AddScreen extends LayoutCommand {
   const AddScreen({this.id, this.name = ''});
 
   factory AddScreen.fromJson(Json json) => AddScreen(
@@ -39,7 +39,7 @@ class AddScreen extends Command {
   }
 
   @override
-  Command inverse(Layout before) => RemoveScreen(idIn(before));
+  LayoutCommand inverse(Layout before) => RemoveScreen(idIn(before));
 
   @override
   Map<String, Object?> toJson() => {
@@ -49,7 +49,7 @@ class AddScreen extends Command {
   };
 }
 
-class RemoveScreen extends Command {
+class RemoveScreen extends LayoutCommand {
   const RemoveScreen(this.id);
 
   factory RemoveScreen.fromJson(Json json) =>
@@ -77,7 +77,7 @@ class RemoveScreen extends Command {
   }
 
   @override
-  Command inverse(Layout before) => RestoreScreen(
+  LayoutCommand inverse(Layout before) => RestoreScreen(
     before.screen(id) ?? (throw const CommandRefused(noSuchScreen)),
     before.screens.indexWhere((screen) => screen.id == id),
   );
@@ -87,7 +87,7 @@ class RemoveScreen extends Command {
 }
 
 /// A screen put back as it was, at place [index] among the screens.
-class RestoreScreen extends Command {
+class RestoreScreen extends LayoutCommand {
   const RestoreScreen(this.screen, this.index);
 
   factory RestoreScreen.fromJson(Json json) => RestoreScreen(
@@ -114,7 +114,7 @@ class RestoreScreen extends Command {
   }
 
   @override
-  Command inverse(Layout before) => RemoveScreen(screen.id);
+  LayoutCommand inverse(Layout before) => RemoveScreen(screen.id);
 
   @override
   Map<String, Object?> toJson() => {

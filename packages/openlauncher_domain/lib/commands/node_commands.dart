@@ -9,11 +9,12 @@ const layoutGone = 'That layout is gone.';
 
 /// An edit to nodes. Its inverse is the patch that puts back what it changed,
 /// so no edit has to know how to undo itself.
-abstract class NodeEdit extends Command {
+abstract class NodeEdit extends LayoutCommand {
   const NodeEdit();
 
   @override
-  Command inverse(Layout before) => PatchLayout.turning(apply(before), before);
+  LayoutCommand inverse(Layout before) =>
+      PatchLayout.turning(apply(before), before);
 }
 
 /// Removes nodes and what they hold, with the instances handed them. One

@@ -46,22 +46,21 @@ Future<void> changeLayout(
 }
 
 /// Does [command] to what is being edited. The TV does it, so its rules hold
-/// and its other editors are not overwritten; the editor's own undo keeps the
-/// config from before. An open prefab is not the TV's layout, so there the
+/// and its other editors are not overwritten; undo is the TV's, and the editor
+/// keeps what was selected and open. An open prefab is not the TV's layout, so there the
 /// command is done here, as the same code the TV would run.
 Future<void> runCommand(
   BuildContext context,
   WidgetRef ref,
-  Command command,
+  LayoutCommand command,
 ) async {
   if (ref.read(editedPrefabProvider) != null) {
     return changeLayout(context, ref, command.apply);
   }
   final messenger = ScaffoldMessenger.of(context);
-  final before = ref.read(configProvider).value;
   try {
     await ref.read(commandsProvider).run(command);
-    if (before != null) ref.read(historyProvider.notifier).record(before);
+    ref.read(historyProvider.notifier).recordChange();
   } on CommandRefused catch (refused) {
     messenger.showSnackBar(SnackBar(content: Text(refused.message)));
   } on Object catch (error) {
@@ -223,6 +222,8 @@ Future<void> stepHistory(
   final history = ref.read(historyProvider.notifier);
   try {
     await (back ? history.undo() : history.redo());
+  } on CommandRefused catch (refused) {
+    messenger.showSnackBar(SnackBar(content: Text(refused.message)));
   } on Object catch (error) {
     messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
   }

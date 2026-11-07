@@ -16,6 +16,7 @@ import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Provider overrides that run the launcher in a browser: config, entities
 /// and wallpapers come from the TV, and config changes go back to it.
@@ -26,7 +27,7 @@ final List<Override> tvOverrides = [
     (ref) => TvConfigStore(
       ref.watch(tvApiProvider),
       ref.watch(tvStateProvider.future),
-      onChange: (before) => ref.read(historyProvider.notifier).record(before),
+      onSaved: ref.read(historyProvider.notifier).recordChange,
     ),
   ),
   entitiesProvider.overrideWith(
@@ -73,13 +74,13 @@ final List<Override> tvOverrides = [
 
 /// The TV's config. Saving sends what changed.
 class TvConfigStore implements ConfigStore {
-  TvConfigStore(this._api, this._state, {this.onChange});
+  TvConfigStore(this._api, this._state, {this.onSaved});
 
   final TvApi _api;
   final Future<TvState> _state;
 
-  /// Told the config a save is about to replace.
-  final void Function(LauncherConfig before)? onChange;
+  /// Told when a save that changed something has been done.
+  final void Function()? onSaved;
 
   /// What the TV has: last received or last sent.
   LauncherConfig? _known;
@@ -104,10 +105,16 @@ class TvConfigStore implements ConfigStore {
         if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
     };
     if (!layout && !revert && changed.isEmpty) return;
-    onChange?.call(known);
-    if (layout) await _api.setLayout(config.layout);
     if (revert) await _api.revertLayout();
-    if (changed.isNotEmpty) await _api.setConfig(changed);
+    final steps = [
+      if (layout) PatchLayout.turning(known.layout, config.layout),
+      if (changed.isNotEmpty) SetConfig(TvApi.withMediaIds(changed)),
+    ];
+    if (steps.isNotEmpty) {
+      final step = steps.length == 1 ? steps.single : Batch(steps);
+      await _api.command(step.toJson());
+    }
+    onSaved?.call();
   }
 }
 

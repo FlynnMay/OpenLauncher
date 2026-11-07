@@ -67,6 +67,52 @@ void main() {
     );
   });
 
+  test('settings are set and undone with the layout in one history', () async {
+    final c = await launcher();
+    final commands = c.read(commandsProvider);
+    Future<LauncherConfig> config() => c.read(configProvider.future);
+
+    await commands.run(const SetConfig({'wallpaperEvery': 5}), session: 'one');
+    await commands.run(const AddScreen(id: 'tv'), session: 'one');
+    await commands.run(
+      const Batch([
+        SetConfig({
+          'names': {'a': 'Films'},
+        }),
+        AddScreen(id: 'den'),
+      ]),
+      session: 'one',
+    );
+    expect((await config()).names, {'a': 'Films'});
+    expect(await screensOf(c), ['home', 'tv', 'den']);
+
+    await commands.undo(session: 'one');
+    expect((await config()).names, isEmpty);
+    expect(await screensOf(c), ['home', 'tv']);
+    await commands.undo(session: 'one');
+    await commands.undo(session: 'one');
+    expect((await config()).wallpaperEvery, 0);
+    await commands.redo(session: 'one');
+    expect((await config()).wallpaperEvery, 5);
+  });
+
+  test('a setting that does not exist or is too long is refused', () async {
+    final c = await launcher();
+    final commands = c.read(commandsProvider);
+    await expectLater(
+      commands.run(const SetConfig({'layout': 1})),
+      throwsA(isA<CommandRefused>()),
+    );
+    await expectLater(
+      commands.run(
+        SetConfig({
+          'names': {'a': 'x' * 61},
+        }),
+      ),
+      throwsA(isA<CommandRefused>()),
+    );
+  });
+
   test('commands sent together each see the one before', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);

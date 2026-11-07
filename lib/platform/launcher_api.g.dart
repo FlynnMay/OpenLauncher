@@ -10,9 +10,9 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart' show immutable, protected, visibleForTesting;
 
 Object? _extractReplyValueOrThrow(
-    List<Object?>? replyList,
-    String channelName, {
-    required bool isNullValid,
+  List<Object?>? replyList,
+  String channelName, {
+  required bool isNullValid,
 }) {
   if (replyList == null) {
     throw PlatformException(
@@ -34,8 +34,11 @@ Object? _extractReplyValueOrThrow(
   return replyList.firstOrNull;
 }
 
-
-List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty = false}) {
+List<Object?> wrapResponse({
+  Object? result,
+  PlatformException? error,
+  bool empty = false,
+}) {
   if (empty) {
     return <Object?>[];
   }
@@ -44,6 +47,7 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
   }
   return <Object?>[error.code, error.message, error.details];
 }
+
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) {
     return true;
@@ -56,8 +60,9 @@ bool _deepEquals(Object? a, Object? b) {
   }
   if (a is List && b is List) {
     return a.length == b.length &&
-        a.indexed
-            .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+        a.indexed.every(
+          ((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]),
+        );
   }
   if (a is Map && b is Map) {
     if (a.length != b.length) {
@@ -106,29 +111,26 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
-
 /// What is plugged into an input; decides which picture its card gets.
 enum TvInputKind {
   hdmi,
   tuner,
+
   /// Analogue video: composite, component, S-Video, SCART.
   analog,
-  other;
+  other,
 }
 
 /// What the user allows the launcher in the TV's own settings.
 enum Access {
   /// The accessibility service that catches the Home button.
   homeButton,
+
   /// Other apps' notifications and media sessions (toasts, now playing).
-  notifications;
+  notifications,
 }
 
-enum MediaCommand {
-  playPause,
-  next,
-  previous;
-}
+enum MediaCommand { playPause, next, previous }
 
 class InstalledApp {
   InstalledApp({
@@ -149,16 +151,12 @@ class InstalledApp {
   bool isBanner;
 
   List<Object?> _toList() {
-    return <Object?>[
-      packageName,
-      label,
-      iconPath,
-      isBanner,
-    ];
+    return <Object?>[packageName, label, iconPath, isBanner];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static InstalledApp decode(Object result) {
     result as List<Object?>;
@@ -179,7 +177,10 @@ class InstalledApp {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(packageName, other.packageName) && _deepEquals(label, other.label) && _deepEquals(iconPath, other.iconPath) && _deepEquals(isBanner, other.isBanner);
+    return _deepEquals(packageName, other.packageName) &&
+        _deepEquals(label, other.label) &&
+        _deepEquals(iconPath, other.iconPath) &&
+        _deepEquals(isBanner, other.isBanner);
   }
 
   @override
@@ -194,11 +195,7 @@ class InstalledApp {
 
 /// A hardware input of the TV (HDMI port, tuner, ...).
 class TvInput {
-  TvInput({
-    required this.id,
-    required this.label,
-    required this.kind,
-  });
+  TvInput({required this.id, required this.label, required this.kind});
 
   /// The TV Input Framework id, e.g. `com.vendor.tvinput/.Service/HW15`.
   String id;
@@ -208,15 +205,12 @@ class TvInput {
   TvInputKind kind;
 
   List<Object?> _toList() {
-    return <Object?>[
-      id,
-      label,
-      kind,
-    ];
+    return <Object?>[id, label, kind];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static TvInput decode(Object result) {
     result as List<Object?>;
@@ -236,7 +230,9 @@ class TvInput {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(id, other.id) && _deepEquals(label, other.label) && _deepEquals(kind, other.kind);
+    return _deepEquals(id, other.id) &&
+        _deepEquals(label, other.label) &&
+        _deepEquals(kind, other.kind);
   }
 
   @override
@@ -274,18 +270,12 @@ class NowPlaying {
   bool playing;
 
   List<Object?> _toList() {
-    return <Object?>[
-      packageName,
-      appLabel,
-      title,
-      artist,
-      artPath,
-      playing,
-    ];
+    return <Object?>[packageName, appLabel, title, artist, artPath, playing];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static NowPlaying decode(Object result) {
     result as List<Object?>;
@@ -308,7 +298,12 @@ class NowPlaying {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(packageName, other.packageName) && _deepEquals(appLabel, other.appLabel) && _deepEquals(title, other.title) && _deepEquals(artist, other.artist) && _deepEquals(artPath, other.artPath) && _deepEquals(playing, other.playing);
+    return _deepEquals(packageName, other.packageName) &&
+        _deepEquals(appLabel, other.appLabel) &&
+        _deepEquals(title, other.title) &&
+        _deepEquals(artist, other.artist) &&
+        _deepEquals(artPath, other.artPath) &&
+        _deepEquals(playing, other.playing);
   }
 
   @override
@@ -339,16 +334,12 @@ class AppNotification {
   String? text;
 
   List<Object?> _toList() {
-    return <Object?>[
-      packageName,
-      appLabel,
-      title,
-      text,
-    ];
+    return <Object?>[packageName, appLabel, title, text];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static AppNotification decode(Object result) {
     result as List<Object?>;
@@ -369,7 +360,10 @@ class AppNotification {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(packageName, other.packageName) && _deepEquals(appLabel, other.appLabel) && _deepEquals(title, other.title) && _deepEquals(text, other.text);
+    return _deepEquals(packageName, other.packageName) &&
+        _deepEquals(appLabel, other.appLabel) &&
+        _deepEquals(title, other.title) &&
+        _deepEquals(text, other.text);
   }
 
   @override
@@ -398,15 +392,12 @@ class WidgetProvider {
   String appLabel;
 
   List<Object?> _toList() {
-    return <Object?>[
-      id,
-      label,
-      appLabel,
-    ];
+    return <Object?>[id, label, appLabel];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static WidgetProvider decode(Object result) {
     result as List<Object?>;
@@ -426,7 +417,9 @@ class WidgetProvider {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(id, other.id) && _deepEquals(label, other.label) && _deepEquals(appLabel, other.appLabel);
+    return _deepEquals(id, other.id) &&
+        _deepEquals(label, other.label) &&
+        _deepEquals(appLabel, other.appLabel);
   }
 
   @override
@@ -439,7 +432,6 @@ class WidgetProvider {
   }
 }
 
-
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -447,28 +439,28 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is TvInputKind) {
+    } else if (value is TvInputKind) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
-    }    else if (value is Access) {
+    } else if (value is Access) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    }    else if (value is MediaCommand) {
+    } else if (value is MediaCommand) {
       buffer.putUint8(131);
       writeValue(buffer, value.index);
-    }    else if (value is InstalledApp) {
+    } else if (value is InstalledApp) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    }    else if (value is TvInput) {
+    } else if (value is TvInput) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    }    else if (value is NowPlaying) {
+    } else if (value is NowPlaying) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
-    }    else if (value is AppNotification) {
+    } else if (value is AppNotification) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    }    else if (value is WidgetProvider) {
+    } else if (value is WidgetProvider) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
     } else {
@@ -509,20 +501,21 @@ class LauncherHostApi {
   /// available for dependency injection. If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
   LauncherHostApi({
-      BinaryMessenger? binaryMessenger, 
-      String messageChannelSuffix = '', 
-      })
-      : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+    BinaryMessenger? binaryMessenger,
+    String messageChannelSuffix = '',
+  }) : pigeonVar_binaryMessenger = binaryMessenger,
+       pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty
+           ? '.$messageChannelSuffix'
+           : '';
 
   final BinaryMessenger? pigeonVar_binaryMessenger;
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
 
   final String pigeonVar_messageChannelSuffix;
 
-
   Future<List<InstalledApp>> listApps() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.listApps$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.listApps$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -532,35 +525,37 @@ class LauncherHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return (pigeonVar_replyValue! as List<Object?>).cast<InstalledApp>();
   }
 
   Future<void> launchApp(String packageName) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.launchApp$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.launchApp$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[packageName]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[packageName],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   /// Empty on devices without hardware inputs (streaming boxes, dongles).
   Future<List<TvInput>> listInputs() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.listInputs$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.listInputs$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -570,73 +565,79 @@ class LauncherHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return (pigeonVar_replyValue! as List<Object?>).cast<TvInput>();
   }
 
   Future<void> switchToInput(String inputId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.switchToInput$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.switchToInput$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[inputId]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[inputId],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<bool> hasAccess(Access access) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.hasAccess$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.hasAccess$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[access]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[access],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as bool;
   }
 
   /// Opens the TV's screen where [access] is allowed or withdrawn. The Home
   /// button is switched at once instead where the TV lets the app do that.
   Future<void> changeAccess(Access access) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.changeAccess$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.changeAccess$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[access]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[access],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<void> openTvSettings() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.openTvSettings$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.openTvSettings$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -646,76 +647,82 @@ class LauncherHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   /// Opens the TV's own details screen for an app.
   Future<void> openAppInfo(String packageName) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.openAppInfo$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.openAppInfo$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[packageName]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[packageName],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   /// Asks the TV to uninstall an app; the TV confirms with the user.
   Future<void> uninstallApp(String packageName) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.uninstallApp$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.uninstallApp$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[packageName]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[packageName],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   /// Has the TV install the downloaded APK at [path] over this app; the TV
   /// may ask the user first. The install ends this process, so an answer is
   /// only ever why it did not happen.
   Future<String> installUpdate(String path) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.installUpdate$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.installUpdate$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[path]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[path],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as String;
   }
 
   /// Null when nothing is playing or access has not been granted.
   Future<NowPlaying?> getNowPlaying() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.getNowPlaying$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.getNowPlaying$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -725,35 +732,37 @@ class LauncherHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
     return pigeonVar_replyValue as NowPlaying?;
   }
 
   Future<void> sendMediaCommand(MediaCommand command) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.sendMediaCommand$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.sendMediaCommand$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[command]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[command],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   /// Empty on devices that do not support app widgets.
   Future<List<WidgetProvider>> listWidgetProviders() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.listWidgetProviders$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.listWidgetProviders$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -763,11 +772,10 @@ class LauncherHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return (pigeonVar_replyValue! as List<Object?>).cast<WidgetProvider>();
   }
 
@@ -775,41 +783,45 @@ class LauncherHostApi {
   /// returns the id to show it with, or null if the TV or the user does not
   /// allow it. The TV may ask the user first.
   Future<int?> bindWidget(String itemId, String provider) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.bindWidget$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.bindWidget$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[itemId, provider]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[itemId, provider],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
     return pigeonVar_replyValue as int?;
   }
 
   /// Frees the widgets of layout items that are not in [itemIds] any more.
   Future<void> pruneWidgets(List<String> itemIds) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.openlauncher.LauncherHostApi.pruneWidgets$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.openlauncher.LauncherHostApi.pruneWidgets$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[itemIds]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[itemIds],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 }
 
@@ -827,16 +839,20 @@ abstract class LauncherFlutterApi {
 
   void onNotification(AppNotification notification);
 
-  static void setUp(LauncherFlutterApi? api, {
-    BinaryMessenger? binaryMessenger, 
+  static void setUp(
+    LauncherFlutterApi? api, {
+    BinaryMessenger? binaryMessenger,
     String messageChannelSuffix = '',
-  }) 
-{
-    messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  }) {
+    messageChannelSuffix = messageChannelSuffix.isNotEmpty
+        ? '.$messageChannelSuffix'
+        : '';
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onAppsChanged$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
+        'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onAppsChanged$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
@@ -846,16 +862,20 @@ abstract class LauncherFlutterApi {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
           }
         });
       }
     }
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onInputsChanged$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
+        'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onInputsChanged$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
@@ -865,16 +885,20 @@ abstract class LauncherFlutterApi {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
           }
         });
       }
     }
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNowPlayingChanged$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
+        'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNowPlayingChanged$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
@@ -884,16 +908,20 @@ abstract class LauncherFlutterApi {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
           }
         });
       }
     }
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNotification$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
+        'dev.flutter.pigeon.openlauncher.LauncherFlutterApi.onNotification$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
@@ -905,8 +933,10 @@ abstract class LauncherFlutterApi {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
           }
         });
       }

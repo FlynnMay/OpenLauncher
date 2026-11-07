@@ -18,10 +18,7 @@ import '../support/packs.dart';
 
 class _Tv extends TvApi {
   @override
-  Future<void> setLayout(Layout layout) async {}
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async {}
+  Future<int> command(Map<String, Object?> command) async => 0;
 }
 
 const _alpha = Entity(

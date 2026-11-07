@@ -9,6 +9,7 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 import '../support/fake_tv.dart';
 import '../support/packs.dart';
@@ -35,7 +36,7 @@ void main() {
         overrides: [
           ...tvOverrides,
           tvApiProvider.overrideWithValue(tv),
-          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+          tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
       );
       addTearDown(container.dispose);
@@ -61,14 +62,16 @@ void main() {
       expect(moments().past, hasLength(1));
 
       await history().undo();
+      await pumpEventQueue();
       expect(placed('system:app/a'), isTrue);
       expect(container.read(selectionProvider), {card});
       expect(moments().past, isEmpty);
       expect(moments().future, hasLength(1));
-      // The TV is sent each step.
-      expect(tv.sent, ['layout', 'layout']);
+      // The TV does each step.
+      expect(tv.sent, ['layout', 'undo']);
 
       await history().redo();
+      await pumpEventQueue();
       expect(placed('system:app/a'), isFalse);
       expect(container.read(selectionProvider), isEmpty);
       expect(moments().past, hasLength(1));
@@ -85,6 +88,7 @@ void main() {
       await controller().setLayout(config().layout.without({'system:app/b'}));
       expect(moments().future, isEmpty);
       await history().undo();
+      await pumpEventQueue();
       expect(placed('system:app/a') && placed('system:app/b'), isTrue);
     });
 
@@ -105,20 +109,38 @@ void main() {
 
       // Undoing past an upload only stops pointing at its file.
       await history().undo();
+      await pumpEventQueue();
       expect(config().iconOverrides, isEmpty);
       expect(config().wallpapers, hasLength(1));
       await history().undo();
       await history().undo();
+      await pumpEventQueue();
       expect(config().wallpapers, isEmpty);
       expect(config().names, isEmpty);
       expect(tv.sent, [
         'config names',
         'config wallpapers',
         'config iconOverrides',
-        'config iconOverrides',
-        'config wallpapers',
-        'config names',
+        'undo',
+        'undo',
+        'undo',
       ]);
+    });
+
+    test('a layout and a setting changed together are one step', () async {
+      await controller().change(
+        (c) => c.copyWith(
+          layout: c.layout.without({'system:app/a'}),
+          names: {'system:app/b': 'Series'},
+        ),
+      );
+      expect(tv.sent, ['layout + config names']);
+      expect(moments().past, hasLength(1));
+
+      await history().undo();
+      await pumpEventQueue();
+      expect(placed('system:app/a'), isTrue);
+      expect(config().names, isEmpty);
     });
 
     test('the open prefab is part of the step', () async {
@@ -135,13 +157,12 @@ void main() {
         await controller().setWallpaperEvery(i + 1);
       }
       expect(moments().past, hasLength(History.limit));
-      expect(moments().past.first.config.wallpaperEvery, 1);
     });
 
-    test('a step the TV refuses starts the history again', () async {
+    test('a TV with nothing to undo starts the history again', () async {
       await controller().setLayout(config().layout.without({'system:app/a'}));
-      tv.refuses = true;
-      await expectLater(history().undo(), throwsException);
+      tv.restart();
+      await expectLater(history().undo(), throwsA(isA<CommandRefused>()));
       expect(moments().past, isEmpty);
       expect(moments().future, isEmpty);
     });

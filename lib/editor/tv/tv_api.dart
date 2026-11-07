@@ -263,26 +263,19 @@ class TvApi {
 
   static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
 
-  Future<void> setLayout(Layout layout) =>
-      _ask('PUT', '/api/layout', layout.toJson());
-
   Future<void> revertLayout() => _ask('DELETE', '/api/layout');
 
-  /// Sends the changed config keys, files as ids.
-  Future<void> setConfig(Map<String, Object?> changed) => _ask(
-    'PUT',
-    '/api/config',
-    {
-      ...changed,
-      if (changed['iconOverrides'] case final Map<Object?, Object?> pictures)
-        'iconOverrides': {
-          for (final MapEntry(:key, :value) in pictures.entries)
-            key: mediaIdOf(value as String),
-        },
-      if (changed['wallpapers'] case final List<Object?> wallpapers)
-        'wallpapers': [for (final url in wallpapers) mediaIdOf(url as String)],
-    },
-  );
+  /// [changed] config keys as the TV is sent them: files as ids.
+  static Map<String, Object?> withMediaIds(Map<String, Object?> changed) => {
+    ...changed,
+    if (changed['iconOverrides'] case final Map<Object?, Object?> pictures)
+      'iconOverrides': {
+        for (final MapEntry(:key, :value) in pictures.entries)
+          key: mediaIdOf(value as String),
+      },
+    if (changed['wallpapers'] case final List<Object?> wallpapers)
+      'wallpapers': [for (final url in wallpapers) mediaIdOf(url as String)],
+  };
 
   /// Uploads [file] and returns its URL; nothing points at it until the
   /// config does.

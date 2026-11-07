@@ -35,8 +35,6 @@ final configApiProvider = Provider<ConfigApi>((ref) {
 class ConfigApi {
   ConfigApi(this._ref);
 
-  static const maxNameLength = 60;
-
   static const _media = 'api/media/';
   static const _packs = 'api/packs/';
   static const _json = {'content-type': 'application/json; charset=utf-8'};
@@ -189,17 +187,8 @@ class ConfigApi {
   /// Sets the config keys in the body; files are named by id. Unreadable
   /// values fall back to defaults instead of failing.
   Future<Response> _setConfig(Map<String, Object?> body) async {
-    final unknown = body.keys.where(
-      (key) => !LauncherConfig.openKeys.contains(key),
-    );
-    if (unknown.isNotEmpty) {
-      throw FormatException('Not a setting: ${unknown.join(', ')}');
-    }
-    if (body['names'] case final Map<Object?, Object?> names
-        when names.values.any(
-          (name) => name is String && name.trim().length > maxNameLength,
-        )) {
-      throw const FormatException('That name is too long');
+    if (LauncherConfig.settingsValidationError(body) case final reason?) {
+      throw FormatException(reason);
     }
     await _ref
         .read(configProvider.notifier)
@@ -250,11 +239,22 @@ class ConfigApi {
   }
 
   Future<Response> _command(Request request) async {
-    final command = commandFromJson(await _body(request));
+    final command = await _withFilePaths(commandFromJson(await _body(request)));
     return _revision(
       _ref.read(commandsProvider).run(command, session: _sessionOf(request)),
     );
   }
+
+  /// Files arrive as ids and are kept as paths.
+  Future<Command> _withFilePaths(Command command) async => switch (command) {
+    SetConfig(:final values) => SetConfig(
+      await _ref.read(mediaStoreProvider).withPaths(values),
+    ),
+    Batch(:final commands) => Batch([
+      for (final each in commands) await _withFilePaths(each),
+    ]),
+    _ => command,
+  };
 
   Future<Response> _revision(Future<int> done) async =>
       Response.ok(jsonEncode({'revision': await done}), headers: _json);

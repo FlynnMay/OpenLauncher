@@ -22,7 +22,7 @@ List<String> idsIn(Layout layout, String container) => [
 
 /// Applies [command], then its inverse on the result, and checks the layout is
 /// as it was; then the redo, and checks that is as it was after.
-Layout roundTrip(Layout before, Command command) {
+Layout roundTrip(Layout before, LayoutCommand command) {
   final after = command.apply(before);
   final undo = command.inverse(before);
   final back = undo.apply(after);
@@ -239,8 +239,9 @@ void main() {
     });
 
     test('a command sent as JSON does the same as the one built here', () {
-      final sent = commandFromJson(const RemoveNodes(['b']).toJson())
-          .apply(flow);
+      final sent = (commandFromJson(
+        const RemoveNodes(['b']).toJson(),
+      ) as LayoutCommand).apply(flow);
       expect(sent.toJson(), const RemoveNodes(['b']).apply(flow).toJson());
     });
 
