@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:openlauncher_domain/actions/act.dart';
 import 'package:openlauncher_domain/editing/docked_prefabs.dart';
+import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/layout/layout_enums.dart';
 import 'package:openlauncher_domain/layout/layout_ids.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
@@ -25,11 +26,29 @@ class Drop {
     this.size,
   });
 
+  factory Drop.fromJson(Json json) => Drop(
+    jsonRequired<String>(json, 'container'),
+    before: jsonOptional<String>(json, 'before'),
+    x: jsonOptional<num>(json, 'x')?.toDouble(),
+    y: jsonOptional<num>(json, 'y')?.toDouble(),
+    rect: Box.fromJson(json['rect']),
+    size: Extent.fromJson(json['size']),
+  );
+
   final String container;
   final String? before;
   final double? x, y;
   final Box? rect;
   final Extent? size;
+
+  Map<String, Object?> toJson() => {
+    'container': container,
+    if (before != null) 'before': before,
+    if (x != null) 'x': x,
+    if (y != null) 'y': y,
+    if (rect != null) 'rect': rect!.toJson(),
+    if (size != null) 'size': size!.toJson(),
+  };
 
   @override
   bool operator ==(Object other) =>

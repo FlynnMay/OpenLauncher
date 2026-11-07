@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
-import 'package:openlauncher_domain/layout/layout_model.dart';
 
 /// Who runs commands that no editor sent.
 const launcherSession = 'launcher';
@@ -55,11 +57,20 @@ class CommandService implements Commands {
 
   /// Does [command] and returns the one that takes it back.
   Future<Command> _apply(Command command) async {
-    final Layout before = (await _ref.read(configProvider.future)).layout;
+    final before = await _layoutAsEdited();
     final next = command.apply(before);
     final back = command.inverse(before);
     await _ref.read(configProvider.notifier).setLayout(next);
     return back;
+  }
+
+  /// The layout as the editor shows it: the saved one, with the entities not
+  /// placed yet in the inbox. A command's ids can name those, so it is run on
+  /// this, and saving the result places them, as saving from the editor does.
+  Future<Layout> _layoutAsEdited() async {
+    final config = await _ref.read(configProvider.future);
+    final entities = await _ref.read(entitiesProvider.future);
+    return layoutWith(config.layout, entities, _ref.read(prefabsProvider));
   }
 
   /// Two commands at once would both read the layout before either saved.

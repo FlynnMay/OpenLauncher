@@ -398,6 +398,50 @@ void main() {
     );
   });
 
+  test('the page removes a card by command, and undoes it exactly', () async {
+    Future<Map<String, dynamic>> layout() async => (await state())['layout'];
+    final before = await layout();
+    final card = Layout.fromJson(before).all
+        .firstWhere((node) => node.isInstance);
+
+    final removed = await call(
+      'POST',
+      '/api/commands',
+      body: {
+        'type': 'node.remove',
+        'ids': [card.id],
+      },
+    );
+    expect(removed.statusCode, 200, reason: await removed.readAsString());
+    expect(
+      Layout.fromJson(await layout()).node(card.id),
+      isNull,
+      reason: 'the card is gone',
+    );
+
+    expect(
+      (await call('POST', '/api/commands/undo', body: {})).statusCode,
+      200,
+    );
+    expect(await layout(), before);
+
+    expect(
+      (await call('POST', '/api/commands/redo', body: {})).statusCode,
+      200,
+    );
+    expect(Layout.fromJson(await layout()).node(card.id), isNull);
+
+    final nothing = await call(
+      'POST',
+      '/api/commands',
+      body: {
+        'type': 'node.remove',
+        'ids': ['no-such-node'],
+      },
+    );
+    expect(nothing.statusCode, 409);
+  });
+
   test(
     'the page is told of updates, and has the TV check and install',
     () async {

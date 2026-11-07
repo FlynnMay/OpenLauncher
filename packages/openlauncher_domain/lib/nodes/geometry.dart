@@ -5,7 +5,18 @@ import 'package:meta/meta.dart';
 class Extent {
   const Extent(this.width, this.height);
 
+  /// Reads `[width, height]`; null if [json] is not that.
+  static Extent? fromJson(Object? json) => switch (json) {
+    [final num width, final num height] => Extent(
+      width.toDouble(),
+      height.toDouble(),
+    ),
+    _ => null,
+  };
+
   final double width, height;
+
+  List<double> toJson() => [width, height];
 
   @override
   bool operator ==(Object other) =>
@@ -26,7 +37,21 @@ class Box {
   const Box.fromLTWH(double left, double top, double width, double height)
     : this.fromLTRB(left, top, left + width, top + height);
 
+  /// Reads `[left, top, right, bottom]`; null if [json] is not that.
+  static Box? fromJson(Object? json) => switch (json) {
+    [final num left, final num top, final num right, final num bottom] =>
+      Box.fromLTRB(
+        left.toDouble(),
+        top.toDouble(),
+        right.toDouble(),
+        bottom.toDouble(),
+      ),
+    _ => null,
+  };
+
   final double left, top, right, bottom;
+
+  List<double> toJson() => [left, top, right, bottom];
 
   double get width => right - left;
   double get height => bottom - top;

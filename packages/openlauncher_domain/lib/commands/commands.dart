@@ -2,15 +2,20 @@
 library;
 
 import 'package:openlauncher_domain/commands/command.dart';
+import 'package:openlauncher_domain/commands/node_commands.dart';
 import 'package:openlauncher_domain/commands/screen_commands.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 
 export 'command.dart';
 export 'command_history.dart';
+export 'node_commands.dart';
 export 'screen_commands.dart';
 
 /// Every command there is, by name. A new area of commands adds its own map.
-final Map<String, CommandReader> _readers = {...screenCommandReaders};
+final Map<String, CommandReader> _readers = {
+  ...nodeCommandReaders,
+  ...screenCommandReaders,
+};
 
 /// The command [json] describes. Throws [FormatException] if it names none.
 Command commandFromJson(Object? json) {
