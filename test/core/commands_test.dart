@@ -12,6 +12,9 @@ void main() {
     final c = ProviderContainer(
       overrides: [
         ...packOverrides,
+        commandHistoryStoreProvider.overrideWithValue(
+          MemoryCommandHistoryStore(),
+        ),
         configStoreProvider.overrideWithValue(
           MemoryConfigStore(LauncherConfig(layout: Layout.blank())),
         ),
@@ -184,6 +187,61 @@ void main() {
       basedOn: commands.revision - 1,
     );
     expect(await screensOf(c), ['home', 'mine', 'theirs', 'again', 'more']);
+  });
+
+  test('what a session could undo is still there after a restart', () async {
+    final kept = MemoryCommandHistoryStore();
+    final saved = MemoryConfigStore(LauncherConfig(layout: Layout.blank()));
+    ProviderContainer started() {
+      final c = ProviderContainer(
+        overrides: [
+          ...packOverrides,
+          commandHistoryStoreProvider.overrideWithValue(kept),
+          configStoreProvider.overrideWithValue(saved),
+        ],
+      );
+      addTearDown(c.dispose);
+      return c;
+    }
+
+    final before = started();
+    await before.read(configProvider.future);
+    final commands = before.read(commandsProvider);
+    await commands.run(const AddScreen(id: 'tv'), session: 'phone');
+    await commands.run(const AddScreen(id: 'den'), session: 'phone');
+    await commands.undo(session: 'phone');
+    before.dispose();
+
+    // The app starts again: the layout is the same, the history is back.
+    final after = started();
+    await after.read(configProvider.future);
+    final restarted = after.read(commandsProvider);
+    expect(restarted.revision, 0);
+    await restarted.redo(session: 'phone');
+    expect(await screensOf(after), ['home', 'tv', 'den']);
+    await restarted.undo(session: 'phone');
+    await restarted.undo(session: 'phone');
+    expect(await screensOf(after), ['home']);
+  });
+
+  test('a history that cannot be read is an empty one', () async {
+    final c = ProviderContainer(
+      overrides: [
+        ...packOverrides,
+        commandHistoryStoreProvider.overrideWithValue(
+          MemoryCommandHistoryStore()..save({'phone': 'nonsense'}),
+        ),
+        configStoreProvider.overrideWithValue(
+          MemoryConfigStore(LauncherConfig(layout: Layout.blank())),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+    await c.read(configProvider.future);
+    await expectLater(
+      c.read(commandsProvider).undo(session: 'phone'),
+      throwsA(isA<CommandRefused>()),
+    );
   });
 
   test('a refused command is not logged', () async {

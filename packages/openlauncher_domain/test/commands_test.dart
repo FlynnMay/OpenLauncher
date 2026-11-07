@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 List<String> _ids(Layout layout) => [for (final s in layout.screens) s.id];
 
 void main() {
+  historyKeptAsJson();
   screenEditingCommands();
   final blank = Layout.blank();
 
@@ -184,5 +185,61 @@ void screenEditingCommands() {
         );
       },
     );
+  });
+}
+
+void historyKeptAsJson() {
+  group('CommandHistory as JSON', () {
+    test('what a session can undo and redo comes back as it was', () {
+      final history = CommandHistory()
+        ..recordChange('phone', const RemoveScreen('a'))
+        ..recordChange('phone', const RemoveScreen('b'))
+        ..recordUndo('phone', const AddScreen(id: 'b'))
+        ..recordChange('laptop', const RemoveScreen('c'));
+
+      final back = CommandHistory.fromJson(
+        history.toJson(),
+        read: commandFromJson,
+      );
+      expect(
+        back.nextUndo('phone')!.toJson(),
+        const RemoveScreen('a').toJson(),
+      );
+      expect(
+        back.nextRedo('phone')!.toJson(),
+        const AddScreen(id: 'b').toJson(),
+      );
+      expect(
+        back.nextUndo('laptop')!.toJson(),
+        const RemoveScreen('c').toJson(),
+      );
+      expect(back.nextUndo('nobody'), isNull);
+    });
+
+    test('a session with a command that cannot be read starts empty', () {
+      final back = CommandHistory.fromJson({
+        'good': {
+          'undo': [const RemoveScreen('a').toJson()],
+        },
+        'bad': {
+          'undo': [
+            {'type': 'from-a-newer-version'},
+          ],
+        },
+      }, read: commandFromJson);
+      expect(back.nextUndo('good'), isNotNull);
+      expect(back.nextUndo('bad'), isNull);
+    });
+
+    test('nothing, or nonsense, is an empty history', () {
+      expect(
+        CommandHistory.fromJson(null, read: commandFromJson).nextUndo('x'),
+        isNull,
+      );
+      expect(
+        CommandHistory.fromJson(42, read: commandFromJson).nextUndo('x'),
+        isNull,
+      );
+    });
   });
 }

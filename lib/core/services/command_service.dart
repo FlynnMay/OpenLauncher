@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/commands/command_history_store.dart';
 import 'package:openlauncher/core/commands/commands_interface.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
@@ -14,9 +16,33 @@ class CommandService implements Commands {
   CommandService(this._ref);
 
   final Ref _ref;
-  final _history = CommandHistory();
+  var _history = CommandHistory();
   final _log = CommandLog();
   Future<void> _queue = Future.value();
+
+  /// What the sessions could undo before the app last stopped.
+  late final Future<void> _restored = _restoreHistory();
+
+  Future<void> _restoreHistory() async {
+    try {
+      _history = CommandHistory.fromJson(
+        await _ref.read(commandHistoryStoreProvider).load(),
+        read: commandFromJson,
+      );
+    } on Object catch (error) {
+      debugPrint('Starting without the undo history: $error');
+    }
+  }
+
+  /// Kept after every change, so a restart loses nothing. A failure to keep it
+  /// does not fail the change.
+  Future<void> _saveHistory() async {
+    try {
+      await _ref.read(commandHistoryStoreProvider).save(_history.toJson());
+    } on Object catch (error) {
+      debugPrint('Could not keep the undo history: $error');
+    }
+  }
 
   @override
   Future<int> run(
@@ -120,7 +146,12 @@ class CommandService implements Commands {
 
   /// Two commands at once would both read the layout before either saved.
   Future<int> _inTurn(Future<int> Function() work) {
-    final result = _queue.then((_) => work());
+    final result = _queue.then((_) async {
+      await _restored;
+      final revision = await work();
+      await _saveHistory();
+      return revision;
+    });
     _queue = result.then((_) {}, onError: (_) {});
     return result;
   }
