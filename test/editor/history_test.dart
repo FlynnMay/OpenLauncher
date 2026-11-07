@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,55 +9,9 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
-import 'package:openlauncher_domain/commands/commands.dart';
 
+import '../support/fake_tv.dart';
 import '../support/packs.dart';
-
-class _Tv extends TvApi {
-  _Tv() {
-    pushed.add(_state());
-  }
-
-  final sent = <String>[];
-
-  /// What the TV tells the page, as it does after every change.
-  final pushed = StreamController<TvState>();
-
-  Layout _layout = _state().config.layout;
-  var _revision = 0;
-
-  /// When set, the TV refuses commands, giving this reason.
-  String? commandRefusal;
-
-  /// Does the command to its layout, as the TV does, and tells the page.
-  @override
-  Future<int> command(Map<String, Object?> command) async {
-    if (commandRefusal case final reason?) throw CommandRefused(reason);
-    _layout = commandFromJson(command).apply(_layout);
-    pushed.add(
-      TvState(
-        entities: _entities,
-        config: LauncherConfig(layout: _layout),
-        visuals: const [],
-      ),
-    );
-    return ++_revision;
-  }
-
-  /// When set, the TV refuses what it is sent.
-  bool refuses = false;
-
-  @override
-  Future<void> setLayout(Layout layout) async {
-    if (refuses) throw Exception('No');
-    _layout = layout;
-    sent.add('layout');
-  }
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async =>
-      sent.add('config ${changed.keys.join(' ')}');
-}
 
 const _entities = [
   Entity(id: 'system:app/a', category: appCategory, label: 'Alpha'),
@@ -74,11 +26,11 @@ TvState _state() => TvState(
 
 void main() {
   group('history', () {
-    late _Tv tv;
+    late FakeTv tv;
     late ProviderContainer container;
 
     setUp(() async {
-      tv = _Tv();
+      tv = FakeTv(_state());
       container = ProviderContainer(
         overrides: [
           ...tvOverrides,
@@ -195,7 +147,7 @@ void main() {
     });
   });
 
-  Future<WidgetRef> pump(WidgetTester tester, _Tv tv, Size size) async {
+  Future<WidgetRef> pump(WidgetTester tester, FakeTv tv, Size size) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -224,7 +176,7 @@ void main() {
   testWidgets('a command the TV refuses is said, and is not a step to undo', (
     tester,
   ) async {
-    final tv = _Tv()..commandRefusal = 'That layout is gone.';
+    final tv = FakeTv(_state())..commandRefusal = 'That layout is gone.';
     final ref = await pump(tester, tv, const Size(1600, 900));
     await tester.tap(find.text('Objects'));
     await tester.pumpAndSettle();
@@ -256,7 +208,7 @@ void main() {
   testWidgets('Ctrl+Z brings back what Delete removed, selected again', (
     tester,
   ) async {
-    final ref = await pump(tester, _Tv(), const Size(1600, 900));
+    final ref = await pump(tester, FakeTv(_state()), const Size(1600, 900));
     bool placed() => ref
         .read(configProvider)
         .value!

@@ -13,15 +13,8 @@ import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
+import '../support/fake_tv.dart';
 import '../support/packs.dart';
-
-class _Tv extends TvApi {
-  @override
-  Future<void> setLayout(Layout layout) async {}
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async {}
-}
 
 const _entity = Entity(
   id: 'system:app/a',
@@ -38,26 +31,23 @@ void main() {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final tv = FakeTv(
+      state ??
+          TvState(
+            packs: [systemPack],
+            entities: const [_entity],
+            config: LauncherConfig(layout: homeLayout(['system:app/a'])),
+            visuals: const [],
+          ),
+    );
     late WidgetRef ref;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           ...tvOverrides,
           systemContents,
-          tvApiProvider.overrideWithValue(_Tv()),
-          tvStateProvider.overrideWith(
-            (ref) => Stream.value(
-              state ??
-                  TvState(
-                    packs: [systemPack],
-                    entities: const [_entity],
-                    config: LauncherConfig(
-                      layout: homeLayout(['system:app/a']),
-                    ),
-                    visuals: const [],
-                  ),
-            ),
-          ),
+          tvApiProvider.overrideWithValue(tv),
+          tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
         child: MaterialApp(
           home: Consumer(

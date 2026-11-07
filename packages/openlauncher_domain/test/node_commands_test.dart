@@ -3,6 +3,7 @@ import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/layout/layout_enums.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
 import 'package:test/test.dart';
 
@@ -144,6 +145,74 @@ void main() {
     });
   });
 
+  group('PatchLayout', () {
+    Layout widened(Layout layout) => layout.withContainer(
+      'p',
+      (p) => p.copyWith(
+        children: [
+          for (final child in p.children)
+            child.id == 'a' ? child.sized(2, 1) : child,
+        ],
+      ),
+    );
+
+    test('turns one layout into another, and back again', () {
+      final patch = PatchLayout.turning(flow, widened(flow));
+      expect(patch.containers.keys, ['p']);
+      expect(patch.apply(flow).toJson(), widened(flow).toJson());
+      roundTrip(flow, patch);
+    });
+
+    test('is empty when nothing changed, and says so', () {
+      final patch = PatchLayout.turning(flow, flow);
+      expect(patch.isEmpty, isTrue);
+      expect(patch.apply(flow).toJson(), flow.toJson());
+    });
+
+    test('carries what a screen root changed, and undoes it', () {
+      final renamed = flow.withContainer(
+        'p',
+        (root) => root.copyWith(name: 'Home'),
+      );
+      final patch = PatchLayout.turning(flow, renamed);
+      expect(patch.roots.keys, ['home']);
+      expect(patch.containers, isEmpty);
+      roundTrip(flow, patch);
+    });
+
+    test('leaves containers it did not change as another editor left them', () {
+      final patch = PatchLayout.turning(flow, widened(flow));
+      final meanwhile = flow.withContainer(
+        'inner',
+        (inner) => inner.copyWith(children: [...inner.children, card('z')]),
+      );
+      final after = patch.apply(meanwhile);
+      expect(idsIn(after, 'inner'), ['c', 'd', 'z']);
+      expect(after.node('p')!.children.first.id, 'a');
+    });
+
+    test('moves a node between containers and keeps what it holds', () {
+      final moved = DropNode(
+        flow.node('inner')!,
+        const Drop('p', before: 'a'),
+      ).apply(flow);
+      final patch = PatchLayout.turning(flow, moved);
+      expect(patch.apply(flow).toJson(), moved.toJson());
+      roundTrip(flow, patch);
+    });
+
+    test('refuses a container that is gone', () {
+      final reordered = flow.withContainer(
+        'inner',
+        (inner) => inner.copyWith(children: inner.children.reversed.toList()),
+      );
+      final patch = PatchLayout.turning(flow, reordered);
+      expect(patch.containers.keys, ['inner']);
+      final without = const RemoveNodes(['inner']).apply(flow);
+      expect(() => patch.apply(without), throwsA(isA<CommandRefused>()));
+    });
+  });
+
   group('commandFromJson', () {
     test('reads what toJson writes, for every node command', () {
       final after = const RemoveNodes(['a']).apply(flow);
@@ -163,7 +232,7 @@ void main() {
           ),
         ),
         const RemoveNodes(['a']).inverse(flow),
-        RestoreChildren(const {}, removed: after.removed),
+        PatchLayout(removed: after.removed),
       ]) {
         expect(commandFromJson(command.toJson()).toJson(), command.toJson());
       }

@@ -17,8 +17,10 @@ import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
 
-/// Changes what is being edited, the layout or the open prefab, through the
-/// config controller, which updates the screen and sends it to the TV.
+/// Changes what is being edited, the layout or the open prefab. The layout
+/// is changed by sending the TV the difference [change] makes, so what it did
+/// not touch is left as it is; a prefab is saved whole, as the TV knows it
+/// only as a prefab.
 Future<void> changeLayout(
   BuildContext context,
   WidgetRef ref,
@@ -30,13 +32,8 @@ Future<void> changeLayout(
   final prefab = ref.read(editedPrefabProvider);
   try {
     if (prefab == null) {
-      final startup = ref.read(configProvider).value?.layout.startup;
-      final changed = change(layout);
-      await ref
-          .read(configProvider.notifier)
-          .setLayout(
-            startup == null ? changed : changed.copyWith(startup: startup),
-          );
+      final patch = PatchLayout.turning(layout, change(layout));
+      if (!patch.isEmpty) await runCommand(context, ref, patch);
     } else if (await saveEdited(ref, prefab, change(layout))
         case final reason?) {
       messenger.showSnackBar(SnackBar(content: Text(reason)));
@@ -169,11 +166,15 @@ Future<void> addBar(
   String edge,
   Prefab template,
 ) async {
-  await changeLayout(context, ref, (layout) => withBar(layout, edge, template));
+  final before = ref.read(editedLayoutProvider);
+  if (before == null) return;
+  // The bar is looked for in what was sent: the page hears the TV's answer
+  // later.
+  final sent = withBar(before, edge, template);
+  await changeLayout(context, ref, (_) => sent);
   if (!context.mounted) return;
-  final layout = ref.read(configProvider).value?.layout;
   final selection = ref.read(selectionProvider.notifier);
-  switch (layout == null ? null : barOn(layout, edge)) {
+  switch (barOn(sent, edge)) {
     case final bar?:
       selection.tap(bar.id, adding: false);
     case null:
