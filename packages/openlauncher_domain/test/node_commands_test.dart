@@ -34,6 +34,7 @@ Layout roundTrip(Layout before, LayoutCommand command) {
 }
 
 void main() {
+  patchRules();
   final flow = home(
     Node.layout(
       id: 'p',
@@ -254,6 +255,60 @@ void main() {
         () => commandFromJson({'type': 'node.drop', 'drop': {}}),
         throwsA(isA<FormatException>()),
       );
+    });
+  });
+}
+
+void patchRules() {
+  group('PatchLayout rules', () {
+    final flow = home(
+      Node.layout(
+        id: 'p',
+        children: [
+          card('a'),
+          Node.layout(id: 'inner', children: [card('c')]),
+        ],
+      ),
+    );
+
+    test('refuses a node that would be on two nodes', () {
+      final patch = PatchLayout(
+        containers: {
+          'inner': [card('c'), card('a')],
+        },
+      );
+      expect(() => patch.apply(flow), throwsA(isA<CommandRefused>()));
+    });
+
+    test('allows a node moved from one container to another', () {
+      final moved = PatchLayout(
+        containers: {
+          'p': [Node.layout(id: 'inner', children: const [])],
+          'inner': [card('c'), card('a')],
+        },
+      );
+      expect(idsIn(moved.apply(flow), 'inner'), ['c', 'a']);
+    });
+
+    test('refuses a container that would nest too deep', () {
+      Node deep(int levels) => levels == 0
+          ? card('leaf')
+          : Node.layout(id: 'l$levels', children: [deep(levels - 1)]);
+      final patch = PatchLayout(
+        containers: {
+          'inner': [deep(Node.maxDepth)],
+        },
+      );
+      expect(() => patch.apply(flow), throwsA(isA<CommandRefused>()));
+    });
+
+    test('lets an edit through that only touches what was already there', () {
+      final patch = PatchLayout(
+        containers: {
+          'p': [card('a').sized(2, 1), flow.node('inner')!],
+        },
+      );
+      expect(() => patch.apply(flow), returnsNormally);
     });
   });
 }

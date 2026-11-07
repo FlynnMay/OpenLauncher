@@ -161,7 +161,40 @@ class PatchLayout extends NodeEdit {
     for (final MapEntry(:key, :value) in containers.entries) {
       next = _withChildren(next, key, value);
     }
-    return removed == null ? next : next.copyWith(removed: removed);
+    final result = removed == null ? next : next.copyWith(removed: removed);
+    _checkRules(layout, result);
+    return result;
+  }
+
+  /// A patch is held to the rules a drop is: what a container is given must
+  /// fit it, and no id may be on two nodes. Only what the patch brings in is
+  /// checked, so a layout that was already past the rules can still be edited.
+  void _checkRules(Layout before, Layout after) {
+    for (final MapEntry(:key, :value) in containers.entries) {
+      final held = {
+        for (final child in before.node(key)?.children ?? const <Node>[])
+          child.id,
+      };
+      for (final child in value.where((child) => !held.contains(child.id))) {
+        // A container the rules cannot place (inside an instance) has none.
+        if (findContainer(after, key) == null) continue;
+        if (refusal(after, child, key) case final reason?) {
+          throw CommandRefused(reason);
+        }
+      }
+    }
+    final doubled = _idsOnTwoNodes(after).difference(_idsOnTwoNodes(before));
+    if (doubled.isNotEmpty) {
+      throw CommandRefused('"${doubled.first}" would be on two nodes.');
+    }
+  }
+
+  static Set<String> _idsOnTwoNodes(Layout layout) {
+    final seen = <String>{}, twice = <String>{};
+    for (final node in layout.all) {
+      if (!seen.add(node.id)) twice.add(node.id);
+    }
+    return twice;
   }
 
   static Map<String, Node> _changedRoots(Layout from, Layout into) {
