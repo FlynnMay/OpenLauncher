@@ -156,6 +156,36 @@ void main() {
     );
   });
 
+  test('a command from a view someone else has changed is refused', () async {
+    final c = await launcher();
+    final commands = c.read(commandsProvider);
+    await commands.run(const AddScreen(id: 'mine'), session: 'phone');
+    final seen = commands.revision;
+    await commands.run(const AddScreen(id: 'theirs'), session: 'laptop');
+
+    // The phone looked before the laptop's change.
+    await expectLater(
+      commands.run(
+        const AddScreen(id: 'late'),
+        session: 'phone',
+        basedOn: seen,
+      ),
+      throwsA(isA<CommandRefused>()),
+    );
+    // Its own changes do not make it stale, and a current view is fine.
+    await commands.run(
+      const AddScreen(id: 'again'),
+      session: 'phone',
+      basedOn: commands.revision,
+    );
+    await commands.run(
+      const AddScreen(id: 'more'),
+      session: 'phone',
+      basedOn: commands.revision - 1,
+    );
+    expect(await screensOf(c), ['home', 'mine', 'theirs', 'again', 'more']);
+  });
+
   test('a refused command is not logged', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);

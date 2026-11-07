@@ -26,7 +26,7 @@ class _Tv extends TvApi {
   final sent = <String>[];
 
   @override
-  Future<int> command(Map<String, Object?> command) async {
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) async {
     sent.add(describeCommand(commandFromJson(command)));
     return 0;
   }
@@ -150,9 +150,11 @@ void main() {
     final heard = <CommandLogEntry>[];
     api.commandEntries.listen(heard.add);
 
+    expect(api.knownRevision, isNull);
     final states = await api.states().take(2).toList();
     expect(states, hasLength(2));
     expect(heard.single.revision, 3);
+    expect(api.knownRevision, 3);
     expect(heard.single.session, 'phone');
   });
 

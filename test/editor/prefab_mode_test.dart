@@ -18,7 +18,7 @@ import '../support/packs.dart';
 
 class _Tv extends TvApi {
   @override
-  Future<int> command(Map<String, Object?> command) async => 0;
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) async => 0;
 }
 
 const _alpha = Entity(

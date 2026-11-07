@@ -16,7 +16,7 @@ class _Tv extends TvApi {
   final files = <MediaFile>[];
 
   @override
-  Future<int> command(Map<String, Object?> command) async => 0;
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) async => 0;
 
   @override
   Future<List<MediaFile>> media() async => [...files];

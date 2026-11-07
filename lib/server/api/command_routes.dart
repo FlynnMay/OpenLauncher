@@ -21,13 +21,16 @@ class CommandRoutes implements ApiRoutes {
   }
 
   Future<Response> _runCommand(Request request) async {
-    final command = await _withFilePaths(
-      commandFromJson(await readJsonObject(request)),
-    );
+    final body = await readJsonObject(request);
+    final command = await _withFilePaths(commandFromJson(body));
     return revisionResponse(
       _ref
           .read(commandsProvider)
-          .run(command, session: editingSessionOf(request)),
+          .run(
+            command,
+            session: editingSessionOf(request),
+            basedOn: body['basedOn'] as int?,
+          ),
     );
   }
 

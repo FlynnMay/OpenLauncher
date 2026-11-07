@@ -1205,9 +1205,13 @@ void main() {
     final response = await call('GET', '/api/events');
     expect(response.headers['content-type'], 'text/event-stream');
     final events = <Map<String, dynamic>>[];
+    var named = false;
     final sub = response.read().transform(utf8.decoder).listen((chunk) {
       for (final line in const LineSplitter().convert(chunk)) {
-        if (line.startsWith('data: ')) {
+        if (line.startsWith('event: ')) named = true;
+        if (line.isEmpty) named = false;
+        // Named events are not states.
+        if (line.startsWith('data: ') && !named) {
           events.add(jsonDecode(line.substring(6)));
         }
       }
@@ -1262,6 +1266,39 @@ void main() {
           ),
       isTrue,
     );
+  });
+
+  test(
+    'a new event stream starts with how far the commands have got',
+    () async {
+      await call(
+        'POST',
+        '/api/commands',
+        body: {'type': 'screen.add', 'id': 'q'},
+      );
+      final response = await call('GET', '/api/events');
+      final text = StringBuffer();
+      final sub = response.read().transform(utf8.decoder).listen(text.write);
+      addTearDown(sub.cancel);
+      await entities();
+      await pumpEventQueue();
+      expect(
+        text.toString(),
+        startsWith('event: revision\ndata: {"revision":1}'),
+      );
+    },
+  );
+
+  test('a view only the same device has changed since is not stale', () async {
+    Future<Response> add(String id, {int? basedOn}) => call(
+      'POST',
+      '/api/commands',
+      body: {'type': 'screen.add', 'id': id, 'basedOn': ?basedOn},
+    );
+    expect((await add('one')).statusCode, 200);
+    // The same device looking at an older layout is fine: it did the change.
+    expect((await add('two', basedOn: 0)).statusCode, 200);
+    expect((await add('three', basedOn: 2)).statusCode, 200);
   });
 
   test('the commands done after a revision can be asked for', () async {

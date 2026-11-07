@@ -11,6 +11,11 @@ import 'package:shelf_router/shelf_router.dart';
 /// Holds the newest page state and tells everyone listening when it changes,
 /// and when a command was done.
 class StatePublisher {
+  StatePublisher(this._currentRevision);
+
+  /// How many commands have been done.
+  final int Function() _currentRevision;
+
   /// Each event as the text a server-sent events stream carries.
   final _events = StreamController<String>.broadcast();
   String? _latestStateEvent;
@@ -39,6 +44,10 @@ class StatePublisher {
     void send(String text) => out.add(utf8.encode(text));
     out = StreamController(
       onListen: () {
+        // First, how far the commands have got, to judge later ones by.
+        send(
+          'event: revision\ndata: ${jsonEncode({'revision': _currentRevision()})}\n\n',
+        );
         if (_latestStateEvent case final state?) send(state);
         events = _events.stream.listen(send);
         // Comment lines keep idle connections from being dropped.

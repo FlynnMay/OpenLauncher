@@ -38,7 +38,7 @@ class FakeTv extends TvApi {
   LauncherConfig get config => _state.config;
 
   @override
-  Future<int> command(Map<String, Object?> command) async {
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) async {
     if (commandRefusal case final reason?) throw CommandRefused(reason);
     final done = commandFromJson(command);
     sent.add(describeCommand(done));

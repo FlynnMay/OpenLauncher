@@ -37,7 +37,7 @@ class _Tv extends TvApi {
   final removed = <String>[];
 
   @override
-  Future<int> command(Map<String, Object?> command) async => 0;
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) async => 0;
 
   @override
   Future<void> removePack(String id) async => removed.add(id);

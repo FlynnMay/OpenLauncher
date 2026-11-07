@@ -16,7 +16,16 @@ const launcherSession = 'launcher';
 /// at after, and throws [CommandRefused] if it cannot be done.
 abstract interface class Commands {
   /// [session] is who can undo it; the editor's is the device it paired as.
-  Future<int> run(Command command, {String session = launcherSession});
+  /// [basedOn] is the revision of the layout the command was made by looking
+  /// at; it is refused if someone else has changed the layout since.
+  Future<int> run(
+    Command command, {
+    String session = launcherSession,
+    int? basedOn,
+  });
+
+  /// How many commands have been done.
+  int get revision;
 
   Future<int> undo({String session = launcherSession});
 
@@ -40,14 +49,15 @@ class CommandService implements Commands {
   Future<void> _queue = Future.value();
 
   @override
-  Future<int> run(Command command, {String session = launcherSession}) =>
-      _inTurn(() async {
-        _history.recordChange(
-          session,
-          await _applyAndSaveReturningUndo(command),
-        );
-        return _logged(session, CommandAction.run, command);
-      });
+  Future<int> run(
+    Command command, {
+    String session = launcherSession,
+    int? basedOn,
+  }) => _inTurn(() async {
+    if (basedOn != null) _refuseIfOthersChangedSince(basedOn, session);
+    _history.recordChange(session, await _applyAndSaveReturningUndo(command));
+    return _logged(session, CommandAction.run, command);
+  });
 
   @override
   Future<int> undo({String session = launcherSession}) => _inTurn(() async {
@@ -64,6 +74,21 @@ class CommandService implements Commands {
     _history.recordRedo(session, await _applyAndSaveReturningUndo(command));
     return _logged(session, CommandAction.redo, command);
   });
+
+  /// The layout [session] looked at has been changed by someone else, or too
+  /// long ago to tell: what it is making would overwrite their work.
+  void _refuseIfOthersChangedSince(int revision, String session) {
+    final since = _log.after(revision);
+    if (since == null || since.any((entry) => entry.session != session)) {
+      throw const CommandRefused(staleView);
+    }
+  }
+
+  static const staleView =
+      'Someone else changed the layout. It has been reloaded; try again.';
+
+  @override
+  int get revision => _log.revision;
 
   @override
   Stream<CommandLogEntry> get entries => _log.added;

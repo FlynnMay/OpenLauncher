@@ -38,7 +38,9 @@ class ConfigApi {
   ConfigApi(this._ref);
 
   final Ref _ref;
-  final _statePublisher = StatePublisher();
+  late final _statePublisher = StatePublisher(
+    () => _ref.read(commandsProvider).revision,
+  );
 
   Future<Response> handle(Request request) async => _handler(request);
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -130,10 +131,16 @@ class TvApi {
           if (line.isEmpty) event = '';
           if (!line.startsWith('data: ')) continue;
           final data = jsonDecode(line.substring(6)) as Map;
+          if (event == 'revision') {
+            knownRevision = data['revision'] as int;
+            continue;
+          }
           if (event == 'command') {
-            _commandEntries.add(
-              CommandLogEntry.fromJson(data.cast<String, Object?>()),
+            final entry = CommandLogEntry.fromJson(
+              data.cast<String, Object?>(),
             );
+            knownRevision = max(knownRevision ?? 0, entry.revision);
+            _commandEntries.add(entry);
             continue;
           }
           yield await _state(data);
@@ -149,6 +156,10 @@ class TvApi {
   }
 
   final _commandEntries = StreamController<CommandLogEntry>.broadcast();
+
+  /// The newest revision of the TV's commands this page has heard of, which
+  /// is how far its view of the layout can be trusted to go.
+  int? knownRevision;
 
   /// Each command the TV does, as it hears of it on the event stream that
   /// [states] follows.
@@ -368,8 +379,8 @@ class TvApi {
           as String?;
 
   /// Has the TV do [command]; returns the revision it left the layout at.
-  Future<int> command(Map<String, Object?> command) =>
-      _revision('/api/commands', command);
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) =>
+      _revision('/api/commands', {...command, 'basedOn': ?basedOn});
 
   Future<int> undoCommand() => _revision('/api/commands/undo');
 
@@ -411,8 +422,15 @@ class TvCommands implements Commands {
   final void Function()? onRan;
 
   @override
-  Future<int> run(Command command, {String session = launcherSession}) async {
-    final revision = await _api.command(command.toJson());
+  Future<int> run(
+    Command command, {
+    String session = launcherSession,
+    int? basedOn,
+  }) async {
+    final revision = await _api.command(
+      command.toJson(),
+      basedOn: basedOn ?? _api.knownRevision,
+    );
     onRan?.call();
     return revision;
   }
@@ -422,6 +440,9 @@ class TvCommands implements Commands {
 
   @override
   Future<int> redo({String session = launcherSession}) => _api.redoCommand();
+
+  @override
+  int get revision => _api.knownRevision ?? 0;
 
   @override
   Stream<CommandLogEntry> get entries => _api.commandEntries;
