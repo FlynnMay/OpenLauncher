@@ -105,10 +105,18 @@ class TvConfigStore implements ConfigStore {
       for (final key in LauncherConfig.openKeys)
         if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
     };
-    if (!layout && !revert && changed.isEmpty) return;
+    // Prefabs go one by one, so another editor's are not overwritten.
+    final prefabs = changed.remove(ChangePrefabs.settingName);
+    final prefabChange = prefabs == null
+        ? null
+        : ChangePrefabs.turning(
+            was[ChangePrefabs.settingName] as List<Object?>,
+            prefabs as List<Object?>,
+          );
     final steps = [
       if (revert) const ResetLayoutToStarting(),
       if (layout) PatchLayout.turning(known.layout, config.layout),
+      if (prefabChange != null && !prefabChange.isEmpty) prefabChange,
       if (changed.isNotEmpty) SetConfig(TvApi.withMediaIds(changed)),
     ];
     if (steps.isNotEmpty) {

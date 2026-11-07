@@ -8,6 +8,8 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
@@ -90,6 +92,29 @@ void main() {
     // What was sent is what the TV now has.
     await store.save(emptied.copyWith(toasts: const ToastOptions(seconds: 9)));
     expect(tv.sent, ['layout', 'config toasts']);
+  });
+
+  test('a changed prefab goes alone, with the layout it came with', () async {
+    final tv = _Tv();
+    final store = TvConfigStore(TvCommands(tv), Future.value(_state()));
+    final config = await store.load();
+    final prefab = Prefab(
+      id: 'mine',
+      name: 'Mine',
+      root: Node(id: 'root'),
+    );
+
+    await store.save(config.copyWith(prefabs: [prefab]));
+    expect(tv.sent, ['prefabs']);
+
+    await store.save(
+      config.copyWith(
+        prefabs: [prefab],
+        layout: config.layout.without({'system:app/a'}),
+        names: const {'system:app/a': 'Films'},
+      ),
+    );
+    expect(tv.sent.last, 'layout + config names');
   });
 
   test('a starting layout is not sent; reverting to it is', () async {

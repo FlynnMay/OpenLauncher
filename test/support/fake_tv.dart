@@ -112,6 +112,7 @@ String describeCommand(Command command) => switch (command) {
   SetConfig(:final values) => 'config ${values.keys.join(' ')}',
   Batch(:final commands) => commands.map(describeCommand).join(' + '),
   ResetLayoutToStarting() => 'revert',
+  ChangePrefabs() => 'prefabs',
   LayoutCommand() => 'layout',
   _ => command.type,
 };
