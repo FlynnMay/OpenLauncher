@@ -6,6 +6,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
@@ -670,7 +671,7 @@ void main() {
           launcherPlatformProvider.overrideWithValue(platform),
           operationsManagersProvider.overrideWith(
             (ref) => [
-              AppOperationsManager(platform),
+              AppOperationsManager(ref.watch(appServiceProvider)),
               _Manager(['say'], said),
             ],
           ),

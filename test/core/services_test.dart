@@ -154,4 +154,41 @@ void main() {
       expect(platform.accessChanged, isEmpty);
     });
   });
+
+  group('the services over the TV, called with no operation in between', () {
+    late FakeLauncherPlatform platform;
+    late ProviderContainer c;
+
+    setUp(() {
+      platform = FakeLauncherPlatform(const [], const []);
+      c = ProviderContainer(
+        overrides: [launcherPlatformProvider.overrideWithValue(platform)],
+      );
+      addTearDown(c.dispose);
+    });
+
+    test('apps are opened, shown and uninstalled by package', () async {
+      final apps = c.read(appServiceProvider);
+      expect(await apps.launch('fake.plex'), isNull);
+      await apps.showInfo('fake.plex');
+      await apps.uninstall('fake.kodi');
+      expect(platform.launched, ['fake.plex']);
+      expect(platform.appActions, ['info fake.plex', 'uninstall fake.kodi']);
+    });
+
+    test('an input is switched to by id', () async {
+      await c.read(inputServiceProvider).switchTo('fake/HW2');
+      expect(platform.launched, ['fake/HW2']);
+    });
+
+    test('a command goes to whatever is playing', () async {
+      await c.read(mediaServiceProvider).send(MediaCommand.playPause);
+      expect(platform.mediaCommands, [MediaCommand.playPause]);
+    });
+
+    test("the TV's settings are opened", () async {
+      await c.read(tvSettingsServiceProvider).open();
+      expect(platform.tvSettingsOpened, 1);
+    });
+  });
 }

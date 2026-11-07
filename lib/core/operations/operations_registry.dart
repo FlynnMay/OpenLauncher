@@ -13,7 +13,6 @@ import 'package:openlauncher/core/operations/managers/variable_operations.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
 import 'package:openlauncher/core/services/services.dart';
-import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Every operation of every manager, by name.
 class OperationsRegistry {
@@ -52,14 +51,13 @@ class OperationsRegistry {
 /// The managers the registry is built from. A new group of operations is one
 /// manager added here.
 final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
-  final platform = ref.watch(launcherPlatformProvider);
   return [
-    AppOperationsManager(platform),
-    InputOperationsManager(platform),
-    MediaOperationsManager(platform),
+    AppOperationsManager(ref.watch(appServiceProvider)),
+    InputOperationsManager(ref.watch(inputServiceProvider)),
+    MediaOperationsManager(ref.watch(mediaServiceProvider)),
     AccessOperationsManager(ref.watch(accessServiceProvider)),
     SettingsOperationsManager(),
-    TvSettingsOperationsManager(platform),
+    TvSettingsOperationsManager(ref.watch(tvSettingsServiceProvider)),
     UpdateOperationsManager(ref),
     OverlayOperationsManager(ref.watch(overlayServiceProvider)),
     ScreenOperationsManager(ref.watch(screenServiceProvider)),

@@ -1,12 +1,12 @@
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
-import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher/core/services/services.dart';
 
 /// The TV's own settings.
 class TvSettingsOperationsManager extends OperationsManager {
-  TvSettingsOperationsManager(this._platform);
+  TvSettingsOperationsManager(this._tvSettings);
 
-  final LauncherPlatform _platform;
+  final TvSettingsService _tvSettings;
 
   @override
   String get area => 'os://settings';
@@ -16,10 +16,7 @@ class TvSettingsOperationsManager extends OperationsManager {
     operation(
       'open',
       label: "Open the TV's settings",
-      run: (run) async {
-        await _platform.openTvSettings();
-        return null;
-      },
+      run: (run) => _tvSettings.open(),
     ),
   ];
 }
