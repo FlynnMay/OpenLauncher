@@ -168,7 +168,7 @@ void main() {
 
       // Removed entities are gone until they are placed again; they are not
       // mistaken for new apps.
-      await config.removeEntity('system:app/b');
+      await container.read(layoutServiceProvider).remove(what: 'system:app/b');
       expect(await ids(), ['system:app/a']);
       expect(store.config.layout.removed, {'system:app/b'});
       await config.setLayout(homeLayout(['system:app/b', 'system:app/a']));
@@ -305,11 +305,11 @@ void main() {
           ),
           contains('A'),
         );
-        // It is saved where it was put; what is placed nowhere comes after.
+        // It goes last in the inbox, after what is already there.
         expect(await ids(), [
-          'system:app/a',
           'system:input/tv/HW15',
           'system:app/b',
+          'system:app/a',
         ]);
         final layout = container.read(configProvider).value!.layout;
         final added = layout.container(layout.inbox)!.children.last;

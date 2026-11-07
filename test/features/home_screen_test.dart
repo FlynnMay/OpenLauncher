@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
@@ -75,6 +76,9 @@ void main() {
         ProviderScope(
           overrides: [
             ...packOverrides,
+            commandHistoryStoreProvider.overrideWithValue(
+              MemoryCommandHistoryStore(),
+            ),
             configStoreProvider.overrideWithValue(
               MemoryConfigStore(config ?? startingConfig),
             ),

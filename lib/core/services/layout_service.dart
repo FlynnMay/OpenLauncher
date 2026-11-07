@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// What is on a screen.
 class LayoutService {
@@ -19,7 +21,7 @@ class LayoutService {
   }) async {
     final entities = await _ref.read(entitiesProvider.future);
     final entity = entities.byId(what);
-    final layout = (await _ref.read(configProvider.future)).layout;
+    final layout = await _layoutAsEdited();
     final target = layout.screen(screen);
     if (entity == null || target == null) return null;
     final container = to ?? _defaultContainer(layout, target);
@@ -28,7 +30,7 @@ class LayoutService {
     }
     final item = instanceFor(entity, layout, _ref.read(prefabsProvider));
     if (item == null) return '${entity.label} has no card to show it.';
-    await _ref.read(configProvider.notifier).addItem(item, container);
+    await _change(layout, layout.withAdded(item, container));
     return '${entity.label} was added.';
   }
 
@@ -36,10 +38,24 @@ class LayoutService {
   /// screen if it is null.
   Future<String?> remove({required String what, String? screen}) async {
     final entities = await _ref.read(entitiesProvider.future);
-    await _ref.read(configProvider.notifier).removeEntity(what, screen: screen);
+    final layout = await _layoutAsEdited();
+    await _change(layout, layout.without({what}, screen: screen));
     final label = entities.byId(what)?.label ?? what;
     return '$label was removed. Add it again from the web page.';
   }
+
+  /// What commands are run on: the saved layout with the entities not placed
+  /// yet in the inbox.
+  Future<Layout> _layoutAsEdited() async => layoutWith(
+    (await _ref.read(configProvider.future)).layout,
+    await _ref.read(entitiesProvider.future),
+    _ref.read(prefabsProvider),
+  );
+
+  /// Done as the launcher's own command, so it is logged and shown to editors.
+  Future<void> _change(Layout before, Layout after) => _ref
+      .read(commandsProvider)
+      .run(PatchLayout.turning(before, after.normalised()));
 
   String _defaultContainer(Layout layout, Screen screen) =>
       _holds(screen, layout.inbox) ? layout.inbox : screen.root.id;

@@ -61,19 +61,6 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   Future<void> patch(Map<String, Object?> json) =>
       _update((config) => config.patched(json));
 
-  /// From every screen when [screen] is null.
-  Future<void> removeEntity(String id, {String? screen}) => _update(
-    (config) => config.copyWith(
-      layout: config.layout.without({id}, screen: screen).normalised(),
-    ),
-  );
-
-  Future<void> addItem(Node item, String container) => _update(
-    (config) => config.copyWith(
-      layout: config.layout.withAdded(item, container).normalised(),
-    ),
-  );
-
   Future<void> setLastScreen(String id) =>
       _update((config) => config.copyWith(lastScreen: () => id));
 

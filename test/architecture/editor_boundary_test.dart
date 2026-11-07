@@ -35,12 +35,7 @@ void main() {
   });
 
   test('the editor changes the layout by commands, not by writing it', () {
-    expect(
-      filesMatching(
-        RegExp(r'\.(setLayout|revertLayout|addItem|removeEntity)\('),
-      ),
-      isEmpty,
-    );
+    expect(filesMatching(RegExp(r'\.(setLayout|revertLayout)\(')), isEmpty);
   });
 }
 
