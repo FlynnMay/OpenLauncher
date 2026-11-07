@@ -8,13 +8,14 @@ import 'package:openlauncher/core/config/migrations/v2_to_v3_overlays.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
 import 'package:openlauncher/core/config/migrations/v2_to_v3_visibility.dart';
+import 'package:openlauncher/core/config/migrations/v3_to_v4.dart';
 
 export 'package:openlauncher/core/config/migrations/save_json.dart'
     show Device, Json;
 
 /// Counts format changes, not releases. To change the format, add a
 /// [Migration] and bump this; never change what a shipped step does.
-const saveVersion = 3;
+const saveVersion = 4;
 
 /// JSON only; never uses the models.
 typedef Rule = void Function(Json save, Device device);
@@ -82,6 +83,13 @@ const migrations = <Migration>[
       overlaysForLayers,
       visibilityAsModule,
     ],
+  ),
+  Migration(
+    from: 3,
+    to: 4,
+    since: '0.3.0',
+    what: 'Closing a popup is closing an overlay',
+    rules: [popupCloseAsOverlayClose],
   ),
 ];
 

@@ -1398,4 +1398,54 @@ void main() {
       'with': {'of': 'menu'},
     });
   });
+
+  test('3 to 4: closing a popup is closing an overlay', () {
+    final next = migrate({
+      'v': 3,
+      'entities': [
+        {
+          'id': 'x',
+          'actions': {
+            'shut': {'run': 'launcher://popups/close'},
+            'open': {
+              'run': 'os://apps/launch',
+              'with': {'package': 'a'},
+            },
+          },
+        },
+      ],
+      'layout': {
+        'v': 3,
+        'screens': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'modules': {
+                'triggers': {
+                  'press': [
+                    {'run': 'launcher://popups/close'},
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+    expect(next['v'], saveVersion);
+    final [entity] = next['entities']! as List;
+    expect((entity as Map)['actions'], {
+      'shut': {'run': 'launcher://overlay/close'},
+      'open': {
+        'run': 'os://apps/launch',
+        'with': {'package': 'a'},
+      },
+    });
+    final layout = next['layout']! as Json;
+    final [home] = layout['screens']! as List;
+    expect((home as Map)['root']['modules']['triggers']['press'], [
+      {'run': 'launcher://overlay/close'},
+    ]);
+  });
 }

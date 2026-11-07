@@ -3,9 +3,6 @@ import 'dart:math';
 /// What only the screen an action fired on can do. Null off-screen.
 abstract interface class ActionScreen {
   Future<void> openSettings();
-
-  /// Closes the popup the action fired in.
-  void close();
 }
 
 /// An operation was handed arguments it cannot do anything with.

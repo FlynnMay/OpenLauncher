@@ -7,7 +7,7 @@ import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 
-/// Nodes drawn over the screen, and the popup an action fired in.
+/// Nodes drawn over the screen.
 class OverlayOperationsManager implements OperationsManager {
   OverlayOperationsManager(this._ref);
 
@@ -72,14 +72,6 @@ class OverlayOperationsManager implements OperationsManager {
         _overlays.close(
           of == null ? _around(run.component) : _find(of)?.id ?? of,
         );
-        return null;
-      },
-    ),
-    Operation(
-      address: 'launcher://popups/close',
-      label: 'Close the popup it fired in',
-      run: (run) async {
-        run.screen?.close();
         return null;
       },
     ),
