@@ -38,18 +38,22 @@ class OperationRun {
   /// [Operation.run] has checked it is there.
   String required(String key) => '${args[key]}';
 
+  /// The argument [key] as a number; null if it was not given.
+  double? optionalNumber(String key) =>
+      args.containsKey(key) ? number(key) : null;
+
+  /// The argument [key] as a yes or no; null if it is neither.
+  bool? optionalFlag(String key) => switch (args[key]) {
+    true || 'true' => true,
+    false || 'false' => false,
+    _ => null,
+  };
+
   /// The argument [key] as a number; 0 if it is none.
   double number(String key) => switch (args[key]) {
     final num number => number.toDouble(),
     final String text => double.tryParse(text) ?? 0,
     _ => 0,
-  };
-
-  /// The argument [key] as a yes or no.
-  bool flag(String key, {bool otherwise = false}) => switch (args[key]) {
-    true || 'true' => true,
-    false || 'false' => false,
-    _ => otherwise,
   };
 }
 

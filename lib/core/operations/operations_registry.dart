@@ -61,8 +61,8 @@ final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
     SettingsOperationsManager(),
     TvSettingsOperationsManager(platform),
     UpdateOperationsManager(ref),
-    OverlayOperationsManager(ref),
-    ScreenOperationsManager(ref),
+    OverlayOperationsManager(ref.watch(overlayServiceProvider)),
+    ScreenOperationsManager(ref.watch(screenServiceProvider)),
     VariableOperationsManager(ref),
     LayoutOperationsManager(ref.watch(layoutServiceProvider)),
   ];
