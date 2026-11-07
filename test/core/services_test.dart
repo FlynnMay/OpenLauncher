@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/services/services.dart';
+import 'package:openlauncher/core/variables/scope.dart';
+import 'package:openlauncher/platform/launcher_platform.dart';
 
 import '../support/packs.dart';
 
@@ -91,5 +93,65 @@ void main() {
         expect((startup.screen, startup.remember), ('other', false));
       },
     );
+  });
+
+  group('VariableService, called with no operation in between', () {
+    test(
+      'sets on the node it names, else on the component that asked',
+      () async {
+        final c = await launcher(['home']);
+        final variables = c.read(variableServiceProvider);
+        await variables.set(
+          variable: 'on',
+          value: true,
+          of: 'menu',
+          component: 'card',
+        );
+        await variables.set(variable: 'on', value: false, component: 'card');
+        await variables.set(variable: 'on', value: 1);
+        expect(c.read(runtimeVarsProvider), {
+          'menu': {'on': true},
+          'card': {'on': false},
+        });
+      },
+    );
+
+    test('evaluates a text with {{ }} in it as it is set', () async {
+      final c = await launcher(['home']);
+      await c
+          .read(variableServiceProvider)
+          .set(variable: 'n', value: '{{1 + 2}}', component: 'card');
+      expect('${c.read(runtimeVarsProvider)['card']?['n']}', '3');
+    });
+  });
+
+  group('AccessService, called with no operation in between', () {
+    Future<(ProviderContainer, FakeLauncherPlatform)> tv() async {
+      final platform = FakeLauncherPlatform(const [], const []);
+      final c = ProviderContainer(
+        overrides: [launcherPlatformProvider.overrideWithValue(platform)],
+      );
+      addTearDown(c.dispose);
+      return (c, platform);
+    }
+
+    test('sends the user to the TV\'s own screen', () async {
+      final (c, platform) = await tv();
+      expect(
+        await c.read(accessServiceProvider).change(Access.homeButton),
+        isNull,
+      );
+      expect(platform.accessChanged, [Access.homeButton]);
+    });
+
+    test('says so when the TV has no screen for it', () async {
+      final (c, platform) = await tv();
+      platform.noAccessScreen = true;
+      final message = await c
+          .read(accessServiceProvider)
+          .change(Access.homeButton);
+      expect(message, startsWith('This TV has no screen for it\n'));
+      expect(platform.accessChanged, isEmpty);
+    });
   });
 }
