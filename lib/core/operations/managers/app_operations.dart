@@ -3,7 +3,7 @@ import 'package:openlauncher/core/operations/operations_manager.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// What can be done to an installed app, named by its `package`.
-class AppOperationsManager implements OperationsManager {
+class AppOperationsManager extends OperationsManager {
   AppOperationsManager(this._platform);
 
   final LauncherPlatform _platform;
@@ -12,9 +12,12 @@ class AppOperationsManager implements OperationsManager {
   static const _needsPackage = {'package'};
 
   @override
+  String get area => 'os://apps';
+
+  @override
   late final List<Operation> operations = [
-    Operation(
-      address: 'os://apps/launch',
+    operation(
+      'launch',
       label: 'Open an app',
       args: _package,
       requiredArgs: _needsPackage,
@@ -23,8 +26,8 @@ class AppOperationsManager implements OperationsManager {
         return null;
       },
     ),
-    Operation(
-      address: 'os://apps/info',
+    operation(
+      'info',
       label: "Open an app's info screen",
       args: _package,
       requiredArgs: _needsPackage,
@@ -33,8 +36,8 @@ class AppOperationsManager implements OperationsManager {
         return null;
       },
     ),
-    Operation(
-      address: 'os://apps/uninstall',
+    operation(
+      'uninstall',
       label: 'Uninstall an app',
       args: _package,
       requiredArgs: _needsPackage,

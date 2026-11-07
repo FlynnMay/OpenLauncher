@@ -3,15 +3,18 @@ import 'package:openlauncher/core/operations/operations_manager.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Commands for whatever is playing.
-class MediaOperationsManager implements OperationsManager {
+class MediaOperationsManager extends OperationsManager {
   MediaOperationsManager(this._platform);
 
   final LauncherPlatform _platform;
 
   @override
+  String get area => 'os://media';
+
+  @override
   late final List<Operation> operations = [
-    Operation(
-      address: 'os://media/command',
+    operation(
+      'command',
       label: 'Tell the media player',
       args: {
         'command': [for (final command in MediaCommand.values) command.name],

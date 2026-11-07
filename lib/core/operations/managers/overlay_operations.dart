@@ -8,7 +8,7 @@ import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 
 /// Nodes drawn over the screen.
-class OverlayOperationsManager implements OperationsManager {
+class OverlayOperationsManager extends OperationsManager {
   OverlayOperationsManager(this._ref);
 
   final Ref _ref;
@@ -19,9 +19,12 @@ class OverlayOperationsManager implements OperationsManager {
   Node? _find(String id) => _ref.read(currentScreenProvider)?.find(id);
 
   @override
+  String get area => 'launcher://overlay';
+
+  @override
   late final List<Operation> operations = [
-    Operation(
-      address: 'launcher://overlay/open',
+    operation(
+      'open',
       label: 'Open a node over the screen',
       // `of` is a node id, empty for the one it fired from; `dim` a
       // percentage. Unset, they are the node's Overlay's.
@@ -62,8 +65,8 @@ class OverlayOperationsManager implements OperationsManager {
         return null;
       },
     ),
-    Operation(
-      address: 'launcher://overlay/close',
+    operation(
+      'close',
       label: 'Close a node over the screen',
       // `of` is a node id; empty, the overlay it fired in, else the top one.
       args: const {'of': []},

@@ -5,16 +5,19 @@ import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
 /// Runtime values of components' variables.
-class VariableOperationsManager implements OperationsManager {
+class VariableOperationsManager extends OperationsManager {
   VariableOperationsManager(this._ref);
 
   final Ref _ref;
 
   @override
+  String get area => 'launcher://variables';
+
+  @override
   late final List<Operation> operations = [
     // Runtime only; not saved.
-    Operation(
-      address: 'launcher://variables/set',
+    operation(
+      'set',
       label: "Set a component's variable",
       args: const {'var': [], 'value': [], 'of': []},
       requiredArgs: const {'var'},

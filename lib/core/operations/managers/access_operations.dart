@@ -5,27 +5,22 @@ import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// The launcher's own settings and what the TV allows it.
-class SystemOperationsManager implements OperationsManager {
-  SystemOperationsManager(this._ref);
+/// What the TV allows the launcher.
+class AccessOperationsManager extends OperationsManager {
+  AccessOperationsManager(this._ref);
 
   final Ref _ref;
 
   LauncherPlatform get _platform => _ref.read(launcherPlatformProvider);
 
   @override
+  String get area => 'os://access';
+
+  @override
   late final List<Operation> operations = [
-    Operation(
-      address: 'launcher://settings/open',
-      label: "Open the launcher's settings",
-      run: (run) async {
-        await run.screen?.openSettings();
-        return null;
-      },
-    ),
     // The message's first line is its heading.
-    Operation(
-      address: 'os://access/change',
+    operation(
+      'change',
       label: "Allow or withdraw a permission in the TV's settings",
       args: {
         'access': [for (final access in Access.values) access.name],
@@ -41,14 +36,6 @@ class SystemOperationsManager implements OperationsManager {
               'README says how.';
         }
         _ref.invalidate(accessProvider(access));
-        return null;
-      },
-    ),
-    Operation(
-      address: 'os://settings/open',
-      label: "Open the TV's settings",
-      run: (run) async {
-        await _platform.openTvSettings();
         return null;
       },
     ),

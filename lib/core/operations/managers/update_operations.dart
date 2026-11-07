@@ -4,7 +4,7 @@ import 'package:openlauncher/core/operations/operations_manager.dart';
 import 'package:openlauncher/core/updates/update_controller.dart';
 
 /// Updates of the launcher itself. Where they come from is not an argument.
-class UpdateOperationsManager implements OperationsManager {
+class UpdateOperationsManager extends OperationsManager {
   UpdateOperationsManager(this._ref);
 
   final Ref _ref;
@@ -12,14 +12,17 @@ class UpdateOperationsManager implements OperationsManager {
   UpdateController get _updates => _ref.read(updateControllerProvider.notifier);
 
   @override
+  String get area => 'launcher://updates';
+
+  @override
   late final List<Operation> operations = [
-    Operation(
-      address: 'launcher://updates/check',
+    operation(
+      'check',
       label: 'Check for an update of the launcher',
       run: (run) => _updates.check(),
     ),
-    Operation(
-      address: 'launcher://updates/install',
+    operation(
+      'install',
       label: 'Install the latest update of the launcher',
       run: (run) => _updates.install(),
     ),

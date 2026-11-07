@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/operations/managers/access_operations.dart';
 import 'package:openlauncher/core/operations/managers/app_operations.dart';
 import 'package:openlauncher/core/operations/managers/input_operations.dart';
 import 'package:openlauncher/core/operations/managers/layout_operations.dart';
 import 'package:openlauncher/core/operations/managers/media_operations.dart';
 import 'package:openlauncher/core/operations/managers/overlay_operations.dart';
 import 'package:openlauncher/core/operations/managers/screen_operations.dart';
-import 'package:openlauncher/core/operations/managers/system_operations.dart';
+import 'package:openlauncher/core/operations/managers/settings_operations.dart';
+import 'package:openlauncher/core/operations/managers/tv_settings_operations.dart';
 import 'package:openlauncher/core/operations/managers/update_operations.dart';
 import 'package:openlauncher/core/operations/managers/variable_operations.dart';
 import 'package:openlauncher/core/operations/operation.dart';
@@ -15,10 +17,14 @@ import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Every operation of every manager, by name.
 class OperationsRegistry {
-  /// Throws [StateError] if two operations share a name.
+  /// Throws [StateError] if two operations share an address, or one is not
+  /// in its manager's area.
   OperationsRegistry(Iterable<OperationsManager> managers) {
     for (final manager in managers) {
       for (final operation in manager.operations) {
+        if (!operation.address.startsWith('${manager.area}/')) {
+          throw StateError('"${operation.address}" is not in ${manager.area}');
+        }
         if (_byName.containsKey(operation.address)) {
           throw StateError('Two operations are named "${operation.address}"');
         }
@@ -51,7 +57,9 @@ final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
     AppOperationsManager(platform),
     InputOperationsManager(platform),
     MediaOperationsManager(platform),
-    SystemOperationsManager(ref),
+    AccessOperationsManager(ref),
+    SettingsOperationsManager(),
+    TvSettingsOperationsManager(platform),
     UpdateOperationsManager(ref),
     OverlayOperationsManager(ref),
     ScreenOperationsManager(ref),

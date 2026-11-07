@@ -24,23 +24,27 @@ Entity _entity(String name, {String? icon}) => Entity(
 );
 
 /// Operations that record what they were told.
-class _Manager implements OperationsManager {
-  _Manager(List<String> names, [List<Object?>? said])
-    : operations = [
-        for (final name in names)
-          Operation(
-            address: name,
-            label: name,
-            args: const {'what': []},
-            run: (run) async {
-              said?.add(run.args['what']);
-              return 'said';
-            },
-          ),
-      ];
+class _Manager extends OperationsManager {
+  _Manager(List<String> verbs, [List<Object?>? said]) {
+    operations = [
+      for (final verb in verbs)
+        operation(
+          verb,
+          label: verb,
+          args: const {'what': []},
+          run: (run) async {
+            said?.add(run.args['what']);
+            return 'said';
+          },
+        ),
+    ];
+  }
 
   @override
-  final List<Operation> operations;
+  String get area => 'launcher://test';
+
+  @override
+  late final List<Operation> operations;
 }
 
 void main() {
@@ -622,10 +626,10 @@ void main() {
       expect(
         OperationsRegistry([one, two]).all
             .map((operation) => operation.address),
-        ['a', 'b', 'c'],
+        ['launcher://test/a', 'launcher://test/b', 'launcher://test/c'],
       );
-      expect(OperationsRegistry([one])['b'], isNotNull);
-      expect(OperationsRegistry([one])['c'], isNull);
+      expect(OperationsRegistry([one])['launcher://test/b'], isNotNull);
+      expect(OperationsRegistry([one])['launcher://test/c'], isNull);
       expect(
         () => OperationsRegistry([
           one,
@@ -654,7 +658,7 @@ void main() {
                     placed: true,
                     actions: {
                       'toggle': EntityAction(
-                        run: 'say',
+                        run: 'launcher://test/say',
                         bound: {'what': '{{self.label}} in the {{self.room}}'},
                       ),
                     },
