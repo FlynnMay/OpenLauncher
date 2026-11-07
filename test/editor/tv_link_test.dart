@@ -9,6 +9,7 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -273,6 +274,57 @@ void main() {
       expect(tv.sent, hasLength(2));
     },
   );
+
+  group('where an act goes depends on the mode', () {
+    late _Tv tv;
+    late ProviderContainer container;
+
+    setUp(() {
+      tv = _Tv();
+      container = ProviderContainer(
+        overrides: [
+          ...tvOverrides,
+          systemContents,
+          tvApiProvider.overrideWithValue(tv),
+          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(entitiesProvider, (_, _) {});
+    });
+
+    Future<String?> run(Act act) =>
+        container.read(actionRunnerProvider).run(act);
+
+    test('testing says what only the TV could do and sends nothing', () async {
+      container.read(editorModeProvider.notifier).choose(EditorMode.test);
+      expect(
+        await run(const Act('os://apps/launch', {'package': 'a'})),
+        'Test: would open an app (package: a)',
+      );
+      expect(
+        await run(const Act('launcher://updates/check')),
+        'Test: would check for an update of the launcher',
+      );
+      expect(tv.sent, isEmpty);
+    });
+
+    test('remote sends every act to the TV', () async {
+      container.read(editorModeProvider.notifier).choose(EditorMode.remote);
+      await run(const Act('os://apps/launch', {'package': 'a'}));
+      await run(
+        const Act('launcher://variables/set', {
+          'of': 'x',
+          'var': 'on',
+          'value': 2,
+        }),
+      );
+      expect(tv.sent, [
+        '{run: os://apps/launch, with: {package: a}}',
+        '{run: launcher://variables/set, with: {of: x, var: on, value: 2}}',
+      ]);
+    });
+  });
 
   test('what the TV allows is what the TV says', () async {
     final container = ProviderContainer(

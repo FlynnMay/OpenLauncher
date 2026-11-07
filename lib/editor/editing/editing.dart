@@ -1,6 +1,7 @@
 export 'actions.dart';
 export 'docked_prefabs.dart';
 export 'dragging.dart';
+export 'editor_mode.dart';
 export 'history.dart';
 export 'layout_edit.dart';
 export 'module_edit.dart';

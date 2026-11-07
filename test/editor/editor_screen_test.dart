@@ -73,6 +73,70 @@ void main() {
     return ref;
   }
 
+  testWidgets('testing gives the screen the keyboard, and Esc is Back', (
+    tester,
+  ) async {
+    await pump(tester, const Size(1600, 900));
+    await tester.tap(find.text('Test'));
+    await tester.pumpAndSettle();
+    final focused = FocusManager.instance.primaryFocus?.context;
+    expect(focused?.findAncestorWidgetOfExactType<TvScreen>(), isNotNull);
+
+    // Back closes what is over the screen.
+    final over = TvScreen.navigator.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const Text('over')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('over'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('over'), findsNothing);
+    await over;
+
+    // Not while editing.
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    final stays = TvScreen.navigator.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const Text('stays')),
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('stays'), findsOneWidget);
+    TvScreen.navigator.currentState!.pop();
+    await stays;
+  });
+
+  testWidgets('only testing moves the focus with the arrow keys', (
+    tester,
+  ) async {
+    final ref = await pump(tester, const Size(1600, 900));
+    Map<LogicalKeyboardKey, TraversalDirection> moves() => {
+      for (final shortcuts in tester.widgetList<Shortcuts>(
+        find.descendant(
+          of: find.byType(TvScreen),
+          matching: find.byType(Shortcuts),
+        ),
+      ))
+        for (final MapEntry(:key, :value) in shortcuts.shortcuts.entries)
+          if (key is SingleActivator && value is DirectionalFocusIntent)
+            key.trigger: value.direction,
+    };
+
+    expect(moves(), isEmpty);
+    ref.read(editorModeProvider.notifier).choose(EditorMode.test);
+    await tester.pumpAndSettle();
+    expect(moves(), {
+      LogicalKeyboardKey.arrowLeft: TraversalDirection.left,
+      LogicalKeyboardKey.arrowRight: TraversalDirection.right,
+      LogicalKeyboardKey.arrowUp: TraversalDirection.up,
+      LogicalKeyboardKey.arrowDown: TraversalDirection.down,
+    });
+    ref.read(editorModeProvider.notifier).choose(EditorMode.edit);
+    await tester.pumpAndSettle();
+    expect(moves(), isEmpty);
+  });
+
   Finder inTree(String label) =>
       find.descendant(of: find.byType(ObjectTree), matching: find.text(label));
 

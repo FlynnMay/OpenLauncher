@@ -52,6 +52,29 @@ class _OutsideText extends SingleActivator {
           null;
 }
 
+extension on EditorMode {
+  String get label => switch (this) {
+    EditorMode.edit => 'Edit',
+    EditorMode.test => 'Test',
+    EditorMode.remote => 'Remote',
+  };
+
+  IconData get icon => switch (this) {
+    EditorMode.edit => Icons.edit_outlined,
+    EditorMode.test => Icons.tv_outlined,
+    EditorMode.remote => Icons.settings_remote_outlined,
+  };
+
+  String get tooltip => switch (this) {
+    EditorMode.edit => 'Move things about and add new ones',
+    EditorMode.test =>
+      'Use it as on the TV: arrow keys, Enter (hold for the menu), Esc or '
+          'Backspace for Back, or tap. What only the TV can do is shown as a '
+          'message',
+    EditorMode.remote => 'Control the TV from here',
+  };
+}
+
 /// The side panels.
 enum _Side {
   add('Add', Icons.add),
@@ -65,7 +88,7 @@ enum _Side {
 }
 
 class _EditorScreenState extends ConsumerState<EditorScreen> {
-  bool _editing = true;
+  bool get _editing => ref.read(editorModeProvider) == EditorMode.edit;
 
   /// The panel shown on the left, and under the screen when narrow.
   _Side _left = _Side.add, _under = _Side.add;
@@ -113,6 +136,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
     ],
   );
+
+  void _choose(EditorMode mode) {
+    ref.read(selectionProvider.notifier).clear();
+    ref.read(editorModeProvider.notifier).choose(mode);
+    if (mode == EditorMode.test) {
+      WidgetsBinding.instance.addPostFrameCallback(_focusScreen);
+    }
+  }
+
+  /// Gives the TV's screen the keyboard, as a remote would be in the hand.
+  void _focusScreen(Duration _) {
+    if (TvScreen.navigator.currentContext case final context?) {
+      if (context.mounted) FocusScope.of(context).nextFocus();
+    }
+  }
 
   /// Keeps the launcher's state across layout changes.
   final _stage = GlobalKey();
@@ -187,34 +225,51 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ),
             ),
           const SizedBox(width: 8),
-          SegmentedButton<bool>(
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(
-                value: true,
-                icon: const Icon(Icons.edit_outlined),
-                label: roomy ? const Text('Edit') : null,
-                tooltip: 'Move things about and add new ones',
-              ),
-              ButtonSegment(
-                value: false,
-                icon: const Icon(Icons.tv_outlined),
-                label: roomy ? const Text('Use') : null,
-                tooltip: 'Use it as on the TV: arrow keys, Enter, or tap',
-              ),
-            ],
-            selected: {_editing},
-            onSelectionChanged: (chosen) {
-              ref.read(selectionProvider.notifier).clear();
-              setState(() => _editing = chosen.single);
-            },
-          ),
-          const SizedBox(width: 12),
+          if (roomy)
+            SegmentedButton<EditorMode>(
+              showSelectedIcon: false,
+              segments: [
+                for (final mode in EditorMode.values)
+                  ButtonSegment(
+                    value: mode,
+                    icon: Icon(mode.icon),
+                    label: Text(mode.label),
+                    tooltip: mode.tooltip,
+                  ),
+              ],
+              selected: {ref.watch(editorModeProvider)},
+              onSelectionChanged: (chosen) => _choose(chosen.single),
+            )
+          else
+            PopupMenuButton<EditorMode>(
+              tooltip: 'Edit, test or control the TV',
+              icon: Icon(ref.watch(editorModeProvider).icon),
+              onSelected: _choose,
+              itemBuilder: (context) => [
+                for (final mode in EditorMode.values)
+                  PopupMenuItem(
+                    value: mode,
+                    child: ListTile(
+                      leading: Icon(mode.icon),
+                      title: Text(mode.label),
+                    ),
+                  ),
+              ],
+            ),
+          SizedBox(width: roomy ? 12 : 4),
         ],
       ),
       // Delete removes the selection; Escape clears it.
       body: CallbackShortcuts(
         bindings: {
+          // The remote's Back.
+          if (ref.read(editorModeProvider) == EditorMode.test)
+            for (final key in const [
+              LogicalKeyboardKey.escape,
+              LogicalKeyboardKey.backspace,
+            ])
+              _OutsideText(key): () =>
+                  TvScreen.navigator.currentState?.maybePop(),
           if (_editing) ...{
             const _OutsideText(LogicalKeyboardKey.delete): () =>
                 removeSelected(context, ref),
