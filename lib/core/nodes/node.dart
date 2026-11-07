@@ -59,17 +59,33 @@ Overrides withOverride(
 Overrides overridesOver(Overrides under, Overrides over) {
   var result = under;
   for (final MapEntry(key: id, value: set) in over.entries) {
-    for (final MapEntry(:key, :value) in set.entries) {
-      if (key == 'modules') {
-        for (final MapEntry(key: module, value: values) in jsonObject(
-          value,
-        ).entries) {
-          result = withOverride(result, id, jsonObject(values), module);
-        }
-      } else {
-        result = withOverride(result, id, {key: value});
-      }
-    }
+    result = _withSetOver(result, id, set);
+  }
+  return result;
+}
+
+Overrides _withSetOver(
+  Overrides overrides,
+  String id,
+  Map<String, Object?> set,
+) {
+  var result = overrides;
+  for (final MapEntry(:key, :value) in set.entries) {
+    result = key == 'modules'
+        ? _withModulesOver(result, id, jsonObject(value))
+        : withOverride(result, id, {key: value});
+  }
+  return result;
+}
+
+Overrides _withModulesOver(
+  Overrides overrides,
+  String id,
+  Map<String, Object?> modules,
+) {
+  var result = overrides;
+  for (final MapEntry(key: module, :value) in modules.entries) {
+    result = withOverride(result, id, jsonObject(value), module);
   }
   return result;
 }
@@ -345,56 +361,65 @@ class Node {
   factory Node.fromJson(Map<Object?, Object?> json) {
     final id = jsonRequired<String>(json, 'id');
     final prefab = jsonOptional<String>(json, 'prefab');
-    var modules = modulesFromJson(json['modules']);
-    final holders = <Node>[];
-    if (prefab != null) {
-      final vars = modules[variablesModule.name] ?? const {};
-      for (final MapEntry(key: name, :value) in vars.entries) {
-        final nodes = switch (value) {
-          final List<Object?> list => list,
-          {'value': final List<Object?> list} => list,
-          _ => null,
-        };
-        if (nodes == null ||
-            !nodes.every((node) => node is Map && node['id'] is String)) {
-          continue;
-        }
-        holders.add(
-          Node(
-            id: slotHolderId(id, name),
-            modules: {
-              slotModule.name: {'variable': name},
-            },
-            children: [
-              for (final node in nodes)
-                Node.fromJson(node! as Map<Object?, Object?>),
-            ],
-          ),
-        );
-      }
-      if (holders.isNotEmpty) {
-        final rest = {
-          for (final MapEntry(:key, :value) in vars.entries)
-            if (!holders.any((holder) => holder.slotVariable == key))
-              key: value,
-        };
-        modules = {
-          for (final MapEntry(:key, :value) in modules.entries)
-            if (key != variablesModule.name) key: value,
-          if (rest.isNotEmpty) variablesModule.name: rest,
-        };
-      }
-    }
+    final modules = modulesFromJson(json['modules']);
+    final holders = prefab == null
+        ? const <Node>[]
+        : _slotHolders(id, modules[variablesModule.name] ?? const {});
     return Node(
       id: id,
       name: jsonOptional<String>(json, 'name') ?? '',
       prefab: prefab,
       variant: jsonOptional<String>(json, 'variant'),
       transform: NodeTransform.fromJson(json['transform']),
-      modules: modules,
+      modules: _withoutHeldVariables(modules, holders),
       children: [...jsonList(json, 'children', Node.fromJson), ...holders],
       overrides: overridesFromJson(json['overrides']),
     );
+  }
+
+  /// One node per slot variable that holds nodes.
+  static List<Node> _slotHolders(String id, ModuleValues variables) => [
+    for (final MapEntry(key: name, :value) in variables.entries)
+      if (_heldNodes(value) case final nodes?) _slotHolder(id, name, nodes),
+  ];
+
+  static List<Object?>? _heldNodes(Object? value) {
+    final nodes = switch (value) {
+      final List<Object?> list => list,
+      {'value': final List<Object?> list} => list,
+      _ => null,
+    };
+    final allNodes =
+        nodes != null &&
+        nodes.every((node) => node is Map && node['id'] is String);
+    return allNodes ? nodes : null;
+  }
+
+  static Node _slotHolder(String id, String variable, List<Object?> nodes) =>
+      Node(
+        id: slotHolderId(id, variable),
+        modules: {
+          slotModule.name: {'variable': variable},
+        },
+        children: [
+          for (final node in nodes)
+            Node.fromJson(node! as Map<Object?, Object?>),
+        ],
+      );
+
+  /// [modules] without the variables that [holders] hold.
+  static Modules _withoutHeldVariables(Modules modules, List<Node> holders) {
+    if (holders.isEmpty) return modules;
+    final rest = {
+      for (final MapEntry(:key, :value)
+          in (modules[variablesModule.name] ?? const {}).entries)
+        if (!holders.any((holder) => holder.slotVariable == key)) key: value,
+    };
+    return {
+      for (final MapEntry(:key, :value) in modules.entries)
+        if (key != variablesModule.name) key: value,
+      if (rest.isNotEmpty) variablesModule.name: rest,
+    };
   }
 
   /// [modules] without those every node has that say nothing.
@@ -403,6 +428,10 @@ class Node {
       if (value.isNotEmpty || moduleNamed(key)?.nothingWhenEmpty != true)
         key: value,
   };
+
+  List<Map<String, Object?>> childrenAsJson() => [
+    for (final child in children) child.toJson(),
+  ];
 
   Map<String, Object?> toJson() {
     final holders = isInstance
@@ -415,9 +444,7 @@ class Node {
             variablesModule.name: {
               ...?modules[variablesModule.name],
               for (final holder in holders)
-                holder.slotVariable!: [
-                  for (final node in holder.children) node.toJson(),
-                ],
+                holder.slotVariable!: holder.childrenAsJson(),
             },
           };
     final own = [
@@ -432,7 +459,8 @@ class Node {
       if (!transform.isFill) 'transform': transform.toJson(),
       if (_kept(saved).isNotEmpty) 'modules': _kept(saved),
       if (overrides.isNotEmpty) 'overrides': overrides,
-      if (own.isNotEmpty) 'children': [for (final child in own) child.toJson()],
+      if (own.isNotEmpty)
+        'children': own.map((child) => child.toJson()).toList(),
     };
   }
 }
