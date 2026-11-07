@@ -37,77 +37,99 @@ class Placement {
 /// One off the cells (docked or an Overlay) gets an empty placement.
 List<Placement> placeItems(List<Node> items, int columns, LayoutMode mode) {
   if (items.any((item) => item.offCells)) {
-    final rest = placeItems(
-      [
-        for (final item in items)
-          if (!item.offCells) item,
-      ],
-      columns,
-      mode,
-    ).iterator;
-    return [
-      for (final item in items)
-        item.offCells
-            ? const Placement(0, 0, 0, 0)
-            : (rest..moveNext()).current,
-    ];
+    return _placedAmongOffCells(items, columns, mode);
   }
   // Without a layout children sit where their transforms say.
   if (mode == LayoutMode.free) {
-    return [for (final _ in items) const Placement(0, 0, 0, 0)];
+    return [for (final _ in items) _noCells];
   }
-  final taken = <(int, int)>{};
-  bool free(int x, int y, int w, int h) {
-    if (x + w > columns) return false;
-    for (var row = y; row < y + h; row++) {
-      for (var column = x; column < x + w; column++) {
-        if (taken.contains((column, row))) return false;
-      }
-    }
-    return true;
-  }
-
-  Placement take(int x, int y, int w, int h) {
-    for (var row = y; row < y + h; row++) {
-      for (var column = x; column < x + w; column++) {
-        taken.add((column, row));
-      }
-    }
-    return Placement(x * 1.0, y * 1.0, w * 1.0, h * 1.0);
-  }
-
+  final cells = _TakenCells(columns);
   final placed = List<Placement?>.filled(items.length, null);
-  if (mode == LayoutMode.grid) {
-    for (final (index, item) in items.indexed) {
-      final x = item.x?.round(), y = item.y?.round();
-      final w = min(item.w.round(), columns), h = item.h.round();
-      if (x != null && y != null && free(x, y, w, h)) {
-        placed[index] = take(x, y, w, h);
-      }
+  if (mode == LayoutMode.grid) _placeWhereAsked(items, cells, placed);
+  _placeInOrder(items, cells, placed, flow: mode != LayoutMode.grid);
+  return placed.cast();
+}
+
+const _noCells = Placement(0, 0, 0, 0);
+
+List<Placement> _placedAmongOffCells(
+  List<Node> items,
+  int columns,
+  LayoutMode mode,
+) {
+  final rest = placeItems(
+    [
+      for (final item in items)
+        if (!item.offCells) item,
+    ],
+    columns,
+    mode,
+  ).iterator;
+  return [
+    for (final item in items)
+      item.offCells ? _noCells : (rest..moveNext()).current,
+  ];
+}
+
+/// Grid items with a position that is free keep it.
+void _placeWhereAsked(
+  List<Node> items,
+  _TakenCells cells,
+  List<Placement?> placed,
+) {
+  for (final (index, item) in items.indexed) {
+    final x = item.x?.round(), y = item.y?.round();
+    final w = min(item.w.round(), cells.columns), h = item.h.round();
+    if (x != null && y != null && cells.isFree(x, y, w, h)) {
+      placed[index] = cells.take(x, y, w, h);
     }
   }
+}
 
-  // The cursor only moves forward, keeping order. Row and column containers are
-  // treated as flow.
-  final flow = mode != LayoutMode.grid;
+/// The cursor only moves forward, keeping order. Row and column containers
+/// are treated as flow.
+void _placeInOrder(
+  List<Node> items,
+  _TakenCells cells,
+  List<Placement?> placed, {
+  required bool flow,
+}) {
   var cursorX = 0, cursorY = 0;
   for (final (index, item) in items.indexed) {
     if (placed[index] != null) continue;
-    final w = min(item.w.round(), columns), h = item.h.round();
+    final w = min(item.w.round(), cells.columns), h = item.h.round();
     var x = flow ? cursorX : 0;
     var y = flow ? cursorY : 0;
-    while (!free(x, y, w, h)) {
+    while (!cells.isFree(x, y, w, h)) {
       x++;
-      if (x + w > columns) {
+      if (x + w > cells.columns) {
         x = 0;
         y++;
       }
     }
-    placed[index] = take(x, y, w, h);
+    placed[index] = cells.take(x, y, w, h);
     cursorX = x;
     cursorY = y;
   }
-  return placed.cast();
+}
+
+class _TakenCells {
+  _TakenCells(this.columns);
+
+  final int columns;
+  final _taken = <(int, int)>{};
+
+  bool isFree(int x, int y, int w, int h) =>
+      x + w <= columns && !_covered(x, y, w, h).any(_taken.contains);
+
+  Placement take(int x, int y, int w, int h) {
+    _taken.addAll(_covered(x, y, w, h));
+    return Placement(x * 1.0, y * 1.0, w * 1.0, h * 1.0);
+  }
+
+  Iterable<(int, int)> _covered(int x, int y, int w, int h) => w <= 0 || h <= 0
+      ? const []
+      : Iterable.generate(w * h, (cell) => (x + cell % w, y + cell ~/ w));
 }
 
 /// [container]'s children placed as drawn.
