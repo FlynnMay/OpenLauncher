@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,11 +11,40 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 import '../support/packs.dart';
 
 class _Tv extends TvApi {
+  _Tv() {
+    pushed.add(_state());
+  }
+
   final sent = <String>[];
+
+  /// What the TV tells the page, as it does after every change.
+  final pushed = StreamController<TvState>();
+
+  Layout _layout = _state().config.layout;
+  var _revision = 0;
+
+  /// When set, the TV refuses commands, giving this reason.
+  String? commandRefusal;
+
+  /// Does the command to its layout, as the TV does, and tells the page.
+  @override
+  Future<int> command(Map<String, Object?> command) async {
+    if (commandRefusal case final reason?) throw CommandRefused(reason);
+    _layout = commandFromJson(command).apply(_layout);
+    pushed.add(
+      TvState(
+        entities: _entities,
+        config: LauncherConfig(layout: _layout),
+        visuals: const [],
+      ),
+    );
+    return ++_revision;
+  }
 
   /// When set, the TV refuses what it is sent.
   bool refuses = false;
@@ -21,6 +52,7 @@ class _Tv extends TvApi {
   @override
   Future<void> setLayout(Layout layout) async {
     if (refuses) throw Exception('No');
+    _layout = layout;
     sent.add('layout');
   }
 
@@ -173,7 +205,7 @@ void main() {
         overrides: [
           ...tvOverrides,
           tvApiProvider.overrideWithValue(tv),
-          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+          tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
         child: MaterialApp(
           home: Consumer(
@@ -188,6 +220,38 @@ void main() {
     await tester.pumpAndSettle();
     return ref;
   }
+
+  testWidgets('a command the TV refuses is said, and is not a step to undo', (
+    tester,
+  ) async {
+    final tv = _Tv()..commandRefusal = 'That layout is gone.';
+    final ref = await pump(tester, tv, const Size(1600, 900));
+    await tester.tap(find.text('Objects'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ObjectTree),
+        matching: find.text('Alpha'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    // Settling would wait for the message to go again.
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('That layout is gone.'), findsOneWidget);
+    expect(ref.read(historyProvider).past, isEmpty);
+    expect(
+      ref
+          .read(configProvider)
+          .value!
+          .layout
+          .items
+          .any((item) => item.handed.contains('system:app/a')),
+      isTrue,
+    );
+  });
 
   testWidgets('Ctrl+Z brings back what Delete removed, selected again', (
     tester,

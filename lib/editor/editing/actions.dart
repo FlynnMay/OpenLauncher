@@ -5,6 +5,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_registry.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/dragging.dart';
@@ -12,6 +13,7 @@ import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/editing/prefab_actions.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
 
@@ -42,6 +44,31 @@ Future<void> changeLayout(
   } on Object catch (error) {
     messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
     // Reload from the TV.
+    ref.invalidate(configProvider);
+  }
+}
+
+/// Does [command] to what is being edited. The TV does it, so its rules hold
+/// and its other editors are not overwritten; the editor's own undo keeps the
+/// config from before. An open prefab is not the TV's layout, so there the
+/// command is done here, as the same code the TV would run.
+Future<void> runCommand(
+  BuildContext context,
+  WidgetRef ref,
+  Command command,
+) async {
+  if (ref.read(editedPrefabProvider) != null) {
+    return changeLayout(context, ref, command.apply);
+  }
+  final messenger = ScaffoldMessenger.of(context);
+  final before = ref.read(configProvider).value;
+  try {
+    await ref.read(commandsProvider).run(command);
+    if (before != null) ref.read(historyProvider.notifier).record(before);
+  } on CommandRefused catch (refused) {
+    messenger.showSnackBar(SnackBar(content: Text(refused.message)));
+  } on Object catch (error) {
+    messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
     ref.invalidate(configProvider);
   }
 }
@@ -131,11 +158,7 @@ Future<void> placeDragged(
                 : variable,
         });
   }
-  await changeLayout(
-    context,
-    ref,
-    (layout) => dropItem(layout, item, drop, opens: opens),
-  );
+  await runCommand(context, ref, DropNode(item, drop, opens: opens));
 }
 
 /// Docks a container made from [template] to [edge] if none is, and selects it,
@@ -179,14 +202,13 @@ Future<void> removeDragged(
   BuildContext context,
   WidgetRef ref,
   Dragged dragged,
-) =>
-    changeLayout(context, ref, (layout) => removeItem(layout, dragged.item.id));
+) => runCommand(context, ref, RemoveNodes([dragged.item.id]));
 
 Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
   final ids = ref.read(selectionProvider);
   if (ids.isEmpty) return;
   // Still selected when the change is recorded, so undo selects them again.
-  await changeLayout(context, ref, (layout) => ids.fold(layout, removeItem));
+  await runCommand(context, ref, RemoveNodes(ids.toList()));
   ref.read(selectionProvider.notifier).clear();
 }
 
