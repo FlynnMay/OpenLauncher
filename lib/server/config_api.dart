@@ -10,11 +10,13 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher/core/sources/sources.dart';
 import 'package:openlauncher/server/auth.dart';
 import 'package:openlauncher/server/config_page_state.dart';
 import 'package:openlauncher/server/editor_files.dart';
 import 'package:openlauncher/server/media_store.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf_static/shelf_static.dart';
@@ -78,6 +80,8 @@ class ConfigApi {
       return _error(e.status, e.message);
     } on PackRefused catch (e) {
       return _error(e.status, e.message);
+    } on CommandRefused catch (e) {
+      return _error(409, e.message);
     }
   }
 
@@ -111,6 +115,13 @@ class ConfigApi {
       ('GET', 'api/feed') => _feedValue(id),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),
       ('POST', 'api/act') => _act(await _body(request)),
+      ('POST', 'api/commands') => _command(request),
+      ('POST', 'api/commands/undo') => _revision(
+        _ref.read(commandsProvider).undo(session: _sessionOf(request)),
+      ),
+      ('POST', 'api/commands/redo') => _revision(
+        _ref.read(commandsProvider).redo(session: _sessionOf(request)),
+      ),
       ('GET', 'api/icon') => _withEntity(id, (id) => _icon(request, id)),
       ('GET', 'api/playing/art') => _cover(request, id),
       ('GET', 'api/media') => Response.ok(
@@ -237,6 +248,20 @@ class ConfigApi {
       return _error(502, 'The TV could not do that: $e');
     }
   }
+
+  Future<Response> _command(Request request) async {
+    final command = commandFromJson(await _body(request));
+    return _revision(
+      _ref.read(commandsProvider).run(command, session: _sessionOf(request)),
+    );
+  }
+
+  Future<Response> _revision(Future<int> done) async =>
+      Response.ok(jsonEncode({'revision': await done}), headers: _json);
+
+  /// Undo is per device: the one that paired is who is editing.
+  String _sessionOf(Request request) =>
+      request.context[Authenticator.deviceKey] as String? ?? 'editor';
 
   /// Geocoding for the weather, proxied so the page only talks to the TV.
   Future<Response> _geocode(String? query) async {

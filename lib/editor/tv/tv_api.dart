@@ -10,10 +10,12 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// A node with one visual module, as the catalogue offers it.
 typedef VisualOffer = ({
@@ -77,6 +79,17 @@ final tvStateProvider = StreamProvider<TvState>(
 );
 
 /// The TV's HTTP API, at this page's origin.
+/// The TV answered with an error and its reason.
+class TvRefused implements Exception {
+  const TvRefused(this.status, this.message);
+
+  final int status;
+  final String message;
+
+  @override
+  String toString() => 'Exception: $message';
+}
+
 class TvApi {
   TvApi({http.Client? client, void Function()? onRefused})
     : _client = SessionClient(client ?? http.Client(), onRefused: onRefused);
@@ -212,7 +225,7 @@ class TvApi {
   static Exception _refused(int status, String body) {
     try {
       if (jsonDecode(body) case {'error': final String error}) {
-        return Exception(error);
+        return TvRefused(status, error);
       }
     } on FormatException {
       // Not one of the TV's own replies.
@@ -335,6 +348,23 @@ class TvApi {
       (await _ask('POST', '/api/act', act.toJson()) as Map)['message']
           as String?;
 
+  /// Has the TV do [command]; returns the revision it left the layout at.
+  Future<int> command(Map<String, Object?> command) =>
+      _revision('/api/commands', command);
+
+  Future<int> undoCommand() => _revision('/api/commands/undo');
+
+  Future<int> redoCommand() => _revision('/api/commands/redo');
+
+  Future<int> _revision(String path, [Object? body]) async {
+    try {
+      return (await _ask('POST', path, body) as Map)['revision'] as int;
+    } on TvRefused catch (refused) {
+      if (refused.status == 409) throw CommandRefused(refused.message);
+      rethrow;
+    }
+  }
+
   Future<List<Place>> findPlaces(String name) async {
     final reply = await _ask(
       'GET',
@@ -349,4 +379,22 @@ class TvApi {
         ),
     ];
   }
+}
+
+/// Commands the TV does, for the page; the TV knows who is asking by the
+/// device the page paired as.
+class TvCommands implements Commands {
+  const TvCommands(this._api);
+
+  final TvApi _api;
+
+  @override
+  Future<int> run(Command command, {String session = launcherSession}) =>
+      _api.command(command.toJson());
+
+  @override
+  Future<int> undo({String session = launcherSession}) => _api.undoCommand();
+
+  @override
+  Future<int> redo({String session = launcherSession}) => _api.redoCommand();
 }

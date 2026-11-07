@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/screens/screens.dart';
+import 'package:openlauncher/core/services/command_service.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Which screen is shown, and the screens there are. Where a screen is named
 /// by `id`, none means the one shown. Each returns a message for the user, or
@@ -24,38 +26,26 @@ class ScreenService {
 
   /// An empty screen. [id] is wanted, not promised; [name] is its label.
   Future<String?> add({String? id, String name = ''}) async {
-    final layout = await _layout();
-    final free = freeId(id ?? slugOf(name, 'screen'), layout.itemIds);
-    final empty = Screen.empty(free);
-    await _edit(
-      (layout) => layout.copyWith(
-        screens: [
-          ...layout.screens,
-          empty.withRoot(empty.root.copyWith(name: name)),
-        ],
-      ),
-    );
+    final command = AddScreen(id: id, name: name);
+    final free = command.idIn(await _layout());
+    await _ref.read(commandsProvider).run(command);
     return 'Screen "$free" was added.';
   }
 
   Future<String?> remove({String? id}) async {
     final screen = await _screenNamed(id);
-    if (screen == null) return _noSuchScreen;
-    if ((await _layout()).screens.length < 2) return 'The last screen stays.';
-    await _edit(
-      (layout) => layout.copyWith(
-        screens: [
-          for (final one in layout.screens)
-            if (one.id != screen.id) one,
-        ],
-      ),
-    );
+    if (screen == null) return noSuchScreen;
+    try {
+      await _ref.read(commandsProvider).run(RemoveScreen(screen.id));
+    } on CommandRefused catch (refused) {
+      return refused.message;
+    }
     return 'Screen "${screen.id}" was removed.';
   }
 
   Future<String?> rename({String? id, required String name}) async {
     final screen = await _screenNamed(id);
-    if (screen == null) return _noSuchScreen;
+    if (screen == null) return noSuchScreen;
     await _edit(
       (layout) => layout.copyWith(
         screens: [
@@ -71,7 +61,7 @@ class ScreenService {
 
   Future<String?> duplicate({String? id}) async {
     final original = await _screenNamed(id);
-    if (original == null) return _noSuchScreen;
+    if (original == null) return noSuchScreen;
     final free = freeId(original.id, (await _layout()).itemIds);
     final (:screen, :renamed) = original.copied(free);
     await _ref
@@ -110,8 +100,6 @@ class ScreenService {
     );
     return null;
   }
-
-  static const _noSuchScreen = 'There is no such screen.';
 
   Future<Layout> _layout() async =>
       (await _ref.read(configProvider.future)).layout;

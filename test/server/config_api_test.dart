@@ -345,6 +345,59 @@ void main() {
     expect((await call('POST', '/api/act', body: {})).statusCode, 400);
   });
 
+  test('the page changes the layout by command, and undoes it', () async {
+    Future<List<String>> screens() async => [
+      for (final screen in (await state())['layout']['screens'])
+        screen['id'] as String,
+    ];
+    Future<Map<String, dynamic>> said(Response response, int status) async {
+      expect(response.statusCode, status);
+      return jsonDecode(await response.readAsString());
+    }
+
+    final before = await screens();
+    final added = await said(
+      await call(
+        'POST',
+        '/api/commands',
+        body: {'type': 'screen.add', 'id': 'x'},
+      ),
+      200,
+    );
+    expect(added['revision'], 1);
+    expect(await screens(), [...before, 'x']);
+
+    await said(await call('POST', '/api/commands/undo', body: {}), 200);
+    expect(await screens(), before);
+    await said(await call('POST', '/api/commands/redo', body: {}), 200);
+    expect(await screens(), [...before, 'x']);
+
+    // What cannot be done is a conflict; what is no command is a bad request.
+    expect(
+      (await said(
+        await call(
+          'POST',
+          '/api/commands',
+          body: {'type': 'screen.remove', 'id': 'nope'},
+        ),
+        409,
+      ))['error'],
+      isNotEmpty,
+    );
+    await said(
+      await call('POST', '/api/commands', body: {'type': 'dance'}),
+      400,
+    );
+    await said(
+      await call(
+        'POST',
+        '/api/commands',
+        body: {'type': 'screen.add', 'target': 'prefab:a'},
+      ),
+      400,
+    );
+  });
+
   test(
     'the page is told of updates, and has the TV check and install',
     () async {

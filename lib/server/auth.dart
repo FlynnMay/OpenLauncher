@@ -101,6 +101,9 @@ class Authenticator {
 
   static const cookie = 'openlauncher_session';
 
+  /// Where the paired device's id is on a request that got through.
+  static const deviceKey = 'openlauncher.device';
+
   /// Required on writes: another site cannot send it without a CORS
   /// preflight, which the TV never answers.
   static const writeHeader = 'x-requested-with';
@@ -152,7 +155,10 @@ class Authenticator {
               headers: _json,
             ),
             ('DELETE', 'api/devices') => await _revoke(request),
-            _ => _closedOnRevoke(await inner(request), device.id),
+            _ => _closedOnRevoke(
+              await inner(request.change(context: {deviceKey: device.id})),
+              device.id,
+            ),
           };
         } on FormatException catch (e) {
           return _refuse(400, e.message);
