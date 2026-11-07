@@ -1,8 +1,5 @@
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 
-/// A folder or sidebar template: its root's name and modules, what each
-/// variant changes on the root, and the part, if not the root, that holds
-/// the slot and lays out what is in it.
 class _Template {
   const _Template({
     required this.name,
@@ -14,13 +11,13 @@ class _Template {
   final String name;
   final Json modules;
   final Map<String, Json> variants;
+
+  /// The part holding the slot, when not the root.
   final String? part;
 
-  /// The root's modules in [variant], or with none.
   Json rootModules(String? variant) =>
       variant == null ? modules : _merged(modules, variants[variant]!);
 
-  /// The variant [copied] differs least from, the first on a tie.
   String? nearestVariant(Json copied) {
     if (variants.isEmpty) return null;
     final counts = {
@@ -34,7 +31,7 @@ class _Template {
   }
 }
 
-/// The System pack's folder and sidebar as 0.2.0 ships them.
+/// As 0.2.0 ships them.
 const _systemTemplates = {
   'system:sidebar': _Template(
     name: '',
@@ -104,15 +101,13 @@ const _systemTemplates = {
   ),
 };
 
-/// [base]'s modules with [over]'s values set, key by key.
 Json _merged(Json base, Json over) => {
   ...base,
   for (final MapEntry(key: module, :value) in over.entries)
     module: {...jsonObject(base[module]), ...jsonObject(value)},
 };
 
-/// What [modules] set differently from [base], key by key within each
-/// module; what [base] sets and they leave out is null, which unsets it.
+/// What [base] sets and [modules] leave out is null, unsetting it.
 Map<String, Json> _differences(Json modules, Json base) => {
   for (final module in {...modules.keys, ...base.keys})
     if (_valueDifferences(jsonObject(modules[module]), jsonObject(base[module]))
@@ -130,10 +125,6 @@ int _differenceCount(Json modules, Json base) => _differences(
   base,
 ).values.fold(0, (count, changed) => count + changed.length);
 
-/// A folder or sidebar copied from a template is an instance of that prefab,
-/// holding what was in it in the prefab's `content` slot, and keeping only
-/// what differs from the variant nearest it. Where it docks is its own. A
-/// user's template becomes a plain prefab with that slot.
 void templatesLinked(Json save, Device device) {
   final userTemplates = <String, _Template>{};
   for (final prefab in objectsIn(save, 'prefabs')) {
@@ -147,8 +138,6 @@ void templatesLinked(Json save, Device device) {
   }
 }
 
-/// [prefab] made a plain prefab with a `content` slot on its root; returns
-/// the template it was.
 _Template _asSlotPrefab(Json prefab) {
   prefab.remove('template');
   final root = switch (prefab['root']) {
@@ -176,19 +165,16 @@ _Template _asSlotPrefab(Json prefab) {
   );
 }
 
-/// The modules [variant] overrides on node [id].
 Json _overriddenModules(Json variant, Object? id) {
   final overrides = jsonObject(variant['overrides']);
   return jsonObject(jsonObject(overrides[id])['modules']);
 }
 
-/// Turns copies of templates into instances of their prefabs.
 class _TemplateLinker {
   _TemplateLinker(this.userTemplates);
 
   final Map<String, _Template> userTemplates;
 
-  /// [pane], or the instance it is if it was copied from a template.
   Json link(Json pane) {
     if (pane['children'] is List<Object?>) {
       pane['children'] = [
@@ -203,21 +189,20 @@ class _TemplateLinker {
     return pane;
   }
 
-  /// [copy] as an instance of [prefab]. How what is in it is laid out is
-  /// the slot's part's.
   Json _instance(Json copy, _Template template, String prefab) {
     final modules = jsonObject(copy['modules']);
     final variant = template.nearestVariant(modules);
     final differences = _differences(modules, template.rootModules(variant));
     final part = template.part;
-    bool laysOut(String module) => part != null && slotModules.contains(module);
+    bool isSlotPartModule(String module) =>
+        part != null && slotLayoutModules.contains(module);
     final changed = {
       for (final MapEntry(:key, :value) in differences.entries)
-        if (!laysOut(key)) key: value,
+        if (!isSlotPartModule(key)) key: value,
     };
     final slotted = {
       for (final MapEntry(:key, :value) in differences.entries)
-        if (laysOut(key)) key: value,
+        if (isSlotPartModule(key)) key: value,
     };
     final dock = jsonObject(modules['dock'])['position'];
     final name = copy['name'];

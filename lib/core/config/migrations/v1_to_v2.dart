@@ -2,13 +2,9 @@ import 'package:openlauncher/core/config/migrations/save_json.dart';
 
 const _goneOperations = {'forceStopApp', 'runSetup', 'setHomeButton'};
 
-/// Force stop and automatic setup went with the launcher's ADB client: acts
-/// that asked for them are dropped, and a button left with none goes too.
-/// Switching the Home button becomes changing that permission.
 void withoutAdbActions(Json save, Device device) =>
     _GoneActs(objectsIn(save, 'entities')).dropFrom(save);
 
-/// Drops the acts that asked for what went with the ADB client.
 class _GoneActs {
   _GoneActs(List<Json> entities) {
     entities.forEach(_dropGoneActions);
@@ -16,9 +12,9 @@ class _GoneActs {
 
   final _ownEntities = <Object?>{};
 
-  /// The user's own actions that ran a gone operation, as
-  /// `<entity> <action>`.
-  final _goneActions = <String>{};
+  final _goneActionKeys = <String>{};
+
+  static String _actionKey(Object? entity, Object? action) => '$entity $action';
 
   void _dropGoneActions(Json entity) {
     _ownEntities.add(entity['id']);
@@ -26,7 +22,7 @@ class _GoneActs {
       actions.removeWhere((name, action) {
         final ranGone =
             action is Json && _goneOperations.contains(action['run']);
-        if (ranGone) _goneActions.add('${entity['id']} $name');
+        if (ranGone) _goneActionKeys.add(_actionKey(entity['id'], name));
         return ranGone;
       });
     }
@@ -36,13 +32,12 @@ class _GoneActs {
     if (act is! Json) return false;
     final name = act['do'];
     final entity = act['entity'];
-    if (_goneActions.contains('$entity $name')) return true;
+    if (_goneActionKeys.contains(_actionKey(entity, name))) return true;
     if (_ownEntities.contains(entity)) return false;
     return name == 'forceStop' || (entity == 'system' && name == 'setup');
   }
 
-  /// Drops gone acts throughout [json]; whether it is a button this leaves
-  /// with nothing to do.
+  /// Returns whether [json] is a button left with nothing to do.
   bool dropFrom(Object? json) {
     if (json is List<Object?>) {
       json.removeWhere(dropFrom);
@@ -61,8 +56,7 @@ class _GoneActs {
         triggers.values.every((acts) => acts is List && acts.isEmpty);
   }
 
-  /// Drops the gone acts in [acts] and makes Home button ones access ones;
-  /// whether any went.
+  /// Returns whether any act went.
   bool _tidied(List<Object?> acts) {
     final before = acts.length;
     acts

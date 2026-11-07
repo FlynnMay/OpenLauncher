@@ -22,8 +22,6 @@ const _addresses = {
   'removeItem': 'launcher://layout/remove',
 };
 
-/// Operations are named by address: the user's own actions run
-/// `os://apps/launch` where they ran `launchApp`.
 void operationsByAddress(Json save, Device device) {
   for (final entity in objectsIn(save, 'entities')) {
     _actionsByAddress(jsonObject(entity['actions']));
@@ -60,10 +58,6 @@ const _layoutAddresses = {
   'remove': 'launcher://layout/remove',
 };
 
-/// A feed is a source: `{from: http, url, every}` is written in place as
-/// `{url, every}`, the launcher's own by address. The machinery entities
-/// are gone: acts that asked `variables`, `layers` or a layer call the
-/// address instead, and `system` is `device`.
 void feedsAsSources(Json save, Device device) {
   for (final entity in objectsIn(save, 'entities')) {
     _feedAsSource(entity);
@@ -88,7 +82,6 @@ void _feedAsSource(Json entity) {
   }
 }
 
-/// Rewrites acts that asked a machinery entity to call its address.
 class _MachineryActs {
   _MachineryActs(this.layerIds);
 
@@ -151,8 +144,6 @@ const _systemPrefabs = {
   'now-playing',
 };
 
-/// A pack's ids are `<pack>:<name>`, the launcher's own `system:`. Apps are
-/// `system:app/<package>`, inputs `system:input/<id>`.
 String? _entityId(Object? id) => switch (id) {
   final String id when id.startsWith('app:') => 'system:app/${id.substring(4)}',
   final String id when id.startsWith('input:') =>
@@ -169,14 +160,11 @@ final _templateSlot = RegExp(r'\{\{(.*?)\}\}');
 final _quotedOrCode = RegExp('(\'[^\']*\'|"[^"]*")|[^\'"]+');
 final _pathRoot = RegExp(r'(^|[\s(!=<>?:])([A-Za-z][\w-]*)(?=[.\s|\[]|$)');
 
-/// [text] with the launcher's own entities given in full where a template
-/// starts a value's path with one.
 String _template(String text) => text.replaceAllMapped(
   _templateSlot,
   (slot) => '{{${_slotWithSystemIds(slot[1]!)}}}',
 );
 
-/// Quoted text is left alone.
 String _slotWithSystemIds(String expression) => expression.replaceAllMapped(
   _quotedOrCode,
   (part) => part[1] != null ? part[0]! : _pathsWithSystemIds(part[0]!),
@@ -189,8 +177,6 @@ String _pathsWithSystemIds(String code) => code.replaceAllMapped(
       : root[0]!,
 );
 
-/// Every pack's ids carry its own: what the launcher ships is `system:...`.
-/// Saved ids are given in full wherever an entity or a prefab is named.
 void packIds(Json save, Device device) {
   for (final key in ['names', 'iconOverrides']) {
     if (save[key] case final Json byEntity) {
@@ -218,7 +204,6 @@ Json _entityKeyed(Json byEntity, {bool valuesToo = false}) => {
     _entityId(key) ?? key: valuesToo ? _entityId(value) ?? value : value,
 };
 
-/// [json] with every entity and prefab it names given in full.
 Object? _withFullIds(Object? json) => switch (json) {
   final String text => text.contains('{{') ? _template(text) : text,
   final List<Object?> list => _listWithFullIds(list),
@@ -240,11 +225,9 @@ Json _objectWithFullIds(Json object) {
   return object;
 }
 
-/// [value] at [key] in [object], with its ids given in full.
 Object? _valueWithFullIds(Json object, String key, Object? value) =>
     switch ((key, value)) {
       ('prefab', _) => _prefabId(value) ?? value,
-      // What the layout adds or removes is an entity.
       ('with', final Json arguments)
           when '${object['run']}'.startsWith('launcher://layout/') =>
         (_withFullIds(arguments)! as Json)
@@ -271,7 +254,6 @@ Json _variablesWithFullIds(Json variables) => {
     },
 };
 
-/// What the launcher made the quick actions menu with.
 const _menuOptions = {
   'title': '{{source.label}}',
   'mode': 'flow',
@@ -283,9 +265,6 @@ const _menuOptions = {
   'spacing': 4,
 };
 
-/// The quick actions menu is the System pack's prefab: the saved pane is
-/// replaced by an instance of it, keeping the pane's own style and the
-/// options it changed. Its buttons are the prefab's.
 void quickActionsAsPrefab(Json save, Device device) =>
     layerRoots(save).forEach(_quickActionsAsPrefabIn);
 
@@ -315,9 +294,6 @@ Json _quickActionsInstance(Json menu) {
   };
 }
 
-/// A new folder or sidebar records the template it was copied from: the
-/// saved ones were the launcher's, now the System pack's. One docked with a
-/// strip is a sidebar; any other docked pane, a folder.
 void templatesRecorded(Json save, Device device) =>
     layerRoots(save).forEach(_templatesRecordedIn);
 
@@ -337,8 +313,6 @@ void _templatesRecordedIn(Json pane) {
   }
 }
 
-/// A docked pane says itself whether a press closes it: the launcher closed
-/// one with no strip, unless it was opened in place.
 void closeOnPressRecorded(Json save, Device device) {
   layerRoots(save).forEach(_closeOnPressRecordedIn);
   prefabRoots(save).forEach(_closeOnPressRecordedIn);
@@ -356,11 +330,8 @@ void _closeOnPressRecordedIn(Json pane) {
   objectsIn(pane, 'children').forEach(_closeOnPressRecordedIn);
 }
 
-/// Node kinds of each part, by node id.
 typedef _PartKinds = Map<String, String>;
 
-/// What the parts of the System pack's prefabs drew, for overrides of them
-/// saved outside the prefab.
 const Map<String, _PartKinds> _systemParts = {
   'system:app-card': {'root': 'pane', 'picture': 'picture', 'name': 'text'},
   'system:clock': {'root': 'pane', 'time': 'text', 'date': 'text'},
@@ -411,8 +382,7 @@ const _scrollbarKeys = {
   'scrollbarTrackRadius',
 };
 
-/// Where an option of a node of [kind] went: its module and key there. A
-/// pane's title became the node's name (`null` module).
+/// A `null` module is the node itself.
 (String?, String)? _movedOption(String kind, String key) => switch ((
   kind,
   key,
@@ -455,7 +425,6 @@ const _scrollbarKeys = {
   _ => null,
 };
 
-/// Module values gathered for one node, and the name its title gave it.
 class _Modules {
   final values = <String, Json>{};
   String? name;
@@ -463,8 +432,6 @@ class _Modules {
   void put(String module, String key, Object? value) =>
       (values[module] ??= {})[key] = value;
 
-  /// [options] of a node of [kind] moved to their modules; prefab rules
-  /// rewritten for the parts [prefabs] lists.
   void moveOptions(Json options, String kind, Map<String, _PartKinds> prefabs) {
     for (final MapEntry(:key, :value) in options.entries) {
       switch (_movedOption(kind, key)) {
@@ -481,12 +448,10 @@ class _Modules {
   }
 }
 
-/// Cells a node covers on its parent's grid.
 typedef _CellRect = ({double x, double y, double width, double height});
 
 const _CellRect _noCells = (x: 0, y: 0, width: 0, height: 0);
 
-/// Cell geometry of a pane, for placing what is on its cells in pixels.
 class _Cells {
   _Cells(Json options, this.width)
     : columns = switch (options['columns']) {
@@ -506,20 +471,17 @@ class _Cells {
   double get cellWidth => (width - (columns - 1) * gapX) / columns;
   double get cellHeight => rowHeight ?? cellWidth / 1.45;
 
-  /// Width of [cells] columns, gaps included.
   double across(double cells) => cells * cellWidth + (cells - 1) * gapX;
 }
 
 double? _number(Object? value) => value is num ? value.toDouble() : null;
 
-/// [value] to [places] decimals, whole ones as ints.
 num _rounded(double value, [int places = 2]) {
   final scale = pow(10, places);
   final rounded = (value * scale).roundToDouble() / scale;
   return rounded == rounded.roundToDouble() ? rounded.toInt() : rounded;
 }
 
-/// A box drawn by a pane loses its padding to what is inside.
 double _widthInside(double width, Json style, {double padding = 16}) =>
     width - 2 * (_number(style['padding']) ?? padding);
 
@@ -531,8 +493,6 @@ bool _hasPosition(Json item) {
   return transform.containsKey('x') && transform.containsKey('y');
 }
 
-/// The cells [items] cover in a free pane: as given, or for one without a
-/// position, in a row below the rest. One [isDocked] covers none.
 List<_CellRect> _freeCells(
   List<Json> items,
   int columns,
@@ -566,7 +526,6 @@ List<_CellRect> _freeCells(
   ];
 }
 
-/// Puts items without a position in rows, from row [y] down.
 class _RowFiller {
   _RowFiller(this.columns, this.y);
 
@@ -588,9 +547,7 @@ class _RowFiller {
   }
 }
 
-/// A free pane's child on [at] as a transform: anchored across at fractions
-/// of the pane, so it keeps its share of any width; down at pixels from the
-/// top.
+/// Anchored across, so it keeps its share of any width; pixels down.
 Json _anchored(_Cells cells, _CellRect at) {
   final columns = cells.columns;
   final top = at.y * (cells.cellHeight + cells.gapY);
@@ -612,7 +569,6 @@ Json _anchored(_Cells cells, _CellRect at) {
   };
 }
 
-/// Kinds of the nodes in [tree], by id.
 _PartKinds _kindsIn(Json tree) => {
   '${tree['id']}': switch (tree['kind']) {
     final String kind => kind,
@@ -621,7 +577,6 @@ _PartKinds _kindsIn(Json tree) => {
   for (final child in objectsIn(tree, 'children')) ..._kindsIn(child),
 };
 
-/// One override entry in the new shape, for a node of [kind].
 Json _override(Json saved, String kind) {
   final modules = _Modules()
     ..moveOptions(jsonObject(saved['options']), kind, _systemParts);
@@ -639,7 +594,6 @@ Json _override(Json saved, String kind) {
   };
 }
 
-/// A pane's prefab rules with their overrides in the new shape.
 Json _prefabRules(Object? rules, Map<String, _PartKinds> prefabs) => {
   for (final MapEntry(key: id, value: rule) in jsonObject(rules).entries)
     if (rule is Json)
@@ -650,20 +604,17 @@ Json _prefabRules(Object? rules, Map<String, _PartKinds> prefabs) => {
       },
 };
 
-/// [overrides] in the new shape, for the nodes [kinds] says.
 Json _overrides(Object? overrides, _PartKinds kinds) => {
   for (final MapEntry(:key, :value) in jsonObject(overrides).entries)
     if (value is Json) key: _override(value, kinds[key] ?? 'pane'),
 };
 
-/// The System pack's prefabs whose roots dock.
 const _systemDocked = {
   'system:quick-actions',
   'system:folder',
   'system:sidebar',
 };
 
-/// Prefabs whose roots dock: the System pack's and the save's own.
 Set<String> _dockedPrefabs(Json save) => {
   ..._systemDocked,
   for (final prefab in objectsIn(save, 'prefabs'))
@@ -671,14 +622,12 @@ Set<String> _dockedPrefabs(Json save) => {
       '${prefab['id']}',
 };
 
-/// Node kinds of every prefab the save has, and the System pack's.
 Map<String, _PartKinds> _prefabKinds(Json save) => {
   ..._systemParts,
   for (final prefab in objectsIn(save, 'prefabs'))
     if (prefab['root'] case final Json root) '${prefab['id']}': _kindsIn(root),
 };
 
-/// A node as version 2 saved it.
 class _OldNode {
   _OldNode(this.json)
     : options = jsonObject(json['options']),
@@ -696,7 +645,7 @@ class _OldNode {
   String get kind => prefab is String ? 'instance' : '${json['kind']}';
   bool get isPane => kind == 'pane';
 
-  /// An instance's own options are its prefab root's, a pane's.
+  /// An instance's options are its prefab root's, a pane's.
   String get optionsKind => kind == 'instance' ? 'pane' : kind;
 
   String get layoutMode => switch (options['mode']) {
@@ -707,7 +656,6 @@ class _OldNode {
   bool get isFree => isPane && layoutMode == 'free';
   bool get inLine => layoutMode == 'row' || layoutMode == 'column';
 
-  /// Its style, less the scroll bar keys a pane gives its Scroll.
   Json get ownStyle => {
     for (final MapEntry(:key, :value) in style.entries)
       if (!isPane || !_scrollbarKeys.contains(key)) key: value,
@@ -718,8 +666,7 @@ class _OldNode {
       if (_scrollbarKeys.contains(key)) key: value,
   };
 
-  /// What can be pressed takes the focus; a pane on cells never did, and a
-  /// button's prefab takes it itself.
+  /// A pane on cells never took the focus; a button's prefab takes its own.
   bool get takesFocus =>
       (_runsActs('press') || _runsActs('hold')) &&
       (!isPane || inLine) &&
@@ -731,8 +678,6 @@ class _OldNode {
   };
 }
 
-/// A pane's Layout and Scroll from its mode: cells scrolled down unless told
-/// not to, a column only when told to.
 void _paneLayoutAndScroll(_OldNode pane, _Modules modules) {
   final mode = pane.layoutMode;
   if (mode == 'free') {
@@ -758,7 +703,6 @@ void _paneLayoutAndScroll(_OldNode pane, _Modules modules) {
   };
 }
 
-/// The part marked `frame`, which showed its tile's focus.
 Json? _framedPart(Json pane) {
   for (final child in objectsIn(pane, 'children')) {
     if (jsonObject(child['options'])['frame'] == true) return child;
@@ -768,8 +712,6 @@ Json? _framedPart(Json pane) {
   return null;
 }
 
-/// The Focus of a node that takes it: on its framed part, or how a whole
-/// tile showed it, grown less and a row or column padded inside its frame.
 void _focus(_OldNode node, _Modules modules, Json ownStyle) {
   if (_framedPart(node.json) case final part?) {
     modules.values['focus'] = {
@@ -787,16 +729,12 @@ void _focus(_OldNode node, _Modules modules, Json ownStyle) {
   }
 }
 
-/// Turns version 2 nodes into nodes with modules.
 class _NodeConverter {
   _NodeConverter(this.prefabs, this.dockedPrefabs);
 
   final Map<String, _PartKinds> prefabs;
   final Set<String> dockedPrefabs;
 
-  /// [json] in a parent laid out as [parentMode] (null for a root) whose
-  /// cells are [parentCells]. [width] is how wide it is drawn, as far as can
-  /// be told; [at] its cells in a free parent.
   Json convert(
     Json json, {
     String? parentMode,
@@ -817,8 +755,8 @@ class _NodeConverter {
       };
     }
     if (node.triggers.isNotEmpty) modules.values['triggers'] = node.triggers;
-    // A free parent places it by a transform; any other by its cells.
-    if (parentMode != 'free' && node.transform.isNotEmpty) {
+    final placedOnCells = parentMode != 'free';
+    if (placedOnCells && node.transform.isNotEmpty) {
       modules.values['sizing'] = node.transform;
     }
     if (node.takesFocus) _focus(node, modules, ownStyle);
@@ -852,16 +790,11 @@ class _NodeConverter {
     };
   }
 
-  /// [prefab]'s root and its variants' overrides.
   void convertPrefab(Json prefab, Json root) {
     final kinds = _kindsIn(root);
-    // Its size is its root's cells; how wide that is, a guess.
     final columnsWide = _number(jsonObject(root['transform'])['w']) ?? 1;
-    prefab['root'] = convert(
-      root,
-      parentMode: 'flow',
-      width: 960 * min(1, columnsWide / 12),
-    );
+    final double guessedWidth = 960 * min(1, columnsWide / 12);
+    prefab['root'] = convert(root, parentMode: 'flow', width: guessedWidth);
     for (final variant in jsonObject(prefab['variants']).values) {
       if (variant is Json && variant['overrides'] != null) {
         variant['overrides'] = _overrides(variant['overrides'], kinds);
@@ -874,7 +807,6 @@ class _NodeConverter {
       dockedPrefabs.contains(node['prefab']);
 }
 
-/// Where and how wide the children of [parent] are drawn.
 class _ChildPlacement {
   _ChildPlacement(
     this.converter,
@@ -895,7 +827,6 @@ class _ChildPlacement {
   final _OldNode parent;
   final List<Json> children;
 
-  /// How wide what is inside it is drawn, for children placed in pixels.
   final double innerWidth;
   late final _Cells cells;
   late final List<_CellRect> freeCells;
@@ -932,10 +863,6 @@ class _ChildPlacement {
       };
 }
 
-/// Everything on screen is a node, and what it draws, how it lays out its
-/// children and how it behaves are its modules: `kind` and `options` are
-/// gone. A pane's title is its name; a button is an instance of the System
-/// pack's Button; a free pane's children sit where transforms put them.
 void nodesAndModules(Json save, Device device) {
   final converter = _NodeConverter(_prefabKinds(save), _dockedPrefabs(save));
   for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {

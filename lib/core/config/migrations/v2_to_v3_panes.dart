@@ -1,7 +1,5 @@
 import 'package:openlauncher/core/config/migrations/save_json.dart';
 
-/// Nothing docks in the box of what opens it any more: such a node docks in
-/// the middle. A folder's picture is any node's picture.
 void inlineDocksCentred(Json save, Device device) {
   layerRoots(save).forEach(_inlineDocksCentredIn);
   prefabRoots(save).forEach(_inlineDocksCentredIn);
@@ -23,7 +21,6 @@ void _inlineDocksCentredIn(Json node) {
   objectsIn(node, 'children').forEach(_inlineDocksCentredIn);
 }
 
-/// The nodes [node]'s variables hold.
 Iterable<Json> _heldNodes(Json node) => switch (node['modules']) {
   {'variables': final Json variables} =>
     variables.values.whereType<List<Object?>>().expand(
@@ -34,9 +31,6 @@ Iterable<Json> _heldNodes(Json node) => switch (node['modules']) {
 
 const _visuals = {'text', 'picture', 'icon', 'meter', 'appWidget', 'preview'};
 
-/// The box the launcher drew round a node that held others and drew nothing
-/// is written out; one on cells with a name becomes a System pack Section.
-/// Layer roots and instances stay as they are; a prefab's root gets its box.
 void panelsWrittenOut(Json save, Device device) {
   for (final layer in objectsIn(layoutOf(save) ?? const {}, 'layers')) {
     if (layer['root'] case final Json root) {
@@ -64,7 +58,6 @@ bool _isPanel(Json node) {
       mode != 'column';
 }
 
-/// [node], with the panels in it and itself, unless [isRoot], written out.
 Json _panelsWrittenOutIn(Json node, {bool isRoot = false}) {
   if (node['children'] is List<Object?>) {
     node['children'] = [
@@ -93,7 +86,6 @@ List<Object?> _listPanelsWrittenOut(List<Object?> held) => [
     if (item is Json) _panelsWrittenOutIn(item) else item,
 ];
 
-/// [node] with the box the launcher drew around it.
 Json _boxed(Json node) {
   final modules = node['modules'] = {...jsonObject(node['modules'])};
   final style = {...jsonObject(modules['style'])};
@@ -110,7 +102,6 @@ Json _boxed(Json node) {
   return node;
 }
 
-/// [node] as an instance of the System pack's Section, holding its children.
 Json _asSection(Json node) {
   final modules = jsonObject(node['modules']);
   return {
@@ -120,8 +111,7 @@ Json _asSection(Json node) {
     'transform': ?node['transform'],
     'hidden': ?node['hidden'],
     'overrides': {
-      // A name that reads variables is read where the heading is.
-      if ((node['name']! as String).contains('{{'))
+      if (_readsVariables(node['name']! as String))
         'heading': {
           'modules': {
             'text': {'text': node['name']},
@@ -129,14 +119,14 @@ Json _asSection(Json node) {
         },
       'content': {
         'modules': {
-          for (final module in slotModules) module: ?modules[module],
-          // The Section scrolls down; one that did not says so.
+          for (final module in slotLayoutModules) module: ?modules[module],
+          // The Section scrolls down by default; this one did not.
           'scroll': {'down': false, ...jsonObject(modules['scroll'])},
         },
       },
     },
     'modules': {
-      ...without(modules, slotModules),
+      ...without(modules, slotLayoutModules),
       'variables': {
         ...jsonObject(modules['variables']),
         'content': objectsIn(node, 'children'),
@@ -144,3 +134,5 @@ Json _asSection(Json node) {
     },
   };
 }
+
+bool _readsVariables(String text) => text.contains('{{');

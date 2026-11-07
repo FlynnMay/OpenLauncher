@@ -5,13 +5,10 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 
-/// An act that cannot be run as written: it names no entity, an unknown one,
-/// one without that action, or an address there is no operation at.
 class ImproperAct extends FormatException {
   const ImproperAct(super.message);
 }
 
-/// The entity [act] names among [entities], and its action of that name.
 /// Throws [ImproperAct] if there is none.
 ({Entity entity, EntityAction action}) targetOf(
   Act act,
@@ -30,7 +27,7 @@ class ImproperAct extends FormatException {
   return (entity: entity, action: action);
 }
 
-/// Whether [act] can be run as written. An address is checked as it runs.
+/// An address is checked as it runs.
 bool isProper(Act act, Iterable<Entity> entities) {
   if (act.isAddress) return true;
   try {
@@ -41,9 +38,7 @@ bool isProper(Act act, Iterable<Entity> entities) {
   }
 }
 
-/// The actions an act aimed at [target] can name: that entity's, or the
-/// first of each name among every entity's when the target is only known as
-/// it runs.
+/// Every entity's, first of each name, when [target] is known only as it runs.
 Map<String, EntityAction> actionsOf(String? target, Iterable<Entity> entities) {
   if (entities.byId(target) case final entity?) return entity.actions;
   final everyAction = entities.expand((entity) => entity.actions.entries);
@@ -54,8 +49,7 @@ Map<String, EntityAction> actionsOf(String? target, Iterable<Entity> entities) {
   return firstOfEach;
 }
 
-/// [act] aimed at [target] doing [name]: keeps the arguments that action
-/// lets an act add.
+/// Keeps only the arguments [action] lets an act add.
 Act retargeted(Act act, String target, String name, EntityAction? action) =>
     Act(name, {
       entityArg: target,
@@ -70,9 +64,8 @@ class ActionRunner {
 
   final Ref _ref;
 
-  /// Runs [act]'s operation: the address's, or the one its entity's action
-  /// names. Returns a message for the user, or null; throws [ImproperAct] if
-  /// it cannot be done as written.
+  /// Returns a message for the user, or null. Throws [ImproperAct] if [act]
+  /// cannot be done as written.
   Future<String?> run(
     Act act, {
     ActionScreen? screen,
@@ -108,8 +101,6 @@ class ActionRunner {
     return (operation, _arguments(entity, action, act));
   }
 
-  /// What [action] binds, its templates read for [entity], and what [act]
-  /// says of only what the action lets it say.
   Map<String, Object?> _arguments(Entity entity, EntityAction action, Act act) {
     final scope = {'self': entity.self};
     return {

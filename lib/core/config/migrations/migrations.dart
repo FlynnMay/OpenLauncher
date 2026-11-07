@@ -12,17 +12,11 @@ import 'package:openlauncher/core/config/migrations/v2_to_v3_visibility.dart';
 export 'package:openlauncher/core/config/migrations/save_json.dart'
     show Device, Json;
 
-/// The current save version, written as `v` on the config and the layout.
-/// It counts changes to the saved format, not releases.
-///
-/// To change the saved format: add a [Migration] to the end of [migrations]
-/// with its rules in a new file, bump this, and have the models read and
-/// write only the new form. Never change what a shipped step does; tidying
-/// one must keep `migrations_test.dart` passing.
+/// Counts format changes, not releases. To change the format, add a
+/// [Migration] and bump this; never change what a shipped step does.
 const saveVersion = 3;
 
-/// One in-place change to a save. Rules are JSON only; they never use the
-/// models.
+/// JSON only; never uses the models.
 typedef Rule = void Function(Json save, Device device);
 
 class Migration {
@@ -38,15 +32,12 @@ class Migration {
   final int from;
   final int to;
 
-  /// The release it first shipped in, as in `0.2.0`.
   final String since;
 
-  /// What changed, in a line.
   final String what;
 
   final List<Rule> rules;
 
-  /// Whether a rule benefits from [Device] info.
   final bool needsDevice;
 
   void apply(Json save, Device device) {
@@ -56,7 +47,7 @@ class Migration {
   }
 }
 
-/// Every migration, oldest first. Version 1 is the format of release 0.1.0.
+/// Version 1 is release 0.1.0's format.
 const migrations = <Migration>[
   Migration(
     from: 1,
@@ -94,18 +85,15 @@ const migrations = <Migration>[
   ),
 ];
 
-/// The version of [save], from it or its layout. A save with no version is
-/// treated as current.
+/// A save with no version is current.
 int versionOf(Map<Object?, Object?> save) => switch (save) {
   {'v': final num version} => version.toInt(),
   {'layout': {'v': final num version}} => version.toInt(),
   _ => saveVersion,
 };
 
-/// Whether [save] was written in a format newer than this release reads.
 bool isNewer(Map<Object?, Object?> save) => versionOf(save) > saveVersion;
 
-/// The steps [save] still needs.
 Iterable<Migration> pending(
   Map<Object?, Object?> save, {
   List<Migration> steps = migrations,
@@ -117,8 +105,6 @@ Iterable<Migration> pending(
 bool needsDevice(Map<Object?, Object?> save) =>
     pending(save).any((step) => step.needsDevice);
 
-/// [save] migrated to [saveVersion]; returned as is if already current.
-///
 /// Throws [FormatException] if a rule fails or the save [isNewer].
 Json migrate(
   Map<Object?, Object?> save, {
@@ -135,8 +121,7 @@ Json migrate(
   }
   final needed = pending(save, steps: steps).toList();
   if (needed.isEmpty) return jsonObject(save);
-  // A deep, mutable copy.
-  final next = jsonObject(jsonDecode(jsonEncode(save)));
+  final next = _deepCopy(save);
   for (final step in needed) {
     step.apply(next, device);
   }
@@ -146,7 +131,9 @@ Json migrate(
   return next;
 }
 
-/// The same for a layout sent on its own.
+Json _deepCopy(Map<Object?, Object?> json) =>
+    jsonObject(jsonDecode(jsonEncode(json)));
+
 Json migrateLayout(
   Map<Object?, Object?> layout, {
   Device device = Device.unknown,

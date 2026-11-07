@@ -3,14 +3,13 @@ library;
 
 typedef Json = Map<String, Object?>;
 
-/// [value] as a JSON object, or an empty one when it is not.
 Json jsonObject(Object? value) => switch (value) {
   final Json json => json,
   final Map<Object?, Object?> map => map.cast(),
   _ => const {},
 };
 
-/// Whether [a] and [b] hold the same JSON, objects compared in any key order.
+/// Objects compare in any key order.
 bool jsonEquals(Object? a, Object? b) => switch ((a, b)) {
   (final Map<Object?, Object?> a, final Map<Object?, Object?> b) =>
     a.length == b.length &&

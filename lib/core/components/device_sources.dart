@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
-/// What is playing, or null. Needs [Access.notifications].
+/// Needs [Access.notifications].
 final nowPlayingProvider =
     AsyncNotifierProvider<NowPlayingNotifier, NowPlaying?>(
       NowPlayingNotifier.new,
@@ -24,7 +24,6 @@ class NowPlayingNotifier extends AsyncNotifier<NowPlaying?> {
   }
 }
 
-/// App widgets offered by installed apps.
 final widgetProvidersProvider = FutureProvider<List<WidgetProvider>>((ref) {
   final platform = ref.watch(launcherPlatformProvider);
   // New apps can bring new widgets.

@@ -1,13 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-/// What can fire a chain of actions.
 enum Trigger {
   press('On press'),
   hold('On hold'),
   focus('On focus'),
   blur('On blur'),
 
-  /// For things that are shown and hidden: a docked container.
   reveal('On show'),
   hide('On hide');
 
@@ -16,7 +14,6 @@ enum Trigger {
   final String label;
 }
 
-/// The argument naming the entity that does an action. Every act has one.
 const entityArg = 'entity';
 
 /// One saved action: an entity's action by name (`{"do": "open", "entity":
@@ -30,10 +27,8 @@ class Act {
   final String name;
   final Map<String, Object?> args;
 
-  /// Whether it calls an address rather than an entity's action.
   bool get isAddress => name.contains('://');
 
-  /// The argument [key], if it is a string.
   String? arg(String key) => switch (args[key]) {
     final String value => value,
     _ => null,
@@ -66,10 +61,10 @@ class Act {
   int get hashCode => Object.hash(name, Object.hashAllUnordered(args.keys));
 }
 
-/// Actions per trigger. An empty list disables the prefab's default.
+/// An empty list disables the prefab's default.
 typedef Triggers = Map<Trigger, List<Act>>;
 
-/// Skips what it cannot read. Never throws.
+/// Skips what it cannot read.
 Triggers triggersFromJson(Object? json) => {
   if (json is Map)
     for (final trigger in Trigger.values)

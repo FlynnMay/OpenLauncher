@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-/// Fetches JSON over HTTP. Overridden in tests.
+/// Overridden in tests.
 final jsonFetcherProvider =
     Provider<Future<Map<String, Object?>> Function(Uri)>(
       (ref) => (uri) async {
@@ -38,10 +38,8 @@ class Weather {
   /// The WMO weather code.
   final int code;
 
-  /// Today's highest temperature.
   final double? high;
 
-  /// Today's lowest temperature.
   final double? low;
 
   Sky get sky => switch (code) {
@@ -84,7 +82,6 @@ class Weather {
     throw const FormatException('Unexpected weather reply');
   }
 
-  /// The first of the [daily] values at [key].
   static double? _today(Object? daily, String key) =>
       switch (daily is Map ? daily[key] : null) {
         [final num value, ...] => value.toDouble(),
@@ -92,7 +89,6 @@ class Weather {
       };
 }
 
-/// Weather from Open-Meteo, refreshed every 30 minutes while watched.
 final weatherProvider = FutureProvider.autoDispose
     .family<Weather, WeatherQuery>((ref, query) async {
       // Also retries after a failure, e.g. no network just after boot.
@@ -114,7 +110,7 @@ final weatherProvider = FutureProvider.autoDispose
 
 typedef Place = ({String name, double latitude, double longitude});
 
-/// Looks up places called [name], best match first.
+/// Best match first.
 Future<List<Place>> findPlaces(
   Future<Map<String, Object?>> Function(Uri) fetch,
   String name,
@@ -132,7 +128,6 @@ Future<List<Place>> findPlaces(
   ];
 }
 
-/// A geocoding result as a place named with its region and country.
 Place? _placeFrom(Object? result) => switch (result) {
   {
     'name': final String name,
