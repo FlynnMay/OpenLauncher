@@ -9,6 +9,13 @@ Json jsonObject(Object? value) => switch (value) {
   _ => const {},
 };
 
+/// The entries of an object whose keys are strings; anything else is empty.
+Json jsonStringKeyed(Object? value) => {
+  if (value is Map<Object?, Object?>)
+    for (final MapEntry(:key, :value) in value.entries)
+      if (key is String) key: value,
+};
+
 /// Objects compare in any key order.
 bool jsonEquals(Object? a, Object? b) => switch ((a, b)) {
   (final Map<Object?, Object?> a, final Map<Object?, Object?> b) =>

@@ -63,21 +63,23 @@ final entitiesProvider = FutureProvider<List<Entity>>((ref) async {
   // Every watch before any wait: none may follow a rebuild.
   final config = ref.watch(configProvider.future);
   final packs = ref.watch(packsProvider.future);
-  final made = Future.wait([
+  final generated = Future.wait([
     for (final generate in entityGenerators) generate(ref),
   ]);
-  final known = <String>{};
   return arrangeEntities(
-    [
-      for (final entities in await made)
-        for (final entity in entities)
-          // The first with an id is the one.
-          if (known.add(entity.id)) entity,
-    ],
+    _firstWithEachId(await generated),
     await config,
     order: Pack.categoriesOf(await packs).keys,
   );
 });
+
+List<Entity> _firstWithEachId(List<List<Entity>> generated) {
+  final known = <String>{};
+  return [
+    for (final entity in generated.expand((entities) => entities))
+      if (known.add(entity.id)) entity,
+  ];
+}
 
 /// Applies the user's pictures and names, then sorts: by category, those in
 /// [order] first, then by label.
@@ -86,34 +88,55 @@ List<Entity> arrangeEntities(
   LauncherConfig config, {
   Iterable<String> order = const [],
 }) {
-  final pictured = {
-    for (final entity in available)
-      entity.id: switch (config.iconOverrides[entity.id]) {
-        null => entity,
-        // Custom art is treated as full-frame.
-        final path => entity.withData({
-          Entity.icon: path,
-          Entity.shape: Entity.banner,
-        }),
-      },
-  };
+  final pictured = _withCustomPictures(available, config);
   final entities = [
-    for (var entity in pictured.values)
-      () {
-        // Borrowing is one level deep, so no chains or loops.
-        if (pictured[config.iconSources[entity.id]] case final source?) {
-          entity = entity.withData({
-            Entity.icon: source.data[Entity.icon],
-            Entity.shape: source.data[Entity.shape],
-          });
-        }
-        if (config.names[entity.id] case final name?) {
-          entity = entity.withLabel(name);
-        }
-        return entity;
-      }(),
+    for (final entity in pictured.values)
+      _withBorrowedPicture(_withName(entity, config), pictured, config),
   ];
-  // Categories in [order], then as they first come.
+  _sortByCategoryThenLabel(entities, available, order);
+  return entities;
+}
+
+Map<String, Entity> _withCustomPictures(
+  List<Entity> available,
+  LauncherConfig config,
+) => {
+  for (final entity in available)
+    entity.id: switch (config.iconOverrides[entity.id]) {
+      null => entity,
+      // Custom art is treated as full-frame.
+      final path => entity.withData({
+        Entity.icon: path,
+        Entity.shape: Entity.banner,
+      }),
+    },
+};
+
+Entity _withName(Entity entity, LauncherConfig config) =>
+    switch (config.names[entity.id]) {
+      final name? => entity.withLabel(name),
+      null => entity,
+    };
+
+/// Borrowing is one level deep, so no chains or loops.
+Entity _withBorrowedPicture(
+  Entity entity,
+  Map<String, Entity> pictured,
+  LauncherConfig config,
+) => switch (pictured[config.iconSources[entity.id]]) {
+  final source? => entity.withData({
+    Entity.icon: source.data[Entity.icon],
+    Entity.shape: source.data[Entity.shape],
+  }),
+  null => entity,
+};
+
+/// Categories in [order], then as they first come.
+void _sortByCategoryThenLabel(
+  List<Entity> entities,
+  List<Entity> available,
+  Iterable<String> order,
+) {
   final categories = {
     ...order,
     for (final entity in available) entity.category,
@@ -126,5 +149,4 @@ List<Entity> arrangeEntities(
     }
     return a.label.toLowerCase().compareTo(b.label.toLowerCase());
   });
-  return entities;
 }

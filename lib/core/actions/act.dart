@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 
 enum Trigger {
   press('On press'),
@@ -37,16 +38,10 @@ class Act {
   static Act? fromJson(Object? json) => switch (json) {
     {'run': final String address} when address.contains('://') => Act(
       address,
-      _stringKeyed(json['with']),
+      jsonStringKeyed(json['with']),
     ),
-    {'do': final String name} => Act(name, _stringKeyed(json)..remove('do')),
+    {'do': final String name} => Act(name, jsonStringKeyed(json)..remove('do')),
     _ => null,
-  };
-
-  static Map<String, Object?> _stringKeyed(Object? json) => {
-    if (json is Map<Object?, Object?>)
-      for (final MapEntry(:key, :value) in json.entries)
-        if (key is String) key: value,
   };
 
   Map<String, Object?> toJson() => isAddress

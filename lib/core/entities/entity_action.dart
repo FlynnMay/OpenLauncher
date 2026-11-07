@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/json/json_read.dart';
 import 'package:openlauncher/core/sources/source.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
 
@@ -34,24 +35,8 @@ class EntityAction {
   static EntityAction? fromJson(Object? json) => switch (json) {
     {'run': final String run} => EntityAction(
       run: run,
-      bound: switch (json['with']) {
-        final Map<Object?, Object?> bound => {
-          for (final MapEntry(:key, :value) in bound.entries)
-            if (key is String) key: value,
-        },
-        _ => const {},
-      },
-      args: switch (json['args']) {
-        final Map<Object?, Object?> args => {
-          for (final MapEntry(:key, :value) in args.entries)
-            if (key is String)
-              key: [
-                if (value is List)
-                  for (final choice in value) '$choice',
-              ],
-        },
-        _ => const {},
-      },
+      bound: jsonStringKeyed(json['with']),
+      args: _choicesFrom(json['args']),
       label: switch (json['label']) {
         final String label => label,
         _ => '',
@@ -63,6 +48,16 @@ class EntityAction {
     ),
     _ => null,
   };
+
+  static Map<String, List<String>> _choicesFrom(Object? json) => {
+    for (final MapEntry(:key, :value) in jsonStringKeyed(json).entries)
+      key: _asStrings(value),
+  };
+
+  static List<String> _asStrings(Object? value) => [
+    if (value is List)
+      for (final choice in value) '$choice',
+  ];
 
   Map<String, Object?> toJson() => {
     'run': run,
@@ -122,10 +117,7 @@ class Feed {
 
   static Feed? fromJson(Object? json) => switch (json) {
     final String name when name.trim().isNotEmpty => Feed(name.trim()),
-    final Map<Object?, Object?> inline => Feed.inline({
-      for (final MapEntry(:key, :value) in inline.entries)
-        if (key is String) key: value,
-    }),
+    final Map<Object?, Object?> inline => Feed.inline(jsonStringKeyed(inline)),
     _ => null,
   };
 

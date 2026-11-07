@@ -77,34 +77,42 @@ Field userEntityOptions(Iterable<Operation> operations) => Field(
       heading: 'name',
       asks: 'Action name',
       blank: {'name': 'do', 'run': operations.firstOrNull?.name},
-      fields: (action) => [
-        Field(
-          'run',
-          'Operation',
-          FieldKind.choice,
-          choices: {
-            // Keeps one this build does not know.
-            if (action['run'] case final String run) run: run,
-            for (final operation in operations) operation.name: operation.label,
-          },
-        ),
-        const Field('label', 'Label', FieldKind.text),
-        const Field('icon', 'Icon', FieldKind.icon),
-        // What is left empty, the act may say.
-        ...argFields(
-          operations
-                  .where((operation) => operation.name == action['run'])
-                  .firstOrNull
-                  ?.args ??
-              const {},
-          keyPrefix: _with,
-          free: FieldKind.template,
-          unset: 'Set by the action',
-        ),
-      ],
+      fields: (action) => _actionFields(action, operations),
     ),
   ],
 );
+
+List<Field> _actionFields(
+  Map<String, Object?> action,
+  Iterable<Operation> operations,
+) => [
+  Field(
+    'run',
+    'Operation',
+    FieldKind.choice,
+    choices: {
+      // Keeps one this build does not know.
+      if (action['run'] case final String run) run: run,
+      for (final operation in operations) operation.name: operation.label,
+    },
+  ),
+  const Field('label', 'Label', FieldKind.text),
+  const Field('icon', 'Icon', FieldKind.icon),
+  // What is left empty, the act may say.
+  ...argFields(
+    _argsOf(operations, action['run']),
+    keyPrefix: _with,
+    free: FieldKind.template,
+    unset: 'Set by the action',
+  ),
+];
+
+Map<String, List<String>> _argsOf(
+  Iterable<Operation> operations,
+  Object? name,
+) =>
+    operations.where((operation) => operation.name == name).firstOrNull?.args ??
+    const {};
 
 /// [entity] as a row of the form.
 Map<String, Object?> userEntityToForm(Entity entity) => {
@@ -122,15 +130,17 @@ Map<String, Object?> userEntityToForm(Entity entity) => {
   if (entity.feed == null) 'text': entity.data[_text],
   'actions': [
     for (final MapEntry(key: name, value: action) in entity.actions.entries)
-      {
-        'name': name,
-        'run': action.run,
-        if (action.label.isNotEmpty) 'label': action.label,
-        if (action.icon.isNotEmpty) 'icon': action.icon,
-        for (final MapEntry(:key, :value) in action.bound.entries)
-          '$_with$key': value,
-      },
+      _actionToForm(name, action),
   ],
+};
+
+Map<String, Object?> _actionToForm(String name, EntityAction action) => {
+  'name': name,
+  'run': action.run,
+  if (action.label.isNotEmpty) 'label': action.label,
+  if (action.icon.isNotEmpty) 'icon': action.icon,
+  for (final MapEntry(:key, :value) in action.bound.entries)
+    '$_with$key': value,
 };
 
 /// The entity a form row describes. What the form does not show is kept
@@ -142,41 +152,6 @@ Entity userEntityFromForm(
 }) {
   final kind = _kind(one);
   final name = '${one['name'] ?? ''}'.trim();
-  final actions = <String, EntityAction>{};
-  if (one['actions'] case final List<Object?> rows) {
-    for (final row in rows) {
-      if (row is! Map) continue;
-      final called = '${row['name'] ?? ''}'.replaceAll(
-        RegExp('[^A-Za-z0-9_]'),
-        '',
-      );
-      final run = row['run'];
-      if (called.isEmpty || run is! String || actions.containsKey(called)) {
-        continue;
-      }
-      final takes =
-          operations.where((one) => one.name == run).firstOrNull?.args ??
-          const <String, List<String>>{};
-      final bound = {
-        for (final MapEntry(:key, :value) in row.entries)
-          if (key is String &&
-              key.startsWith(_with) &&
-              value != null &&
-              value != '')
-            key.substring(_with.length): value,
-      };
-      actions[called] = EntityAction(
-        run: run,
-        bound: bound,
-        args: {
-          for (final MapEntry(:key, :value) in takes.entries)
-            if (!bound.containsKey(key)) key: value,
-        },
-        label: '${row['label'] ?? ''}',
-        icon: '${row['icon'] ?? ''}',
-      );
-    }
-  }
   return Entity(
     id: '${one['id']}',
     category: was?.category ?? userCategory,
@@ -200,8 +175,50 @@ Entity userEntityFromForm(
       }),
       _ => was?.feed,
     },
-    actions: actions,
+    actions: _actionsFromForm(one['actions'], operations),
     prefab: was?.prefab,
     placed: was?.placed ?? false,
+  );
+}
+
+Map<String, EntityAction> _actionsFromForm(
+  Object? rows,
+  Iterable<Operation> operations,
+) {
+  final actions = <String, EntityAction>{};
+  for (final row in rows is List<Object?> ? rows : const []) {
+    if (row is! Map) continue;
+    final called = '${row['name'] ?? ''}'.replaceAll(
+      RegExp('[^A-Za-z0-9_]'),
+      '',
+    );
+    if (called.isEmpty || actions.containsKey(called)) continue;
+    if (_actionFromRow(row, operations) case final action?) {
+      actions[called] = action;
+    }
+  }
+  return actions;
+}
+
+EntityAction? _actionFromRow(Map row, Iterable<Operation> operations) {
+  final run = row['run'];
+  if (run is! String) return null;
+  final bound = {
+    for (final MapEntry(:key, :value) in row.entries)
+      if (key is String &&
+          key.startsWith(_with) &&
+          value != null &&
+          value != '')
+        key.substring(_with.length): value,
+  };
+  return EntityAction(
+    run: run,
+    bound: bound,
+    args: {
+      for (final MapEntry(:key, :value) in _argsOf(operations, run).entries)
+        if (!bound.containsKey(key)) key: value,
+    },
+    label: '${row['label'] ?? ''}',
+    icon: '${row['icon'] ?? ''}',
   );
 }
