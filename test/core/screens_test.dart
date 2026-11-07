@@ -23,10 +23,13 @@ void main() {
     return Screen(id: id, root: change?.call(root) ?? root);
   }
 
-  Future<ProviderContainer> launcher(LauncherConfig config) async {
+  Future<ProviderContainer> launcher(
+    LauncherConfig config, {
+    LastScreenStore? lastScreen,
+  }) async {
     final c = ProviderContainer(
       overrides: [
-        ...packOverrides,
+        ...packOverridesKeeping(lastScreen ?? MemoryLastScreenStore()),
         launcherPlatformProvider.overrideWithValue(
           FakeLauncherPlatform(const [], const []),
         ),
@@ -68,10 +71,11 @@ void main() {
     expect(shown(), 'b');
     expect(screens.back(), isFalse);
     // Not remembered, unless startup says so.
-    expect((await c.read(configProvider.future)).lastScreen, isNull);
+    expect(await c.read(lastScreenProvider.future), isNull);
   });
 
   test('a startup that remembers opens on the screen shown last', () async {
+    final kept = MemoryLastScreenStore('b');
     final c = await launcher(
       LauncherConfig(
         layout: Layout(
@@ -79,13 +83,13 @@ void main() {
           screens: [screen('a'), screen('b')],
           startup: const Startup('a', remember: true),
         ).normalised(),
-        lastScreen: 'b',
       ),
+      lastScreen: kept,
     );
     expect(c.read(currentScreenProvider)?.id, 'b');
     c.read(shownScreensProvider.notifier).open('a');
     await pumpEventQueue();
-    expect((await c.read(configProvider.future)).lastScreen, 'a');
+    expect(await kept.load(), 'a');
   });
 
   test('a screen with a Wallpaper has its own, else the launcher\'s', () async {

@@ -86,7 +86,6 @@ class LauncherConfig {
     this.place,
     this.prefabs = const [],
     this.updates = const UpdateOptions(),
-    this.lastScreen,
   }) : layout = layout ?? Layout.blank(),
        ownLayout = ownLayout ?? layout != null;
 
@@ -119,7 +118,6 @@ class LauncherConfig {
   final Place? place;
   final List<Prefab> prefabs;
   final UpdateOptions updates;
-  final String? lastScreen;
 
   /// Sent whole by `PUT /api/config`; [fileKeys] travel as file ids.
   static const openKeys = [
@@ -176,7 +174,6 @@ class LauncherConfig {
     Place? Function()? place,
     List<Prefab>? prefabs,
     UpdateOptions? updates,
-    String? Function()? lastScreen,
   }) => LauncherConfig(
     layout: layout ?? this.layout,
     ownLayout: ownLayout ?? (layout != null || this.ownLayout),
@@ -190,7 +187,6 @@ class LauncherConfig {
     place: place == null ? this.place : place(),
     prefabs: prefabs ?? this.prefabs,
     updates: updates ?? this.updates,
-    lastScreen: lastScreen == null ? this.lastScreen : lastScreen(),
   );
 
   /// Throws [FormatException] for a save from a newer release.
@@ -233,10 +229,6 @@ class LauncherConfig {
     updates: switch (json['updates']) {
       final Map<Object?, Object?> updates => UpdateOptions.fromJson(updates),
       _ => const UpdateOptions(),
-    },
-    lastScreen: switch (json['lastScreen']) {
-      final String id => id,
-      _ => null,
     },
   );
 
@@ -296,6 +288,5 @@ class LauncherConfig {
     'place': ?placeToJson(place),
     'prefabs': [for (final prefab in prefabs) prefab.toJson()],
     'updates': updates.toJson(),
-    'lastScreen': ?lastScreen,
   };
 }

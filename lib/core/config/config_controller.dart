@@ -61,9 +61,6 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   Future<void> patch(Map<String, Object?> json) =>
       _update((config) => config.patched(json));
 
-  Future<void> setLastScreen(String id) =>
-      _update((config) => config.copyWith(lastScreen: () => id));
-
   Future<void> setWallpapers(List<String> paths) => _update(
     (config) => config.copyWith(wallpapers: List.unmodifiable(paths)),
   );

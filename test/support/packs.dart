@@ -12,6 +12,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 import 'package:openlauncher_domain/editing/docked_prefabs.dart';
@@ -207,7 +208,14 @@ final systemContents = packContentsProvider.overrideWith(
 
 /// The packs in `packs/` installed, read from there rather than through the
 /// pack store, and no font loaded.
-final List<Override> packOverrides = [
+final List<Override> packOverrides = packOverridesKeeping(
+  MemoryLastScreenStore(),
+);
+
+/// [packOverrides], with the screen shown last kept in [lastScreen].
+List<Override> packOverridesKeeping(LastScreenStore lastScreen) => [
+  // A real file never finishes under a widget test's clock.
+  lastScreenStoreProvider.overrideWithValue(lastScreen),
   packsProvider.overrideWith((ref) async => [materialPack, systemPack]),
   // Read at once: real file reads never finish under a widget test's clock.
   packReaderProvider.overrideWithValue((pack, path) async {
