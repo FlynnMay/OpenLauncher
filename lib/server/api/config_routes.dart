@@ -26,9 +26,12 @@ class ConfigRoutes implements ApiRoutes {
   }
 
   Future<Response> _replaceLayout(Request request) async {
-    final body = await readJsonObject(request);
-    await _ref.read(configProvider.notifier).setLayout(Layout.fromJson(body));
-    return emptyJsonResponse();
+    final layout = Layout.fromJson(await readJsonObject(request));
+    return revisionResponse(
+      _ref
+          .read(commandsProvider)
+          .run(ReplaceWholeLayout(layout), session: editingSessionOf(request)),
+    );
   }
 
   Future<Response> _resetLayoutToStarting(Request request) => revisionResponse(
@@ -44,10 +47,12 @@ class ConfigRoutes implements ApiRoutes {
     if (LauncherConfig.settingsValidationError(body) case final reason?) {
       throw FormatException(reason);
     }
-    await _ref
-        .read(configProvider.notifier)
-        .patch(await _ref.read(mediaStoreProvider).withPaths(body));
-    return emptyJsonResponse();
+    final values = await _ref.read(mediaStoreProvider).withPaths(body);
+    return revisionResponse(
+      _ref
+          .read(commandsProvider)
+          .run(SetConfig(values), session: editingSessionOf(request)),
+    );
   }
 
   /// Geocoding for the weather, proxied so the page only talks to the TV.
