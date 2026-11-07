@@ -3,7 +3,6 @@ library;
 
 export 'access_service.dart';
 export 'app_service.dart';
-export 'command_service.dart';
 export 'input_service.dart';
 export 'layout_service.dart';
 export 'media_service.dart';

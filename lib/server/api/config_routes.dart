@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
 import 'package:openlauncher/server/media_store.dart';
 import 'package:openlauncher_domain/commands/commands.dart';

@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/packs/packs.dart';
-import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
 import 'package:openlauncher/server/api/command_routes.dart';
 import 'package:openlauncher/server/api/config_routes.dart';

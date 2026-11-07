@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/screens/screens.dart';
-import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Which screen is shown, and the screens there are. Where a screen is named

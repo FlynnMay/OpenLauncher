@@ -6,6 +6,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/modules.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Launcher-wide settings, shown when nothing is selected.
 class GlobalProperties extends ConsumerWidget {
@@ -120,7 +121,8 @@ class _RevertLayout extends ConsumerWidget {
             return;
           }
           ref.read(selectionProvider.notifier).clear();
-          await ref.read(configProvider.notifier).revertLayout();
+          if (!context.mounted) return;
+          await runCommand(context, ref, const ResetLayoutToStarting());
         },
         child: Text('Screen modified · Revert to $pack'),
       ),

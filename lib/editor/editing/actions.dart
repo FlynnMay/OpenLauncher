@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_registry.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/dragging.dart';
@@ -52,9 +52,9 @@ Future<void> changeLayout(
 Future<void> runCommand(
   BuildContext context,
   WidgetRef ref,
-  LayoutCommand command,
+  Command command,
 ) async {
-  if (ref.read(editedPrefabProvider) != null) {
+  if (command is LayoutCommand && ref.read(editedPrefabProvider) != null) {
     return changeLayout(context, ref, command.apply);
   }
   final messenger = ScaffoldMessenger.of(context);

@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/services/command_service.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
