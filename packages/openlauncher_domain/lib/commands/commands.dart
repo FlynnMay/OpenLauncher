@@ -11,6 +11,7 @@ import 'package:openlauncher_domain/json/json_read.dart';
 
 export 'command.dart';
 export 'command_history.dart';
+export 'command_log.dart';
 export 'config_commands.dart';
 export 'document.dart';
 export 'layout_reset_commands.dart';

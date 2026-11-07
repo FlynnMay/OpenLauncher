@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/components/components.dart';
@@ -14,7 +17,6 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
-
 import 'package:openlauncher_domain/commands/commands.dart';
 
 import '../support/fake_tv.dart';
@@ -115,6 +117,43 @@ void main() {
       ),
     );
     expect(tv.sent.last, 'layout + config names');
+  });
+
+  test('commands the TV announces are heard apart from its states', () async {
+    final state = jsonEncode({
+      'entities': [],
+      'layout': homeLayout().toJson(),
+      'config': <String, Object?>{},
+      'visuals': [],
+      'widgetProviders': [],
+    });
+    final entry = jsonEncode(
+      const CommandLogEntry(
+        revision: 3,
+        session: 'phone',
+        action: CommandAction.run,
+        command: {'type': 'screen.add', 'id': 'tv'},
+      ).toJson(),
+    );
+    final api = TvApi(
+      client: MockClient.streaming(
+        (request, body) async => http.StreamedResponse(
+          Stream.value(
+            utf8.encode(
+              'data: $state\n\nevent: command\ndata: $entry\n\ndata: $state\n\n',
+            ),
+          ),
+          200,
+        ),
+      ),
+    );
+    final heard = <CommandLogEntry>[];
+    api.commandEntries.listen(heard.add);
+
+    final states = await api.states().take(2).toList();
+    expect(states, hasLength(2));
+    expect(heard.single.revision, 3);
+    expect(heard.single.session, 'phone');
   });
 
   test('a starting layout is not sent; reverting to it is', () async {

@@ -132,6 +132,40 @@ void main() {
     );
   });
 
+  test('every command done is logged, with who did it and how', () async {
+    final c = await launcher();
+    final commands = c.read(commandsProvider);
+    final heard = <CommandLogEntry>[];
+    commands.entries.listen(heard.add);
+
+    await commands.run(const AddScreen(id: 'tv'), session: 'phone');
+    await commands.undo(session: 'phone');
+    await commands.redo(session: 'phone');
+
+    expect([for (final e in heard) e.revision], [1, 2, 3]);
+    expect(
+      [for (final e in heard) e.action],
+      [CommandAction.run, CommandAction.undo, CommandAction.redo],
+    );
+    expect(heard.every((e) => e.session == 'phone'), isTrue);
+    // An undo logs the command that took the change back.
+    expect(heard[1].command['type'], 'screen.remove');
+    expect(
+      [for (final e in (await commands.entriesAfter(1))!) e.revision],
+      [2, 3],
+    );
+  });
+
+  test('a refused command is not logged', () async {
+    final c = await launcher();
+    final commands = c.read(commandsProvider);
+    await expectLater(
+      commands.run(const RemoveScreen('home')),
+      throwsA(isA<CommandRefused>()),
+    );
+    expect(await commands.entriesAfter(0), isEmpty);
+  });
+
   test('commands sent together each see the one before', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);

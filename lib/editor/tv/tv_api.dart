@@ -113,6 +113,7 @@ class TvApi {
   /// the first connection does.
   Stream<TvState> states() async* {
     var reached = false;
+    var event = '';
     while (true) {
       try {
         final response = await _client.send(
@@ -125,8 +126,17 @@ class TvApi {
             .transform(utf8.decoder)
             .transform(const LineSplitter());
         await for (final line in lines) {
+          if (line.startsWith('event: ')) event = line.substring(7);
+          if (line.isEmpty) event = '';
           if (!line.startsWith('data: ')) continue;
-          yield await _state(jsonDecode(line.substring(6)) as Map);
+          final data = jsonDecode(line.substring(6)) as Map;
+          if (event == 'command') {
+            _commandEntries.add(
+              CommandLogEntry.fromJson(data.cast<String, Object?>()),
+            );
+            continue;
+          }
+          yield await _state(data);
           reached = true;
         }
       } on NeedsPairing {
@@ -136,6 +146,24 @@ class TvApi {
       }
       await Future<void>.delayed(const Duration(seconds: 2));
     }
+  }
+
+  final _commandEntries = StreamController<CommandLogEntry>.broadcast();
+
+  /// Each command the TV does, as it hears of it on the event stream that
+  /// [states] follows.
+  Stream<CommandLogEntry> get commandEntries => _commandEntries.stream;
+
+  /// What the TV did after [revision]; null if it no longer keeps all of it.
+  Future<List<CommandLogEntry>?> commandEntriesAfter(int revision) async {
+    final reply = await _ask('GET', '/api/commands/log?after=$revision') as Map;
+    if (reply['entries'] case final List<Object?> entries) {
+      return [
+        for (final entry in entries)
+          CommandLogEntry.fromJson((entry! as Map).cast<String, Object?>()),
+      ];
+    }
+    return null;
   }
 
   Future<TvState> _state(Map<Object?, Object?> json) async {
@@ -394,4 +422,11 @@ class TvCommands implements Commands {
 
   @override
   Future<int> redo({String session = launcherSession}) => _api.redoCommand();
+
+  @override
+  Stream<CommandLogEntry> get entries => _api.commandEntries;
+
+  @override
+  Future<List<CommandLogEntry>?> entriesAfter(int revision) =>
+      _api.commandEntriesAfter(revision);
 }

@@ -1230,6 +1230,62 @@ void main() {
     expect(events.last['config']['toasts']['seconds'], 9);
   });
 
+  test('event stream tells of each command as a named event', () async {
+    final response = await call('GET', '/api/events');
+    final text = StringBuffer();
+    final sub = response.read().transform(utf8.decoder).listen(text.write);
+    addTearDown(sub.cancel);
+    await entities();
+    await pumpEventQueue();
+
+    await call(
+      'POST',
+      '/api/commands',
+      body: {'type': 'screen.add', 'id': 'seen'},
+    );
+    await pumpEventQueue();
+
+    final blocks = text.toString().split('\n\n');
+    final command = blocks.singleWhere((b) => b.startsWith('event: command'));
+    final entry = jsonDecode(command.split('\n').last.substring(6)) as Map;
+    expect(entry['revision'], 1);
+    expect(entry['action'], 'run');
+    expect(entry['command'], containsPair('id', 'seen'));
+    // Plain events are still only states.
+    expect(
+      blocks
+          .where((b) => b.startsWith('data: '))
+          .every(
+            (b) =>
+                jsonDecode(b.substring(6)) is Map &&
+                (jsonDecode(b.substring(6)) as Map).containsKey('layout'),
+          ),
+      isTrue,
+    );
+  });
+
+  test('the commands done after a revision can be asked for', () async {
+    Future<Map<String, dynamic>> after(int revision) async => jsonDecode(
+      await (await call(
+        'GET',
+        '/api/commands/log?after=$revision',
+      )).readAsString(),
+    );
+    for (final id in ['a', 'b']) {
+      await call(
+        'POST',
+        '/api/commands',
+        body: {'type': 'screen.add', 'id': id},
+      );
+    }
+    await call('POST', '/api/commands/undo', body: {});
+
+    final entries = (await after(1))['entries'] as List;
+    expect([for (final e in entries) e['revision']], [2, 3]);
+    expect([for (final e in entries) e['action']], ['run', 'undo']);
+    expect((await call('GET', '/api/commands/log')).statusCode, 400);
+  });
+
   test('the real server answers over HTTP', () async {
     final server = (await container.read(configServerProvider.future))!;
     final client = HttpClient();

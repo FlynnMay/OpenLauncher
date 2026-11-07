@@ -4,33 +4,43 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
 import 'package:openlauncher/server/config_page_state.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
-/// Holds the newest page state and tells everyone listening when it changes.
+/// Holds the newest page state and tells everyone listening when it changes,
+/// and when a command was done.
 class StatePublisher {
-  final _states = StreamController<String>.broadcast();
+  /// Each event as the text a server-sent events stream carries.
+  final _events = StreamController<String>.broadcast();
+  String? _latestStateEvent;
   String? _latestEncodedState;
 
   void publish(Map<String, Object?> state) {
     final encoded = jsonEncode(state);
     if (encoded == _latestEncodedState) return;
     _latestEncodedState = encoded;
-    _states.add(encoded);
+    _latestStateEvent = 'data: $encoded\n\n';
+    _events.add(_latestStateEvent!);
   }
 
-  void close() => _states.close();
+  /// A named event, so a page that only follows states does not take it for
+  /// one. It is not kept for pages that connect later.
+  void publishCommand(CommandLogEntry entry) =>
+      _events.add('event: command\ndata: ${jsonEncode(entry.toJson())}\n\n');
 
-  /// Server-sent events: the current state, then every later state.
+  void close() => _events.close();
+
+  /// Server-sent events: the current state, then every later event.
   Response serverSentEventsResponse() {
     late final StreamController<List<int>> out;
-    StreamSubscription<String>? states;
+    StreamSubscription<String>? events;
     Timer? keepAlive;
     void send(String text) => out.add(utf8.encode(text));
     out = StreamController(
       onListen: () {
-        if (_latestEncodedState case final state?) send('data: $state\n\n');
-        states = _states.stream.listen((state) => send('data: $state\n\n'));
+        if (_latestStateEvent case final state?) send(state);
+        events = _events.stream.listen(send);
         // Comment lines keep idle connections from being dropped.
         keepAlive = Timer.periodic(
           const Duration(seconds: 20),
@@ -39,7 +49,7 @@ class StatePublisher {
       },
       onCancel: () {
         keepAlive?.cancel();
-        return states?.cancel();
+        return events?.cancel();
       },
     );
     return Response.ok(

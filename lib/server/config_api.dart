@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/services/command_service.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
 import 'package:openlauncher/server/api/command_routes.dart';
 import 'package:openlauncher/server/api/config_routes.dart';
@@ -22,6 +23,11 @@ final configApiProvider = Provider<ConfigApi>((ref) {
   ref.listen(configPageStateProvider, (_, next) {
     if (next case AsyncData(:final value)) api._statePublisher.publish(value);
   }, fireImmediately: true);
+  final heardCommands = ref
+      .read(commandsProvider)
+      .entries
+      .listen(api._statePublisher.publishCommand);
+  ref.onDispose(heardCommands.cancel);
   ref.onDispose(api._statePublisher.close);
   return api;
 });

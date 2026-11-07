@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,13 @@ abstract interface class Commands {
   Future<int> undo({String session = launcherSession});
 
   Future<int> redo({String session = launcherSession});
+
+  /// Each command as it is done, by anyone.
+  Stream<CommandLogEntry> get entries;
+
+  /// What was done after [revision], oldest first; null if some of it is no
+  /// longer kept.
+  Future<List<CommandLogEntry>?> entriesAfter(int revision);
 }
 
 /// Runs commands on the layout this app holds, one at a time.
@@ -28,7 +36,7 @@ class CommandService implements Commands {
 
   final Ref _ref;
   final _history = CommandHistory();
-  var _revision = 0;
+  final _log = CommandLog();
   Future<void> _queue = Future.value();
 
   @override
@@ -38,7 +46,7 @@ class CommandService implements Commands {
           session,
           await _applyAndSaveReturningUndo(command),
         );
-        return ++_revision;
+        return _logged(session, CommandAction.run, command);
       });
 
   @override
@@ -46,7 +54,7 @@ class CommandService implements Commands {
     final command =
         _history.nextUndo(session) ?? (throw const CommandRefused(_noUndo));
     _history.recordUndo(session, await _applyAndSaveReturningUndo(command));
-    return ++_revision;
+    return _logged(session, CommandAction.undo, command);
   });
 
   @override
@@ -54,8 +62,20 @@ class CommandService implements Commands {
     final command =
         _history.nextRedo(session) ?? (throw const CommandRefused(_noRedo));
     _history.recordRedo(session, await _applyAndSaveReturningUndo(command));
-    return ++_revision;
+    return _logged(session, CommandAction.redo, command);
   });
+
+  @override
+  Stream<CommandLogEntry> get entries => _log.added;
+
+  @override
+  Future<List<CommandLogEntry>?> entriesAfter(int revision) async =>
+      _log.after(revision);
+
+  /// Records that [command] was done and returns the revision it left.
+  int _logged(String session, CommandAction action, Command command) => _log
+      .record(session: session, action: action, command: command.toJson())
+      .revision;
 
   static const _noUndo = 'There is nothing to undo.';
   static const _noRedo = 'There is nothing to redo.';
@@ -109,4 +129,8 @@ class CommandService implements Commands {
   }
 }
 
-final commandsProvider = Provider<Commands>(CommandService.new);
+final commandsProvider = Provider<Commands>((ref) {
+  final service = CommandService(ref);
+  ref.onDispose(service._log.close);
+  return service;
+});

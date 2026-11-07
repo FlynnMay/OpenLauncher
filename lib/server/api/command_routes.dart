@@ -16,7 +16,8 @@ class CommandRoutes implements ApiRoutes {
     router
       ..post('/api/commands', _runCommand)
       ..post('/api/commands/undo', _undoLastCommand)
-      ..post('/api/commands/redo', _redoLastUndo);
+      ..post('/api/commands/redo', _redoLastUndo)
+      ..get('/api/commands/log', _commandsAfterRevision);
   }
 
   Future<Response> _runCommand(Request request) async {
@@ -37,6 +38,17 @@ class CommandRoutes implements ApiRoutes {
   Future<Response> _redoLastUndo(Request request) => revisionResponse(
     _ref.read(commandsProvider).redo(session: editingSessionOf(request)),
   );
+
+  /// What was done after the revision in `after`, oldest first. `entries` is
+  /// null if some of it is no longer kept: read the layout again.
+  Future<Response> _commandsAfterRevision(Request request) async {
+    final after = int.tryParse(request.url.queryParameters['after'] ?? '');
+    if (after == null) throw const FormatException('"after" must be a number');
+    final entries = await _ref.read(commandsProvider).entriesAfter(after);
+    return jsonResponse({
+      'entries': ?entries?.map((entry) => entry.toJson()).toList(),
+    });
+  }
 
   /// Files arrive as ids and are kept as paths.
   Future<Command> _withFilePaths(Command command) async => switch (command) {
