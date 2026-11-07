@@ -14,7 +14,7 @@ class AppOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'os://apps/launch',
+      address: 'os://apps/launch',
       label: 'Open an app',
       args: _package,
       requiredArgs: _needsPackage,
@@ -24,7 +24,7 @@ class AppOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'os://apps/info',
+      address: 'os://apps/info',
       label: "Open an app's info screen",
       args: _package,
       requiredArgs: _needsPackage,
@@ -34,7 +34,7 @@ class AppOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'os://apps/uninstall',
+      address: 'os://apps/uninstall',
       label: 'Uninstall an app',
       args: _package,
       requiredArgs: _needsPackage,

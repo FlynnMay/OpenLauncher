@@ -11,7 +11,7 @@ class InputOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'os://inputs/switch',
+      address: 'os://inputs/switch',
       label: 'Switch to a TV input',
       args: const {'input': []},
       requiredArgs: const {'input'},

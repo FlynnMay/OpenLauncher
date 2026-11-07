@@ -11,7 +11,7 @@ class MediaOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'os://media/command',
+      address: 'os://media/command',
       label: 'Tell the media player',
       args: {
         'command': [for (final command in MediaCommand.values) command.name],

@@ -149,9 +149,9 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       final there = ref.read(operationsRegistryProvider).inArea(target);
       if (there.isEmpty) return null;
       final operation =
-          there.where((one) => one.name == from?.name).firstOrNull ??
+          there.where((one) => one.address == from?.name).firstOrNull ??
           there.first;
-      return Act(operation.name, {
+      return Act(operation.address, {
         for (final MapEntry(:key, :value) in from?.args.entries ?? const [])
           if (operation.args.containsKey(key)) key: value,
       });
@@ -252,7 +252,7 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
         : actionsOf(_entityOf(target), entities);
     // What the second box offers, and what the chosen one is told.
     final offered = act.isAddress
-        ? {for (final one in registry.inArea(target!)) one.name: one.label}
+        ? {for (final one in registry.inArea(target!)) one.address: one.label}
         : {
             for (final MapEntry(key: name, value: action) in actions.entries)
               name: action.label.isEmpty ? name : action.label,

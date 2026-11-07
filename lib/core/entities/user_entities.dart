@@ -76,7 +76,7 @@ Field userEntityOptions(Iterable<Operation> operations) => Field(
       FieldKind.list,
       heading: 'name',
       asks: 'Action name',
-      blank: {'name': 'do', 'run': operations.firstOrNull?.name},
+      blank: {'name': 'do', 'run': operations.firstOrNull?.address},
       fields: (action) => _actionFields(action, operations),
     ),
   ],
@@ -93,7 +93,7 @@ List<Field> _actionFields(
     choices: {
       // Keeps one this build does not know.
       if (action['run'] case final String run) run: run,
-      for (final operation in operations) operation.name: operation.label,
+      for (final operation in operations) operation.address: operation.label,
     },
   ),
   const Field('label', 'Label', FieldKind.text),
@@ -111,7 +111,10 @@ Map<String, List<String>> _argsOf(
   Iterable<Operation> operations,
   Object? name,
 ) =>
-    operations.where((operation) => operation.name == name).firstOrNull?.args ??
+    operations
+        .where((operation) => operation.address == name)
+        .firstOrNull
+        ?.args ??
     const {};
 
 /// [entity] as a row of the form.

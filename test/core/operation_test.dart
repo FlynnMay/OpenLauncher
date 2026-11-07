@@ -4,7 +4,7 @@ import 'package:openlauncher/core/operations/operations.dart';
 void main() {
   var ran = 0;
   final operation = Operation(
-    name: 'launcher://test/do',
+    address: 'launcher://test/do',
     label: 'Do',
     args: const {
       'what': [],

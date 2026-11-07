@@ -14,7 +14,7 @@ class VariableOperationsManager implements OperationsManager {
   late final List<Operation> operations = [
     // Runtime only; not saved.
     Operation(
-      name: 'launcher://variables/set',
+      address: 'launcher://variables/set',
       label: "Set a component's variable",
       args: const {'var': [], 'value': [], 'of': []},
       requiredArgs: const {'var'},

@@ -60,7 +60,7 @@ class OperationRun {
 /// for the TV, `launcher://<area>/<verb>` for the launcher's own.
 class Operation {
   const Operation({
-    required this.name,
+    required this.address,
     required this.label,
     required this._run,
     this.args = const {},
@@ -70,7 +70,7 @@ class Operation {
   static const device = 'os://', launcher = 'launcher://';
 
   /// Its address, e.g. `os://apps/launch`.
-  final String name;
+  final String address;
 
   /// What it does, for whoever defines an action with it.
   final String label;
@@ -84,7 +84,7 @@ class Operation {
   final Future<String?> Function(OperationRun run) _run;
 
   /// Its address up to the verb, e.g. `os://apps`.
-  String get area => areaOf(name);
+  String get area => areaOf(address);
 
   /// The area of [address].
   static String areaOf(String address) => address.substring(
@@ -93,7 +93,7 @@ class Operation {
   );
 
   /// Whether only the TV can do it. The web editor sends these to the TV.
-  bool get onDevice => name.startsWith(device);
+  bool get onDevice => address.startsWith(device);
 
   /// Does it, once [run]'s arguments check out. Returns a message for the
   /// user, or null. Throws [BadArguments] if a required argument is missing

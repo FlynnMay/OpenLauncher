@@ -1,6 +1,6 @@
-import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
+import 'package:openlauncher/core/services/services.dart';
 
 /// What is on a screen, named by `screen`.
 class LayoutOperationsManager implements OperationsManager {
@@ -11,7 +11,7 @@ class LayoutOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'launcher://layout/add',
+      address: 'launcher://layout/add',
       label: 'Add an entity to a screen',
       // `what` is an entity id; `to` a container on the screen, else the inbox.
       args: const {'screen': [], 'what': [], 'to': []},
@@ -23,7 +23,7 @@ class LayoutOperationsManager implements OperationsManager {
       ),
     ),
     Operation(
-      name: 'launcher://layout/remove',
+      address: 'launcher://layout/remove',
       label: 'Remove an entity from a screen',
       // `what` is an entity id; every instance handed it is removed.
       args: const {'screen': [], 'what': []},

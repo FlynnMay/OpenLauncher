@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/operations/managers/app_operations.dart';
 import 'package:openlauncher/core/operations/managers/input_operations.dart';
 import 'package:openlauncher/core/operations/managers/layout_operations.dart';
@@ -11,6 +10,7 @@ import 'package:openlauncher/core/operations/managers/update_operations.dart';
 import 'package:openlauncher/core/operations/managers/variable_operations.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
 /// Every operation of every manager, by name.
@@ -19,10 +19,10 @@ class OperationsRegistry {
   OperationsRegistry(Iterable<OperationsManager> managers) {
     for (final manager in managers) {
       for (final operation in manager.operations) {
-        if (_byName.containsKey(operation.name)) {
-          throw StateError('Two operations are named "${operation.name}"');
+        if (_byName.containsKey(operation.address)) {
+          throw StateError('Two operations are named "${operation.address}"');
         }
-        _byName[operation.name] = operation;
+        _byName[operation.address] = operation;
       }
     }
   }

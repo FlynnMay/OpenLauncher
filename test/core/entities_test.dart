@@ -29,7 +29,7 @@ class _Manager implements OperationsManager {
     : operations = [
         for (final name in names)
           Operation(
-            name: name,
+            address: name,
             label: name,
             args: const {'what': []},
             run: (run) async {
@@ -421,7 +421,7 @@ void main() {
       // runs is called by its address.
       final operations = c.read(operationsRegistryProvider);
       expect(
-        {for (final operation in operations.all) operation.name},
+        {for (final operation in operations.all) operation.address},
         containsAll({
           for (final entity in all)
             for (final action in entity.actions.values) action.run,
@@ -433,15 +433,15 @@ void main() {
       final c = container(const []);
       for (final operation in c.read(operationsRegistryProvider).all) {
         expect(
-          operation.name,
+          operation.address,
           matches(RegExp(r'^(os|launcher)://[a-z]+/[a-z]+$')),
         );
-        expect(operation.onDevice, operation.name.startsWith('os://'));
+        expect(operation.onDevice, operation.address.startsWith('os://'));
       }
       expect(Operation.areaOf('os://apps/launch'), 'os://apps');
       final registry = c.read(operationsRegistryProvider);
       expect(registry.areas, containsAll(['os://apps', 'launcher://overlay']));
-      expect(registry.inArea('launcher://overlay').map((one) => one.name), [
+      expect(registry.inArea('launcher://overlay').map((one) => one.address), [
         'launcher://overlay/open',
         'launcher://overlay/close',
       ]);
@@ -620,7 +620,8 @@ void main() {
     test('operations come from managers, and none twice', () {
       final one = _Manager(['a', 'b']), two = _Manager(['c']);
       expect(
-        OperationsRegistry([one, two]).all.map((operation) => operation.name),
+        OperationsRegistry([one, two]).all
+            .map((operation) => operation.address),
         ['a', 'b', 'c'],
       );
       expect(OperationsRegistry([one])['b'], isNotNull);

@@ -125,7 +125,7 @@ class TvActionRunner extends ActionRunner {
   /// The TV's own updater, as well as what only the TV can do.
   static bool _onTv(Operation operation) =>
       operation.onDevice ||
-      operation.name.startsWith('${Operation.launcher}updates/');
+      operation.address.startsWith('${Operation.launcher}updates/');
 
   @override
   Future<String?> carryOut(Operation operation, Act act, OperationRun run) =>

@@ -21,7 +21,7 @@ class OverlayOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'launcher://overlay/open',
+      address: 'launcher://overlay/open',
       label: 'Open a node over the screen',
       // `of` is a node id, empty for the one it fired from; `dim` a
       // percentage. Unset, they are the node's Overlay's.
@@ -63,7 +63,7 @@ class OverlayOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://overlay/close',
+      address: 'launcher://overlay/close',
       label: 'Close a node over the screen',
       // `of` is a node id; empty, the overlay it fired in, else the top one.
       args: const {'of': []},
@@ -76,7 +76,7 @@ class OverlayOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://popups/close',
+      address: 'launcher://popups/close',
       label: 'Close the popup it fired in',
       run: (run) async {
         run.screen?.close();

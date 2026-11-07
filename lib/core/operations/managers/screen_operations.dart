@@ -38,7 +38,7 @@ class ScreenOperationsManager implements OperationsManager {
   @override
   late final List<Operation> operations = [
     Operation(
-      name: 'launcher://screen/open',
+      address: 'launcher://screen/open',
       label: 'Show a screen',
       args: const {'id': []},
       requiredArgs: const {'id'},
@@ -51,7 +51,7 @@ class ScreenOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://screen/back',
+      address: 'launcher://screen/back',
       label: 'Show the screen before',
       run: (run) async {
         if (!_ref.read(shownScreensProvider.notifier).back()) {
@@ -61,7 +61,7 @@ class ScreenOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://screen/add',
+      address: 'launcher://screen/add',
       label: 'Add an empty screen',
       // `id` is wanted, not promised; `name` is its label.
       args: const {'id': [], 'name': []},
@@ -85,7 +85,7 @@ class ScreenOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://screen/remove',
+      address: 'launcher://screen/remove',
       label: 'Remove a screen',
       args: const {'id': []},
       run: (run) async {
@@ -105,7 +105,7 @@ class ScreenOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://screen/rename',
+      address: 'launcher://screen/rename',
       label: 'Rename a screen',
       args: const {'id': [], 'name': []},
       run: (run) async {
@@ -126,7 +126,7 @@ class ScreenOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://screen/duplicate',
+      address: 'launcher://screen/duplicate',
       label: 'Copy a screen',
       args: const {'id': []},
       run: (run) async {
@@ -156,7 +156,7 @@ class ScreenOperationsManager implements OperationsManager {
       },
     ),
     Operation(
-      name: 'launcher://screen/startup',
+      address: 'launcher://screen/startup',
       label: 'Set which screen the launcher opens on',
       // `id` is the screen to start on, empty to keep it; `remember` opens on
       // the screen shown last instead.

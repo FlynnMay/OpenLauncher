@@ -264,13 +264,13 @@ void main() {
     test('the form keeps what it does not show, and makes actions', () {
       final operations = [
         Operation(
-          name: 'os://apps/launch',
+          address: 'os://apps/launch',
           label: 'Open an app',
           args: const {'package': []},
           run: (run) async => null,
         ),
         Operation(
-          name: 'os://media/command',
+          address: 'os://media/command',
           label: 'Tell the media player',
           args: const {
             'command': ['next', 'previous'],
