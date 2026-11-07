@@ -1,5 +1,5 @@
-import 'package:openlauncher/core/modules/dock_module.dart';
 import 'package:openlauncher/core/modules/module.dart';
+import 'package:openlauncher/core/modules/surface/dock_module.dart';
 import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/nodes/node.dart';
 
