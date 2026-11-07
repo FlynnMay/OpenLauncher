@@ -105,8 +105,8 @@ class TvConfigStore implements ConfigStore {
         if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
     };
     if (!layout && !revert && changed.isEmpty) return;
-    if (revert) await _api.revertLayout();
     final steps = [
+      if (revert) const ResetLayoutToStarting(),
       if (layout) PatchLayout.turning(known.layout, config.layout),
       if (changed.isNotEmpty) SetConfig(TvApi.withMediaIds(changed)),
     ];

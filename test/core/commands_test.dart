@@ -96,6 +96,25 @@ void main() {
     expect((await config()).wallpaperEvery, 5);
   });
 
+  test('a reset to the starting layout is undone', () async {
+    final c = await launcher();
+    final commands = c.read(commandsProvider);
+    await commands.run(const AddScreen(id: 'mine'), session: 'one');
+    expect(await screensOf(c), ['home', 'mine']);
+    expect((await c.read(configProvider.future)).ownLayout, isTrue);
+
+    await commands.run(const ResetLayoutToStarting(), session: 'one');
+    expect(await screensOf(c), ['system:home']);
+    expect((await c.read(configProvider.future)).ownLayout, isFalse);
+
+    await commands.undo(session: 'one');
+    expect(await screensOf(c), ['home', 'mine']);
+    expect((await c.read(configProvider.future)).ownLayout, isTrue);
+
+    await commands.redo(session: 'one');
+    expect((await c.read(configProvider.future)).ownLayout, isFalse);
+  });
+
   test('a setting that does not exist or is too long is refused', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);

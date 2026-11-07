@@ -263,8 +263,6 @@ class TvApi {
 
   static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
 
-  Future<void> revertLayout() => _ask('DELETE', '/api/layout');
-
   /// [changed] config keys as the TV is sent them: files as ids.
   static Map<String, Object?> withMediaIds(Map<String, Object?> changed) => {
     ...changed,

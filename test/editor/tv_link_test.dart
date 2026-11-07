@@ -27,9 +27,6 @@ class _Tv extends TvApi {
     return 0;
   }
 
-  @override
-  Future<void> revertLayout() async => sent.add('revert');
-
   /// What the TV says of an action, by its name.
   final answers = <String, String>{};
 

@@ -24,6 +24,9 @@ class FakeTv extends TvApi {
   /// When set, it refuses commands, giving this reason.
   String? commandRefusal;
 
+  /// The layout a reset goes back to.
+  Layout startingLayout = Layout.blank();
+
   var _revision = 0;
   var _history = CommandHistory();
 
@@ -63,14 +66,16 @@ class FakeTv extends TvApi {
     return _pushed();
   }
 
-  @override
-  Future<void> revertLayout() async => sent.add('revert');
-
   static const _session = 'editor';
 
   /// Does [command] and returns the one that takes it back.
   Command _applyAndReturnUndo(Command command) {
-    final before = Document(layout: layout, settings: config.open);
+    final before = Document(
+      layout: layout,
+      settings: config.open,
+      layoutIsTheUsers: config.ownLayout,
+      startingLayout: startingLayout,
+    );
     final after = command.edit(before);
     final back = command.undoing(before);
     _state = _stateWith(
@@ -106,6 +111,7 @@ class FakeTv extends TvApi {
 String describeCommand(Command command) => switch (command) {
   SetConfig(:final values) => 'config ${values.keys.join(' ')}',
   Batch(:final commands) => commands.map(describeCommand).join(' + '),
+  ResetLayoutToStarting() => 'revert',
   LayoutCommand() => 'layout',
   _ => command.type,
 };

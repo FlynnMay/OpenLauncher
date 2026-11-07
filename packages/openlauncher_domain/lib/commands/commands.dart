@@ -3,6 +3,7 @@ library;
 
 import 'package:openlauncher_domain/commands/command.dart';
 import 'package:openlauncher_domain/commands/config_commands.dart';
+import 'package:openlauncher_domain/commands/layout_reset_commands.dart';
 import 'package:openlauncher_domain/commands/node_commands.dart';
 import 'package:openlauncher_domain/commands/screen_commands.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
@@ -11,6 +12,7 @@ export 'command.dart';
 export 'command_history.dart';
 export 'config_commands.dart';
 export 'document.dart';
+export 'layout_reset_commands.dart';
 export 'node_commands.dart';
 export 'screen_commands.dart';
 
@@ -18,6 +20,7 @@ export 'screen_commands.dart';
 final Map<String, CommandReader> _readers = {
   ...nodeCommandReaders,
   ...screenCommandReaders,
+  ...layoutResetCommandReaders,
   SetConfig.typeName: SetConfig.fromJson,
   Batch.typeName: (json) => Batch.fromJson(json, commandFromJson),
 };

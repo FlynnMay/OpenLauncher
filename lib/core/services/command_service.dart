@@ -66,6 +66,8 @@ class CommandService implements Commands {
     final before = Document(
       layout: await _layoutAsEdited(config),
       settings: config.open,
+      layoutIsTheUsers: config.ownLayout,
+      startingLayout: (await _ref.read(startingLayoutProvider.future)).layout,
     );
     final after = command.edit(before);
     final back = command.undoing(before);
@@ -74,7 +76,9 @@ class CommandService implements Commands {
       throw CommandRefused(reason);
     }
     final controller = _ref.read(configProvider.notifier);
-    if (!identical(after.layout, before.layout)) {
+    if (before.layoutIsTheUsers && !after.layoutIsTheUsers) {
+      await controller.revertLayout();
+    } else if (!identical(after.layout, before.layout)) {
       await controller.setLayout(after.layout);
     }
     if (changed.isNotEmpty) await controller.patch(changed);

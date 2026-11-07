@@ -105,10 +105,11 @@ class ConfigApi {
       ('GET', 'api/events') => _events(),
       ('PUT', 'api/layout') => _setLayout(await _body(request)),
       // Back to the starting layout.
-      ('DELETE', 'api/layout') => () async {
-        await _ref.read(configProvider.notifier).revertLayout();
-        return _ok();
-      }(),
+      ('DELETE', 'api/layout') => _revision(
+        _ref
+            .read(commandsProvider)
+            .run(const ResetLayoutToStarting(), session: _sessionOf(request)),
+      ),
       ('PUT', 'api/config') => _setConfig(await _body(request)),
       ('GET', 'api/feed') => _feedValue(id),
       ('GET', 'api/geocode') => _geocode(request.url.queryParameters['q']),

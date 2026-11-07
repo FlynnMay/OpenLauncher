@@ -12,6 +12,39 @@ final _start = Document(
 );
 
 void main() {
+  group('ResetLayoutToStarting', () {
+    final starting = const AddScreen(id: 'start').apply(Layout.blank());
+    final mine = const AddScreen(id: 'mine').apply(Layout.blank());
+    final own = Document(layout: mine, startingLayout: starting);
+
+    test('goes to the starting layout and is undone by the user\'s own', () {
+      const reset = ResetLayoutToStarting();
+      final after = reset.edit(own);
+      expect(after.layout.toJson(), starting.toJson());
+      expect(after.layoutIsTheUsers, isFalse);
+
+      final undone = reset.undoing(own).edit(after);
+      expect(undone.layout.toJson(), mine.toJson());
+      expect(undone.layoutIsTheUsers, isTrue);
+    });
+
+    test('is sent as JSON, with the layout it restores', () {
+      final restore = ReplaceWholeLayout(mine);
+      expect(commandFromJson(restore.toJson()).toJson(), restore.toJson());
+      expect(
+        commandFromJson(const ResetLayoutToStarting().toJson()).type,
+        'layout.reset',
+      );
+    });
+
+    test('is refused when no starting layout is known', () {
+      expect(
+        () => const ResetLayoutToStarting().edit(Document(layout: mine)),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+  });
+
   group('SetConfig', () {
     test('sets whole values and is undone by the old ones', () {
       const command = SetConfig({
