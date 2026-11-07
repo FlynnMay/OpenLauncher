@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 List<String> _ids(Layout layout) => [for (final s in layout.screens) s.id];
 
 void main() {
+  screenEditingCommands();
   final blank = Layout.blank();
 
   group('screen commands', () {
@@ -120,5 +121,68 @@ void main() {
       history.recordUndo('one', const AddScreen());
       expect(history.nextUndo('one'), isNull);
     });
+  });
+}
+
+void screenEditingCommands() {
+  group('RenameScreen, SetStartup and DuplicateScreen', () {
+    final two = const AddScreen(id: 'tv', name: 'TV').apply(Layout.blank());
+
+    test('a rename is undone by the old label', () {
+      const rename = RenameScreen('tv', 'Lounge');
+      final renamed = rename.apply(two);
+      expect(renamed.screen('tv')!.root.name, 'Lounge');
+      expect(rename.inverse(two).apply(renamed).screen('tv')!.root.name, 'TV');
+      expect(
+        () => const RenameScreen('nope', 'x').apply(two),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+
+    test('startup changes only what it is given, and is undone', () {
+      const onTv = SetStartup(screenId: 'tv');
+      final set = onTv.apply(two);
+      expect(set.startup.screen, 'tv');
+      final remembered = const SetStartup(remember: true).apply(set);
+      expect(remembered.startup.screen, 'tv');
+      expect(remembered.startup.remember, isTrue);
+      final back = const SetStartup(remember: true)
+          .inverse(set)
+          .apply(remembered);
+      expect(back.startup, set.startup);
+      expect(
+        () => const SetStartup(screenId: 'nope').apply(two),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+
+    test(
+      'a copy carries the pictures of its nodes, and one undo removes both',
+      () {
+        final withNode = Document(
+          layout: two,
+          settings: {
+            'iconOverrides': {
+              Layout.pictureKey(two.screen('tv')!.root.id): '/a.png',
+            },
+            'iconSources': <String, Object?>{},
+          },
+        );
+        const copy = DuplicateScreen('tv');
+        final after = copy.edit(withNode);
+        expect(after.layout.screens.map((s) => s.id), ['home', 'tv', 'tv-2']);
+        expect(
+          (after.settings['iconOverrides']! as Map).keys,
+          contains(Layout.pictureKey(after.layout.screen('tv-2')!.root.id)),
+        );
+
+        final back = copy.undoing(withNode).edit(after);
+        expect(back.layout.screens.map((s) => s.id), ['home', 'tv']);
+        expect(
+          back.settings['iconOverrides'],
+          withNode.settings['iconOverrides'],
+        );
+      },
+    );
   });
 }

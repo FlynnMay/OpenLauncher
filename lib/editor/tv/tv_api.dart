@@ -375,13 +375,19 @@ class TvApi {
 /// Commands the TV does, for the page; the TV knows who is asking by the
 /// device the page paired as.
 class TvCommands implements Commands {
-  const TvCommands(this._api);
+  const TvCommands(this._api, {this.onRan});
 
   final TvApi _api;
 
+  /// Told after the TV did a command, which the editor can undo.
+  final void Function()? onRan;
+
   @override
-  Future<int> run(Command command, {String session = launcherSession}) =>
-      _api.command(command.toJson());
+  Future<int> run(Command command, {String session = launcherSession}) async {
+    final revision = await _api.command(command.toJson());
+    onRan?.call();
+    return revision;
+  }
 
   @override
   Future<int> undo({String session = launcherSession}) => _api.undoCommand();

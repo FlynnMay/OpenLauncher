@@ -75,7 +75,7 @@ TvState _state() => TvState(
 void main() {
   test('saving sends the TV only what changed', () async {
     final tv = _Tv();
-    final store = TvConfigStore(tv, Future.value(_state()));
+    final store = TvConfigStore(TvCommands(tv), Future.value(_state()));
     final config = await store.load();
 
     await store.save(config);
@@ -95,7 +95,7 @@ void main() {
   test('a starting layout is not sent; reverting to it is', () async {
     final tv = _Tv();
     final store = TvConfigStore(
-      tv,
+      TvCommands(tv),
       Future.value(
         TvState(
           entities: const [_entity],

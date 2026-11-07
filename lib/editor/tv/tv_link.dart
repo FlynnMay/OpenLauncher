@@ -21,13 +21,17 @@ import 'package:openlauncher_domain/commands/commands.dart';
 /// Provider overrides that run the launcher in a browser: config, entities
 /// and wallpapers come from the TV, and config changes go back to it.
 final List<Override> tvOverrides = [
-  commandsProvider.overrideWith((ref) => TvCommands(ref.watch(tvApiProvider))),
+  commandsProvider.overrideWith(
+    (ref) => TvCommands(
+      ref.watch(tvApiProvider),
+      onRan: ref.read(historyProvider.notifier).recordChange,
+    ),
+  ),
   configStoreProvider.overrideWith(
     // A new store per state, so the config is re-read.
     (ref) => TvConfigStore(
-      ref.watch(tvApiProvider),
+      ref.watch(commandsProvider),
       ref.watch(tvStateProvider.future),
-      onSaved: ref.read(historyProvider.notifier).recordChange,
     ),
   ),
   entitiesProvider.overrideWith(
@@ -74,13 +78,10 @@ final List<Override> tvOverrides = [
 
 /// The TV's config. Saving sends what changed.
 class TvConfigStore implements ConfigStore {
-  TvConfigStore(this._api, this._state, {this.onSaved});
+  TvConfigStore(this._commands, this._state);
 
-  final TvApi _api;
+  final Commands _commands;
   final Future<TvState> _state;
-
-  /// Told when a save that changed something has been done.
-  final void Function()? onSaved;
 
   /// What the TV has: last received or last sent.
   LauncherConfig? _known;
@@ -111,10 +112,8 @@ class TvConfigStore implements ConfigStore {
       if (changed.isNotEmpty) SetConfig(TvApi.withMediaIds(changed)),
     ];
     if (steps.isNotEmpty) {
-      final step = steps.length == 1 ? steps.single : Batch(steps);
-      await _api.command(step.toJson());
+      await _commands.run(steps.length == 1 ? steps.single : Batch(steps));
     }
-    onSaved?.call();
   }
 }
 

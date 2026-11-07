@@ -46,42 +46,17 @@ class ScreenService {
   Future<String?> rename({String? id, required String name}) async {
     final screen = await _screenNamed(id);
     if (screen == null) return noSuchScreen;
-    await _edit(
-      (layout) => layout.copyWith(
-        screens: [
-          for (final one in layout.screens)
-            one.id == screen.id
-                ? one.withRoot(one.root.copyWith(name: name))
-                : one,
-        ],
-      ),
-    );
+    await _ref.read(commandsProvider).run(RenameScreen(screen.id, name));
     return null;
   }
 
   Future<String?> duplicate({String? id}) async {
     final original = await _screenNamed(id);
     if (original == null) return noSuchScreen;
-    final free = freeId(original.id, (await _layout()).itemIds);
-    final (:screen, :renamed) = original.copied(free);
-    await _ref
-        .read(configProvider.notifier)
-        .change(
-          (config) => config.copyWith(
-            // Pictures set on a node go with its copy.
-            iconOverrides: _picturesCopied(config.iconOverrides, renamed),
-            iconSources: _picturesCopied(config.iconSources, renamed),
-            layout: config.layout.copyWith(
-              screens: [
-                for (final one in config.layout.screens) ...[
-                  one,
-                  if (one.id == original.id) screen,
-                ],
-              ],
-            ),
-          ),
-        );
-    return 'Screen "$free" was added.';
+    final command = DuplicateScreen(original.id);
+    final copyId = command.copyIdIn(await _layout());
+    await _ref.read(commandsProvider).run(command);
+    return 'Screen "$copyId" was added.';
   }
 
   /// The screen to open on, none to keep it; [remember] opens on the screen
@@ -90,14 +65,9 @@ class ScreenService {
     if (id != null && await _screenNamed(id) == null) {
       return 'There is no screen "$id".';
     }
-    await _edit(
-      (layout) => layout.copyWith(
-        startup: Startup(
-          id ?? layout.startup.screen,
-          remember: remember ?? layout.startup.remember,
-        ),
-      ),
-    );
+    await _ref
+        .read(commandsProvider)
+        .run(SetStartup(screenId: id, remember: remember));
     return null;
   }
 
@@ -108,22 +78,6 @@ class ScreenService {
   Future<Screen?> _screenNamed(String? id) async => id == null
       ? _ref.read(currentScreenProvider)
       : (await _layout()).screen(id);
-
-  Future<void> _edit(Layout Function(Layout layout) change) async {
-    final layout = await _layout();
-    await _ref.read(configProvider.notifier).setLayout(change(layout));
-  }
-
-  /// [pictures] with the entries of the nodes in [renamed] repeated for
-  /// their new ids.
-  static Map<String, String> _picturesCopied(
-    Map<String, String> pictures,
-    Map<String, String> renamed,
-  ) => {
-    ...pictures,
-    for (final MapEntry(:key, :value) in renamed.entries)
-      Layout.pictureKey(value): ?pictures[Layout.pictureKey(key)],
-  };
 }
 
 final screenServiceProvider = Provider<ScreenService>(ScreenService.new);

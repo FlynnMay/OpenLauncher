@@ -60,7 +60,6 @@ Future<void> runCommand(
   final messenger = ScaffoldMessenger.of(context);
   try {
     await ref.read(commandsProvider).run(command);
-    ref.read(historyProvider.notifier).recordChange();
   } on CommandRefused catch (refused) {
     messenger.showSnackBar(SnackBar(content: Text(refused.message)));
   } on Object catch (error) {
