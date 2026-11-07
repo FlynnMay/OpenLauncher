@@ -1,5 +1,6 @@
-import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// True for the left and right edges, false for the top and bottom.
 bool? _upright(String? dock) => switch (dock) {

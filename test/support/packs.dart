@@ -13,8 +13,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/editor/editing/docked_prefabs.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
+import 'package:openlauncher_domain/editing/docked_prefabs.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
 /// with no font loaded.

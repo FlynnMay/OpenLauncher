@@ -1,10 +1,16 @@
 import 'dart:math';
-import 'dart:ui';
 
-import 'package:openlauncher/core/actions/actions.dart';
-import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/editing/docked_prefabs.dart';
+import 'package:openlauncher_domain/actions/act.dart';
+import 'package:openlauncher_domain/editing/docked_prefabs.dart';
+import 'package:openlauncher_domain/layout/layout_enums.dart';
+import 'package:openlauncher_domain/layout/layout_ids.dart';
+import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/placement.dart';
+import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/layout/tree.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// A drop target: [container], and either before child [before] (in order), at
 /// cell [x], [y] (a grid) or covering [rect] of a container of [size] (no
@@ -22,8 +28,8 @@ class Drop {
   final String container;
   final String? before;
   final double? x, y;
-  final Rect? rect;
-  final Size? size;
+  final Box? rect;
+  final Extent? size;
 
   @override
   bool operator ==(Object other) =>
@@ -41,10 +47,10 @@ class Drop {
 
 /// [item] moved to cover [rect] of a parent of [size]: anchored as it was,
 /// or pinned to the top left if it filled its last one.
-Node placedAt(Node item, Rect rect, Size size) => item.copyWith(
+Node placedAt(Node item, Box rect, Extent size) => item.copyWith(
   transform: item.transform.isFill
-      ? transformAt(rect)
-      : item.transform.covering(rect, size),
+      ? NodeTransform.atBox(rect)
+      : item.transform.coveringBox(rect, size),
 );
 
 /// [item] anchored at [x] and [y] (each axis's min and max) in a parent of
@@ -53,14 +59,14 @@ Node withAnchors(
   Node item,
   (double, double) x,
   (double, double) y,
-  Size size,
+  Extent size,
 ) => item.copyWith(
   transform: NodeTransform(
     minX: x.$1,
     maxX: x.$2,
     minY: y.$1,
     maxY: y.$2,
-  ).covering(item.transform.rectIn(size), size),
+  ).coveringBox(item.transform.boxIn(size), size),
 );
 
 /// A container with its screen, the docked container it is or is in (if any),
@@ -264,7 +270,7 @@ Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
           switch ((drop.rect, drop.size)) {
             (final rect?, final size?) => placedAt(item, rect, size),
             _ => item.copyWith(
-              transform: transformAt(const Rect.fromLTWH(0, 0, 160, 90)),
+              transform: NodeTransform.atBox(const Box.fromLTWH(0, 0, 160, 90)),
             ),
           },
         ];
@@ -427,12 +433,13 @@ Layout reshapeItem(
 });
 
 /// Moves [id] to cover [rect] of its parent, of [size], which has no layout.
-Layout placeItem(Layout layout, String id, Rect rect, Size size) => changeItems(
-  layout,
-  {id},
-  (item, parent) =>
-      parent.mode == LayoutMode.free ? placedAt(item, rect, size) : item,
-);
+Layout placeItem(Layout layout, String id, Box rect, Extent size) =>
+    changeItems(
+      layout,
+      {id},
+      (item, parent) =>
+          parent.mode == LayoutMode.free ? placedAt(item, rect, size) : item,
+    );
 
 /// Sets one Sizing field (`w`, `h`, `x`, `y`, `flex`, `aspect`) on [ids].
 /// Setting x or y alone starts the other at 0; clearing one clears both.
@@ -517,7 +524,7 @@ Node withMode(Node container, LayoutMode mode) {
       ? placeItems(container.children, container.reach, container.mode)
       : [
           for (final child in container.children)
-            switch (child.transform.rectIn(const Size(960, 540))) {
+            switch (child.transform.boxIn(const Extent(960, 540))) {
               final rect => Placement(rect.left, rect.top, 1, 1),
             },
         ];

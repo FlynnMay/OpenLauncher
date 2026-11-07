@@ -51,7 +51,9 @@ class Act {
 
   @override
   bool operator ==(Object other) =>
-      other is Act && other.name == name && const MapEquality<String, Object?>().equals(other.args, args);
+      other is Act &&
+      other.name == name &&
+      const MapEquality<String, Object?>().equals(other.args, args);
 
   @override
   int get hashCode => Object.hash(name, Object.hashAllUnordered(args.keys));

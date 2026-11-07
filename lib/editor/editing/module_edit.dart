@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/editor/editing/layout_edit.dart';
+import 'package:openlauncher_domain/editing/layout_edit.dart';
 
 /// [node] with [type] added, and the modules it needs. A Layout places the
 /// children it takes over.

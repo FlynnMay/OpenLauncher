@@ -4,7 +4,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/editor/editing/prefab_edit.dart';
+import 'package:openlauncher_domain/editing/prefab_edit.dart';
 
 /// A prefab opened for editing in place of the layout: the variant shown,
 /// the height in TV pixels it is drawn at where that is not its own (a card

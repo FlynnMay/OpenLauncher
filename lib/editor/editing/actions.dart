@@ -9,11 +9,11 @@ import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/dragging.dart';
 import 'package:openlauncher/editor/editing/history.dart';
-import 'package:openlauncher/editor/editing/layout_edit.dart';
 import 'package:openlauncher/editor/editing/prefab_actions.dart';
-import 'package:openlauncher/editor/editing/prefab_edit.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
+import 'package:openlauncher_domain/editing/layout_edit.dart';
+import 'package:openlauncher_domain/editing/prefab_edit.dart';
 
 /// Changes what is being edited, the layout or the open prefab, through the
 /// config controller, which updates the screen and sends it to the TV.

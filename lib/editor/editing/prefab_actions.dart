@@ -9,10 +9,10 @@ import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
-import 'package:openlauncher/editor/editing/layout_edit.dart';
-import 'package:openlauncher/editor/editing/prefab_edit.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
+import 'package:openlauncher_domain/editing/layout_edit.dart';
+import 'package:openlauncher_domain/editing/prefab_edit.dart';
 
 /// Marks a prefab or an instance of one wherever it is shown.
 const prefabIcon = Icons.view_in_ar_outlined;
@@ -302,7 +302,7 @@ Future<void> createPrefab(
     name,
     // Placed by its transform: its size on the TV's screen.
     size: found.parent.mode == LayoutMode.free
-        ? found.item.transform.rectIn(const Size(960, 540)).size
+        ? found.item.transform.rectIn(const Size(960, 540)).size.extent
         : null,
   );
   await ref.read(configProvider.notifier).change((c) {

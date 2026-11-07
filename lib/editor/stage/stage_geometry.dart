@@ -40,9 +40,10 @@ Drop dropAt(
     return Drop(
       container.id,
       rect:
-          Offset(snapTo(topLeft.dx, step), snapTo(topLeft.dy, step)) &
-          rect.size,
-      size: size,
+          (Offset(snapTo(topLeft.dx, step), snapTo(topLeft.dy, step)) &
+                  rect.size)
+              .box,
+      size: size.extent,
     );
   }
   if (container.mode == LayoutMode.flow) {

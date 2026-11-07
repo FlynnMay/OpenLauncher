@@ -121,7 +121,7 @@ void main() {
       final dropped = dropItem(
         free,
         entity('n'),
-        const Drop('p', rect: rect, size: Size(800, 400)),
+        Drop('p', rect: rect.box, size: const Size(800, 400).extent),
       );
       final n = findItems(dropped, {'n'}).single.item;
       expect(n.transform, transformAt(rect));
@@ -138,8 +138,8 @@ void main() {
           ),
         ),
         's',
-        rect,
-        const Size(800, 400),
+        rect.box,
+        const Size(800, 400).extent,
       );
       final s = findItems(moved, {'s'}).single.item.transform;
       expect((s.minX, s.maxX), (0.5, 1));

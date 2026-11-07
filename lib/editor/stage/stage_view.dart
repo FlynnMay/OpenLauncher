@@ -355,8 +355,8 @@ class _StageState extends ConsumerState<Stage> {
       next = placeItem(
         layout,
         found.item.id,
-        resizedRect(found.item.transform.rectIn(size), handle, by, step),
-        size,
+        resizedRect(found.item.transform.rectIn(size), handle, by, step).box,
+        size.extent,
       );
     } else {
       final to = resizedTo(container, placed, metrics, handle, by, step);

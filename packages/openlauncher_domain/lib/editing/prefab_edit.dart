@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:ui';
 
-import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher_domain/layout/layout_ids.dart';
+import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/layout/tree.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// The container a prefab's root sits in while it is edited as a layout.
 const prefabStageId = 'prefab/stage';
@@ -382,7 +386,7 @@ const prefabCellWidth = 150.0;
   Node item,
   String id,
   String name, {
-  Size? size,
+  Extent? size,
 }) {
   const root = 'root';
   final taken = {for (final part in item.all.skip(1)) part.id};

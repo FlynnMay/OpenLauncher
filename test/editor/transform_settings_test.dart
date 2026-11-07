@@ -13,7 +13,7 @@ void main() {
       id: 'a',
       transform: transformAt(const Rect.fromLTWH(100, 50, 200, 100)),
     );
-    final stretched = withAnchors(node, (0, 1), (0.5, 0.5), parent);
+    final stretched = withAnchors(node, (0, 1), (0.5, 0.5), parent.extent);
     expect(stretched.transform.rectIn(parent), node.transform.rectIn(parent));
     expect(stretched.transform.toJson(), {
       'anchors': [0, 0.5, 1, 0.5],
