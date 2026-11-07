@@ -73,7 +73,10 @@ class PackContents {
 
   /// Reads [files], JSON text by path, giving the names in them their full
   /// ids. Throws a [FormatException] saying what is wrong.
-  static PackContents parse(Pack pack, Map<String, String> files) {
+  static PackContents parse(Pack pack, Map<String, String> files) =>
+      _Reading(pack, _decoded(files)).contents();
+
+  static Map<String, Object?> _decoded(Map<String, String> files) {
     final decoded = <String, Object?>{};
     for (final MapEntry(key: path, value: text) in files.entries) {
       if (!reads(path)) continue;
@@ -83,88 +86,37 @@ class PackContents {
         throw FormatException('$path is not JSON');
       }
     }
-    final glue = _Glue(pack, {
-      for (final MapEntry(key: path, value: json) in decoded.entries)
-        if (path.startsWith('entities/'))
-          if (json case {'id': final String id}) id,
-    });
+    return decoded;
+  }
+}
 
-    final entities = <Entity>[];
-    final sources = <String, Source>{};
-    final generators = <String, Generator>{};
-    final prefabs = <Prefab>[];
-    final screens = <String, Screen>{};
-    String? start, inbox;
+/// A pack's files being read into its [PackContents].
+class _Reading {
+  _Reading(this.pack, this.decoded)
+    : glue = _Glue(pack, {
+        for (final MapEntry(key: path, value: json) in decoded.entries)
+          if (path.startsWith('entities/'))
+            if (json case {'id': final String id}) id,
+      });
+
+  final Pack pack;
+  final Map<String, Object?> decoded;
+  final _Glue glue;
+
+  final entities = <Entity>[];
+  final sources = <String, Source>{};
+  final generators = <String, Generator>{};
+  final prefabs = <Prefab>[];
+  final screens = <String, Screen>{};
+  String? start, inbox;
+
+  PackContents contents() {
     for (final MapEntry(key: path, value: json) in decoded.entries) {
-      final [folder, file] = path.split('/');
-      final name = file.substring(0, file.length - '.json'.length);
-      switch (folder) {
-        case 'entities':
-          final entity = Entity.fromJson(glue.defined(path, json));
-          if (entity == null) throw FormatException('$path needs an "id"');
-          entities.add(entity);
-        case 'sources':
-          sources[name] =
-              Source.fromJson(json) ??
-              (throw FormatException(
-                '$path needs a "url" starting http://, https://, os:// or '
-                'launcher://',
-              ));
-        case 'generators':
-          final generator = Generator.fromJson(glue.generator(path, json));
-          if (generator == null) {
-            throw FormatException('$path needs "from" and "entity"');
-          }
-          generators[name] = generator;
-        case 'prefabs':
-          final prefab = Prefab.fromJson(glue.defined(path, json));
-          if (prefab == null) {
-            throw FormatException('$path needs an "id" and a "root"');
-          }
-          prefabs.add(prefab);
-        case 'screens':
-          if (glue.defined(path, json)
-              case {'id': final String id} &&
-                  final Map<Object?, Object?> json) {
-            screens[id] = Screen.fromJson(json);
-            if (json['start'] == true && start == null) {
-              start = id;
-              inbox = jsonOptional<String>(json, 'inbox');
-            }
-          } else {
-            throw FormatException('$path needs an "id"');
-          }
-      }
+      _read(path, json);
     }
-    for (final other in glue.named) {
-      if (other != pack.id && !pack.requires.contains(other)) {
-        throw FormatException(
-          'It names the pack "$other", which pack.json does not require',
-        );
-      }
-    }
-    for (final entity in [
-      ...entities,
-      for (final generator in generators.values)
-        ?Entity.fromJson(generator.entity),
-    ]) {
-      if (entity.feed case final feed?
-          when !feed.isAddress && feed.name != null) {
-        if (!sources.containsKey(feed.name)) {
-          throw FormatException(
-            '"${entity.id}" is fed by "${feed.name}", which is not in sources/',
-          );
-        }
-      }
-    }
-    for (final MapEntry(key: name, value: generator) in generators.entries) {
-      if (!sources.containsKey(generator.from)) {
-        throw FormatException(
-          'generators/$name.json reads "${generator.from}", which is not in '
-          'sources/',
-        );
-      }
-    }
+    _requireNamedPacksListed();
+    _requireSourcesOfFeeds();
+    _requireSourcesOfGenerators();
     return PackContents(
       pack,
       entities: entities,
@@ -175,6 +127,100 @@ class PackContents {
       start: start,
       inbox: inbox,
     );
+  }
+
+  void _read(String path, Object? json) {
+    final [folder, file] = path.split('/');
+    final name = file.substring(0, file.length - '.json'.length);
+    switch (folder) {
+      case 'entities':
+        _readEntity(path, json);
+      case 'sources':
+        sources[name] =
+            Source.fromJson(json) ??
+            (throw FormatException(
+              '$path needs a "url" starting http://, https://, os:// or '
+              'launcher://',
+            ));
+      case 'generators':
+        _readGenerator(path, name, json);
+      case 'prefabs':
+        _readPrefab(path, json);
+      case 'screens':
+        _readScreen(path, json);
+    }
+  }
+
+  void _readEntity(String path, Object? json) {
+    final entity = Entity.fromJson(glue.defined(path, json));
+    if (entity == null) throw FormatException('$path needs an "id"');
+    entities.add(entity);
+  }
+
+  void _readGenerator(String path, String name, Object? json) {
+    final generator = Generator.fromJson(glue.generator(path, json));
+    if (generator == null) {
+      throw FormatException('$path needs "from" and "entity"');
+    }
+    generators[name] = generator;
+  }
+
+  void _readPrefab(String path, Object? json) {
+    final prefab = Prefab.fromJson(glue.defined(path, json));
+    if (prefab == null) {
+      throw FormatException('$path needs an "id" and a "root"');
+    }
+    prefabs.add(prefab);
+  }
+
+  void _readScreen(String path, Object? json) {
+    if (glue.defined(path, json)
+        case {'id': final String id} && final Map<Object?, Object?> json) {
+      screens[id] = Screen.fromJson(json);
+      if (json['start'] == true && start == null) {
+        start = id;
+        inbox = jsonOptional<String>(json, 'inbox');
+      }
+    } else {
+      throw FormatException('$path needs an "id"');
+    }
+  }
+
+  void _requireNamedPacksListed() {
+    for (final other in glue.named) {
+      if (other != pack.id && !pack.requires.contains(other)) {
+        throw FormatException(
+          'It names the pack "$other", which pack.json does not require',
+        );
+      }
+    }
+  }
+
+  void _requireSourcesOfFeeds() {
+    final generated = generators.values.map(
+      (generator) => Entity.fromJson(generator.entity),
+    );
+    for (final entity in [...entities, ...generated.nonNulls]) {
+      if (entity.feed case final feed?
+          when !feed.isAddress && feed.name != null) {
+        if (!sources.containsKey(feed.name)) {
+          throw FormatException(
+            '"${entity.id}" is fed by "${feed.name}", which is not in sources/',
+          );
+        }
+      }
+    }
+  }
+
+  void _requireSourcesOfGenerators() {
+    for (final MapEntry(key: name, value: generator) in generators.entries) {
+      if (!sources.containsKey(generator.from)) {
+        throw FormatException(
+          'generators/$name.json reads "${generator.from}", which is not in '
+          'sources/',
+        );
+      }
+    }
   }
 }
 
@@ -239,15 +285,18 @@ class _Glue {
       ? text
       : text.replaceAllMapped(
           _slot,
-          (slot) =>
-              '{{${slot[1]!.replaceAllMapped(_unquoted, (part) {
-                if (part[1] != null) return part[0]!;
-                return part[0]!.replaceAllMapped(_root, (root) {
-                  final name = root[2]!;
-                  return entities.contains(name) ? '${root[1]}${pack.id}:$name' : root[0]!;
-                });
-              })}}}',
+          (slot) => '{{${_withUnquotedRootsInFull(slot[1]!)}}}',
         );
+
+  String _withUnquotedRootsInFull(String path) => path.replaceAllMapped(
+    _unquoted,
+    (part) => part[1] != null ? part[0]! : _withRootsInFull(part[0]!),
+  );
+
+  String _withRootsInFull(String text) => text.replaceAllMapped(_root, (root) {
+    final name = root[2]!;
+    return entities.contains(name) ? '${root[1]}${pack.id}:$name' : root[0]!;
+  });
 
   static final _unquoted = RegExp('(\'[^\']*\'|"[^"]*")|[^\'"]+');
 
@@ -267,25 +316,33 @@ class _Glue {
             ('prefab' || 'card' || 'template', final String prefab) => _ref(
               prefab,
             ),
-            ('variables', final Map<Object?, Object?> vars) => {
-              for (final MapEntry(key: name, value: variable) in vars.entries)
-                '$name': switch (variable) {
-                  {'type': 'entity', 'value': final String id} => {
-                    ..._tree(variable) as Map<String, Object?>,
-                    'value': _ref(id),
-                  },
-                  _ => _tree(variable),
-                },
-            },
+            ('variables', final Map<Object?, Object?> vars) => _variablesInFull(
+              vars,
+            ),
             ('entity', final String entity) => _ref(entity),
-            ('prefabRules', final Map<Object?, Object?> rules) => {
-              for (final MapEntry(:key, :value) in rules.entries)
-                if (key is String) _ref(key): _tree(value),
-            },
+            ('prefabRules', final Map<Object?, Object?> rules) => _rulesInFull(
+              rules,
+            ),
             _ => _tree(value),
           },
     },
     _ => json,
+  };
+
+  Map<String, Object?> _rulesInFull(Map<Object?, Object?> rules) => {
+    for (final MapEntry(:key, :value) in rules.entries)
+      if (key is String) _ref(key): _tree(value),
+  };
+
+  Map<String, Object?> _variablesInFull(Map<Object?, Object?> variables) => {
+    for (final MapEntry(key: name, value: variable) in variables.entries)
+      '$name': switch (variable) {
+        {'type': 'entity', 'value': final String id} => {
+          ..._tree(variable) as Map<String, Object?>,
+          'value': _ref(id),
+        },
+        _ => _tree(variable),
+      },
   };
 
   /// A generator's entity id is a template: its own text has no ":".
