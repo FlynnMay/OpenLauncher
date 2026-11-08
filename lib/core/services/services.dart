@@ -7,6 +7,7 @@ export 'input_service.dart';
 export 'layout_service.dart';
 export 'media_service.dart';
 export 'overlay_service.dart';
+export 'pack_service.dart';
 export 'screen_service.dart';
 export 'tv_settings_service.dart';
 export 'variable_service.dart';

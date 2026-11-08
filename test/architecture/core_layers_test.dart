@@ -31,7 +31,6 @@ const coreLayers = [
 const knownUpwardImports = {
   'config/launcher_config.dart -> entities/user_entities.dart',
   'entities/user_entities.dart -> operations/operation.dart',
-  'packs/pack_store.dart -> config/config.dart',
   'sources/source_endpoints.dart -> entities/entities_provider.dart',
   'sources/source_endpoints.dart -> overlays/overlays.dart',
   'sources/source_endpoints.dart -> updates/updates.dart',

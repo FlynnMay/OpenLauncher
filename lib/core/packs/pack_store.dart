@@ -6,7 +6,6 @@ import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/icon_set.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
@@ -321,25 +320,24 @@ class PackStore with ChangeNotifier {
     return pack;
   }
 
-  /// Removes pack [id] unless it is built in or the config names its icons.
-  Future<void> delete(String id) async {
-    final pack = (await list()).where((pack) => pack.id == id).firstOrNull;
+  /// Pack [id], if nothing but the config could stop its removal: it exists,
+  /// is not built in and no other pack needs it.
+  Future<Pack> removable(String id) async {
+    final packs = await list();
+    final pack = packs.where((pack) => pack.id == id).firstOrNull;
     if (pack == null) throw const PackRefused(404, 'No such pack');
     if (pack.builtIn) throw PackRefused(409, '"${pack.name}" is built in');
-    final needing = (await list()).where(
-      (other) => other.requires.contains(id),
-    );
+    final needing = packs.where((other) => other.requires.contains(id));
     if (needing.isNotEmpty) {
       throw PackRefused(409, '"${needing.first.name}" needs "${pack.name}"');
     }
-    final config = await _ref.read(configProvider.future);
-    final uses = pack.usesIn(config.toJson());
-    if (uses > 0) {
-      throw PackRefused(
-        409,
-        '"${pack.name}" is in use in $uses ${uses == 1 ? 'place' : 'places'}',
-      );
-    }
+    return pack;
+  }
+
+  /// Removes pack [id] if [removable]. Whether the config uses it is the
+  /// caller's to check.
+  Future<void> delete(String id) async {
+    await removable(id);
     await Directory(p.join((await _dir()).path, id)).delete(recursive: true);
     notifyListeners();
   }

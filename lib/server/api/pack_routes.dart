@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -39,7 +40,7 @@ class PackRoutes implements ApiRoutes {
   Future<Response> _deletePack(Request request) async {
     final id = request.url.queryParameters['id'];
     if (id == null) throw const FormatException('"id" must name a pack');
-    await _store.delete(id);
+    await _ref.read(packServiceProvider).delete(id);
     return emptyJsonResponse();
   }
 }
