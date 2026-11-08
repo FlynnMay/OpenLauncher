@@ -95,28 +95,21 @@ class TvConfigStore implements ConfigStore {
     _known = config;
     // Only the user's own layout is sent; the TV has the starting one.
     final revert = !config.ownLayout && known.ownLayout;
-    final layout =
-        config.ownLayout &&
-        (!known.ownLayout ||
-            jsonEncode(config.layout) != jsonEncode(known.layout));
     // Compared key by key.
     final was = known.open, now = config.open;
     final changed = {
       for (final key in LauncherConfig.openKeys)
         if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
     };
-    // Prefabs go one by one, so another editor's are not overwritten.
-    final prefabs = changed.remove(ChangePrefabs.settingName);
-    final prefabChange = prefabs == null
-        ? null
-        : ChangePrefabs.turning(
-            was[ChangePrefabs.settingName] as List<Object?>,
-            prefabs as List<Object?>,
-          );
+    // The layout and the prefabs are changed by slice edits, never by sending
+    // them again.
+    if (changed.containsKey('prefabs') ||
+        (config.ownLayout &&
+            jsonEncode(config.layout) != jsonEncode(known.layout))) {
+      throw StateError('The layout and the prefabs are changed with edits.');
+    }
     final steps = [
       if (revert) const ResetLayoutToStarting(),
-      if (layout) PatchLayout.turning(known.layout, config.layout),
-      if (prefabChange != null && !prefabChange.isEmpty) prefabChange,
       if (changed.isNotEmpty) SetConfig(TvApi.withMediaIds(changed)),
     ];
     if (steps.isNotEmpty) {

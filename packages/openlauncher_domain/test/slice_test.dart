@@ -94,6 +94,7 @@ Document undone(Document after, List<SliceEdit> inverse) {
 }
 
 void main() {
+  stepThreeTests();
   stepTwoTests();
   group('Address', () {
     test('is read and written back', () {
@@ -466,13 +467,224 @@ void stepTwoTests() {
         ..edit('picture', 'fit', 'contain');
       final two = Slice.load(before, 'layout:b/image')
         ..revert('picture', 'fit');
-      final command = EditSlice.of([one.save(), two.save()]);
+      final command = EditSlice([one.save(), two.save()]);
       final read = commandFromJson(command.toJson());
       final after = read.edit(before);
       expect(after.layout.node('a')!.overrides, isNotEmpty);
       expect(after.layout.node('b')!.overrides, isEmpty);
       final back = read.undoing(before).edit(after);
       expect(back.layout.toJson(), before.layout.toJson());
+    });
+  });
+}
+
+void stepThreeTests() {
+  Document withShipped() {
+    final base = document();
+    return Document(
+      layout: base.layout,
+      settings: {'prefabs': const []},
+      prefabs: base.prefabs,
+      shippedPrefabs: base.prefabs,
+    );
+  }
+
+  group('moving and docking', () {
+    test('a move is a cut and an insert in one command, undone as one', () {
+      final before = document();
+      final clip = NodeClip(before.layout.node('b')!, cut: true);
+      final command = EditSlice([
+        const SliceEdit(LayoutAddress('b'), [RemoveNode()]),
+        SliceEdit(LayoutAddress('c'), [Insert(Where.after, clip)]),
+      ]);
+      final after = command.edit(before);
+      expect(ids(after, 'main'), ['a', 'shelf']);
+      expect(ids(after, 'shelf'), ['c', 'b']);
+      expect(
+        command.undoing(before).edit(after).layout.toJson(),
+        before.layout.toJson(),
+      );
+    });
+
+    test('a node dropped on a grid takes the cell it is given', () {
+      final before = document();
+      final grid = Document(
+        layout: before.layout.withContainer(
+          'shelf',
+          (shelf) => shelf.copyWith(children: const []).withModule('layout', {
+            'mode': 'grid',
+            'columns': 4,
+          }),
+        ),
+        settings: before.settings,
+        prefabs: before.prefabs,
+      );
+      final clip = NodeClip(card('n'));
+      final result = SliceEdit(const LayoutAddress('shelf'), [
+        Insert(Where.into, clip, x: 2, y: 1),
+      ]).apply(grid);
+      final placed = result.document.layout.node('n')!;
+      expect((placed.x, placed.y), (2, 1));
+    });
+
+    test('a docked container is put in as it is, taking no cell', () {
+      final before = document();
+      final docked = Node.layout(id: 'drawer')
+          .withModule('dock', {'position': 'left'});
+      final result = SliceEdit(const LayoutAddress('main'), [
+        Insert(Where.into, NodeClip(docked)),
+      ]).apply(before);
+      final drawer = result.document.layout.node('drawer')!;
+      expect(drawer.modules['sizing'], isNull);
+      expect(
+        SliceEdit(const LayoutAddress('drawer'), const [
+          RemoveNode(),
+        ]).apply(result.document).document.layout.node('drawer'),
+        isNull,
+      );
+    });
+  });
+
+  group('the prefab library', () {
+    test('a new prefab is saved and a revert takes it away again', () {
+      final before = withShipped();
+      final prefab = Prefab(
+        id: 'fresh',
+        name: 'Fresh',
+        root: Node.layout(id: 'root'),
+      );
+      final result = SliceEdit(PrefabAddress('fresh'), [
+        SavePrefab(prefab),
+      ]).apply(before);
+      expect(result.document.prefabs.containsKey('fresh'), isTrue);
+      expect(result.document.settings['prefabs'], hasLength(1));
+      final back = undone(result.document, result.inverse);
+      expect(back.prefabs.containsKey('fresh'), isFalse);
+      expect(back.settings['prefabs'], isEmpty);
+    });
+
+    test('the user\'s copy of a pack prefab goes back to the pack\'s', () {
+      final before = withShipped();
+      final edited = cardPrefab().copyWith(name: 'Mine');
+      final saved = SliceEdit(PrefabAddress('card'), [
+        SavePrefab(edited),
+      ]).apply(before).document;
+      expect(saved.prefabs['card']!.name, 'Mine');
+      final reverted = const SliceEdit(PrefabAddress('card'), [
+        RevertPrefab(),
+      ]).apply(saved);
+      expect(reverted.document.prefabs['card']!.name, 'Card');
+      expect(reverted.document.settings['prefabs'], isEmpty);
+      expect(
+        undone(reverted.document, reverted.inverse).prefabs['card']!.name,
+        'Mine',
+      );
+    });
+
+    test(
+      'deleting a prefab unpacks its instances, and undo brings them back',
+      () {
+        final before = document();
+        final result = const SliceEdit(PrefabAddress('card'), [
+          DeletePrefab(),
+        ]).apply(before);
+        expect(result.document.layout.node('a')?.isInstance ?? false, isFalse);
+        expect(result.document.prefabs.containsKey('card'), isFalse);
+        final back = undone(result.document, result.inverse);
+        expect(back.layout.node('a')!.isInstance, isTrue);
+        expect(back.prefabs.containsKey('card'), isTrue);
+      },
+    );
+
+    test('a pack\'s prefab is reverted, not deleted', () {
+      expect(
+        () => const SliceEdit(PrefabAddress('card'), [
+          DeletePrefab(),
+        ]).apply(withShipped()),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+
+    test('a child is renamed and what names it follows', () {
+      final before = document();
+      final result = const SliceEdit(PrefabAddress('card', child: 'image'), [
+        RenameChild('picture'),
+      ]).apply(before);
+      final prefab = result.document.prefabs['card']!;
+      expect(prefab.root.all.map((n) => n.id), contains('picture'));
+      expect(prefab.root.all.map((n) => n.id), isNot(contains('image')));
+      expect(result.document.layout.node('b')!.overrides.keys, ['picture']);
+      final back = undone(result.document, result.inverse);
+      expect(back.layout.node('b')!.overrides.keys, ['image']);
+    });
+
+    test('another part of the prefab with that name refuses a rename', () {
+      expect(
+        () => const SliceEdit(PrefabAddress('card', child: 'image'), [
+          RenameChild('name'),
+        ]).apply(document()),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+
+    test('a container is made a prefab, and the undo puts it back', () {
+      final before = document();
+      final result = const SliceEdit(LayoutAddress('shelf'), [
+        MakePrefab('made', 'Made'),
+      ]).apply(before);
+      expect(result.document.layout.node('shelf')!.prefab, 'made');
+      expect(result.document.prefabs.containsKey('made'), isTrue);
+      final back = undone(result.document, result.inverse);
+      expect(back.layout.toJson(), before.layout.toJson());
+      expect(back.prefabs.containsKey('made'), isFalse);
+    });
+
+    test(
+      'the inbox made a prefab moves to a container, and an id is not reused',
+      () {
+        final before = document();
+        final inShelf = Document(
+          layout: before.layout.copyWith(inbox: 'shelf'),
+          settings: before.settings,
+          prefabs: before.prefabs,
+        );
+        final moved = const SliceEdit(LayoutAddress('shelf'), [
+          MakePrefab('made', 'Made'),
+        ]).apply(inShelf);
+        expect(moved.document.layout.inbox, isNot('shelf'));
+        expect(
+          moved.document.layout.node(moved.document.layout.inbox),
+          isNotNull,
+        );
+        expect(undone(moved.document, moved.inverse).layout.inbox, 'shelf');
+        expect(
+          () => const SliceEdit(LayoutAddress('main'), [
+            MakePrefab('made', 'Made'),
+          ]).apply(before),
+          throwsA(isA<CommandRefused>()),
+        );
+        expect(
+          () => const SliceEdit(LayoutAddress('shelf'), [
+            MakePrefab('card', 'Card'),
+          ]).apply(before),
+          throwsA(isA<CommandRefused>()),
+        );
+      },
+    );
+  });
+
+  group('the layout as a whole', () {
+    test('the removed apps and the inbox are set and undone', () {
+      final before = document();
+      final result = const SliceEdit(ConfigAddress(), [
+        SetRemoved({'app:z'}),
+        SetInbox('shelf'),
+      ]).apply(before);
+      expect(result.document.layout.removed, {'app:z'});
+      expect(result.document.layout.inbox, 'shelf');
+      final back = undone(result.document, result.inverse);
+      expect(back.layout.removed, before.layout.removed);
+      expect(back.layout.inbox, before.layout.inbox);
     });
   });
 }

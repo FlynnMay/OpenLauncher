@@ -39,6 +39,19 @@ List<String> ids(Layout layout, String container) => [
   throw StateError('$id is nowhere');
 }
 
+/// [layout] with an instance of [template] docked to [edge], if none is.
+Layout withDocked(Layout layout, String edge, Prefab template) =>
+    dockedOn(layout, edge) != null
+    ? layout
+    : SliceEdit(LayoutAddress(layout.start.root.id), [
+        Insert(
+          Where.into,
+          NodeClip(
+            dockedInstance(template, layout.containerIdFor(edge), dock: edge),
+          ),
+        ),
+      ]).apply(Document(layout: layout)).document.layout;
+
 void main() {
   group('settle', () {
     test('the fixed item gets its cell and what was there moves aside', () {

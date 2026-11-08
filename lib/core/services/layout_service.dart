@@ -5,6 +5,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// What is on a screen.
 class LayoutService {
@@ -30,7 +31,9 @@ class LayoutService {
     }
     final item = instanceFor(entity, layout, _ref.read(prefabsProvider));
     if (item == null) return '${entity.label} has no card to show it.';
-    await _change(layout, layout.withAdded(item, container));
+    await _run([
+      SliceEdit(LayoutAddress(container), [Insert(Where.into, NodeClip(item))]),
+    ]);
     return '${entity.label} was added.';
   }
 
@@ -39,7 +42,19 @@ class LayoutService {
   Future<String?> remove({required String what, String? screen}) async {
     final entities = await _ref.read(entitiesProvider.future);
     final layout = await _layoutAsEdited();
-    await _change(layout, layout.without({what}, screen: screen));
+    final screens = [
+      for (final one in layout.screens)
+        if (screen == null || one.id == screen) one,
+    ];
+    await _run([
+      for (final one in screens)
+        for (final node in one.root.all)
+          if (node.isInstance && node.handed.contains(what))
+            SliceEdit(LayoutAddress(node.id), const [RemoveNode()]),
+      SliceEdit(const ConfigAddress(), [
+        SetRemoved({...layout.removed, what}),
+      ]),
+    ]);
     final label = entities.byId(what)?.label ?? what;
     return '$label was removed. Add it again from the web page.';
   }
@@ -53,9 +68,8 @@ class LayoutService {
   );
 
   /// Done as the launcher's own command, so it is logged and shown to editors.
-  Future<void> _change(Layout before, Layout after) => _ref
-      .read(commandsProvider)
-      .run(PatchLayout.turning(before, after.normalised()));
+  Future<void> _run(List<SliceEdit> edits) =>
+      _ref.read(commandsProvider).run(EditSlice(edits));
 
   String _defaultContainer(Layout layout, Screen screen) =>
       _holds(screen, layout.inbox) ? layout.inbox : screen.root.id;

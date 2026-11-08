@@ -1,17 +1,14 @@
 import 'dart:math';
 
 import 'package:openlauncher_domain/actions/act.dart';
-import 'package:openlauncher_domain/editing/docked_prefabs.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/layout/layout_enums.dart';
-import 'package:openlauncher_domain/layout/layout_ids.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/placement.dart';
 import 'package:openlauncher_domain/layout/screen.dart';
 import 'package:openlauncher_domain/layout/tree.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
-import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// A drop target: [container], and either before child [before] (in order), at
 /// cell [x], [y] (a grid) or covering [rect] of a container of [size] (no
@@ -542,20 +539,6 @@ const dockEdges = ['left', 'right', 'top', 'bottom'];
 /// The container docked to [edge], if any.
 Node? dockedOn(Layout layout, String edge) =>
     layout.docked.where((container) => container.dock == edge).firstOrNull;
-
-/// Adds an instance of [prefab] docked to [edge], if none is.
-Layout withDocked(Layout layout, String edge, Prefab prefab) =>
-    dockedOn(layout, edge) != null
-    ? layout
-    : layout.withContainer(
-        layout.start.root.id,
-        (root) => root.copyWith(
-          children: [
-            ...root.children,
-            dockedInstance(prefab, layout.containerIdFor(edge), dock: edge),
-          ],
-        ),
-      );
 
 /// Edges with no container docked, or an empty one.
 List<String> freeEdges(Layout layout) => [

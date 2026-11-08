@@ -111,10 +111,10 @@ class SelectedProperties extends ConsumerWidget {
             prefabs: prefabs,
             item: single,
             onVariant: (name) => edit([SetVariant(name)]),
-            onOverride: (part, module, values) => runOnLibrary(
+            onOverride: (part, module, values) => runCommand(
               context,
               ref,
-              EditSlice(
+              EditSlice([
                 SliceEdit(
                   prefab == null
                       ? LayoutAddress.child(single.id, part)
@@ -124,14 +124,14 @@ class SelectedProperties extends ConsumerWidget {
                       SetField(module, key, value),
                   ],
                 ),
-              ),
+              ]),
             ),
-            onResetOverrides: () => runOnLibrary(
+            onResetOverrides: () => runCommand(
               context,
               ref,
-              EditSlice(
+              EditSlice([
                 SliceEdit(addressOf(ref, single.id), [SetOverrides(const {})]),
-              ),
+              ]),
             ),
             onOpen: () => openPrefab(ref, single.prefab!, from: single),
             onUnpack: () => edit(const [Unpack()]),
@@ -329,7 +329,9 @@ class _HandedNode extends ConsumerWidget {
                   ) &&
                   context.mounted) {
                 ref.read(selectionProvider.notifier).clear();
-                await runCommand(context, ref, RemoveNodes([node.id]));
+                await runEdits(context, ref, [
+                  SliceEdit(addressOf(ref, node.id), const [RemoveNode()]),
+                ]);
               }
             },
             icon: const Icon(Icons.delete_outline),

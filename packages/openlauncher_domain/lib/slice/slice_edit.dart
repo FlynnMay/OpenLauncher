@@ -1,6 +1,5 @@
 import 'package:openlauncher_domain/commands/command.dart';
 import 'package:openlauncher_domain/commands/document.dart';
-import 'package:openlauncher_domain/commands/prefab_commands.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/module_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
@@ -8,6 +7,7 @@ import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/layout/layout_enums.dart';
 import 'package:openlauncher_domain/layout/layout_ids.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/layout_repair.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
 import 'package:openlauncher_domain/prefabs/prefab.dart';
@@ -58,6 +58,14 @@ class SliceEdit {
   };
 }
 
+/// The setting the user's own prefabs are kept in.
+const prefabsSetting = 'prefabs';
+
+/// Why a variant cannot change what the prefab is made of.
+const variantsShareStructure =
+    'Variants share the prefab\'s structure, variables and actions. Switch '
+    'to the default variant to change them.';
+
 const _nothingThere = 'There is nothing there to change.';
 const _overridesOnly =
     'Only values can be changed there, since the prefab owns its modules.';
@@ -72,15 +80,19 @@ class _Applier {
   final inverse = <SliceEdit>[];
 
   void run(Address address, SliceOp op) {
-    final target = _targetFor(address);
+    final target = _targetFor(address, op);
     final undo = target.apply(op);
     inverse.insertAll(0, undo);
   }
 
-  _Target _targetFor(Address address) => switch (address) {
-    ConfigAddress() => throw const CommandRefused(
-      'Settings are not edited through a slice yet.',
-    ),
+  _Target _targetFor(Address address, SliceOp op) => switch (address) {
+    ConfigAddress() => _ConfigTarget(this),
+    PrefabAddress(:final prefabId, :final child)
+        when op is SavePrefab ||
+            op is RevertPrefab ||
+            op is DeletePrefab ||
+            op is RenameChild =>
+      _PrefabLevelTarget(this, prefabId, child),
     PrefabAddress(:final prefabId, :final variant, :final child) =>
       variant == null
           ? _StoredTarget(
@@ -116,18 +128,26 @@ class _Applier {
     throw const CommandRefused(_nothingThere);
   }
 
+  /// The prefabs that are the user's own.
+  List<Prefab> get ownPrefabs =>
+      Prefab.listFromJson(document.settings[prefabsSetting]);
+
   /// Sets the user's [prefab], and what every later operation sees of it.
-  void setPrefab(Prefab prefab) {
-    final own = withPrefab(
-      Prefab.listFromJson(document.settings[ChangePrefabs.settingName]),
-      prefab,
-    );
+  void setPrefab(Prefab prefab) =>
+      setOwnPrefabs(withPrefab(ownPrefabs, prefab));
+
+  /// Sets all the user's prefabs; what every later operation sees is those on
+  /// top of the pack's.
+  void setOwnPrefabs(List<Prefab> own) {
     document = document.copyWith(
       settings: {
         ...document.settings,
-        ChangePrefabs.settingName: [for (final one in own) one.toJson()],
+        prefabsSetting: [for (final one in own) one.toJson()],
       },
-      prefabs: {...document.prefabs, prefab.id: prefab},
+      prefabs: {
+        ...document.shippedPrefabs,
+        for (final prefab in own) prefab.id: prefab,
+      },
     );
   }
 

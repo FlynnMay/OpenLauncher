@@ -408,8 +408,15 @@ void main() {
       'POST',
       '/api/commands',
       body: {
-        'type': 'node.remove',
-        'ids': [card.id],
+        'type': 'slice.edit',
+        'edits': [
+          {
+            'address': 'layout:${card.id}',
+            'ops': [
+              {'op': 'remove'},
+            ],
+          },
+        ],
       },
     );
     expect(removed.statusCode, 200, reason: await removed.readAsString());
@@ -435,8 +442,15 @@ void main() {
       'POST',
       '/api/commands',
       body: {
-        'type': 'node.remove',
-        'ids': ['no-such-node'],
+        'type': 'slice.edit',
+        'edits': [
+          {
+            'address': 'layout:no-such-node',
+            'ops': [
+              {'op': 'remove'},
+            ],
+          },
+        ],
       },
     );
     expect(nothing.statusCode, 409);

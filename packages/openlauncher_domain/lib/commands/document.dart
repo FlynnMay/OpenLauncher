@@ -9,6 +9,7 @@ class Document {
     this.layoutIsTheUsers = true,
     this.startingLayout,
     this.prefabs = const {},
+    this.shippedPrefabs = const {},
   });
 
   final Layout layout;
@@ -26,6 +27,10 @@ class Document {
   /// command changes the user's through the `prefabs` setting.
   final Map<String, Prefab> prefabs;
 
+  /// The prefabs packs ship, by id: what a prefab goes back to when the user's
+  /// own copy of it is taken away.
+  final Map<String, Prefab> shippedPrefabs;
+
   Document copyWith({
     Layout? layout,
     Map<String, Object?>? settings,
@@ -37,5 +42,6 @@ class Document {
     layoutIsTheUsers: layoutIsTheUsers ?? this.layoutIsTheUsers,
     startingLayout: startingLayout,
     prefabs: prefabs ?? this.prefabs,
+    shippedPrefabs: shippedPrefabs,
   );
 }

@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
@@ -18,6 +19,7 @@ import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 import '../support/fake_tv.dart';
 import '../support/packs.dart';
@@ -85,38 +87,37 @@ void main() {
     await store.save(config);
     expect(tv.sent, isEmpty);
 
-    final emptied = config.copyWith(
-      layout: config.layout.without({'system:app/a'}),
-    );
-    await store.save(emptied);
-    expect(tv.sent, ['layout']);
+    await store.save(config.copyWith(toasts: const ToastOptions(seconds: 9)));
+    expect(tv.sent, ['config toasts']);
 
     // What was sent is what the TV now has.
-    await store.save(emptied.copyWith(toasts: const ToastOptions(seconds: 9)));
-    expect(tv.sent, ['layout', 'config toasts']);
+    await store.save(
+      config.copyWith(
+        toasts: const ToastOptions(seconds: 9),
+        wallpaperEvery: 7,
+      ),
+    );
+    expect(tv.sent, ['config toasts', 'config wallpaperEvery']);
   });
 
-  test('a changed prefab goes alone, with the layout it came with', () async {
+  test('the layout and the prefabs are not sent again, only edited', () async {
     final tv = _Tv();
     final store = TvConfigStore(TvCommands(tv), Future.value(_state()));
     final config = await store.load();
+
+    expect(
+      store.save(
+        config.copyWith(layout: config.layout.without({'system:app/a'})),
+      ),
+      throwsStateError,
+    );
     final prefab = Prefab(
       id: 'mine',
       name: 'Mine',
       root: Node(id: 'root'),
     );
-
-    await store.save(config.copyWith(prefabs: [prefab]));
-    expect(tv.sent, ['prefabs']);
-
-    await store.save(
-      config.copyWith(
-        prefabs: [prefab],
-        layout: config.layout.without({'system:app/a'}),
-        names: const {'system:app/a': 'Films'},
-      ),
-    );
-    expect(tv.sent.last, 'layout + config names');
+    expect(store.save(config.copyWith(prefabs: [prefab])), throwsStateError);
+    expect(tv.sent, isEmpty);
   });
 
   test('commands the TV announces are heard apart from its states', () async {
@@ -181,10 +182,12 @@ void main() {
     await store.save(saved);
     expect(tv.sent, ['config toasts']);
 
-    final edited = saved.copyWith(layout: homeLayout(['system:app/a']));
-    await store.save(edited);
-    await store.save(edited.copyWith(layout: homeLayout(), ownLayout: false));
-    expect(tv.sent, ['config toasts', 'layout', 'revert']);
+    // Reverting to the starting layout is what is sent when the TV had its own.
+    final ownTv = _Tv();
+    final own = TvConfigStore(TvCommands(ownTv), Future.value(_state()));
+    final had = await own.load();
+    await own.save(had.copyWith(layout: homeLayout(), ownLayout: false));
+    expect(ownTv.sent, ['revert']);
   });
 
   testWidgets('the launcher runs on what the TV sends, and edits go back', (
@@ -217,14 +220,20 @@ void main() {
     // picture, its name is on it as well as under it.
     expect(find.text('Alpha'), findsNWidgets(2));
 
-    // A change made through the launcher's own controller reaches the TV.
+    // An edit made here reaches the TV as it is.
     final layout = ref.read(configProvider).value!.layout;
+    final card = layout.items.firstWhere(
+      (item) => item.handed.contains('system:app/a'),
+    );
     await ref
-        .read(configProvider.notifier)
-        .setLayout(layout.without({'system:app/a'}));
+        .read(commandsProvider)
+        .run(
+          EditSlice([
+            SliceEdit(LayoutAddress(card.id), const [RemoveNode()]),
+          ]),
+        );
     await tester.pumpAndSettle();
-    expect(tv.sent, ['layout']);
-    expect(find.text('Alpha'), findsNothing);
+    expect(tv.sent, ['edit 1']);
   });
 
   testWidgets('an entity pressed here is opened on the TV', (tester) async {

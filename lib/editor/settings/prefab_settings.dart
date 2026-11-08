@@ -7,7 +7,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/visibility_editor.dart';
 import 'package:openlauncher/editor/settings/style_settings.dart';
-import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 List<Field> _optionsOf(Node part) => part.visual?.fields ?? const [];
 
@@ -353,11 +353,11 @@ class PrefabDetails extends ConsumerWidget {
         value: prefab.name,
         onChanged: (name) {
           if (name.isEmpty) return;
-          runOnLibrary(
-            context,
-            ref,
-            ChangePrefabs(upserted: [prefab.copyWith(name: name).toJson()]),
-          );
+          runEdits(context, ref, [
+            SliceEdit(PrefabAddress(prefab.id), [
+              SavePrefab(prefab.copyWith(name: name)),
+            ]),
+          ]);
         },
       ),
       Text(_used(ref, prefab), style: Theme.of(context).textTheme.bodySmall),

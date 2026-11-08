@@ -112,6 +112,7 @@ class CommandRunner implements Commands {
       layoutIsTheUsers: config.ownLayout,
       startingLayout: (await _ref.read(startingLayoutProvider.future)).layout,
       prefabs: _ref.read(prefabsProvider),
+      shippedPrefabs: _ref.read(shippedPrefabsProvider),
     );
     final after = command.edit(before);
     final back = command.undoing(before);

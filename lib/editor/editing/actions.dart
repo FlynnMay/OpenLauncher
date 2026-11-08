@@ -13,48 +13,10 @@ import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/editing/docked_prefabs.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
 import 'package:openlauncher_domain/slice/slice.dart';
-
-/// Changes what is being edited, the layout or the open prefab, by sending
-/// the difference [change] makes, so what it did not touch is left as it is.
-Future<void> changeLayout(
-  BuildContext context,
-  WidgetRef ref,
-  Layout Function(Layout layout) change,
-) async {
-  final layout = ref.read(editedLayoutProvider);
-  if (layout == null) return;
-  final PatchLayout patch;
-  try {
-    patch = PatchLayout.turning(layout, change(layout));
-  } on Object catch (error) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Could not save: $error')));
-    return;
-  }
-  if (!patch.isEmpty) await runCommand(context, ref, patch);
-}
-
-/// Does [command] to what is being edited. The TV does it, so its rules hold
-/// and its other editors are not overwritten; undo is the TV's, and the editor
-/// keeps what was selected and open. In an open prefab the TV does it to that
-/// prefab.
-Future<void> runCommand(
-  BuildContext context,
-  WidgetRef ref,
-  Command command,
-) async {
-  final prefab = ref.read(editedPrefabProvider);
-  return runOnLibrary(
-    context,
-    ref,
-    prefab == null
-        ? command
-        : InPrefab(prefab.id, ref.read(prefabModeProvider)?.variant, command),
-  );
-}
 
 /// Where node [id] is in what is being edited: on the screens, or in the open
 /// prefab as the shown variant has it.
@@ -69,24 +31,10 @@ Address addressOf(WidgetRef ref, String id) {
   );
 }
 
-/// Does [opsByNode] to the nodes, by id, as one step; the TV applies them.
-Future<void> editNodes(
-  BuildContext context,
-  WidgetRef ref,
-  Map<String, List<SliceOp>> opsByNode,
-) {
-  final edits = [
-    for (final MapEntry(:key, :value) in opsByNode.entries)
-      if (value.isNotEmpty) SliceEdit(addressOf(ref, key), value),
-  ];
-  return edits.isEmpty
-      ? Future.value()
-      : runOnLibrary(context, ref, EditSlice.of(edits));
-}
-
-/// Does [command] on the whole config, the layout and the prefabs, even with
-/// a prefab open.
-Future<void> runOnLibrary(
+/// Does [command] on the config. The TV does it, so its rules hold and its
+/// other editors are not overwritten; undo is the TV's, and the editor keeps
+/// what was selected and open. A refusal is shown, not thrown.
+Future<void> runCommand(
   BuildContext context,
   WidgetRef ref,
   Command command,
@@ -100,6 +48,27 @@ Future<void> runOnLibrary(
     messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
     ref.invalidate(configProvider);
   }
+}
+
+/// Does [edits] as one step, the first done first.
+Future<void> runEdits(
+  BuildContext context,
+  WidgetRef ref,
+  List<SliceEdit> edits,
+) =>
+    edits.isEmpty ? Future.value() : runCommand(context, ref, EditSlice(edits));
+
+/// Does [opsByNode] to the nodes, by id, as one step; the TV applies them.
+Future<void> editNodes(
+  BuildContext context,
+  WidgetRef ref,
+  Map<String, List<SliceOp>> opsByNode,
+) {
+  final edits = [
+    for (final MapEntry(:key, :value) in opsByNode.entries)
+      if (value.isNotEmpty) SliceEdit(addressOf(ref, key), value),
+  ];
+  return runEdits(context, ref, edits);
 }
 
 /// Runs the launcher operation [name] and shows what it answers.
@@ -187,7 +156,26 @@ Future<void> placeDragged(
                 : variable,
         });
   }
-  await runCommand(context, ref, DropNode(item, drop, opens: opens));
+  final exists = findItems(layout, {item.id}).isNotEmpty;
+  await runEdits(context, ref, [
+    // A node already there is moved: cut, then put.
+    if (exists) SliceEdit(addressOf(ref, item.id), const [RemoveNode()]),
+    SliceEdit(addressOf(ref, drop.before ?? drop.container), [
+      Insert(
+        drop.before == null ? Where.into : Where.before,
+        NodeClip(item, cut: exists),
+        x: drop.x,
+        y: drop.y,
+        rect: drop.rect,
+        size: drop.size,
+      ),
+    ]),
+    // The container a new card opens is docked on the startup screen.
+    if (opens != null)
+      SliceEdit(addressOf(ref, layout.start.root.id), [
+        Insert(Where.into, NodeClip(opens)),
+      ]),
+  ]);
 }
 
 /// Docks a container made from [template] to [edge] if none is, and selects it,
@@ -200,20 +188,17 @@ Future<void> dockPrefab(
 ) async {
   final before = ref.read(editedLayoutProvider);
   if (before == null) return;
-  // The dock is looked for in what was sent: the page hears the TV's answer
-  // later.
-  final sent = withDocked(before, edge, template);
-  if (dockedOn(before, edge) == null) {
-    await runCommand(context, ref, DockPrefab(edge, template));
+  final existing = dockedOn(before, edge);
+  final id = existing?.id ?? before.containerIdFor(edge);
+  if (existing == null) {
+    await runEdits(context, ref, [
+      SliceEdit(addressOf(ref, before.start.root.id), [
+        Insert(Where.into, NodeClip(dockedInstance(template, id, dock: edge))),
+      ]),
+    ]);
   }
   if (!context.mounted) return;
-  final selection = ref.read(selectionProvider.notifier);
-  switch (dockedOn(sent, edge)) {
-    case final docked?:
-      selection.tap(docked.id, adding: false);
-    case null:
-      selection.clear();
-  }
+  ref.read(selectionProvider.notifier).tap(id, adding: false);
 }
 
 /// Docks a container made from [template] to the first free edge.
@@ -237,13 +222,17 @@ Future<void> removeDragged(
   BuildContext context,
   WidgetRef ref,
   Dragged dragged,
-) => runCommand(context, ref, RemoveNodes([dragged.item.id]));
+) => runEdits(context, ref, [
+  SliceEdit(addressOf(ref, dragged.item.id), const [RemoveNode()]),
+]);
 
 Future<void> removeSelected(BuildContext context, WidgetRef ref) async {
   final ids = ref.read(selectionProvider);
   if (ids.isEmpty) return;
   // Still selected when the change is recorded, so undo selects them again.
-  await runCommand(context, ref, RemoveNodes(ids.toList()));
+  await runEdits(context, ref, [
+    for (final id in ids) SliceEdit(addressOf(ref, id), const [RemoveNode()]),
+  ]);
   ref.read(selectionProvider.notifier).clear();
 }
 

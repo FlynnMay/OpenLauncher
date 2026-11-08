@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -10,6 +11,7 @@ import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 import '../support/fake_tv.dart';
 import '../support/packs.dart';
@@ -48,6 +50,21 @@ void main() {
     ConfigController controller() => container.read(configProvider.notifier);
     History history() => container.read(historyProvider.notifier);
     Moments moments() => container.read(historyProvider);
+
+    /// Takes the cards that hold [entity] off the screen, as one edit.
+    Future<void> takeOff(String entity) async {
+      await container
+          .read(commandsProvider)
+          .run(
+            EditSlice([
+              for (final item in config().layout.items)
+                if (item.handed.contains(entity))
+                  SliceEdit(LayoutAddress(item.id), const [RemoveNode()]),
+            ]),
+          );
+      await pumpEventQueue();
+    }
+
     bool placed(String id) =>
         config().layout.items.any((item) => item.handed.contains(id));
 
@@ -56,7 +73,7 @@ void main() {
           .firstWhere((item) => item.handed.contains('system:app/a'))
           .id;
       container.read(selectionProvider.notifier).tap(card, adding: false);
-      await controller().setLayout(config().layout.without({'system:app/a'}));
+      await takeOff('system:app/a');
       container.read(selectionProvider.notifier).clear();
       expect(placed('system:app/a'), isFalse);
       expect(moments().past, hasLength(1));
@@ -68,7 +85,7 @@ void main() {
       expect(moments().past, isEmpty);
       expect(moments().future, hasLength(1));
       // The TV does each step.
-      expect(tv.sent, ['layout', 'undo']);
+      expect(tv.sent, ['edit 1', 'undo']);
 
       await history().redo();
       await pumpEventQueue();
@@ -83,9 +100,9 @@ void main() {
     });
 
     test('a new change drops what could be redone', () async {
-      await controller().setLayout(config().layout.without({'system:app/a'}));
+      await takeOff('system:app/a');
       await history().undo();
-      await controller().setLayout(config().layout.without({'system:app/b'}));
+      await takeOff('system:app/b');
       expect(moments().future, isEmpty);
       await history().undo();
       await pumpEventQueue();
@@ -127,14 +144,23 @@ void main() {
       ]);
     });
 
-    test('a layout and a setting changed together are one step', () async {
-      await controller().change(
-        (c) => c.copyWith(
-          layout: c.layout.without({'system:app/a'}),
-          names: {'system:app/b': 'Series'},
-        ),
-      );
-      expect(tv.sent, ['layout + config names']);
+    test('a layout edit and a setting changed together are one step', () async {
+      final card = config().layout.items
+          .firstWhere((item) => item.handed.contains('system:app/a'))
+          .id;
+      await container
+          .read(commandsProvider)
+          .run(
+            Batch([
+              EditSlice([
+                SliceEdit(LayoutAddress(card), const [RemoveNode()]),
+              ]),
+              const SetConfig({
+                'names': {'system:app/b': 'Series'},
+              }),
+            ]),
+          );
+      expect(tv.sent, ['edit 1 + config names']);
       expect(moments().past, hasLength(1));
 
       await history().undo();
@@ -160,7 +186,7 @@ void main() {
     });
 
     test('a TV with nothing to undo starts the history again', () async {
-      await controller().setLayout(config().layout.without({'system:app/a'}));
+      await takeOff('system:app/a');
       tv.restart();
       await expectLater(history().undo(), throwsA(isA<CommandRefused>()));
       expect(moments().past, isEmpty);

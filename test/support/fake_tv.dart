@@ -85,6 +85,7 @@ class FakeTv extends TvApi {
         ..._shipped,
         for (final prefab in config.prefabs) prefab.id: prefab,
       },
+      shippedPrefabs: _shipped,
     );
     final after = command.edit(before);
     final back = command.undoing(before);
@@ -122,7 +123,6 @@ String describeCommand(Command command) => switch (command) {
   SetConfig(:final values) => 'config ${values.keys.join(' ')}',
   Batch(:final commands) => commands.map(describeCommand).join(' + '),
   ResetLayoutToStarting() => 'revert',
-  ChangePrefabs() => 'prefabs',
-  LayoutCommand() => 'layout',
+  EditSlice(:final edits) => 'edit ${edits.length}',
   _ => command.type,
 };

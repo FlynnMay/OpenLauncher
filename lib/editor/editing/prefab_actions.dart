@@ -12,9 +12,9 @@ import 'package:openlauncher/editor/controls/dialogs.dart';
 import 'package:openlauncher/editor/editing/actions.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
-import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// Marks a prefab or an instance of one wherever it is shown.
 const prefabIcon = Icons.view_in_ar_outlined;
@@ -41,7 +41,9 @@ final shippedByProvider = Provider.family<String?, String>(
 );
 
 Future<void> _put(BuildContext context, WidgetRef ref, Prefab prefab) =>
-    runOnLibrary(context, ref, ChangePrefabs(upserted: [prefab.toJson()]));
+    runEdits(context, ref, [
+      SliceEdit(PrefabAddress(prefab.id), [SavePrefab(prefab)]),
+    ]);
 
 void _say(BuildContext context, String message) =>
     ScaffoldMessenger.of(context)
@@ -223,7 +225,9 @@ Future<void> deletePrefab(
     }
     ref.read(selectionProvider.notifier).clear();
     if (!context.mounted) return;
-    await runOnLibrary(context, ref, ChangePrefabs(removed: [prefab.id]));
+    await runEdits(context, ref, [
+      SliceEdit(PrefabAddress(prefab.id), const [RevertPrefab()]),
+    ]);
     return;
   }
   final prefabs = ref.read(prefabsProvider);
@@ -253,7 +257,9 @@ Future<void> deletePrefab(
     backPrefab(ref, ref.read(prefabTrailProvider).length - 1);
   }
   if (!context.mounted) return;
-  await runOnLibrary(context, ref, DeletePrefab(prefab.id));
+  await runEdits(context, ref, [
+    SliceEdit(PrefabAddress(prefab.id), const [DeletePrefab()]),
+  ]);
 }
 
 /// Makes a prefab of the component [found], which an instance replaces.
@@ -265,19 +271,18 @@ Future<void> createPrefab(
   final name = await askName(context, 'Prefab', title: 'Prefab name');
   if (name == null || name.isEmpty) return;
   if (!context.mounted) return;
-  await runOnLibrary(
-    context,
-    ref,
-    MakePrefab(
-      found.item.id,
-      _freePrefabId(ref, name),
-      name,
-      // Placed by its transform: its size on the TV's screen.
-      size: found.parent.mode == LayoutMode.free
-          ? found.item.transform.rectIn(const Size(960, 540)).size.extent
-          : null,
-    ),
-  );
+  await runEdits(context, ref, [
+    SliceEdit(LayoutAddress(found.item.id), [
+      MakePrefab(
+        _freePrefabId(ref, name),
+        name,
+        // Placed by its transform: its size on the TV's screen.
+        size: found.parent.mode == LayoutMode.free
+            ? found.item.transform.rectIn(const Size(960, 540)).size.extent
+            : null,
+      ),
+    ]),
+  ]);
 }
 
 /// Renames child [part] of the open prefab, and what names it.
@@ -293,7 +298,9 @@ Future<void> renamePart(BuildContext context, WidgetRef ref, Node part) async {
   if (prefab.root.all.any((other) => other.id == to)) {
     return _say(context, 'Another part of the prefab is called "$to".');
   }
-  await runOnLibrary(context, ref, RenamePart(prefab.id, part.id, to));
+  await runEdits(context, ref, [
+    SliceEdit(PrefabAddress(prefab.id, child: part.id), [RenameChild(to)]),
+  ]);
   if (!context.mounted) return;
   final selection = ref.read(selectionProvider.notifier);
   if (ref.read(selectionProvider).contains(part.id)) {

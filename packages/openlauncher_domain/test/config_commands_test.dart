@@ -12,7 +12,6 @@ final _start = Document(
 );
 
 void main() {
-  prefabCommands();
   group('ResetLayoutToStarting', () {
     final starting = const AddScreen(id: 'start').apply(Layout.blank());
     final mine = const AddScreen(id: 'mine').apply(Layout.blank());
@@ -93,67 +92,6 @@ void main() {
 
     test('is the same when sent as JSON', () {
       expect(commandFromJson(batch.toJson()).toJson(), batch.toJson());
-    });
-  });
-}
-
-void prefabCommands() {
-  group('ChangePrefabs', () {
-    Map<String, Object?> prefab(String id, String name) => {
-      'id': id,
-      'name': name,
-    };
-    final start = Document(
-      layout: Layout.blank(),
-      settings: {
-        'prefabs': [prefab('a', 'A'), prefab('b', 'B')],
-      },
-    );
-    List<Object?> prefabsOf(Document document) =>
-        document.settings['prefabs']! as List<Object?>;
-
-    test('changes, adds and removes by id, and is undone', () {
-      final change = ChangePrefabs.turning(prefabsOf(start), [
-        prefab('a', 'Alpha'),
-        prefab('c', 'C'),
-      ]);
-      expect(change.upserted, [prefab('a', 'Alpha'), prefab('c', 'C')]);
-      expect(change.removed, ['b']);
-
-      final after = change.edit(start);
-      expect(prefabsOf(after), [prefab('a', 'Alpha'), prefab('c', 'C')]);
-      expect(change.undoing(start).edit(after).settings['prefabs'], [
-        prefab('a', 'A'),
-        prefab('b', 'B'),
-      ]);
-    });
-
-    test('leaves a prefab another editor changed alone', () {
-      final mine = ChangePrefabs.turning(prefabsOf(start), [
-        prefab('a', 'Mine'),
-        prefab('b', 'B'),
-      ]);
-      final theirs = start.copyWith(
-        settings: {
-          'prefabs': [prefab('a', 'A'), prefab('b', 'Theirs')],
-        },
-      );
-      expect(prefabsOf(mine.edit(theirs)), [
-        prefab('a', 'Mine'),
-        prefab('b', 'Theirs'),
-      ]);
-    });
-
-    test('is the same when sent as JSON, and nothing changed is empty', () {
-      final change = ChangePrefabs(
-        upserted: [prefab('a', 'x')],
-        removed: const ['b'],
-      );
-      expect(commandFromJson(change.toJson()).toJson(), change.toJson());
-      expect(
-        ChangePrefabs.turning(prefabsOf(start), prefabsOf(start)).isEmpty,
-        isTrue,
-      );
     });
   });
 }

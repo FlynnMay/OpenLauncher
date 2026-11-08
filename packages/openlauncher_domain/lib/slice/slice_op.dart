@@ -3,6 +3,7 @@ import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/geometry.dart';
 import 'package:openlauncher_domain/nodes/node.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 import 'package:openlauncher_domain/slice/clip.dart';
 
 /// One instruction on how to change what an address points at.
@@ -47,6 +48,26 @@ sealed class SliceOp {
     Insert.name => Insert(
       Where.values.byName(jsonRequired<String>(json, 'where')),
       Clip.fromJson(jsonObject(json['clip'])) as NodeClip,
+      x: jsonOptional<num>(json, 'x')?.toDouble(),
+      y: jsonOptional<num>(json, 'y')?.toDouble(),
+      rect: Box.fromJson(json['rect']),
+      size: Extent.fromJson(json['size']),
+    ),
+    SetRemoved.name => SetRemoved({
+      for (final id in jsonRequired<List<Object?>>(json, 'ids')) id! as String,
+    }),
+    SetInbox.name => SetInbox(jsonRequired<String>(json, 'container')),
+    SavePrefab.name => SavePrefab(
+      Prefab.fromJson(json['prefab']) ??
+          (throw const CommandRefused('That is not a prefab.')),
+    ),
+    RevertPrefab.name => const RevertPrefab(),
+    DeletePrefab.name => const DeletePrefab(),
+    RenameChild.name => RenameChild(jsonRequired<String>(json, 'to')),
+    MakePrefab.name => MakePrefab(
+      jsonRequired<String>(json, 'prefab'),
+      jsonRequired<String>(json, 'prefabName'),
+      size: Extent.fromJson(json['size']),
     ),
     ReplaceNode.name => ReplaceNode(
       Node.fromJson(jsonRequired<Map<Object?, Object?>>(json, 'node')),
@@ -240,20 +261,118 @@ class RemoveNode extends SliceOp {
 /// Where a pasted node goes, from the node the slice is loaded at.
 enum Where { after, before, into }
 
-/// Puts the node of [clip] [where] the slice's node is.
+/// Puts the node of [clip] [where] the slice's node is. In a grid it takes
+/// the cell ([x], [y]) if given; in a free layout it covers [rect] of a parent
+/// that is [size] big.
 class Insert extends SliceOp {
-  const Insert(this.where, this.clip);
+  const Insert(this.where, this.clip, {this.x, this.y, this.rect, this.size});
 
   static const name = 'insert';
 
   final Where where;
   final NodeClip clip;
+  final double? x, y;
+  final Box? rect;
+  final Extent? size;
 
   @override
   Map<String, Object?> toJson() => {
     'op': name,
     'where': where.name,
     'clip': clip.toJson(),
+    if (x != null) 'x': x,
+    if (y != null) 'y': y,
+    if (rect != null) 'rect': rect!.toJson(),
+    if (size != null) 'size': size!.toJson(),
+  };
+}
+
+/// At `/`: the apps the user took off the screens, which are not put back.
+class SetRemoved extends SliceOp {
+  const SetRemoved(this.ids);
+
+  static const name = 'setRemoved';
+
+  final Set<String> ids;
+
+  @override
+  Map<String, Object?> toJson() => {'op': name, 'ids': ids.toList()..sort()};
+}
+
+/// At `/`: the container new apps arrive in.
+class SetInbox extends SliceOp {
+  const SetInbox(this.containerId);
+
+  static const name = 'setInbox';
+
+  final String containerId;
+
+  @override
+  Map<String, Object?> toJson() => {'op': name, 'container': containerId};
+}
+
+/// At `prefab:<id>`: saves the whole prefab as the user's, new or not.
+class SavePrefab extends SliceOp {
+  const SavePrefab(this.prefab);
+
+  static const name = 'savePrefab';
+
+  final Prefab prefab;
+
+  @override
+  Map<String, Object?> toJson() => {'op': name, 'prefab': prefab.toJson()};
+}
+
+/// At `prefab:<id>`: takes away the user's own copy, so the pack's shows.
+class RevertPrefab extends SliceOp {
+  const RevertPrefab();
+
+  static const name = 'revertPrefab';
+
+  @override
+  Map<String, Object?> toJson() => {'op': name};
+}
+
+/// At `prefab:<id>`: deletes the user's prefab, and unpacks its instances
+/// where they stand.
+class DeletePrefab extends SliceOp {
+  const DeletePrefab();
+
+  static const name = 'deletePrefab';
+
+  @override
+  Map<String, Object?> toJson() => {'op': name};
+}
+
+/// At `prefab:<id>/<child>`: calls the child [to] instead, and everything that
+/// names it.
+class RenameChild extends SliceOp {
+  const RenameChild(this.to);
+
+  static const name = 'renameChild';
+
+  final String to;
+
+  @override
+  Map<String, Object?> toJson() => {'op': name, 'to': to};
+}
+
+/// Makes a prefab of the node and its contents, which an instance replaces.
+/// [size] is what a node placed by its transform is drawn at.
+class MakePrefab extends SliceOp {
+  const MakePrefab(this.prefabId, this.prefabName, {this.size});
+
+  static const name = 'makePrefab';
+
+  final String prefabId, prefabName;
+  final Extent? size;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'op': name,
+    'prefab': prefabId,
+    'prefabName': prefabName,
+    if (size != null) 'size': size!.toJson(),
   };
 }
 
