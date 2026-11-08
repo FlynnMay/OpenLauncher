@@ -13,6 +13,7 @@ class EntityAction {
     this.args = const {},
     this.label = '',
     this.icon = '',
+    this.then,
   });
 
   /// The `OperationsRegistry` name.
@@ -32,6 +33,10 @@ class EntityAction {
   /// Default icon for a button that does this.
   final String icon;
 
+  /// A source of the entity's pack to fetch again once this is done, so what
+  /// it changed shows at once.
+  final String? then;
+
   static EntityAction? fromJson(Object? json) => switch (json) {
     {'run': final String run} => EntityAction(
       run: run,
@@ -44,6 +49,10 @@ class EntityAction {
       icon: switch (json['icon']) {
         final String icon => icon,
         _ => '',
+      },
+      then: switch (json['then']) {
+        final String then when then.isNotEmpty => then,
+        _ => null,
       },
     ),
     _ => null,
@@ -65,6 +74,7 @@ class EntityAction {
     if (args.isNotEmpty) 'args': args,
     if (label.isNotEmpty) 'label': label,
     if (icon.isNotEmpty) 'icon': icon,
+    'then': ?then,
   };
 
   @override
@@ -73,6 +83,7 @@ class EntityAction {
       other.run == run &&
       other.label == label &&
       other.icon == icon &&
+      other.then == then &&
       mapsEqual(other.bound, bound) &&
       other.args.length == args.length &&
       args.entries.every((arg) => listsEqual(other.args[arg.key], arg.value));

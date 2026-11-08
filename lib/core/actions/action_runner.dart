@@ -4,6 +4,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/services/services.dart';
+import 'package:openlauncher/core/sources/source_request.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 import 'package:openlauncher_domain/actions/act.dart';
 
@@ -74,8 +75,8 @@ class ActionRunner {
     bool held = false,
     String? component,
   }) async {
-    final (operation, arguments, entityId) = act.isAddress
-        ? (_operationAt(act.name), _withUrl(act.name, act.args), null)
+    final (operation, arguments, entityId, then) = act.isAddress
+        ? (_operationAt(act.name), _withUrl(act.name, act.args), null, null)
         : await _entityOperation(act);
     return carryOut(
       operation,
@@ -86,6 +87,7 @@ class ActionRunner {
         held: held,
         component: component,
         entityId: entityId,
+        then: then,
       ),
     );
   }
@@ -94,7 +96,7 @@ class ActionRunner {
       _ref.read(operationsRegistryProvider)[address] ??
       (throw ImproperAct('There is nothing at "$address"'));
 
-  Future<(Operation, Map<String, Object?>, String)> _entityOperation(
+  Future<(Operation, Map<String, Object?>, String, String?)> _entityOperation(
     Act act,
   ) async {
     await _ref.read(configProvider.future);
@@ -118,6 +120,7 @@ class ActionRunner {
       operation,
       _withUrl(address, _arguments(action, act, scope)),
       entity.id,
+      action.then,
     );
   }
 
@@ -156,6 +159,20 @@ class ActionRunner {
   /// Runs [operation] locally. The web editor overrides this to forward
   /// device operations to the TV, as the [act] that asked for them.
   @protected
-  Future<String?> carryOut(Operation operation, Act act, OperationRun run) =>
-      operation.run(run);
+  Future<String?> carryOut(
+    Operation operation,
+    Act act,
+    OperationRun run,
+  ) async {
+    final message = await operation.run(run);
+    await _fetchAgain(run);
+    return message;
+  }
+
+  Future<void> _fetchAgain(OperationRun run) async {
+    final pack = HttpService.packOf(run.entityId);
+    if (pack != null && run.then != null) {
+      await fetchSourceAgain(_ref, pack, run.then!);
+    }
+  }
 }

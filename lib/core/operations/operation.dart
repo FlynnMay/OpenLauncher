@@ -18,6 +18,7 @@ class OperationRun {
     this.held = false,
     this.component,
     this.entityId,
+    this.then,
   });
 
   /// What the entity's action bound and what the act passed, or what an
@@ -31,6 +32,9 @@ class OperationRun {
 
   /// The entity whose action this is, if it is an entity's.
   final String? entityId;
+
+  /// The source of the entity's pack to fetch again when it is done.
+  final String? then;
 
   /// The argument [key], if it is a string.
   String? arg(String key) => switch (args[key]) {

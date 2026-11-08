@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/values/value_providers.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
@@ -20,19 +22,22 @@ class SourceNotReady implements Exception {
 /// The fetch a web source in [at] asks for: its address and body filled from
 /// its pack's settings, and signed by its auth profile. Throws
 /// [SourceNotReady] while a required setting of the pack has no value.
-Future<HttpFeed> requestOf(Ref ref, SourceAt at) async {
+Future<HttpFeed> requestOf(Ref ref, SourceAt at, {bool reactive = true}) async {
+  final T Function<T>(ProviderListenable<T>) read = reactive
+      ? ref.watch
+      : ref.read;
   final source = at.source;
-  final pack = await _packOf(ref, source);
+  final pack = await _packOf(ref, read, source);
   // Waits for the config without rebuilding on every edit of it.
   await ref.read(configProvider.future);
-  final settings = ref.watch(
+  final settings = read(
     configProvider.select(
       (config) => config.value?.packSettings[source.pack] ?? const {},
     ),
   );
   final secrets = pack == null
       ? const <String, String>{}
-      : (await ref.watch(packSecretsProvider.future))[pack.id] ?? const {};
+      : (await read(packSecretsProvider.future))[pack.id] ?? const {};
   if (pack != null) _requireSettings(pack, settings, secrets);
   final address = HttpFeed.addressOf(_fill(source.address, settings));
   if (address == null) {
@@ -48,9 +53,13 @@ Future<HttpFeed> requestOf(Ref ref, SourceAt at) async {
   );
 }
 
-Future<Pack?> _packOf(Ref ref, Source source) async {
+Future<Pack?> _packOf(
+  Ref ref,
+  T Function<T>(ProviderListenable<T>) read,
+  Source source,
+) async {
   if (source.pack == null) return null;
-  final packs = await ref.watch(packsProvider.future);
+  final packs = await read(packsProvider.future);
   return packs.where((pack) => pack.id == source.pack).firstOrNull;
 }
 
@@ -98,3 +107,19 @@ String? _bodyOf(Source source, Map<String, Object?> settings) =>
       final String text => _fill(text, settings),
       final map => _fill(jsonEncode(map), settings),
     };
+
+/// Fetches source [name] of pack [packId] again, now, for whatever shows its
+/// rows. Nothing if the pack has no such source.
+Future<void> fetchSourceAgain(Ref ref, String packId, String name) async {
+  final contents = await ref.read(packContentsProvider.future);
+  final source = contents
+      .where((one) => one.pack.id == packId)
+      .firstOrNull
+      ?.sources[name];
+  if (source == null || source.answeredHere) return;
+  final feed = await requestOf(ref, (
+    id: '$packId:$name',
+    source: source,
+  ), reactive: false);
+  ref.invalidate(feedValueProvider(feed));
+}

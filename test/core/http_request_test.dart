@@ -10,6 +10,8 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/services/services.dart';
+import 'package:openlauncher/core/sources/sources.dart';
+import 'package:openlauncher/core/values/values.dart';
 
 void main() {
   final hub = Pack.fromJson({
@@ -38,9 +40,16 @@ void main() {
           'auth': 'ha',
           'body': {'entity_id': '{{self.entity_id}}'},
         },
+        then: 'states',
       ),
     },
   );
+
+  final states = Source(
+    '{{settings.host}}/api/states',
+    auth: 'ha',
+    every: 3600,
+  ).inPack('hub');
 
   late List<http.Request> sent;
   late int status;
@@ -61,6 +70,11 @@ void main() {
           ),
         ),
         packsProvider.overrideWith((ref) async => [hub]),
+        packContentsProvider.overrideWith(
+          (ref) async => [
+            PackContents(hub, sources: {'states': states}),
+          ],
+        ),
         secretStoreProvider.overrideWithValue(
           MemorySecretStore({
             'hub': {'token': 's3cret'},
@@ -72,6 +86,10 @@ void main() {
             return http.Response('{}', status);
           }),
         ),
+        feedFetcherProvider.overrideWithValue((feed) async {
+          sent.add(http.Request(feed.method, feed.address));
+          return const <String, Object?>{};
+        }),
         entitiesProvider.overrideWith((ref) async => [toggle]),
       ],
     );
@@ -96,6 +114,28 @@ void main() {
       expect(jsonDecode(sent.single.body), {'entity_id': 'light.desk'});
     },
   );
+
+  test('then fetches the named source again, once it is done', () async {
+    final watching = container.listen(
+      sourceValueProvider((id: 'hub:states', source: states)),
+      (_, _) {},
+    );
+    addTearDown(watching.close);
+    await container.read(
+      sourceValueProvider((id: 'hub:states', source: states)).future,
+    );
+    expect(sent.map((r) => (r.method, r.url.path)), [('GET', '/api/states')]);
+    await act();
+    await container.pump();
+    await container.read(
+      sourceValueProvider((id: 'hub:states', source: states)).future,
+    );
+    expect(sent.map((r) => (r.method, r.url.path)), [
+      ('GET', '/api/states'),
+      ('POST', '/api/services/light/toggle'),
+      ('GET', '/api/states'),
+    ]);
+  });
 
   test('anything but a 2xx is an error', () async {
     status = 401;
