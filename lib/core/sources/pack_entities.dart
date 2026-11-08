@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
 import 'package:openlauncher/core/packs/pack_store.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
@@ -7,39 +11,70 @@ import 'package:openlauncher_domain/entities/entity_action.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 
 /// The entities of every pack: each pack's own, then what its generators
-/// make. `pack:` pictures are given as files.
-final packEntitiesProvider = FutureProvider<List<Entity>>((ref) async {
-  final List<PackContents> packs;
-  try {
-    packs = await ref.watch(packContentsProvider.future);
-  } on Object {
-    return const [];
+/// make. `pack:` pictures are given as files. A poll that changes nothing
+/// gives the same list again, so nothing that reads it is rebuilt.
+final packEntitiesProvider = AsyncNotifierProvider<PackEntities, List<Entity>>(
+  PackEntities.new,
+);
+
+class PackEntities extends AsyncNotifier<List<Entity>> {
+  @override
+  Future<List<Entity>> build() async {
+    final made = await _made();
+    final before = state.value;
+    return before != null && listEquals(before, made) ? before : made;
   }
-  if (!ref.mounted) return const [];
-  final picture = ref.watch(packPictureProvider);
-  // Every source watched before any is waited for.
-  final rows = {
-    for (final PackContents(:pack, :sources, :generators) in packs)
-      for (final MapEntry(key: name, value: generator) in generators.entries)
-        '${pack.id}/$name': _rows(ref, (
-          id: '${pack.id}:${generator.from}',
-          source: sources[generator.from]!,
-        )),
-  };
-  final made = <Entity>[];
-  for (final PackContents(:pack, :entities, :sources, :generators) in packs) {
-    for (final entity in [
-      ...entities,
-      for (final MapEntry(key: name, value: generator) in generators.entries)
-        ...generator.entitiesFrom(await rows['${pack.id}/$name']!),
-    ]) {
-      // A made id is the pack's like any other.
-      if (!entity.id.startsWith('${pack.id}:')) continue;
-      made.add(await _pictured(_fed(entity, pack.id, sources), picture));
+
+  Future<List<Entity>> _made() async {
+    final List<PackContents> packs;
+    try {
+      packs = await ref.watch(packContentsProvider.future);
+    } on Object {
+      return const [];
     }
+    if (!ref.mounted) return const [];
+    final picture = ref.watch(packPictureProvider);
+    final settings = _settingsOfPacks();
+    // Every source watched before any is waited for.
+    final rows = {
+      for (final PackContents(:pack, :sources, :generators) in packs)
+        for (final MapEntry(key: name, value: generator) in generators.entries)
+          '${pack.id}/$name': _rows(ref, (
+            id: '${pack.id}:${generator.from}',
+            source: sources[generator.from]!,
+          )),
+    };
+    final made = <Entity>[];
+    for (final PackContents(:pack, :entities, :sources, :generators) in packs) {
+      for (final entity in [
+        ...entities,
+        for (final MapEntry(key: name, value: generator) in generators.entries)
+          ...generator.entitiesFrom(
+            await rows['${pack.id}/$name']!,
+            settings: settings[pack.id] ?? const {},
+          ),
+      ]) {
+        // A made id is the pack's like any other.
+        if (!entity.id.startsWith('${pack.id}:')) continue;
+        made.add(await _pictured(_fed(entity, pack.id, sources), picture));
+      }
+    }
+    return made;
   }
-  return made;
-});
+
+  /// What the user gave each pack's settings; made again when it changes.
+  Map<String, Map<String, Object?>> _settingsOfPacks() {
+    final saved = ref.watch(
+      configProvider.select((config) => jsonEncode(config.value?.packSettings)),
+    );
+    final decoded = jsonDecode(saved);
+    return {
+      if (decoded is Map)
+        for (final MapEntry(:key, :value) in decoded.entries)
+          if (value is Map) '$key': {...value.cast<String, Object?>()},
+    };
+  }
+}
 
 /// [entity] with the pack source its feed names found, sharing its fetch.
 Entity _fed(Entity entity, String pack, Map<String, Source> sources) {

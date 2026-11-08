@@ -45,17 +45,28 @@ class Generator {
   };
 
   /// One entity per row it holds for, up to [maxEntities]; the first with an
-  /// id is the one.
-  List<Entity> entitiesFrom(List<Object?> rows) {
+  /// id is the one. `{{settings...}}` reads [settings], the pack's plain
+  /// values, so a pack can have the user's prefix in its ids or labels.
+  List<Entity> entitiesFrom(
+    List<Object?> rows, {
+    Map<String, Object?> settings = const {},
+  }) {
     final made = <String, Entity>{};
     for (final row in rows) {
       if (made.length == maxEntities) break;
-      Object? lookup(String root) => root == 'row' ? row : null;
+      Object? lookup(String root) => switch (root) {
+        'row' => row,
+        'settings' => settings,
+        _ => null,
+      };
       if (where case final where?
           when !isTruthy(Template.parse(where).evaluate(lookup))) {
         continue;
       }
-      final json = filled(entity, lookup) as Map<String, Object?>;
+      final json = filled(entity, lookup, const {
+        'row',
+        'settings',
+      }) as Map<String, Object?>;
       // A value with nothing to say is left out.
       if (json['data'] case final Map<String, Object?> data) {
         data.removeWhere((_, value) => value == null);
@@ -78,18 +89,21 @@ class Generator {
   int get hashCode => Object.hash(from, where);
 }
 
-/// [json] with the `{{row...}}` slots of its text filled.
-Object? filled(Object? json, Object? Function(String root) lookup) =>
-    switch (json) {
-      final String text when text.contains('{{') => Template.parse(
-        text,
-      ).fill(const {'row'}, lookup),
-      final Map<Object?, Object?> map => <String, Object?>{
-        for (final MapEntry(:key, :value) in map.entries)
-          if (key is String) key: filled(value, lookup),
-      },
-      final List<Object?> list => [
-        for (final item in list) filled(item, lookup),
-      ],
-      _ => json,
-    };
+/// [json] with the slots of its text that read only [roots] filled.
+Object? filled(
+  Object? json,
+  Object? Function(String root) lookup, [
+  Set<String> roots = const {'row'},
+]) => switch (json) {
+  final String text when text.contains('{{') => Template.parse(
+    text,
+  ).fill(roots, lookup),
+  final Map<Object?, Object?> map => <String, Object?>{
+    for (final MapEntry(:key, :value) in map.entries)
+      if (key is String) key: filled(value, lookup, roots),
+  },
+  final List<Object?> list => [
+    for (final item in list) filled(item, lookup, roots),
+  ],
+  _ => json,
+};

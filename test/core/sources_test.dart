@@ -330,6 +330,23 @@ void main() {
   group('a generator', () {
     final generator = Generator.fromJson(_apps)!;
 
+    test('reads the pack\'s settings, so a user can prefix its names', () {
+      final prefixed = Generator.fromJson({
+        'from': 'rows',
+        'entity': {
+          'id': '{{settings.prefix}}/{{row.id}}',
+          'label': '{{settings.prefix}} {{row.name}}',
+        },
+      })!;
+      final made = prefixed.entitiesFrom(
+        [
+          {'id': 'a', 'name': 'Lamp'},
+        ],
+        settings: {'prefix': 'Lounge'},
+      );
+      expect((made.single.id, made.single.label), ('Lounge/a', 'Lounge Lamp'));
+    });
+
     test('makes an entity of each row it holds for', () {
       final made = generator.entitiesFrom([
         {'package': 'a.b', 'label': 'AB', 'icon': '/a.png', 'banner': true},
