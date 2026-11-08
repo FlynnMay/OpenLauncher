@@ -8,6 +8,7 @@ import 'package:openlauncher/core/commands/commands_interface.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 
@@ -138,6 +139,12 @@ class CommandRunner implements Commands {
     final changed = _changedSettings(before, after);
     if (LauncherConfig.settingsValidationError(changed) case final reason?) {
       throw CommandRefused(reason);
+    }
+    if (changed.containsKey('packSettings')) {
+      checkPackSettings(
+        await _ref.read(packsProvider.future),
+        changed['packSettings'],
+      );
     }
     final controller = _ref.read(configProvider.notifier);
     if (before.layoutIsTheUsers && !after.layoutIsTheUsers) {

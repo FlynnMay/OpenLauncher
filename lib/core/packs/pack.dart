@@ -27,6 +27,26 @@ class Pack {
 
   static final _id = RegExp(r'^[a-z0-9][a-z0-9_-]{0,39}$');
 
+  /// Below zero if version [a] is older than [b], zero if the same, above
+  /// if newer; null if either is not dotted numbers (`1`, `0.2.1`).
+  static int? compareVersions(String a, String b) {
+    final left = _numbers(a), right = _numbers(b);
+    if (left == null || right == null) return null;
+    for (var i = 0; i < left.length || i < right.length; i++) {
+      final difference =
+          (i < left.length ? left[i] : 0) - (i < right.length ? right[i] : 0);
+      if (difference != 0) return difference;
+    }
+    return 0;
+  }
+
+  static List<int>? _numbers(String version) {
+    final parts = version.trim().split('.').map(int.tryParse).toList();
+    return parts.contains(null) || version.trim().isEmpty
+        ? null
+        : parts.cast<int>();
+  }
+
   /// Whether [id] can name a pack or one of its icon sets.
   static bool validId(Object? id) => id is String && _id.hasMatch(id);
 

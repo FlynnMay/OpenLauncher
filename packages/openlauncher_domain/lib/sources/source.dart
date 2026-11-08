@@ -48,7 +48,8 @@ class Source {
   /// template over `settings`.
   final Object? body;
 
-  /// The pack whose settings fill the templates; set when the pack is read.
+  /// The pack whose settings fill the templates. Never read from JSON: only
+  /// the launcher says whose a source is, as it reads the pack's files.
   final String? pack;
 
   /// Whether the launcher answers it rather than the web.
@@ -112,10 +113,6 @@ class Source {
           final Map<Object?, Object?> body => jsonStringKeyed(body),
           _ => null,
         },
-        pack: switch (json['pack']) {
-          final String pack when pack.isNotEmpty => pack,
-          _ => null,
-        },
       );
     }
     return null;
@@ -129,7 +126,6 @@ class Source {
     if (method != 'GET') 'method': method,
     'auth': ?auth,
     'body': ?body,
-    'pack': ?pack,
   };
 
   /// The rows in [answer]: the list at [rows], or what is there as one row.

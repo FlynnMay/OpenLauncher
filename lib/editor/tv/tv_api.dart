@@ -364,6 +364,11 @@ class TvApi {
     return reply['id'] as String;
   }
 
+  /// What installing the pack in [file] would do, without doing it:
+  /// `change` is `new`, `same`, `older`, `newer` or `different`.
+  Future<Map<Object?, Object?>> checkPack(PickedFile file) =>
+      _sendFile(file, '/api/packs?check=true');
+
   /// Streamed by the browser from disk, so not through [_client].
   Future<Map<Object?, Object?>> _sendFile(PickedFile file, String path) async {
     final reply = await file.send(

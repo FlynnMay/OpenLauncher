@@ -116,8 +116,14 @@ class Feed {
   bool get isAddress => name?.contains('://') ?? false;
 
   /// The source, if it can be read: an address, or one written in place.
-  Source? get source =>
-      isAddress ? Source(name!, watch: true) : Source.fromJson(inline);
+  Source? get source => isAddress
+      ? Source(name!, watch: true)
+      : switch (shared) {
+          final String shared when shared.contains(':') => Source.fromJson(
+            inline,
+          )?.inPack(shared.substring(0, shared.indexOf(':'))),
+          _ => Source.fromJson(inline),
+        };
 
   /// The source and what its fetch is known by, for an entity called [id].
   SourceAt? at(String id) => switch (source) {

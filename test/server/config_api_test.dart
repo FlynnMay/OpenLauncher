@@ -1320,6 +1320,95 @@ void main() {
     expect(secrets.load(), completion(isEmpty));
   });
 
+  test('a pack\'s settings are checked on every way in', () async {
+    await call(
+      'POST',
+      '/api/packs',
+      body: zipOf({
+        'pack.json': jsonEncode({
+          'id': 'hub',
+          'settings': {
+            'host': {'type': 'url'},
+          },
+        }),
+      }),
+    );
+    Map<String, Object?> setting(Object? value) => {
+      'type': 'slice.edit',
+      'edits': [
+        {
+          'address': '/',
+          'ops': [
+            {'op': 'setSetting', 'key': 'packSettings', 'value': value},
+          ],
+        },
+      ],
+    };
+    final bad = await call(
+      'POST',
+      '/api/commands',
+      body: setting({
+        'hub': {'host': 'not a url'},
+      }),
+    );
+    expect(bad.statusCode, 400);
+    final ghost = await call(
+      'POST',
+      '/api/commands',
+      body: setting({
+        'nobody': {'host': 'http://x.test'},
+      }),
+    );
+    expect(ghost.statusCode, 400);
+    final good = await call(
+      'POST',
+      '/api/commands',
+      body: setting({
+        'hub': {'host': 'http://ha.local:8123'},
+      }),
+    );
+    expect(good.statusCode, 200);
+  });
+
+  test('checking a pack says what installing it would do', () async {
+    Future<Map<String, dynamic>> check(String version) async {
+      final response = await call(
+        'POST',
+        '/api/packs?check=true',
+        body: zipOf({
+          'pack.json': jsonEncode({'id': 'hub', 'version': version}),
+        }),
+      );
+      expect(response.statusCode, 200);
+      return jsonDecode(await response.readAsString());
+    }
+
+    expect((await check('1.0'))['change'], 'new');
+    expect(
+      (await call(
+        'POST',
+        '/api/packs',
+        body: zipOf({
+          'pack.json': jsonEncode({'id': 'hub', 'version': '1.0'}),
+        }),
+      )).statusCode,
+      200,
+    );
+    expect((await check('1.0'))['change'], 'same');
+    expect((await check('1.2'))['change'], 'newer');
+    expect((await check('0.9'))['change'], 'older');
+    expect((await check('beta'))['change'], 'different');
+    expect((await check('1.2'))['installedVersion'], '1.0');
+    final packs = ((await state())['packs'] as List).map((p) => p['id']);
+    expect(packs, contains('hub'));
+    expect(
+      ((await state())['packs'] as List).firstWhere(
+        (p) => p['id'] == 'hub',
+      )['version'],
+      '1.0',
+    );
+  });
+
   test('event stream sends the state now and after each change', () async {
     final response = await call('GET', '/api/events');
     expect(response.headers['content-type'], 'text/event-stream');

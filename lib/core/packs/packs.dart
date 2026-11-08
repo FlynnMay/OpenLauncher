@@ -9,4 +9,5 @@ export 'pack_auth.dart';
 export 'pack_contents.dart';
 export 'pack_secrets.dart';
 export 'pack_setting.dart';
+export 'pack_settings_check.dart';
 export 'pack_store.dart';

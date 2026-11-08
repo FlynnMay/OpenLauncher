@@ -36,6 +36,9 @@ class PackRoutes implements ApiRoutes {
   );
 
   Future<Response> _installPack(Request request) async {
+    if (request.url.queryParameters['check'] == 'true') {
+      return jsonResponse((await _store.inspect(request.read())).toJson());
+    }
     final pack = await _store.install(request.read());
     return jsonResponse({'id': pack.id});
   }

@@ -16,7 +16,7 @@ class PackSettingsForm extends ConsumerWidget {
 
   static Field _field(PackSetting setting) => Field(
     setting.key,
-    setting.label,
+    labelOf(setting),
     switch (setting.type) {
       PackSettingType.number => FieldKind.number,
       PackSettingType.tick => FieldKind.toggle,
@@ -28,18 +28,23 @@ class PackSettingsForm extends ConsumerWidget {
     max: 1000000,
   );
 
-  /// Whether a required setting of [pack] still has no value.
-  static bool missing(
+  /// The labels of the required settings of [pack] that still have no value.
+  static List<String> missing(
     Pack pack,
     Map<String, Object?> values,
     Set<String> secrets,
-  ) => pack.settings.any(
-    (setting) =>
-        setting.required &&
-        (setting.secret
-            ? !secrets.contains(setting.key)
-            : values[setting.key] == null),
-  );
+  ) => [
+    for (final setting in pack.settings)
+      if (setting.required &&
+          (setting.secret
+              ? !secrets.contains(setting.key)
+              : values[setting.key] == null))
+        setting.label,
+  ];
+
+  /// A required setting is marked.
+  static String labelOf(PackSetting setting) =>
+      setting.required ? '${setting.label} *' : setting.label;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,7 +130,7 @@ class _SecretFieldState extends ConsumerState<_SecretField> with Busy {
             enableSuggestions: false,
             autocorrect: false,
             decoration: InputDecoration(
-              labelText: widget.setting.label,
+              labelText: PackSettingsForm.labelOf(widget.setting),
               helperText: widget.isSet
                   ? 'Set. Type to replace it.'
                   : 'Not set.',

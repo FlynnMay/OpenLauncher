@@ -280,6 +280,23 @@ void main() {
   });
 
   group('a feed', () {
+    test('is only a pack\'s own when the launcher says so', () {
+      // Whatever a feed claims in its JSON, whose settings it reads is not
+      // its to say.
+      final claiming = Feed.fromJson({
+        'url': 'https://x.test/a',
+        'pack': 'ha',
+        'auth': 'ha',
+      })!;
+      expect(claiming.source!.pack, isNull);
+      final named = Feed(
+        'states',
+        inline: const {'url': 'https://x.test/a'},
+        shared: 'ha:states',
+      );
+      expect(named.source!.pack, 'ha');
+    });
+
     test('is an address, a source of its pack by name, or one in place', () {
       final address = Feed.fromJson('launcher://clock')!;
       expect(address.isAddress, isTrue);
