@@ -35,8 +35,6 @@ const knownUpwardImports = {
   'sources/source_endpoints.dart -> entities/entities_provider.dart',
   'sources/source_endpoints.dart -> overlays/overlays.dart',
   'sources/source_endpoints.dart -> updates/updates.dart',
-  'values/value_providers.dart -> entities/entity_data.dart',
-  'values/value_providers.dart -> variables/scope.dart',
 };
 
 const _corePath = 'lib/core/';

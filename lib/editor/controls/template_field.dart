@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 
 /// A template text field with a value picker and a live preview. Committed on
 /// Enter or blur.

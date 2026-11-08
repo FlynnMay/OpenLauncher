@@ -3,10 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:openlauncher/core/entities/entity_data.dart';
-import 'package:openlauncher/core/variables/scope.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
-import 'package:openlauncher_domain/values/template.dart';
 
 /// The current time. Overridden in tests.
 final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
@@ -61,17 +58,4 @@ final feedValueProvider = FutureProvider.autoDispose.family<Object?, HttpFeed>(
   },
   // No extra retries.
   retry: (_, _) => null,
-);
-
-/// What `{{root...}}` reads: an entity's data, or a component's public
-/// variables.
-final valueProvider = Provider.autoDispose.family<Object?, String>(
-  (ref, root) =>
-      ref.watch(entityDataProvider(root)) ??
-      ref.watch(componentDataProvider(root)),
-);
-
-/// The rendered text of [source]; notifies only when it changes.
-final templateProvider = Provider.autoDispose.family<String, String>(
-  (ref, source) => valueText(readTemplate(ref.watch, source, const {})),
 );
