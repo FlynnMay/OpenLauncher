@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config_store.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
-import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher_domain/layout/layout.dart';
 
 final configProvider = AsyncNotifierProvider<ConfigController, LauncherConfig>(
   ConfigController.new,

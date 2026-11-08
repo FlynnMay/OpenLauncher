@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
-import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher_domain/config/migrations/migrations.dart';
+import 'package:openlauncher_domain/layout/layout.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
