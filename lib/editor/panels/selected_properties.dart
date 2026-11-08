@@ -15,6 +15,7 @@ import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// Settings of the selection. With several selected, only shared settings
 /// show and changes apply to all.
@@ -29,10 +30,8 @@ class SelectedProperties extends ConsumerWidget {
     final items = [for (final one in found) one.item];
     final single = items.length == 1 ? items.single : null;
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    void change(Layout Function(Layout layout) how) =>
-        changeLayout(context, ref, how);
-    void each(Node Function(Node item) how) =>
-        change((layout) => changeItems(layout, ids, (item, _) => how(item)));
+    void edit(List<SliceOp> ops) =>
+        editNodes(context, ref, {for (final id in ids) id: ops});
 
     // In an open prefab: the prefab, the variant shown when its edits are
     // overrides, and whether the selection is the prefab's root.
@@ -72,16 +71,16 @@ class SelectedProperties extends ConsumerWidget {
         if (single != null && handed.length == 1)
           _HandedNode(
             node: handed.values.single,
-            onChanged: (how) => change(
-              (layout) => layout.withContainer(handed.keys.single, how),
-            ),
+            onRename: (name) => editNodes(context, ref, {
+              handed.keys.single: [SetName(name)],
+            }),
           ),
         Section('Node', [
           if (single != null)
             CommitField(
               label: 'Name',
               value: single.name,
-              onChanged: (name) => each((item) => item.copyWith(name: name)),
+              onChanged: (name) => edit([SetName(name)]),
             ),
         ]),
         if (single != null)
@@ -96,8 +95,7 @@ class SelectedProperties extends ConsumerWidget {
                 "its parent's Layout",
               _ => null,
             },
-            onChanged: (transform) =>
-                each((item) => item.copyWith(transform: transform)),
+            onChanged: (transform) => edit([SetTransform(transform)]),
           ),
         if (single != null && single.isInstance) ...[
           if (found.single.parent.prefabRules.containsKey(single.prefab))
@@ -112,15 +110,37 @@ class SelectedProperties extends ConsumerWidget {
           InstanceSettings(
             prefabs: prefabs,
             item: single,
-            onChanged: (next) => each((_) => next),
+            onVariant: (name) => edit([SetVariant(name)]),
+            onOverride: (part, module, values) => runOnLibrary(
+              context,
+              ref,
+              EditSlice(
+                SliceEdit(
+                  prefab == null
+                      ? LayoutAddress.child(single.id, part)
+                      : addressOf(ref, '${single.id}/$part'),
+                  [
+                    for (final MapEntry(:key, :value) in values.entries)
+                      SetField(module, key, value),
+                  ],
+                ),
+              ),
+            ),
+            onResetOverrides: () => runOnLibrary(
+              context,
+              ref,
+              EditSlice(
+                SliceEdit(addressOf(ref, single.id), [SetOverrides(const {})]),
+              ),
+            ),
             onOpen: () => openPrefab(ref, single.prefab!, from: single),
-            onUnpack: () => runCommand(context, ref, UnpackInstance(single.id)),
+            onUnpack: () => edit(const [Unpack()]),
           ),
         ],
         ModuleSections(
           nodes: items,
           parents: [for (final one in found) one.parent],
-          onChanged: each,
+          send: (opsByNode) => editNodes(context, ref, opsByNode),
           onCommand: (command) => runCommand(context, ref, command),
           inPrefab: prefab != null,
           exposable: isRoot,
@@ -253,10 +273,10 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
 /// The node an instance is handed, as a card shows it: its name and picture,
 /// and ways to open it, select it or delete it.
 class _HandedNode extends ConsumerWidget {
-  const _HandedNode({required this.node, required this.onChanged});
+  const _HandedNode({required this.node, required this.onRename});
 
   final Node node;
-  final void Function(Node Function(Node node) how) onChanged;
+  final void Function(String name) onRename;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -265,11 +285,7 @@ class _HandedNode extends ConsumerWidget {
     final picture = ref.watch(configProvider).value?.iconOverrides[key];
     return Section('Handed node', [
       Align(alignment: Alignment.centerLeft, child: IdLabel(node.id)),
-      CommitField(
-        label: 'Name',
-        value: node.name,
-        onChanged: (name) => onChanged((node) => node.copyWith(name: name)),
-      ),
+      CommitField(label: 'Name', value: node.name, onChanged: onRename),
       PictureSettings(
         picture: picture == null
             ? null

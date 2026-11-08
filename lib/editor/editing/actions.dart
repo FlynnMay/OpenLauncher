@@ -15,6 +15,7 @@ import 'package:openlauncher/editor/editing/selection.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// Changes what is being edited, the layout or the open prefab, by sending
 /// the difference [change] makes, so what it did not touch is left as it is.
@@ -53,6 +54,34 @@ Future<void> runCommand(
         ? command
         : InPrefab(prefab.id, ref.read(prefabModeProvider)?.variant, command),
   );
+}
+
+/// Where node [id] is in what is being edited: on the screens, or in the open
+/// prefab as the shown variant has it.
+Address addressOf(WidgetRef ref, String id) {
+  final prefab = ref.read(editedPrefabProvider);
+  if (prefab == null) return LayoutAddress(id);
+  final shown = ref.read(prefabModeProvider)?.variant;
+  return PrefabAddress(
+    prefab.id,
+    variant: prefab.isBase(shown) ? null : prefab.variantNamed(shown),
+    child: id == prefab.root.id ? null : id,
+  );
+}
+
+/// Does [opsByNode] to the nodes, by id, as one step; the TV applies them.
+Future<void> editNodes(
+  BuildContext context,
+  WidgetRef ref,
+  Map<String, List<SliceOp>> opsByNode,
+) {
+  final edits = [
+    for (final MapEntry(:key, :value) in opsByNode.entries)
+      if (value.isNotEmpty) SliceEdit(addressOf(ref, key), value),
+  ];
+  return edits.isEmpty
+      ? Future.value()
+      : runOnLibrary(context, ref, EditSlice.of(edits));
 }
 
 /// Does [command] on the whole config, the layout and the prefabs, even with

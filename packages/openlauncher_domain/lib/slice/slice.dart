@@ -1,5 +1,7 @@
 import 'package:openlauncher_domain/commands/command.dart';
 import 'package:openlauncher_domain/commands/document.dart';
+import 'package:openlauncher_domain/json/json_read.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
 import 'package:openlauncher_domain/prefabs/prefab.dart';
 import 'package:openlauncher_domain/slice/address.dart';
@@ -89,7 +91,7 @@ class Slice {
   Slice edit(String module, String field, Object? value) =>
       _do(SetField(module, field, value));
 
-  Slice revert(String module, String field) => edit(module, field, null);
+  Slice revert(String module, String field) => _do(RevertField(module, field));
 
   Slice switchModule(String module, {required bool on}) =>
       _do(SwitchModule(module, on));
@@ -118,13 +120,40 @@ class Slice {
 
   Slice pasteInto(Clip clip) => _do(Insert(Where.into, _nodeClip(clip)));
 
-  Slice pasteModule(Clip clip) => _do(
-    PasteModule(
-      clip is ModuleClip
-          ? clip
-          : throw const CommandRefused('That is not a module.'),
-    ),
-  );
+  Slice pasteModule(Clip clip) {
+    if (clip is! ModuleClip) {
+      throw const CommandRefused('That is not a module.');
+    }
+    return setModule(clip.module, clip.values);
+  }
+
+  /// Puts [values] as all of a module's values; null takes the module off.
+  Slice setModule(String module, ModuleValues? values) =>
+      _do(SetModule(module, values));
+
+  /// Makes an instance show another variant of its prefab.
+  Slice setVariant(String? variant) => _do(SetVariant(variant));
+
+  Slice rename(String name) => _do(SetName(name));
+
+  Slice setTransform(NodeTransform transform) => _do(SetTransform(transform));
+
+  /// Turns an instance into plain nodes.
+  Slice unpack() => _do(const Unpack());
+
+  /// Moves a node of a free container to cover [rect] of it, [size] big.
+  Slice place(Box rect, Extent size) => _do(Place(rect, size));
+
+  /// Sets one Sizing field; null clears it.
+  Slice size(String field, double? value) =>
+      edit(sizingModule.name, field, value);
+
+  /// Changes the node by [how], as the module values that come out different.
+  /// For editors that work out a whole node at a time.
+  Slice change(Node Function(Node node) how) {
+    moduleOpsBetween(node, how(node)).forEach(_do);
+    return this;
+  }
 
   NodeClip _nodeClip(Clip clip) => clip is NodeClip
       ? clip
@@ -147,3 +176,11 @@ class Slice {
   /// What was done, to send.
   SliceEdit save() => SliceEdit(address, List.unmodifiable(_ops));
 }
+
+/// The operations that turn [before]'s modules into [after]'s: each module
+/// whose values differ is set whole, or taken off.
+List<SliceOp> moduleOpsBetween(Node before, Node after) => [
+  for (final module in {...before.modules.keys, ...after.modules.keys})
+    if (!jsonEquals(before.modules[module], after.modules[module]))
+      SetModule(module, after.modules[module]),
+];

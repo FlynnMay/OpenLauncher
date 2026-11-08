@@ -8,6 +8,7 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/module_edit_context.dart';
 import 'package:openlauncher/editor/modules/module_editors.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// A section per module the selected nodes all have, in registry order, then
 /// a way to add one. Sizing shows whenever their parents lay them out.
@@ -16,7 +17,7 @@ class ModuleSections extends ConsumerWidget {
     super.key,
     required this.nodes,
     required this.parents,
-    required this.onChanged,
+    required this.send,
     this.onCommand,
     this.inPrefab = false,
     this.exposable = false,
@@ -30,7 +31,8 @@ class ModuleSections extends ConsumerWidget {
   /// Their parents; none for a screen's root.
   final List<Node> parents;
 
-  final void Function(Node Function(Node node) how) onChanged;
+  /// Does operations to nodes, by id, as one step.
+  final void Function(Map<String, List<SliceOp>> opsByNode) send;
   final void Function(Command command)? onCommand;
   final bool inPrefab, exposable, inDock;
   final Variables scope;
@@ -47,7 +49,7 @@ class ModuleSections extends ConsumerWidget {
       type: type,
       nodes: nodes,
       parents: parents,
-      onChanged: onChanged,
+      send: send,
       onCommand: onCommand,
       prefabs: prefabs,
       inPrefab: inPrefab,
@@ -71,11 +73,9 @@ class ModuleSections extends ConsumerWidget {
             for (final type in moduleTypes)
               if (_offered(type, drawn)) type,
           ],
-          onAdded: (type) => onCommand != null
-              ? onCommand!(
-                  AddModule({for (final node in nodes) node.id}, type.name),
-                )
-              : onChanged((node) => withAdded(node, type)),
+          onAdded: (type) => send({
+            for (final node in nodes) node.id: [AddModule(type.name)],
+          }),
         ),
       ],
     );

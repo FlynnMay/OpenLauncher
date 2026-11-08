@@ -9,7 +9,30 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/modules.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
+
 import '../support/packs.dart';
+
+/// [node] once the TV has done [ops] to it.
+Node applied(Node node, Map<String, List<SliceOp>> ops) {
+  final layout = Layout(
+    inbox: 'wrap',
+    startup: const Startup('home'),
+    screens: [
+      Screen(
+        id: 'home',
+        root: Node.layout(id: 'wrap', children: [node]),
+      ),
+    ],
+  );
+  final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
+  var document = Document(layout: layout, prefabs: prefabs);
+  for (final MapEntry(:key, :value) in ops.entries) {
+    document = SliceEdit(LayoutAddress(key), value).apply(document).document;
+  }
+  return document.layout.all.firstWhere((one) => one.id == node.id);
+}
 
 void main() {
   testWidgets("the launcher's prefabs have their rule; others are added", (
@@ -100,9 +123,9 @@ void main() {
                   return ModuleSections(
                     nodes: [container],
                     parents: const [],
-                    onChanged: (how) => setState(() {
+                    send: (ops) => setState(() {
                       changes++;
-                      container = how(container);
+                      container = applied(container, ops);
                     }),
                   );
                 },
@@ -309,7 +332,7 @@ void main() {
                 builder: (context, setState) => ModuleSections(
                   nodes: [node],
                   parents: const [],
-                  onChanged: (how) => setState(() => node = how(node)),
+                  send: (ops) => setState(() => node = applied(node, ops)),
                 ),
               ),
             ),
@@ -382,7 +405,7 @@ void main() {
                 builder: (context, setState) => ModuleSections(
                   nodes: [node],
                   parents: const [],
-                  onChanged: (how) => setState(() => node = how(node)),
+                  send: (ops) => setState(() => node = applied(node, ops)),
                 ),
               ),
             ),
@@ -440,7 +463,7 @@ void main() {
                 builder: (context, setState) => ModuleSections(
                   nodes: [node],
                   parents: const [],
-                  onChanged: (how) => setState(() => node = how(node)),
+                  send: (ops) => setState(() => node = applied(node, ops)),
                 ),
               ),
             ),

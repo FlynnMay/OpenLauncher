@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/anchor_marks.dart';
@@ -17,6 +18,7 @@ import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// The TV's screen, or the open prefab on it. While [editing], components are
 /// selectable and draggable and the screen is a drop target; otherwise it is
@@ -336,7 +338,7 @@ class _StageState extends ConsumerState<Stage> {
   Layout? _resized;
 
   /// What releasing the handle does.
-  LayoutCommand? _resizing;
+  List<SliceOp>? _resizing;
 
   /// The new size and position for [handle] dragged by [moved].
   void _resize(ResizeHandle handle, Offset moved) {
@@ -354,22 +356,31 @@ class _StageState extends ConsumerState<Stage> {
       snap: ref.read(snapProvider),
       step: ref.read(snapStepProvider),
     );
-    final LayoutCommand command;
+    final List<SliceOp> ops;
     if (container.mode == LayoutMode.free) {
-      command = PlaceNode(
-        found.item.id,
-        resizedRect(found.item.transform.rectIn(size), handle, by, step).box,
-        size.extent,
-      );
+      ops = [
+        Place(
+          resizedRect(found.item.transform.rectIn(size), handle, by, step).box,
+          size.extent,
+        ),
+      ];
     } else {
       final to = resizedTo(container, placed, metrics, handle, by, step);
-      command = ReshapeNode(found.item.id, x: to.x, y: to.y, w: to.w, h: to.h);
+      ops = [
+        SetField(sizingModule.name, 'w', to.w),
+        SetField(sizingModule.name, 'h', to.h),
+        SetField(sizingModule.name, 'x', to.x),
+        SetField(sizingModule.name, 'y', to.y),
+      ];
     }
-    final next = command.apply(layout);
+    final next = SliceEdit(LayoutAddress(found.item.id), ops)
+        .apply(Document(layout: layout, prefabs: ref.read(prefabsProvider)))
+        .document
+        .layout;
     final after = findItems(next, {found.item.id}).single;
     setState(() {
       _resized = next;
-      _resizing = command;
+      _resizing = ops;
       // Computed from the resulting layout, as for a drop.
       _marker = MatrixUtils.transformRect(
         grid.getTransformTo(screen),
@@ -379,13 +390,14 @@ class _StageState extends ConsumerState<Stage> {
   }
 
   void _resizeDone({required bool kept}) {
-    final command = _resizing;
+    final ops = _resizing;
+    final id = _picked()?.found.item.id;
     setState(() {
       _resized = null;
       _resizing = null;
       _marker = null;
     });
-    if (kept && command != null) runCommand(context, ref, command);
+    if (kept && ops != null && id != null) editNodes(context, ref, {id: ops});
   }
 
   void _mark(Rect? marker) {

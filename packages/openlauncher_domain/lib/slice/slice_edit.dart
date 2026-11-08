@@ -5,6 +5,7 @@ import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/module_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
+import 'package:openlauncher_domain/layout/layout_enums.dart';
 import 'package:openlauncher_domain/layout/layout_ids.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
@@ -129,6 +130,10 @@ class _Applier {
       prefabs: {...document.prefabs, prefab.id: prefab},
     );
   }
+
+  /// Every node of the tree an operation is in, for ids that must stay free.
+  Iterable<Node> nodesIn(_Tree tree) =>
+      tree is _PrefabTree ? tree._prefab.root.all : document.layout.all;
 
   void setLayout(Layout layout) => document = document.copyWith(layout: layout);
 }

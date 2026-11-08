@@ -5,8 +5,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
-import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// The body of a module's section in the inspector.
 typedef ModuleEditor = List<Widget> Function(ModuleEdit edit);
@@ -17,7 +17,7 @@ class ModuleEdit {
     required this.type,
     required List<Node> nodes,
     required this.parents,
-    required this.onChanged,
+    required this.send,
     this.onCommand,
     this.prefabs = const {},
     this.inPrefab = false,
@@ -27,6 +27,7 @@ class ModuleEdit {
   }) : on = [
          for (final node in nodes) !resolved(node, prefabs).isOff(type.name),
        ],
+       _saved = nodes,
        nodes = [for (final node in nodes) _switchedOn(node, type)],
        drawn = [
          for (final node in nodes) _switchedOn(resolved(node, prefabs), type),
@@ -45,11 +46,15 @@ class ModuleEdit {
   /// Their parents; none for a screen's root.
   final List<Node> parents;
 
-  /// Called with a change to apply to each node.
-  final void Function(Node Function(Node node) how) onChanged;
+  /// Does operations to nodes, by id, as one step.
+  final void Function(Map<String, List<SliceOp>> opsByNode) send;
 
-  /// Does a command to the nodes, or null where they are not in the layout.
+  /// Does a command that is not an edit of the nodes, such as making a
+  /// container the inbox; null where there is no such thing to do.
   final void Function(Command command)? onCommand;
+
+  /// As saved, with nothing switched on for show.
+  final List<Node> _saved;
 
   final Map<String, Prefab> prefabs;
 
@@ -97,35 +102,29 @@ class ModuleEdit {
       ? ({...?node.modules[type.name]?.keys}..remove(enabledKey))
       : const {};
 
+  void _all(List<SliceOp> ops) => send({for (final id in ids) id: ops});
+
   /// Sets [key] on every node: an instance's over its prefab's.
-  void set(String key, Object? value) => onCommand != null
-      ? onCommand!(SetModuleValue(ids, type.name, key, value))
-      : onChanged(
-          (node) => node.isInstance && !type.instanceOwned
-              ? withInstanceValue(node, type, key, value, prefabs)
-              : withRule(node, type.name, key, value),
-        );
+  void set(String key, Object? value) =>
+      _all([SetField(type.name, key, value)]);
 
   /// Takes the instance's own [key] away.
   void revert(String key) => revertAll([key]);
 
   /// Takes the instance's own [keys] away.
-  void revertAll(List<String> keys) => onCommand != null
-      ? onCommand!(RevertModuleValue(ids, type.name, keys))
-      : onChanged(
-          (node) => keys.fold(
-            node,
-            (next, key) => withInherited(next, type, key, prefabs),
-          ),
-        );
+  void revertAll(List<String> keys) =>
+      _all([for (final key in keys) RevertField(type.name, key)]);
 
-  void switchTo({required bool on}) => onCommand != null
-      ? onCommand!(SwitchModule(ids, type.name, on))
-      : onChanged((node) => withSwitch(node, type, on, prefabs));
+  void switchTo({required bool on}) => _all([SwitchModule(type.name, on)]);
 
-  void remove() => onCommand != null
-      ? onCommand!(RemoveModule(ids, type.name))
-      : onChanged((node) => withRemoved(node, type));
+  void remove() => _all([RemoveModule(type.name)]);
+
+  void add() => _all([AddModule(type.name)]);
+
+  /// Changes each node as [how] says, as the modules that come out different.
+  void onChanged(Node Function(Node node) how) => send({
+    for (final node in _saved) node.id: moduleOpsBetween(node, how(node)),
+  });
 
   /// Generated fields for [fields], the module's own by default.
   List<Widget> fields([List<Field>? fields]) => ruleFields(

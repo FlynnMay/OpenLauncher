@@ -391,108 +391,41 @@ Layout changeItems(
   ],
 );
 
-/// Resizes [ids]. In a grid container, whatever is in the way moves aside.
-Layout resizeItems(Layout layout, Set<String> ids, {double? w, double? h}) =>
-    _rebuilt(layout, (container, items) {
-      double fit(double value, double most) =>
-          value.roundToDouble().clamp(1, most);
-      var next = [
-        for (final item in items)
-          if (ids.contains(item.id))
-            () {
-              final wide = fit(w ?? item.w, container.reach * 1.0);
-              return item.sized(
-                wide,
-                fit(h ?? item.h, SizingModule.maxRows * 1.0),
-                // Kept inside the container's width.
-                x: item.x?.clamp(0, container.reach - wide).toDouble(),
-                y: item.y,
-              );
-            }()
-          else
-            item,
-      ];
-      if (container.mode == LayoutMode.grid) {
-        for (final item in items) {
-          if (ids.contains(item.id)) {
-            next = settle(next, container.reach, fixed: item.id);
-          }
-        }
-      }
-      return next;
-    });
-
-/// Resizes and repositions [id]. In a grid container, whatever is in the way
-/// moves aside.
-Layout reshapeItem(
-  Layout layout,
-  String id, {
-  required double w,
-  required double h,
-  double? x,
-  double? y,
-}) => _rebuilt(layout, (container, items) {
-  if (!items.any((item) => item.id == id)) return items;
-  final flows = container.mode == LayoutMode.flow;
-  final next = [
-    for (final item in items)
-      if (item.id == id)
-        item.sized(
-          w,
-          h,
-          x: flows ? null : x ?? item.x,
-          y: flows ? null : y ?? item.y,
-        )
-      else
-        item,
-  ];
-  return container.mode == LayoutMode.grid
-      ? settle(next, container.reach, fixed: id)
-      : next;
-});
-
-/// Moves [id] to cover [rect] of its parent, of [size], which has no layout.
-Layout placeItem(Layout layout, String id, Box rect, Extent size) =>
-    changeItems(
-      layout,
-      {id},
-      (item, parent) =>
-          parent.mode == LayoutMode.free ? placedAt(item, rect, size) : item,
-    );
-
-/// Sets one Sizing field (`w`, `h`, `x`, `y`, `flex`, `aspect`) on [ids].
-/// Setting x or y alone starts the other at 0; clearing one clears both.
-Layout transformItems(
-  Layout layout,
-  Set<String> ids,
-  String key,
-  double? value,
-) => switch (key) {
-  // 0 means none.
-  'flex' || 'aspect' => changeItems(
-    layout,
-    ids,
-    (item, _) => item.withValue(sizingModule.name, key, value ?? 0),
-  ),
-  'w' => resizeItems(layout, ids, w: value),
-  'h' => resizeItems(layout, ids, h: value),
-  _ when value == null => changeItems(
-    layout,
-    ids,
-    (item, _) => item.sized(item.w, item.h),
-  ),
-  _ => findItems(layout, ids).fold(
-    layout,
-    (layout, found) => reshapeItem(
-      layout,
-      found.item.id,
-      w: found.item.w,
-      h: found.item.h,
-      x: key == 'x' ? value : found.item.x ?? 0,
-      y: key == 'y' ? value : found.item.y ?? 0,
-    ),
-  ),
-};
+/// [node] with one Sizing field (`w`, `h`, `x`, `y`, `flex`, `aspect`) set
+/// within [parent]; null clears it. Setting x or y alone starts the other at
+/// 0, and clearing one clears both. Only [node] changes: what is beside it is
+/// left where it is.
+Node withSizing(Node node, Node parent, String key, double? value) {
+  double fit(double length, double most) =>
+      length.roundToDouble().clamp(1, most);
+  switch (key) {
+    // 0 means none.
+    case 'flex' || 'aspect':
+      return node.withValue(sizingModule.name, key, value ?? 0);
+    case 'w' || 'h':
+      final wide = fit(
+        key == 'w' ? value ?? node.w : node.w,
+        parent.reach * 1.0,
+      );
+      return node.sized(
+        wide,
+        fit(key == 'h' ? value ?? node.h : node.h, SizingModule.maxRows * 1.0),
+        // Kept inside the container's width.
+        x: node.x?.clamp(0, parent.reach - wide).toDouble(),
+        y: node.y,
+      );
+    default:
+      final placed = value != null && parent.mode != LayoutMode.flow;
+      return placed
+          ? node.sized(
+              node.w,
+              node.h,
+              x: key == 'x' ? value : node.x ?? 0,
+              y: key == 'y' ? value : node.y ?? 0,
+            )
+          : node.sized(node.w, node.h);
+  }
+}
 
 /// Sets [key] of [module] on [container]. `mode` and `columns` also place the
 /// children; `position` docks or undocks it.

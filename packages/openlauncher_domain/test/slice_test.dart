@@ -94,6 +94,7 @@ Document undone(Document after, List<SliceEdit> inverse) {
 }
 
 void main() {
+  stepTwoTests();
   group('Address', () {
     test('is read and written back', () {
       for (final text in [
@@ -368,6 +369,110 @@ void main() {
         () => SliceOp.fromJson({'op': 'explode'}),
         throwsA(isA<CommandRefused>()),
       );
+    });
+  });
+}
+
+void stepTwoTests() {
+  group('sizing', () {
+    test('a width is kept inside the container and touches only that node', () {
+      final before = document();
+      final result = (Slice.load(
+        before,
+        'layout:a',
+      )..size('w', 99)).save().apply(before);
+      expect(result.document.layout.node('a')!.w, lessThanOrEqualTo(5));
+      expect(
+        result.document.layout.node('b')!.toJson(),
+        before.layout.node('b')!.toJson(),
+      );
+      expect(
+        undone(result.document, result.inverse).layout.toJson(),
+        before.layout.toJson(),
+      );
+    });
+
+    test('a screen root has no size to set', () {
+      expect(
+        () => Slice.load(document(), 'layout:main').size('w', 2),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+  });
+
+  group('whole module values', () {
+    test('a module is set to new values and taken off', () {
+      final before = document();
+      final set =
+          (Slice.load(before, 'prefab:card/name')
+                ..setModule('text', {'size': 30, 'weight': 700}))
+              .save()
+              .apply(before)
+              .document;
+      expect(Slice.load(set, 'prefab:card/name').node.modules['text'], {
+        'size': 30,
+        'weight': 700,
+      });
+      final off = (Slice.load(
+        set,
+        'prefab:card/name',
+      )..setModule('text', null)).save().apply(set).document;
+      expect(Slice.load(off, 'prefab:card/name').node.modules['text'], isNull);
+    });
+
+    test(
+      'a change to a node is kept as the modules that came out different',
+      () {
+        final before = document();
+        final slice = Slice.load(before, 'prefab:card/image')
+          ..change(
+            (node) => node
+                .withValue('picture', 'fit', 'contain')
+                .withValue('text', 'size', 9),
+          );
+        expect(slice.save().ops, hasLength(2));
+        final done = slice.save().apply(before).document;
+        final image = Slice.load(done, 'prefab:card/image').node;
+        expect(image.modules['picture']!['fit'], 'contain');
+        expect(image.modules['text']!['size'], 9);
+      },
+    );
+  });
+
+  group('instances', () {
+    test('an instance is unpacked into plain nodes, and undone', () {
+      final before = document();
+      final result = (Slice.load(
+        before,
+        'layout:a',
+      )..unpack()).save().apply(before);
+      expect(result.document.layout.node('a')!.isInstance, isFalse);
+      final back = undone(result.document, result.inverse);
+      expect(back.layout.node('a')!.isInstance, isTrue);
+    });
+
+    test('something that is not an instance cannot be unpacked', () {
+      expect(
+        () => Slice.load(document(), 'layout:shelf').unpack(),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+  });
+
+  group('EditSlice', () {
+    test('is the same edit as a command, undone as one step', () {
+      final before = document();
+      final one = Slice.load(before, 'layout:a/image')
+        ..edit('picture', 'fit', 'contain');
+      final two = Slice.load(before, 'layout:b/image')
+        ..revert('picture', 'fit');
+      final command = EditSlice.of([one.save(), two.save()]);
+      final read = commandFromJson(command.toJson());
+      final after = read.edit(before);
+      expect(after.layout.node('a')!.overrides, isNotEmpty);
+      expect(after.layout.node('b')!.overrides, isEmpty);
+      final back = read.undoing(before).edit(after);
+      expect(back.layout.toJson(), before.layout.toJson());
     });
   });
 }

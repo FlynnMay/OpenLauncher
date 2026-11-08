@@ -86,11 +86,7 @@ class ScreenProperties extends ConsumerWidget {
         ModuleSections(
           nodes: [screen.root],
           parents: const [],
-          onChanged: (how) => changeLayout(
-            context,
-            ref,
-            (layout) => layout.withContainer(layout.start.root.id, how),
-          ),
+          send: (opsByNode) => editNodes(context, ref, opsByNode),
         ),
       ],
     );

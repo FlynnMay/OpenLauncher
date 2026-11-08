@@ -4,6 +4,9 @@ part of 'slice_edit.dart';
 abstract class _Tree {
   Node? find(String id);
 
+  /// The container node [id] is in; null for a root.
+  Node? parentOf(String id);
+
   void replace(String id, Node Function(Node node) change);
 
   Address addressOf(String id);
@@ -35,6 +38,9 @@ class _StoredTarget extends _Target {
     final node = tree.find(id) ?? (throw const CommandRefused(_nothingThere));
     switch (op) {
       case SetField(:final module, :final field, :final value):
+        if (module == sizingModule.name) {
+          return _replaced(node, _sized(node, field, value));
+        }
         final type = moduleNamed(module);
         return _replaced(
           node,
@@ -42,14 +48,49 @@ class _StoredTarget extends _Target {
               ? withInstanceValue(node, type, field, value, _prefabs)
               : withRule(node, module, field, value),
         );
+      case RevertField(:final module, :final field):
+        final type = moduleNamed(module);
+        return _replaced(
+          node,
+          node.isInstance && type != null && !type.instanceOwned
+              ? withInherited(node, type, field, _prefabs)
+              : withRule(node, module, field, null),
+        );
       case SwitchModule(:final module, :final on):
         return _replaced(node, withSwitch(node, _type(module), on, _prefabs));
       case AddModule(:final module):
         return _replaced(node, withAdded(node, _type(module)));
       case RemoveModule(:final module):
         return _replaced(node, withRemoved(node, _type(module)));
-      case PasteModule(:final clip):
-        return _replaced(node, node.withModule(clip.module, clip.values));
+      case SetModule(:final module, :final values):
+        return _replaced(node, node.withModule(module, values));
+      case SetVariant(:final variant):
+        return _replaced(node, node.withVariant(variant));
+      case SetOverrides(:final overrides):
+        if (!node.isInstance) {
+          throw const CommandRefused('That is not an instance.');
+        }
+        return _replaced(node, node.copyWith(overrides: overrides));
+      case SetName(:final value):
+        return _replaced(node, node.copyWith(name: value));
+      case SetTransform(:final transform):
+        return _replaced(node, node.copyWith(transform: transform));
+      case Unpack():
+        if (!node.isInstance) {
+          throw const CommandRefused('That is not an instance.');
+        }
+        return _replaced(
+          node,
+          unpacked(node, _prefabs, {
+            for (final one in applier.nodesIn(tree)) one.id,
+          }),
+        );
+      case Place(:final rect, :final size):
+        final parent = tree.parentOf(id);
+        if (parent == null || parent.mode != LayoutMode.free) {
+          throw const CommandRefused('Only a free layout places by position.');
+        }
+        return _replaced(node, placedAt(node, rect, size));
       case ReplaceNode(node: final next):
         return _replaced(node, next);
       case RemoveNode():
@@ -60,6 +101,13 @@ class _StoredTarget extends _Target {
           SliceEdit(tree.addressOf(inserted.id), const [RemoveNode()]),
         ];
     }
+  }
+
+  Node _sized(Node node, String field, Object? value) {
+    final parent =
+        tree.parentOf(id) ??
+        (throw const CommandRefused('A screen\'s root has no size to set.'));
+    return withSizing(node, parent, field, (value as num?)?.toDouble());
   }
 
   List<SliceEdit> _replaced(Node was, Node next) {
@@ -95,6 +143,7 @@ abstract class _OverrideTarget extends _Target {
       field,
       value,
     ),
+    RevertField(:final module, :final field) => _set(module, field, null),
     SwitchModule(:final module, :final on) => _set(
       module,
       enabledKey,
@@ -198,6 +247,9 @@ class _LayoutTree extends _Tree {
   @override
   Node? find(String id) =>
       _layout.all.where((node) => node.id == id).firstOrNull;
+
+  @override
+  Node? parentOf(String id) => findItems(_layout, {id}).firstOrNull?.parent;
 
   @override
   Address addressOf(String id) => LayoutAddress(id);
@@ -312,7 +364,8 @@ class _PrefabTree extends _Tree {
           ],
         );
 
-  Node? _parentOf(String id) => _prefab.root.all
+  @override
+  Node? parentOf(String id) => _prefab.root.all
       .where((node) => node.children.any((child) => child.id == id))
       .firstOrNull;
 
@@ -341,7 +394,7 @@ class _PrefabTree extends _Tree {
       return item;
     }
     final parent =
-        _parentOf(targetId) ??
+        parentOf(targetId) ??
         (throw const CommandRefused('The root of a prefab has no siblings.'));
     replace(parent.id, (node) {
       final at = node.children.indexWhere((child) => child.id == targetId);
@@ -356,7 +409,7 @@ class _PrefabTree extends _Tree {
   @override
   List<SliceEdit> remove(String id) {
     final parent =
-        _parentOf(id) ??
+        parentOf(id) ??
         (throw const CommandRefused('The root of a prefab cannot be removed.'));
     final at = parent.children.indexWhere((child) => child.id == id);
     final node = parent.children[at];

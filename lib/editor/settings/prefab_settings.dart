@@ -24,7 +24,9 @@ class InstanceSettings extends StatelessWidget {
     super.key,
     required this.prefabs,
     required this.item,
-    required this.onChanged,
+    required this.onVariant,
+    required this.onOverride,
+    required this.onResetOverrides,
     this.onOpen,
     this.onUnpack,
   });
@@ -32,7 +34,15 @@ class InstanceSettings extends StatelessWidget {
   final Map<String, Prefab> prefabs;
   final Node item;
 
-  final void Function(Node item) onChanged;
+  /// The variant chosen.
+  final void Function(String variant) onVariant;
+
+  /// Values set on one of the prefab's nodes, for this instance only.
+  final void Function(String part, String module, Map<String, Object?> values)
+  onOverride;
+
+  /// All of this instance's own values handed back to the prefab.
+  final VoidCallback onResetOverrides;
 
   /// Opens its prefab for editing.
   final VoidCallback? onOpen;
@@ -40,12 +50,9 @@ class InstanceSettings extends StatelessWidget {
   /// Replaces it with a plain copy.
   final VoidCallback? onUnpack;
 
-  void _override(String part, Map<String, Object?> values, [String? module]) =>
-      onChanged(
-        item.copyWith(
-          overrides: withOverride(item.overrides, part, values, module),
-        ),
-      );
+  void _override(String part, Map<String, Object?> values, [String? module]) {
+    if (module != null) onOverride(part, module, values);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +112,7 @@ class InstanceSettings extends StatelessWidget {
                 for (final MapEntry(:key, :value) in prefab.variants.entries)
                   key: value.label.isEmpty ? key : value.label,
               },
-              onChanged: (name) => onChanged(item.withVariant(name)),
+              onChanged: onVariant,
             ),
           ),
         for (final MapEntry(key: id, value: part) in parts.entries) ...[
@@ -151,7 +158,7 @@ class InstanceSettings extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => onChanged(item.copyWith(overrides: const {})),
+              onPressed: onResetOverrides,
               child: const Text('Reset to prefab'),
             ),
           ),

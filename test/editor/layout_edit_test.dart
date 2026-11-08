@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 import '../support/packs.dart';
 
@@ -129,18 +131,23 @@ void main() {
 
       // One anchored to stretch keeps its anchors and is moved by its offsets.
       const stretched = NodeTransform(minX: 0.5, maxX: 1);
-      final moved = placeItem(
-        home(
-          Node.layout(
-            id: 'p',
-            mode: LayoutMode.free,
-            children: [entity('s').copyWith(transform: stretched)],
-          ),
-        ),
-        's',
-        rect.box,
-        const Size(800, 400).extent,
-      );
+      final moved =
+          SliceEdit(LayoutAddress('s'), [
+                Place(rect.box, const Size(800, 400).extent),
+              ])
+              .apply(
+                Document(
+                  layout: home(
+                    Node.layout(
+                      id: 'p',
+                      mode: LayoutMode.free,
+                      children: [entity('s').copyWith(transform: stretched)],
+                    ),
+                  ),
+                ),
+              )
+              .document
+              .layout;
       final s = findItems(moved, {'s'}).single.item.transform;
       expect((s.minX, s.maxX), (0.5, 1));
       expect(s.rectIn(const Size(800, 400)), rect);
@@ -332,28 +339,32 @@ void main() {
       );
     });
 
-    test('a resized item keeps its cell and its neighbour moves aside', () {
-      final resized = resizeItems(layout, {'a'}, w: 2);
-      final a = findItems(resized, {'a'}).single.item;
-      expect((a.w, a.x, a.y), (2, 0, 0));
-      expect(at(resized, 'b'), isNot((1, 0)));
+    test('a resized item keeps its cell and nothing beside it moves', () {
+      final a = findItems(layout, {'a'}).single;
+      final wide = withSizing(a.item, a.parent, 'w', 2);
+      expect((wide.w, wide.x, wide.y), (2, 0, 0));
       // Never wider than the container it is in.
-      expect(
-        findItems(resizeItems(layout, {'a'}, w: 9), {'a'}).single.item.w,
-        4,
-      );
+      expect(withSizing(a.item, a.parent, 'w', 9).w, 4);
     });
 
-    test('an item is given a new place and size at once', () {
-      // Its left edge pulled one cell to the left... there is none: over b.
-      final reshaped = reshapeItem(layout, 'b', x: 0, y: 0, w: 2, h: 1);
-      final b = findItems(reshaped, {'b'}).single.item;
-      expect((b.x, b.y, b.w), (0, 0, 2));
-      expect(at(reshaped, 'a'), isNot((0, 0)));
+    test('an item is given a new place and size', () {
+      final b = findItems(layout, {'b'}).single;
+      final moved = withSizing(
+        withSizing(withSizing(b.item, b.parent, 'w', 2), b.parent, 'x', 0),
+        b.parent,
+        'y',
+        0,
+      );
+      expect((moved.x, moved.y, moved.w), (0, 0, 2));
       // Where things flow, only the size is taken.
-      final flowed = reshapeItem(layout, 'd', x: 3, y: 3, w: 1, h: 2);
-      final d = findItems(flowed, {'d'}).single.item;
-      expect((d.x, d.y, d.w, d.h), (null, null, 1, 2));
+      final d = findItems(layout, {'d'}).single;
+      final flowed = withSizing(
+        withSizing(withSizing(d.item, d.parent, 'x', 3), d.parent, 'y', 3),
+        d.parent,
+        'h',
+        2,
+      );
+      expect((flowed.x, flowed.y, flowed.h), (null, null, 2));
     });
 
     test('a transform is set a part at a time, by the container it is in', () {
@@ -367,27 +378,18 @@ void main() {
       expect(offered('a'), ['w', 'h', 'x', 'y']);
       expect(offered('d'), ['w', 'h']);
 
-      final wider = transformItems(layout, {'a'}, 'w', 2);
-      expect(findItems(wider, {'a'}).single.item.w, 2);
-      // A column is given: its neighbour there moves aside.
-      final moved = transformItems(layout, {'a'}, 'x', 1);
-      expect(at(moved, 'a'), (1, 0));
-      expect(at(moved, 'b'), isNot((1, 0)));
-      // A place taken away is a column and a row gone together.
-      final loose = findItems(transformItems(layout, {'a'}, 'y', null), {
-        'a',
-      }).single.item;
-      expect((loose.x, loose.y), (null, null));
-    });
-
-    test('several are resized together, each in its own container', () {
-      final resized = resizeItems(layout, {'a', 'c'}, h: 2);
-      expect(
-        [
-          for (final one in findItems(resized, {'a', 'c', 'd'})) one.item.h,
-        ],
-        [2, 2, 1],
+      final a = findItems(layout, {'a'}).single;
+      expect(withSizing(a.item, a.parent, 'w', 2).w, 2);
+      final moved = withSizing(
+        withSizing(a.item, a.parent, 'x', 1),
+        a.parent,
+        'y',
+        0,
       );
+      expect((moved.x, moved.y), (1, 0));
+      // A place taken away is a column and a row gone together.
+      final loose = withSizing(moved, a.parent, 'y', null);
+      expect((loose.x, loose.y), (null, null));
     });
 
     test(
