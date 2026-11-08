@@ -26,7 +26,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
@@ -85,7 +85,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
@@ -296,7 +296,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
@@ -369,7 +369,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
@@ -427,7 +427,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),

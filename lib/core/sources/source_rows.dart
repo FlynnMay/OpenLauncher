@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/sources/source_endpoints.dart';
+import 'package:openlauncher/core/endpoints/source_endpoint.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
 import 'package:openlauncher_domain/sources/source.dart';
@@ -21,7 +21,7 @@ final sourceValueProvider = FutureProvider.autoDispose
         final again = Timer(Duration(seconds: every), ref.invalidateSelf);
         ref.onDispose(again.cancel);
       }
-      final endpoint = sourceEndpoints[source.endpoint];
+      final endpoint = ref.watch(sourceEndpointsProvider)[source.endpoint];
       if (endpoint == null) throw UnsupportedError('Nothing at ${source.url}');
       return endpoint(ref, source.watch);
     }, retry: (_, _) => null);

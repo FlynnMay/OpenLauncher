@@ -31,7 +31,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
           configServerProvider.overrideWith((ref) => null),
@@ -159,7 +159,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
           updateSourceProvider.overrideWithValue(source),

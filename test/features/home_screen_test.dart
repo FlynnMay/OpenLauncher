@@ -36,7 +36,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(startingConfig),
           ),
@@ -75,7 +75,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
             commandHistoryStoreProvider.overrideWithValue(
               MemoryCommandHistoryStore(),
             ),
@@ -1119,7 +1119,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
             configStoreProvider.overrideWithValue(
               MemoryConfigStore(startingConfig),
             ),

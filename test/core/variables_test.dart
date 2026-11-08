@@ -115,7 +115,7 @@ void main() {
       ], const []);
       final c = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(LauncherConfig(layout: layout)),
           ),
@@ -273,7 +273,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
             configStoreProvider.overrideWithValue(MemoryConfigStore()),
             launcherPlatformProvider.overrideWithValue(playing),
           ],
@@ -354,7 +354,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
             configStoreProvider.overrideWithValue(MemoryConfigStore()),
           ],
           child: MaterialApp(
@@ -403,7 +403,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              ...packOverrides,
+              ...launcherOverrides,
               configStoreProvider.overrideWithValue(MemoryConfigStore()),
             ],
             child: MaterialApp(
@@ -474,7 +474,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              ...packOverrides,
+              ...launcherOverrides,
               configStoreProvider.overrideWithValue(MemoryConfigStore()),
             ],
             child: MaterialApp(
@@ -516,7 +516,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
             configStoreProvider.overrideWithValue(MemoryConfigStore()),
             launcherPlatformProvider.overrideWithValue(platform),
           ],
@@ -659,7 +659,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
             configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
             launcherPlatformProvider.overrideWithValue(platform),
           ],

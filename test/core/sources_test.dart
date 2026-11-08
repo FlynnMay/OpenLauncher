@@ -10,6 +10,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/registries/source_endpoint_registry.dart';
 import 'package:openlauncher/core/sources/sources.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/features/home/picture.dart';
@@ -119,7 +120,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(platform),
         ],
@@ -306,6 +307,7 @@ void main() {
     test("the launcher's own answer at their addresses", () async {
       final c = ProviderContainer(
         overrides: [
+          ...sourceEndpointOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4)),
         ],
@@ -383,6 +385,7 @@ void main() {
     ProviderContainer container(Map<String, Uint8List> bundled) {
       final container = ProviderContainer(
         overrides: [
+          ...sourceEndpointOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(platform),
           packsDirProvider.overrideWith(

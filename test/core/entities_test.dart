@@ -128,7 +128,7 @@ void main() {
       ], []);
       container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
         ],
@@ -385,7 +385,7 @@ void main() {
     ProviderContainer container(List<Entity> own) {
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(LauncherConfig(entities: own)),
           ),
@@ -538,7 +538,7 @@ void main() {
       final platform = FakeLauncherPlatform(const [], const []);
       final c = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
@@ -645,7 +645,7 @@ void main() {
       final platform = FakeLauncherPlatform(const [], const []);
       final c = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
@@ -716,7 +716,7 @@ void main() {
       ], const []);
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(platform),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4, 9)),

@@ -12,7 +12,7 @@ void main() {
   Future<ProviderContainer> launcher(List<String> screens) async {
     final c = ProviderContainer(
       overrides: [
-        ...packOverrides,
+        ...launcherOverrides,
         configStoreProvider.overrideWithValue(
           MemoryConfigStore(
             LauncherConfig(

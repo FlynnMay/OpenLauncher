@@ -11,7 +11,7 @@ void main() {
   Future<ProviderContainer> launcher() async {
     final c = ProviderContainer(
       overrides: [
-        ...packOverrides,
+        ...launcherOverrides,
         commandHistoryStoreProvider.overrideWithValue(
           MemoryCommandHistoryStore(),
         ),
@@ -195,7 +195,7 @@ void main() {
     ProviderContainer started() {
       final c = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           commandHistoryStoreProvider.overrideWithValue(kept),
           configStoreProvider.overrideWithValue(saved),
         ],
@@ -227,7 +227,7 @@ void main() {
   test('a history that cannot be read is an empty one', () async {
     final c = ProviderContainer(
       overrides: [
-        ...packOverrides,
+        ...launcherOverrides,
         commandHistoryStoreProvider.overrideWithValue(
           MemoryCommandHistoryStore()..save({'phone': 'nonsense'}),
         ),

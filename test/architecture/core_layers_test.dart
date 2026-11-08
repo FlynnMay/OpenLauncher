@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// The folders of `lib/core`, lowest first. A folder builds only on folders
 /// below it, so core has no import cycles and each area can be read alone.
 const coreLayers = [
+  'endpoints',
   'access',
   'media',
   'components',
@@ -24,14 +25,12 @@ const coreLayers = [
   'services',
   'operations',
   'actions',
+  'registries',
 ];
 
 /// Imports that still point up, as `from -> to` below `lib/core`. Fix one,
 /// then take it off; nothing new goes on.
-const knownUpwardImports = {
-  'sources/source_endpoints.dart -> overlays/overlays.dart',
-  'sources/source_endpoints.dart -> updates/updates.dart',
-};
+const knownUpwardImports = <String>{};
 
 const _corePath = 'lib/core/';
 final _coreImport = RegExp(
@@ -47,9 +46,10 @@ void main() {
   final coreFiles = _dartFilesIn(_corePath);
 
   test('every core folder has a place in the layers', () {
-    final unplaced = coreFiles.map(_folderOf).toSet().difference(
-      coreLayers.toSet(),
-    );
+    final unplaced = coreFiles
+        .map(_folderOf)
+        .toSet()
+        .difference(coreLayers.toSet());
     expect(unplaced, isEmpty, reason: 'Add new folders to coreLayers.');
   });
 

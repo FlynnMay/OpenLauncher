@@ -9,6 +9,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/registries/source_endpoint_registry.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/editor/editing/editor_mode.dart';
@@ -21,6 +22,7 @@ import 'package:openlauncher_domain/commands/commands.dart';
 /// Provider overrides that run the launcher in a browser: config, entities
 /// and wallpapers come from the TV, and config changes go back to it.
 final List<Override> tvOverrides = [
+  ...sourceEndpointOverrides,
   commandsProvider.overrideWith(
     (ref) => TvCommands(
       ref.watch(tvApiProvider),

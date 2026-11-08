@@ -58,7 +58,7 @@ void main() {
           ProviderScope(
             key: UniqueKey(),
             overrides: [
-              ...packOverrides,
+              ...launcherOverrides,
               launcherPlatformProvider.overrideWithValue(
                 FakeLauncherPlatform([
                   InstalledApp(
@@ -164,7 +164,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           launcherPlatformProvider.overrideWithValue(platform),
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
@@ -250,7 +250,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform([
               InstalledApp(packageName: 'a', label: 'Alpha', isBanner: true),

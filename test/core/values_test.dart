@@ -230,7 +230,7 @@ void main() {
       final store = MemoryConfigStore();
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(store),
         ],
       );
@@ -343,7 +343,7 @@ void main() {
       asked = [];
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
           launcherPlatformProvider.overrideWithValue(platform),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4, 9)),
@@ -471,7 +471,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
           ),
@@ -573,7 +573,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
         ],
         child: MaterialApp(

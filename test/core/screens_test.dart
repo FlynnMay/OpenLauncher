@@ -29,7 +29,7 @@ void main() {
   }) async {
     final c = ProviderContainer(
       overrides: [
-        ...packOverridesKeeping(lastScreen ?? MemoryLastScreenStore()),
+        ...launcherOverridesKeeping(lastScreen ?? MemoryLastScreenStore()),
         launcherPlatformProvider.overrideWithValue(
           FakeLauncherPlatform(const [], const []),
         ),
