@@ -92,7 +92,12 @@ class _PackManagerState extends ConsumerState<PackManager>
   /// Removes [pack], and with it the settings the user gave it if asked.
   Future<void> _remove(Pack pack) async {
     final kept = ref.read(configProvider).value?.packSettings[pack.id];
-    final answer = await _askAboutRemoving(pack, hasSettings: kept != null);
+    final uses = pack.usesIn(ref.read(configProvider).value?.toJson());
+    final answer = await _askAboutRemoving(
+      pack,
+      hasSettings: kept != null,
+      uses: uses,
+    );
     if (answer == null) return;
     await whileBusy(() async {
       await ref.read(tvApiProvider).removePack(pack.id);
@@ -105,16 +110,21 @@ class _PackManagerState extends ConsumerState<PackManager>
   Future<_Removal?> _askAboutRemoving(
     Pack pack, {
     required bool hasSettings,
+    required int uses,
   }) => showDialog<_Removal>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text('Remove "${pack.name}"?'),
       content: Text(
-        hasSettings
-            ? 'It comes off the TV. Its settings stay unless you delete them '
-                  'too, so a pack installed again finds them. (A secret is '
-                  'always forgotten.)'
-            : 'It comes off the TV. It can be installed again from its file.',
+        [
+          'It comes off the TV. It can be installed again from its file.',
+          if (uses > 0)
+            'It is used in $uses ${uses == 1 ? 'place' : 'places'}, which '
+                'will show nothing until it is installed again.',
+          if (hasSettings)
+            'Its settings stay unless you delete them too, so a pack '
+                'installed again finds them. (A secret is always forgotten.)',
+        ].join('\n\n'),
       ),
       actions: [
         TextButton(
@@ -246,9 +256,8 @@ class _PackRow extends ConsumerWidget {
       for (final set in pack.iconSets)
         ref.watch(iconSetProvider(set)).value?.icons.length ?? 0,
     ].fold(0, (sum, count) => sum + count);
-    final kept = pack.builtIn
-        ? 'Built in'
-        : uses > 0
+    final kept = pack.builtIn ? 'Built in' : null;
+    final inUse = uses > 0 && !pack.builtIn
         ? 'In use in $uses ${uses == 1 ? 'place' : 'places'}'
         : null;
     final config = ref.watch(configProvider).value;
@@ -267,6 +276,7 @@ class _PackRow extends ConsumerWidget {
           if (icons > 0) '$icons icons',
           MediaManager.sizeOf(pack.bytes),
           ?kept,
+          ?inUse,
           if (pack.requires.isNotEmpty) 'Needs ${pack.requires.join(', ')}',
           if (pack.source.isNotEmpty) pack.source,
           if (needs.isNotEmpty) 'Still needs: ${needs.join(', ')}',
