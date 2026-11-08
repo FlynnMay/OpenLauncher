@@ -10,66 +10,48 @@ import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/dragging.dart';
 import 'package:openlauncher/editor/editing/history.dart';
-import 'package:openlauncher/editor/editing/prefab_actions.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
 
-/// Changes what is being edited, the layout or the open prefab. The layout
-/// is changed by sending the TV the difference [change] makes, so what it did
-/// not touch is left as it is; a prefab is saved whole, as the TV knows it
-/// only as a prefab.
+/// Changes what is being edited, the layout or the open prefab, by sending
+/// the difference [change] makes, so what it did not touch is left as it is.
 Future<void> changeLayout(
   BuildContext context,
   WidgetRef ref,
   Layout Function(Layout layout) change,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
   final layout = ref.read(editedLayoutProvider);
   if (layout == null) return;
-  final prefab = ref.read(editedPrefabProvider);
+  final PatchLayout patch;
   try {
-    if (prefab == null) {
-      final patch = PatchLayout.turning(layout, change(layout));
-      if (!patch.isEmpty) await runCommand(context, ref, patch);
-    } else if (await saveEdited(ref, prefab, change(layout))
-        case final reason?) {
-      messenger.showSnackBar(SnackBar(content: Text(reason)));
-    }
+    patch = PatchLayout.turning(layout, change(layout));
   } on Object catch (error) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
-    // Reload from the TV.
-    ref.invalidate(configProvider);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Could not save: $error')));
+    return;
   }
+  if (!patch.isEmpty) await runCommand(context, ref, patch);
 }
 
 /// Does [command] to what is being edited. The TV does it, so its rules hold
 /// and its other editors are not overwritten; undo is the TV's, and the editor
-/// keeps what was selected and open. An open prefab is not the TV's layout, so there the
-/// command is done here, as the same code the TV would run.
+/// keeps what was selected and open. In an open prefab the TV does it to that
+/// prefab.
 Future<void> runCommand(
   BuildContext context,
   WidgetRef ref,
   Command command,
 ) async {
-  if (ref.read(editedPrefabProvider) != null) {
-    switch (command) {
-      case LayoutCommand():
-        return changeLayout(context, ref, command.apply);
-      case PrefabAwareEdit():
-        final prefabs = ref.read(prefabsProvider);
-        return changeLayout(
-          context,
-          ref,
-          (layout) => command.applyUsing(layout, prefabs),
-        );
-    }
-  }
   final messenger = ScaffoldMessenger.of(context);
+  final prefab = ref.read(editedPrefabProvider);
+  final scoped = prefab == null
+      ? command
+      : InPrefab(prefab.id, ref.read(prefabModeProvider)?.variant, command);
   try {
-    await ref.read(commandsProvider).run(command);
+    await ref.read(commandsProvider).run(scoped);
   } on CommandRefused catch (refused) {
     messenger.showSnackBar(SnackBar(content: Text(refused.message)));
   } on Object catch (error) {

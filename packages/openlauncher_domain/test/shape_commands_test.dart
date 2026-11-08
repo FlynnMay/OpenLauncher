@@ -2,6 +2,7 @@ import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/screen.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 import 'package:test/test.dart';
 
 Node card(String id) =>
@@ -22,6 +23,7 @@ Command sentAndRead(Command command) => commandFromJson(command.toJson());
 void main() {
   moduleCommandTests();
   leafTests();
+  scopeTests();
 
   test('each command survives JSON and undoes', () {
     final before = home();
@@ -84,5 +86,48 @@ void leafTests() {
     );
     expect(const ReshapeNode('leaf', w: 2, h: 2).apply(layout), isNotNull);
     expect(const SetSizing({'leaf'}, 'flex', 1).apply(layout), isNotNull);
+  });
+}
+
+void scopeTests() {
+  Prefab shelf() => Prefab(
+    id: 'shelf',
+    name: 'Shelf',
+    root: Node.layout(id: 'root', children: [card('a'), card('b')]),
+  );
+
+  Document documentWith(Prefab prefab) => Document(
+    layout: home(),
+    settings: {
+      'prefabs': [prefab.toJson()],
+    },
+    prefabs: {prefab.id: prefab},
+  );
+
+  test('a command in a prefab changes only that prefab, and undoes', () {
+    final before = documentWith(shelf());
+    final command = commandFromJson(
+      InPrefab('shelf', null, const RemoveNodes(['a'])).toJson(),
+    );
+    final after = command.edit(before);
+    final saved = Prefab.listFromJson(after.settings['prefabs']).single;
+    expect(saved.root.children.map((part) => part.id), ['b']);
+    expect(after.layout.toJson(), before.layout.toJson());
+    final back = command.undoing(before).edit(after);
+    expect(
+      Prefab.listFromJson(back.settings['prefabs']).single.root.children,
+      hasLength(2),
+    );
+  });
+
+  test('a prefab that is gone refuses', () {
+    expect(
+      () => const InPrefab(
+        'none',
+        null,
+        RemoveNodes(['a']),
+      ).edit(Document(layout: home())),
+      throwsA(isA<CommandRefused>()),
+    );
   });
 }

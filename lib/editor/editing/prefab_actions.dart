@@ -11,6 +11,7 @@ import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
 import 'package:openlauncher_domain/editing/prefab_edit.dart';
 
@@ -37,10 +38,6 @@ final shippedByProvider = Provider.family<String?, String>(
       ? ref.watch(packNameProvider(id))
       : null,
 );
-
-const _shared =
-    'Variants share the prefab\'s structure, variables and actions. Switch '
-    'to the default variant to change them.';
 
 Future<void> _put(WidgetRef ref, Prefab prefab) => ref
     .read(configProvider.notifier)
@@ -154,28 +151,6 @@ void previewWith(WidgetRef ref, String name, String id) {
   if (prefab == null) return;
   ref.read(prefabTrailProvider.notifier).preview(name, id);
   ref.read(runtimeVarsProvider.notifier).set(prefab.root.id, name, id);
-}
-
-/// Saves the open [prefab] as [edited] has it. Returns why it could not be
-/// kept, or null.
-Future<String?> saveEdited(WidgetRef ref, Prefab prefab, Layout edited) async {
-  final root = prefabRootIn(edited, prefab.root.id);
-  if (root == null) return 'A prefab keeps its root.';
-  final next = withEdited(prefab, ref.read(prefabModeProvider)?.variant, root);
-  if (next == null) return _shared;
-  final left = {for (final part in next.root.all) part.id};
-  final gone = {
-    for (final part in prefab.root.all)
-      if (!left.contains(part.id)) part.id: null,
-  };
-  await ref.read(configProvider.notifier).change((c) {
-    final own = withPrefab(c.prefabs, next);
-    if (gone.isEmpty) return c.copyWith(prefabs: own);
-    // What named a removed child goes with it.
-    final fixed = withPartIds(c.layout, own, next.id, gone);
-    return c.copyWith(layout: fixed.layout, prefabs: fixed.prefabs);
-  });
-  return null;
 }
 
 /// Asks for a name, makes an empty prefab and opens it.
@@ -333,7 +308,7 @@ Future<void> renamePart(BuildContext context, WidgetRef ref, Node part) async {
   final prefab = ref.read(editedPrefabProvider);
   if (prefab == null) return;
   if (!prefab.isBase(ref.read(prefabModeProvider)?.variant)) {
-    return _say(context, _shared);
+    return _say(context, variantsShareStructure);
   }
   final name = await askName(context, part.id, title: 'ID', does: 'Rename');
   final to = slugOf(name ?? '', '');

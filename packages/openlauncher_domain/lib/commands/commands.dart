@@ -7,6 +7,7 @@ import 'package:openlauncher_domain/commands/layout_reset_commands.dart';
 import 'package:openlauncher_domain/commands/module_commands.dart';
 import 'package:openlauncher_domain/commands/node_commands.dart';
 import 'package:openlauncher_domain/commands/prefab_commands.dart';
+import 'package:openlauncher_domain/commands/scope_commands.dart';
 import 'package:openlauncher_domain/commands/screen_commands.dart';
 import 'package:openlauncher_domain/commands/shape_commands.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
@@ -20,6 +21,7 @@ export 'layout_reset_commands.dart';
 export 'module_commands.dart';
 export 'node_commands.dart';
 export 'prefab_commands.dart';
+export 'scope_commands.dart';
 export 'screen_commands.dart';
 export 'shape_commands.dart';
 
@@ -32,6 +34,7 @@ final Map<String, CommandReader> _readers = {
   ...layoutResetCommandReaders,
   ...prefabCommandReaders,
   SetConfig.typeName: SetConfig.fromJson,
+  InPrefab.typeName: (json) => InPrefab.fromJson(json, commandFromJson),
   Batch.typeName: (json) => Batch.fromJson(json, commandFromJson),
 };
 

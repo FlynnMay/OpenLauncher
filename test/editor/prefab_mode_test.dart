@@ -14,8 +14,10 @@ import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
+import '../support/fake_tv.dart';
 import '../support/packs.dart';
 
+/// A TV that takes commands and does nothing with them.
 class _Tv extends TvApi {
   @override
   Future<int> command(Map<String, Object?> command, {int? basedOn}) async => 0;
@@ -30,31 +32,33 @@ const _alpha = Entity(
 );
 
 void main() {
-  Future<WidgetRef> pump(WidgetTester tester, {LauncherConfig? config}) async {
+  Future<WidgetRef> pump(
+    WidgetTester tester, {
+    LauncherConfig? config,
+    bool doesCommands = true,
+  }) async {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final tv = FakeTv(
+      TvState(
+        packs: [systemPack],
+        entities: const [_alpha],
+        config: config ?? LauncherConfig(layout: homeLayout(['system:app/a'])),
+        visuals: const [
+          (module: 'text', label: 'Text', w: 2, h: 1, values: {}),
+        ],
+      ),
+      shippedPrefabs: systemPrefabs,
+    );
     late WidgetRef ref;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           ...tvOverrides,
           systemContents,
-          tvApiProvider.overrideWithValue(_Tv()),
-          tvStateProvider.overrideWith(
-            (ref) => Stream.value(
-              TvState(
-                packs: [systemPack],
-                entities: const [_alpha],
-                config:
-                    config ??
-                    LauncherConfig(layout: homeLayout(['system:app/a'])),
-                visuals: const [
-                  (module: 'text', label: 'Text', w: 2, h: 1, values: {}),
-                ],
-              ),
-            ),
-          ),
+          tvApiProvider.overrideWithValue(doesCommands ? tv : _Tv()),
+          tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
         child: MaterialApp(
           home: Consumer(
@@ -266,7 +270,7 @@ void main() {
   testWidgets(
     'a container is made a prefab; deleting it unpacks the instance',
     (tester) async {
-      final ref = await pump(tester);
+      final ref = await pump(tester, doesCommands: false);
       LauncherConfig config() => ref.read(configProvider).value!;
       await press(tester, find.text('Objects'));
       await press(tester, inTree('Layout'));

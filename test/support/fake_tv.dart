@@ -3,17 +3,23 @@ import 'dart:convert';
 
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 
 /// A TV for the editor's tests. It does what it is sent, as the real one does:
 /// a command is done to its layout, and the page is told the new state.
 class FakeTv extends TvApi {
-  FakeTv(TvState state) : _state = state {
+  FakeTv(TvState state, {List<Prefab> shippedPrefabs = const []})
+    : _state = state,
+      _shipped = {for (final prefab in shippedPrefabs) prefab.id: prefab} {
     pushed.add(state);
   }
 
   TvState _state;
+
+  /// The prefabs packs ship, by id.
+  final Map<String, Prefab> _shipped;
 
   /// What the TV tells the page, as it does after every change.
   final pushed = StreamController<TvState>();
@@ -75,7 +81,10 @@ class FakeTv extends TvApi {
       settings: config.open,
       layoutIsTheUsers: config.ownLayout,
       startingLayout: startingLayout,
-      prefabs: {for (final prefab in config.prefabs) prefab.id: prefab},
+      prefabs: {
+        ..._shipped,
+        for (final prefab in config.prefabs) prefab.id: prefab,
+      },
     );
     final after = command.edit(before);
     final back = command.undoing(before);
