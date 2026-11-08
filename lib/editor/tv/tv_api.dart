@@ -392,6 +392,13 @@ class TvApi {
     {'value': value},
   );
 
+  /// Forgets pack [pack]'s secret setting [key].
+  Future<void> clearSecret(String pack, String key) => _ask(
+    'DELETE',
+    '/api/secret?pack=${Uri.encodeQueryComponent(pack)}'
+        '&key=${Uri.encodeQueryComponent(key)}',
+  );
+
   /// What entity [id]'s `http` feed reads, fetched by the TV.
   Future<Object?> feedValue(String id) async =>
       (await _ask('GET', '/api/feed${_id(id)}') as Map)['value'];

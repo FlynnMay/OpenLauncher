@@ -105,17 +105,35 @@ class _SecretFieldState extends ConsumerState<_SecretField> with Busy {
     super.dispose();
   }
 
-  Future<void> _keep(String value) => whileBusy(() async {
+  /// Replaces the secret with what was typed; never with nothing.
+  Future<void> _replace() => whileBusy(() async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref
           .read(tvApiProvider)
-          .setSecret(widget.pack.id, widget.setting.key, value);
+          .setSecret(widget.pack.id, widget.setting.key, _text.text);
       _text.clear();
     } on Object catch (error) {
       messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
     }
   });
+
+  /// Forgets the secret, once the user has said so.
+  Future<void> _clear() async {
+    final sure = await confirm(
+      context,
+      'Clear ${widget.setting.label}?',
+      'It is forgotten on the TV. The pack cannot reach what it signs into '
+          'until a new one is saved.',
+      'Clear',
+    );
+    if (!sure || !mounted) return;
+    await whileBusy(
+      () => ref
+          .read(tvApiProvider)
+          .clearSecret(widget.pack.id, widget.setting.key),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -131,25 +149,29 @@ class _SecretFieldState extends ConsumerState<_SecretField> with Busy {
             autocorrect: false,
             decoration: InputDecoration(
               labelText: PackSettingsForm.labelOf(widget.setting),
+              // A kept secret shows as dots and stays until cleared.
+              hintText: widget.isSet ? '••••••••••••••••' : 'Not set',
               helperText: widget.isSet
-                  ? 'Set. Type to replace it.'
-                  : 'Not set.',
+                  ? 'Saved on the TV. Type a new one to replace it.'
+                  : null,
               isDense: true,
               border: const OutlineInputBorder(),
+              suffixIcon: widget.isSet
+                  ? IconButton(
+                      tooltip: 'Clear',
+                      onPressed: busy ? null : _clear,
+                      icon: const Icon(Icons.close),
+                    )
+                  : null,
             ),
-            onSubmitted: busy || _text.text.isEmpty ? null : _keep,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: busy || _text.text.isEmpty ? null : (_) => _replace(),
           ),
         ),
         FilledButton.tonal(
-          onPressed: busy ? null : () => _keep(_text.text),
-          child: const Text('Save'),
+          onPressed: busy || _text.text.isEmpty ? null : _replace,
+          child: Text(widget.isSet ? 'Replace' : 'Save'),
         ),
-        if (widget.isSet)
-          IconButton(
-            tooltip: 'Clear',
-            onPressed: busy ? null : () => _keep(''),
-            icon: const Icon(Icons.delete_outline),
-          ),
       ],
     ),
   );

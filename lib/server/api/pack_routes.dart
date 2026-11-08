@@ -52,6 +52,8 @@ class PackRoutes implements ApiRoutes {
 
   Future<Response> _setSecret(Request request) async {
     final body = await readJsonObject(request);
+    // Without a value this would clear it; that is DELETE's job.
+    if (body['value'] == null) throw const FormatException('"value" is needed');
     await _keepSecret(request, body['value']);
     return emptyJsonResponse();
   }

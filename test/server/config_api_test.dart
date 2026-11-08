@@ -1312,6 +1312,15 @@ void main() {
     expect(jsonEncode(store.config.toJson()), isNot(contains('s3cret')));
     expect((await secret('PUT', 'host', {'value': 'x'})).statusCode, 400);
     expect((await secret('PUT', 'token', {'value': 1})).statusCode, 400);
+    // Blank or missing never clears it; only a delete does.
+    expect((await secret('PUT', 'token', {'value': ''})).statusCode, 400);
+    expect((await secret('PUT', 'token', {})).statusCode, 400);
+    expect(
+      secrets.load(),
+      completion({
+        'hub': {'token': 's3cret'},
+      }),
+    );
 
     expect((await secret('DELETE', 'token')).statusCode, 200);
     expect((await state())['secrets'], isEmpty);

@@ -16,7 +16,9 @@ class PackService {
     await _ref.read(packSecretsProvider.notifier).forget(id);
   }
 
-  /// Keeps [value] as the secret setting [key] of [packId]; no value clears it.
+  /// Keeps [value] as the secret setting [key] of [packId]. No value (a
+  /// delete) clears it; a blank one is refused, so a secret is only ever
+  /// cleared on purpose.
   Future<void> setSecret(String? packId, String? key, Object? value) async {
     final setting = settingOf(
       await _ref.read(packsProvider.future),
@@ -28,6 +30,9 @@ class PackService {
     }
     if (value != null && value is! String) {
       throw const FormatException('"value" must be text');
+    }
+    if (value is String && value.isEmpty) {
+      throw const FormatException('A secret cannot be blank; delete it');
     }
     await _ref
         .read(packSecretsProvider.notifier)
