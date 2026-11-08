@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:openlauncher_domain/sources/http_feed.dart';
@@ -45,12 +47,16 @@ final feedFetcherProvider = Provider<Future<Object?> Function(HttpFeed)>(
     }
     final body = utf8.decode(response.bodyBytes, allowMalformed: true);
     try {
-      return jsonDecode(body);
+      // A big answer (Home Assistant's is hundreds of KB) is decoded off the
+      // main isolate, so frames keep coming.
+      return await compute(_decodeJson, body);
     } on FormatException {
       return body.trim();
     }
   },
 );
+
+Object? _decodeJson(String body) => jsonDecode(body);
 
 /// Largest accepted response.
 const maxFeedBytes = 512 * 1024;

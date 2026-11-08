@@ -28,7 +28,7 @@ Entity? subjectOf(WidgetRef ref, String id) {
   return _subject(
     container,
     ref.watch(runtimeVarsProvider.select((all) => all[id])),
-    ref.watch(entitiesProvider).value ?? const [],
+    ref.watch(entityShapesProvider).value ?? const [],
   );
 }
 
@@ -59,7 +59,8 @@ class _DockHostState extends ConsumerState<DockHost> {
       if (open == (_was[id] ?? false)) continue;
       // A menu with no applicable actions is not shown.
       if (open) {
-        final entities = ref.read(entitiesProvider).value ?? const <Entity>[];
+        final entities =
+            ref.read(entityShapesProvider).value ?? const <Entity>[];
         if (_subject(container, all[id], entities) != null &&
             offeredFor(container, ref.read, entities).isEmpty) {
           Future.microtask(() => vars.set(id, openVar, false));

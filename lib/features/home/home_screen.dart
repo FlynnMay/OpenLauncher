@@ -38,7 +38,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = ref.watch(layoutViewProvider);
-    final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
+    final entities = ref.watch(entityShapesProvider).value ?? const <Entity>[];
     final overlays = ref.watch(overlaysProvider);
     final current = ref.watch(currentScreenProvider);
     final keys = ref.watch(_dockKeysProvider);

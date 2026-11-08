@@ -151,7 +151,7 @@ class _DockedNodeState extends ConsumerState<DockedNode>
       : offeredIn(
           _container,
           ref.watch,
-          ref.watch(entitiesProvider).value ?? const [],
+          ref.watch(entityShapesProvider).value ?? const [],
         );
 
   /// The container [shown] in its box. Keyed so it keeps its state as what is

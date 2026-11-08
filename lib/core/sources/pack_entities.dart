@@ -8,6 +8,7 @@ import 'package:openlauncher/core/packs/pack_store.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/entities/entity_action.dart';
+import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 
 /// The entities of every pack: each pack's own, then what its generators
@@ -49,9 +50,10 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
       for (final entity in [
         ...entities,
         for (final MapEntry(key: name, value: generator) in generators.entries)
-          ...generator.entitiesFrom(
+          ...await _madeBy(
+            generator,
             await rows['${pack.id}/$name']!,
-            settings: settings[pack.id] ?? const {},
+            settings[pack.id] ?? const {},
           ),
       ]) {
         // A made id is the pack's like any other.
@@ -60,6 +62,17 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
       }
     }
     return made;
+  }
+
+  /// What [generator] makes of [rows]. The event loop turns once first, so a
+  /// frame can be drawn between one generator's work and the next.
+  Future<List<Entity>> _madeBy(
+    Generator generator,
+    List<Object?> rows,
+    Map<String, Object?> settings,
+  ) async {
+    await Future<void>.delayed(Duration.zero);
+    return generator.entitiesFrom(rows, settings: settings);
   }
 
   /// What the user gave each pack's settings; made again when it changes.

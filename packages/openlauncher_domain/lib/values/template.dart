@@ -16,7 +16,18 @@ export 'package:openlauncher_domain/values/expression.dart'
 class Template {
   const Template._(this._parts);
 
+  /// Parsing is the dear part of a template, and a generator uses the same
+  /// few on every row, so what was parsed is kept.
+  static final _parsed = <String, Template>{};
+
   factory Template.parse(String source) {
+    final kept = _parsed[source];
+    if (kept != null) return kept;
+    if (_parsed.length > 2048) _parsed.clear();
+    return _parsed[source] = Template._parseNew(source);
+  }
+
+  factory Template._parseNew(String source) {
     final parts = <Object>[];
     var end = 0;
     for (final match in _slot.allMatches(source)) {

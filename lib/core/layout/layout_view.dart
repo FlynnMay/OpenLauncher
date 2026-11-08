@@ -72,7 +72,7 @@ Layout withSlotLayoutsIn(Layout layout, Map<String, Prefab> prefabs) =>
 /// The layout as drawn, kept current with the device and config.
 final layoutViewProvider = FutureProvider<Layout>((ref) async {
   final prefabs = ref.watch(prefabsProvider);
-  final entities = await ref.watch(entitiesProvider.future);
+  final entities = await ref.watch(entityShapesProvider.future);
   final config = await ref.watch(configProvider.future);
   return layoutWith(
     withDockedInstances(config.layout, prefabs),
