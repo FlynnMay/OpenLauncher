@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/screens/last_screen_store.dart';
 
 export 'package:openlauncher/core/screens/last_screen_store.dart';
@@ -52,15 +51,16 @@ class ShownScreen extends Notifier<ShownScreens> {
   @override
   ShownScreens build() => const ShownScreens();
 
-  /// Shows [id], keeping the screen before it for [back]. What is open over
-  /// the screen closes.
-  void open(String id) {
+  /// Shows [id], keeping the screen before it for [back]; false if it is
+  /// already shown.
+  bool open(String id) {
     final layout = ref.read(layoutViewProvider).value;
     final now = layout == null
         ? null
         : _current(layout, state.id, ref.read(lastScreenProvider).value).id;
-    if (now == id) return;
+    if (now == id) return false;
     _show(ShownScreens(id, [...state.back, ?now]));
+    return true;
   }
 
   /// Shows the screen before; false if there is none.
@@ -76,7 +76,6 @@ class ShownScreen extends Notifier<ShownScreens> {
   }
 
   void _show(ShownScreens next) {
-    ref.read(overlaysProvider.notifier).closeAll();
     state = next;
     final layout = ref.read(layoutViewProvider).value;
     if (layout != null && layout.startup.remember) {

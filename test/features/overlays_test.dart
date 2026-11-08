@@ -6,6 +6,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/home/home_screen.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
@@ -39,10 +40,11 @@ void main() {
     expect(c.read(overlaysProvider).last.modal, isFalse);
     // Closing one opened by its variable clears it.
     c.read(runtimeVarsProvider.notifier).set('games', openVar, true);
-    overlays.close('games');
+    final service = c.read(overlayServiceProvider);
+    service.closeOverlay('games');
     expect(c.read(runtimeVarsProvider)['games']?[openVar], isFalse);
-    overlays.close();
-    overlays.close();
+    service.closeOverlay();
+    service.closeOverlay();
     expect(c.read(overlaysProvider), isEmpty);
   });
 

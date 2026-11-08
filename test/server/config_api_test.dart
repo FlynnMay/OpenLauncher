@@ -11,7 +11,6 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/media/media_dirs.dart';
 import 'package:openlauncher/core/packs/packs.dart';
-import 'package:openlauncher/core/registries/source_endpoint_registry.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
@@ -51,7 +50,6 @@ void main() {
     tmp = await Directory.systemTemp.createTemp('openlauncher_test');
     container = ProviderContainer(
       overrides: [
-        ...sourceEndpointOverrides,
         configStoreProvider.overrideWithValue(store),
         authStoreProvider.overrideWithValue(MemoryAuthStore()),
         launcherPlatformProvider.overrideWithValue(

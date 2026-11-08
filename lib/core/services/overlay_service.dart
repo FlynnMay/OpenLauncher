@@ -44,8 +44,25 @@ class OverlayService {
   /// Closes the overlay [id] names; none, the one [component] is in, else the
   /// top one.
   Future<String?> close({String? id, String? component}) async {
-    _overlays.close(id == null ? _around(component) : _find(id)?.id ?? id);
+    closeOverlay(id == null ? _around(component) : _find(id)?.id ?? id);
     return null;
+  }
+
+  /// Closes the overlay [id] names, else the top one. A node opened by its
+  /// `open` variable has it cleared, so it stays closed.
+  void closeOverlay([String? id]) {
+    final gone = id ?? _ref.read(overlaysProvider).lastOrNull?.id;
+    if (gone == null) return;
+    _overlays.remove(gone);
+    if (_ref.read(runtimeVarsProvider)[gone]?[openVar] == true) {
+      _ref.read(runtimeVarsProvider.notifier).set(gone, openVar, false);
+    }
+  }
+
+  void closeAll() {
+    for (final open in [..._ref.read(overlaysProvider).reversed]) {
+      closeOverlay(open.id);
+    }
   }
 
   Overlays get _overlays => _ref.read(overlaysProvider.notifier);

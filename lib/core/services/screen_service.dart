@@ -3,6 +3,7 @@ import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/screens/screens.dart';
+import 'package:openlauncher/core/services/overlay_service.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Which screen is shown, and the screens there are. Where a screen is named
@@ -15,14 +16,20 @@ class ScreenService {
 
   Future<String?> open(String id) async {
     if (await _screenNamed(id) == null) return 'There is no screen "$id".';
-    _ref.read(shownScreensProvider.notifier).open(id);
+    if (_screens.open(id)) _closeOverlays();
     return null;
   }
 
   String? back() {
-    if (_ref.read(shownScreensProvider.notifier).back()) return null;
-    return 'There is no screen before.';
+    if (!_screens.back()) return 'There is no screen before.';
+    _closeOverlays();
+    return null;
   }
+
+  ShownScreen get _screens => _ref.read(shownScreensProvider.notifier);
+
+  /// What was open over the screen left behind.
+  void _closeOverlays() => _ref.read(overlayServiceProvider).closeAll();
 
   /// An empty screen. [id] is wanted, not promised; [name] is its label.
   Future<String?> add({String? id, String name = ''}) async {

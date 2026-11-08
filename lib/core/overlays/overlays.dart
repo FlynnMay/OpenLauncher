@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/variables/variables.dart';
 
 /// A node drawn over the screen, with what is behind it dimmed or blurred.
 @immutable
@@ -54,26 +53,7 @@ class Overlays extends Notifier<List<OpenOverlay>> {
   /// Has the next [opened] of [overlay]'s node use it.
   void ask(OpenOverlay overlay) => _asked[overlay.id] = overlay;
 
-  /// Takes [id] off, the top one without; a node opened by its `open`
-  /// variable has it cleared.
-  void close([String? id]) {
-    final gone = id ?? state.lastOrNull?.id;
-    if (gone == null) return;
-    remove(gone);
-    final vars = ref.read(runtimeVarsProvider);
-    if (vars[gone]?[openVar] == true) {
-      ref.read(runtimeVarsProvider.notifier).set(gone, openVar, false);
-    }
-  }
-
-  /// Closes every one.
-  void closeAll() {
-    for (final open in [...state.reversed]) {
-      close(open.id);
-    }
-  }
-
-  /// Takes [id] off, leaving its `open` variable.
+  /// Takes [id] off.
   void remove(String id) {
     if (state.every((open) => open.id != id)) return;
     state = [

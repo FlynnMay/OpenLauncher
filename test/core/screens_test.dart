@@ -11,6 +11,7 @@ import 'package:openlauncher/core/operations/operations_registry.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/screens/screens.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/wallpaper/wallpaper.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -61,15 +62,15 @@ void main() {
     );
     String? shown() => c.read(currentScreenProvider)?.id;
     expect(shown(), 'b');
-    final screens = c.read(shownScreensProvider.notifier);
+    final screens = c.read(screenServiceProvider);
     c.read(overlaysProvider.notifier).open(const OpenOverlay('x'));
-    screens.open('a');
+    expect(await screens.open('a'), isNull);
     expect(shown(), 'a');
     // What was open over the screen closes with it.
     expect(c.read(overlaysProvider), isEmpty);
-    expect(screens.back(), isTrue);
+    expect(screens.back(), isNull);
     expect(shown(), 'b');
-    expect(screens.back(), isFalse);
+    expect(screens.back(), isNotNull);
     // Not remembered, unless startup says so.
     expect(await c.read(lastScreenProvider.future), isNull);
   });
