@@ -13,3 +13,4 @@ export 'managers/variable_operations.dart';
 export 'operation.dart';
 export 'operations_manager.dart';
 export 'operations_registry.dart';
+export 'web_operation.dart';

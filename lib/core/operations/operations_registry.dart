@@ -12,13 +12,14 @@ import 'package:openlauncher/core/operations/managers/update_operations.dart';
 import 'package:openlauncher/core/operations/managers/variable_operations.dart';
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
+import 'package:openlauncher/core/operations/web_operation.dart';
 import 'package:openlauncher/core/services/services.dart';
 
 /// Every operation of every manager, by name.
 class OperationsRegistry {
   /// Throws [StateError] if two operations share an address, or one is not
   /// in its manager's area.
-  OperationsRegistry(Iterable<OperationsManager> managers) {
+  OperationsRegistry(Iterable<OperationsManager> managers, {this.web}) {
     for (final manager in managers) {
       for (final operation in manager.operations) {
         if (!operation.address.startsWith('${manager.area}/')) {
@@ -34,7 +35,11 @@ class OperationsRegistry {
 
   final _byName = <String, Operation>{};
 
-  Operation? operator [](String name) => _byName[name];
+  /// What any `http(s)://` address runs.
+  final Operation? web;
+
+  Operation? operator [](String name) =>
+      isWebAddress(name) ? web : _byName[name];
 
   Iterable<Operation> get all => _byName.values;
 
@@ -67,5 +72,8 @@ final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
 });
 
 final operationsRegistryProvider = Provider<OperationsRegistry>(
-  (ref) => OperationsRegistry(ref.watch(operationsManagersProvider)),
+  (ref) => OperationsRegistry(
+    ref.watch(operationsManagersProvider),
+    web: webOperation(ref.watch(httpServiceProvider)),
+  ),
 );

@@ -17,6 +17,7 @@ class OperationRun {
     this.screen,
     this.held = false,
     this.component,
+    this.entityId,
   });
 
   /// What the entity's action bound and what the act passed, or what an
@@ -27,6 +28,9 @@ class OperationRun {
 
   /// The component it fired from, if any.
   final String? component;
+
+  /// The entity whose action this is, if it is an entity's.
+  final String? entityId;
 
   /// The argument [key], if it is a string.
   String? arg(String key) => switch (args[key]) {
