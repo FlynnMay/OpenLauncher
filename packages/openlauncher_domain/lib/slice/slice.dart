@@ -57,10 +57,26 @@ class Slice {
         _work.prefabs[id] ??
         (throw const CommandRefused('That prefab is gone.'));
     final shown = variant == null ? prefab.root : prefab.rootAs(variant);
-    return shown.all
-            .where((node) => node.id == (child ?? prefab.root.id))
-            .firstOrNull ??
-        (throw const CommandRefused('There is nothing there.'));
+    final wanted = child ?? prefab.root.id;
+    final nodes = {for (final node in shown.all) node.id: node};
+    if (nodes[wanted] case final node?) return node;
+    for (
+      var cut = wanted.lastIndexOf('/');
+      cut > 0;
+      cut = wanted.lastIndexOf('/', cut - 1)
+    ) {
+      final owner = nodes[wanted.substring(0, cut)];
+      if (owner != null && owner.isInstance) {
+        return resolved(owner, _work.prefabs).all
+                .where(
+                  (node) =>
+                      node.id == '${owner.id}/${wanted.substring(cut + 1)}',
+                )
+                .firstOrNull ??
+            (throw const CommandRefused('There is nothing there.'));
+      }
+    }
+    throw const CommandRefused('There is nothing there.');
   }
 
   Node _inLayout(LayoutAddress at) {

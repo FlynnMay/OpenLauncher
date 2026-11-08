@@ -30,10 +30,6 @@ Layout prefabAsLayout(Prefab prefab, [String? variant, double? rowHeight]) =>
       ],
     );
 
-/// The prefab's root in a layout made by [prefabAsLayout], if still there.
-Node? prefabRootIn(Layout layout, String rootId) =>
-    layout.start.root.children.where((child) => child.id == rootId).firstOrNull;
-
 Node _everywhere(Node component, Node Function(Node component) change) =>
     change(
       component.copyWith(
@@ -141,24 +137,6 @@ Overrides? overridesBetween(Node base, Node edited) {
   }
 
   return walk(base, edited, root: true) ? result : null;
-}
-
-/// [prefab] after its tree, shown as [variant], was edited to [root]. Edits
-/// under a variant that is not the base become that variant's overrides;
-/// null if they are not ones a variant can hold.
-Prefab? withEdited(Prefab prefab, String? variant, Node root) {
-  if (prefab.isBase(variant)) {
-    return prefab.copyWith(root: root.sized(root.w, root.h));
-  }
-  final name = prefab.variantNamed(variant)!;
-  final overrides = overridesBetween(prefab.root, root);
-  if (overrides == null) return null;
-  return prefab.copyWith(
-    variants: {
-      for (final MapEntry(:key, :value) in prefab.variants.entries)
-        key: key == name ? PrefabVariant(value.label, overrides) : value,
-    },
-  );
 }
 
 Overrides _rekeyed(Overrides overrides, Map<String, String?> ids) => {
@@ -310,24 +288,6 @@ Node _unpackedIn(
               _unpackedIn(child, prefabId, prefabs, used, each),
         ],
       );
-}
-
-/// [layout] with instance [id] unpacked.
-Layout withUnpacked(Layout layout, String id, Map<String, Prefab> prefabs) {
-  final used = layout.itemIds;
-  return layout.rebuild(
-    (container, items) => [
-      for (final (index, item) in items.indexed)
-        item.id == id && item.isInstance
-            // As the container's rules show it.
-            ? unpacked(
-                container.copyWith(children: items).shown[index],
-                prefabs,
-                used,
-              )
-            : item,
-    ],
-  );
 }
 
 /// [layout] and the user's prefabs [own] without prefab [prefabId]: each

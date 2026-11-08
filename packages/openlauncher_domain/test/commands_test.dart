@@ -85,6 +85,95 @@ void main() {
     });
   });
 
+  group('what a command changes', () {
+    Set<String> areas(String address, List<SliceOp> ops) =>
+        EditSlice([SliceEdit(Address.parse(address), ops)]).areas;
+
+    const set = SetField('text', 'size', 3);
+
+    test(
+      'edits to different nodes do not overlap, a node and its child do',
+      () {
+        expect(
+          areasOverlap(areas('layout:a', [set]), areas('layout:b', [set])),
+          isFalse,
+        );
+        expect(
+          areasOverlap(areas('layout:a', [set]), areas('layout:a', [set])),
+          isTrue,
+        );
+        expect(
+          areasOverlap(
+            areas('layout:a', [set]),
+            areas('layout:a/image', [set]),
+          ),
+          isTrue,
+        );
+        expect(
+          areasOverlap(
+            areas('layout:a/image', [set]),
+            areas('layout:a/name', [set]),
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test('children of one prefab are apart, the prefab as a whole is not', () {
+      expect(
+        areasOverlap(areas('prefab:p/x', [set]), areas('prefab:p/y', [set])),
+        isFalse,
+      );
+      expect(
+        areasOverlap(
+          areas('prefab:p/x', [set]),
+          areas('prefab:p/', const [DeletePrefab()]),
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+      'settings are apart from nodes, and entries of one map from each other',
+      () {
+        final name = areas('/', const [SetEntry('names', 'a', 'A')]);
+        expect(
+          areasOverlap(name, areas('/', const [SetEntry('names', 'b', 'B')])),
+          isFalse,
+        );
+        expect(
+          areasOverlap(name, areas('/', const [SetEntry('names', 'a', 'Z')])),
+          isTrue,
+        );
+        expect(
+          areasOverlap(name, areas('/', const [SetSetting('names', {})])),
+          isTrue,
+        );
+        expect(areasOverlap(name, areas('layout:a', [set])), isFalse);
+      },
+    );
+
+    test('the layout as a whole overlaps every node and screen', () {
+      final whole = areas('/', const [AddScreen(id: 'x')]);
+      expect(areasOverlap(whole, areas('layout:a', [set])), isTrue);
+      expect(
+        areasOverlap(whole, areas('screen:home', const [RenameScreen('H')])),
+        isTrue,
+      );
+      expect(
+        areasOverlap(whole, areas('/', const [SetSetting('toasts', {})])),
+        isFalse,
+      );
+    });
+
+    test('a command that says nothing changes everything', () {
+      expect(
+        areasOverlap(const {everywhere}, areas('layout:a', [set])),
+        isTrue,
+      );
+    });
+  });
+
   group('screens', () {
     final blank = Document(layout: Layout.blank());
 

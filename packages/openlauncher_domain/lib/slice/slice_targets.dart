@@ -270,16 +270,21 @@ class _VariantTarget extends _OverrideTarget {
 
 /// A child of the prefab an instance shows: this instance's own overrides.
 class _InstanceChildTarget extends _OverrideTarget {
-  _InstanceChildTarget(_Applier applier, this.instanceId, this.child)
-    : super(applier, LayoutAddress.child(instanceId, child));
+  _InstanceChildTarget(
+    _Applier applier,
+    this.tree,
+    this.instanceId,
+    this.child,
+    Address address,
+  ) : super(applier, address);
+
+  /// Where the instance is kept: the layout, or a prefab's tree.
+  final _Tree tree;
 
   final String instanceId, child;
 
   Node get _instance =>
-      applier.document.layout.all
-          .where((node) => node.id == instanceId)
-          .firstOrNull ??
-      (throw const CommandRefused(_nothingThere));
+      tree.find(instanceId) ?? (throw const CommandRefused(_nothingThere));
 
   @override
   String get whyOnlyValues => _overridesOnly;
@@ -301,8 +306,7 @@ class _InstanceChildTarget extends _OverrideTarget {
 
   @override
   void setOverrides(Overrides next) =>
-      _LayoutTree(applier)
-          .replace(instanceId, (node) => node.copyWith(overrides: next));
+      tree.replace(instanceId, (node) => node.copyWith(overrides: next));
 }
 
 class _LayoutTree extends _Tree {

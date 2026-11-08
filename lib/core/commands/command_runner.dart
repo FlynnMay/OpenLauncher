@@ -50,7 +50,7 @@ class CommandRunner implements Commands {
     String session = launcherSession,
     int? basedOn,
   }) => _inTurn(() async {
-    if (basedOn != null) _refuseIfOthersChangedSince(basedOn, session);
+    if (basedOn != null) _refuseIfOthersChangedSince(basedOn, session, command);
     _history.recordChange(session, await _applyAndSaveReturningUndo(command));
     return _logged(session, CommandAction.run, command);
   });
@@ -71,17 +71,36 @@ class CommandRunner implements Commands {
     return _logged(session, CommandAction.redo, command);
   });
 
-  /// The layout [session] looked at has been changed by someone else, or too
-  /// long ago to tell: what it is making would overwrite their work.
-  void _refuseIfOthersChangedSince(int revision, String session) {
+  /// What [session] looked at has been changed by someone else in the places
+  /// [command] changes, or too long ago to tell: what it is making would
+  /// overwrite their work. Changes elsewhere do not matter.
+  void _refuseIfOthersChangedSince(
+    int revision,
+    String session,
+    Command command,
+  ) {
     final since = _log.after(revision);
-    if (since == null || since.any((entry) => entry.session != session)) {
+    if (since == null ||
+        since.any(
+          (entry) =>
+              entry.session != session &&
+              areasOverlap(command.areas, _areasOf(entry)),
+        )) {
       throw const CommandRefused(staleView);
     }
   }
 
+  /// What a logged command changed; everything if it cannot be read.
+  static Set<String> _areasOf(CommandLogEntry entry) {
+    try {
+      return commandFromJson(entry.command).areas;
+    } on Object {
+      return const {everywhere};
+    }
+  }
+
   static const staleView =
-      'Someone else changed the layout. It has been reloaded; try again.';
+      'Someone else changed this. It has been reloaded; try again.';
 
   @override
   int get revision => _log.revision;

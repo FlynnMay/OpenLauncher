@@ -205,6 +205,28 @@ void main() {
     expect(await screensOf(c), ['home', 'mine', 'theirs', 'again', 'more']);
   });
 
+  test('a stale view is refused only where someone else changed it', () async {
+    final c = await launcher();
+    final commands = c.read(commandsProvider);
+    Command name(String app, String value) => EditSlice([
+      SliceEdit(const ConfigAddress(), [SetEntry('names', app, value)]),
+    ]);
+    final seen = commands.revision;
+    await commands.run(name('a', 'Alpha'), session: 'phone');
+
+    // The laptop looked before, and changes something else.
+    await commands.run(name('b', 'Beta'), session: 'laptop', basedOn: seen);
+    // Not the same entry the phone changed.
+    await expectLater(
+      commands.run(name('a', 'Late'), session: 'laptop', basedOn: seen),
+      throwsA(isA<CommandRefused>()),
+    );
+    expect((await c.read(configProvider.future)).names, {
+      'a': 'Alpha',
+      'b': 'Beta',
+    });
+  });
+
   test('what a session could undo is still there after a restart', () async {
     final kept = MemoryCommandHistoryStore();
     final saved = MemoryConfigStore(LauncherConfig(layout: Layout.blank()));

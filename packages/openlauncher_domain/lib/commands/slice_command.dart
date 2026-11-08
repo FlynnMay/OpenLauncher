@@ -43,6 +43,9 @@ class EditSlice extends Command {
   }
 
   @override
+  Set<String> get areas => {for (final edit in edits) ...edit.areas};
+
+  @override
   Map<String, Object?> toJson() => {
     'type': type,
     'edits': [for (final edit in edits) edit.toJson()],

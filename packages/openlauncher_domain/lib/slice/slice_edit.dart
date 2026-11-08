@@ -58,7 +58,36 @@ class SliceEdit {
     'address': address.toString(),
     'ops': [for (final op in ops) op.toJson()],
   };
+
+  /// What this changes, as areas: see [areasOverlap].
+  Set<String> get areas => {for (final op in ops) ..._areasOf(address, op)};
 }
+
+Set<String> _areasOf(Address address, SliceOp op) => switch ((address, op)) {
+  (_, SetLayout() || ResetLayout()) => {wholeLayout},
+  (ConfigAddress(), SetSetting(:final key)) => {'setting:$key'},
+  (ConfigAddress(), SetEntry(:final key, :final entry)) => {
+    'setting:$key/$entry',
+  },
+  (ConfigAddress(), _) => {wholeLayout},
+  (ScreenAddress(:final screenId), _) => {'screen:$screenId'},
+  (PrefabAddress(:final prefabId), DeletePrefab() || RenameChild()) => {
+    'prefab:$prefabId',
+    wholeLayout,
+  },
+  (PrefabAddress(:final prefabId), SavePrefab() || RevertPrefab()) => {
+    'prefab:$prefabId',
+  },
+  (PrefabAddress(:final prefabId, :final child), _) => {
+    child == null ? 'prefab:$prefabId' : 'prefab:$prefabId/$child',
+  },
+  (LayoutAddress(:final path), MakePrefab(:final prefabId)) => {
+    'node:$path',
+    'prefab:$prefabId',
+    wholeLayout,
+  },
+  (LayoutAddress(:final path), _) => {'node:$path'},
+};
 
 /// The setting the user's own prefabs are kept in.
 const prefabsSetting = 'prefabs';
@@ -100,12 +129,7 @@ class _Applier {
       _PrefabLevelTarget(this, prefabId, child),
     PrefabAddress(:final prefabId, :final variant, :final child) =>
       variant == null
-          ? _StoredTarget(
-              this,
-              _PrefabTree(this, prefabId),
-              child ?? _prefab(prefabId).root.id,
-              address,
-            )
+          ? _prefabTarget(address)
           : _VariantTarget(this, prefabId, variant, child),
     LayoutAddress() => _layoutTarget(address),
   };
@@ -113,6 +137,35 @@ class _Applier {
   Prefab _prefab(String id) =>
       document.prefabs[id] ??
       (throw const CommandRefused('That prefab is gone.'));
+
+  /// A node of a prefab's tree, or a child of an instance in that tree: the
+  /// instance's own overrides, kept in the prefab.
+  _Target _prefabTarget(PrefabAddress address) {
+    final tree = _PrefabTree(this, address.prefabId);
+    final root = _prefab(address.prefabId).root;
+    final path = address.child ?? root.id;
+    final nodes = {for (final node in root.all) node.id: node};
+    if (nodes.containsKey(path)) {
+      return _StoredTarget(this, tree, path, address);
+    }
+    for (
+      var cut = path.lastIndexOf('/');
+      cut > 0;
+      cut = path.lastIndexOf('/', cut - 1)
+    ) {
+      final owner = nodes[path.substring(0, cut)];
+      if (owner != null && owner.isInstance) {
+        return _InstanceChildTarget(
+          this,
+          tree,
+          owner.id,
+          path.substring(cut + 1),
+          address,
+        );
+      }
+    }
+    throw const CommandRefused(_nothingThere);
+  }
 
   _Target _layoutTarget(LayoutAddress address) {
     final nodes = {for (final node in document.layout.all) node.id: node};
@@ -127,7 +180,13 @@ class _Applier {
     ) {
       final owner = nodes[path.substring(0, cut)];
       if (owner != null && owner.isInstance) {
-        return _InstanceChildTarget(this, owner.id, path.substring(cut + 1));
+        return _InstanceChildTarget(
+          this,
+          _LayoutTree(this),
+          owner.id,
+          path.substring(cut + 1),
+          address,
+        );
       }
     }
     throw const CommandRefused(_nothingThere);

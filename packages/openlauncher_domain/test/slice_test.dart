@@ -94,6 +94,7 @@ Document undone(Document after, List<SliceEdit> inverse) {
 }
 
 void main() {
+  nestedTests();
   stepFourTests();
   stepThreeTests();
   stepTwoTests();
@@ -759,6 +760,75 @@ void stepFourTests() {
         () => const SliceEdit(ConfigAddress(), [
           ResetLayout(),
         ]).apply(Document(layout: document().layout)),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+  });
+}
+
+void nestedTests() {
+  Document shelfDocument() {
+    final shelf = Prefab(
+      id: 'shelf',
+      name: 'Shelf',
+      root: Node.layout(
+        id: 'shelf-root',
+        children: [Node(id: 'item', prefab: 'card')],
+      ),
+    );
+    final base = document();
+    return Document(
+      layout: Layout(
+        inbox: 'main',
+        startup: const Startup('home'),
+        screens: [
+          Screen(
+            id: 'home',
+            root: Node.layout(
+              id: 'main',
+              children: [Node(id: 's1', prefab: 'shelf')],
+            ),
+          ),
+        ],
+      ),
+      settings: {
+        'prefabs': [cardPrefab().toJson(), shelf.toJson()],
+      },
+      prefabs: {...base.prefabs, 'shelf': shelf},
+    );
+  }
+
+  group('an instance inside a prefab', () {
+    test('its child is changed in the prefab that holds it, and undone', () {
+      final before = shelfDocument();
+      final result = const SliceEdit(
+        PrefabAddress('shelf', child: 'item/image'),
+        [SetField('picture', 'fit', 'contain')],
+      ).apply(before);
+      final shelf = result.document.prefabs['shelf']!;
+      expect(shelf.root.children.single.overrides['image'], isNotEmpty);
+      expect(
+        result.document.prefabs['card']!.toJson(),
+        before.prefabs['card']!.toJson(),
+      );
+      expect(
+        fitOf(Slice.load(result.document, 'prefab:shelf/item/image').node),
+        'contain',
+      );
+      expect(
+        undone(
+          result.document,
+          result.inverse,
+        ).prefabs['shelf']!.root.children.single.overrides,
+        isEmpty,
+      );
+    });
+
+    test('a shelf on a screen cannot override the card inside it', () {
+      expect(
+        () => const SliceEdit(LayoutAddress('s1/item/image'), [
+          SetField('picture', 'fit', 'contain'),
+        ]).apply(shelfDocument()),
         throwsA(isA<CommandRefused>()),
       );
     });
