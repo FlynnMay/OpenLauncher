@@ -1,14 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/entities/http_feed.dart';
-import 'package:openlauncher/core/sources/source.dart';
 import 'package:openlauncher/core/sources/source_endpoints.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
-
-/// A source, and what its fetch is known by: `<pack>:<name>` for a pack's,
-/// so every reader shares one, else the entity it feeds.
-typedef SourceAt = ({String id, Source source});
+import 'package:openlauncher_domain/sources/http_feed.dart';
+import 'package:openlauncher_domain/sources/source.dart';
 
 /// A source's answer, read again on its interval or change while watched.
 final sourceValueProvider = FutureProvider.autoDispose

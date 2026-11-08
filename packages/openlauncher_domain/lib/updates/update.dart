@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:openlauncher_domain/config/app_version.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
 

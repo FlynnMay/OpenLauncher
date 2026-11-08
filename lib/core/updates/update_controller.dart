@@ -4,10 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/updates/update.dart';
 import 'package:openlauncher/core/updates/update_source.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher_domain/updates/update.dart';
 
 final updateControllerProvider =
     NotifierProvider<UpdateController, UpdateState>(UpdateController.new);

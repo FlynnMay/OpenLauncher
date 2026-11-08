@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/values/date_format.dart';
+import 'package:meta/meta.dart';
+import 'package:openlauncher_domain/values/date_format.dart';
 
 /// What stands between `{{` and `}}`: a value, or an expression over values.
 ///

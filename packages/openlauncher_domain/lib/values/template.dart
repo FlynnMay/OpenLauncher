@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/values/expression.dart';
+import 'package:meta/meta.dart';
+import 'package:openlauncher_domain/values/expression.dart';
 
-export 'package:openlauncher/core/values/expression.dart'
+export 'package:openlauncher_domain/values/expression.dart'
     show isTruthy, numberOf, valueText;
 
 /// Text with expressions written into it: `{{nowPlaying.title}}` is replaced

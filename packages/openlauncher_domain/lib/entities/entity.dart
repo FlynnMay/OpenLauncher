@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/entities/entity_action.dart';
+import 'package:meta/meta.dart';
+import 'package:openlauncher_domain/entities/entity_action.dart';
+import 'package:openlauncher_domain/json/shallow_equality.dart';
 
 /// Something with actions and readable values: an app, a TV input, the
 /// clock. It defines its own actions, and JSON is its one shape: saved (the
@@ -156,8 +157,8 @@ class Entity {
       other.feed == feed &&
       other.prefab == prefab &&
       other.placed == placed &&
-      mapEquals(other.data, data) &&
-      mapEquals(other.actions, actions);
+      mapsEqual(other.data, data) &&
+      mapsEqual(other.actions, actions);
 
   @override
   int get hashCode => Object.hash(id, category, label, name);

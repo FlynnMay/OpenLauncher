@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/values/template.dart';
+import 'package:meta/meta.dart';
+import 'package:openlauncher_domain/entities/entity.dart';
+import 'package:openlauncher_domain/json/shallow_equality.dart';
+import 'package:openlauncher_domain/values/template.dart';
 
 /// Turns a source's rows into entities, from a pack's
 /// `generators/<name>.json`: `{from, where, entity}`. `entity` is Entity JSON
@@ -71,7 +72,7 @@ class Generator {
       other is Generator &&
       other.from == from &&
       other.where == where &&
-      mapEquals(other.entity, entity);
+      mapsEqual(other.entity, entity);
 
   @override
   int get hashCode => Object.hash(from, where);

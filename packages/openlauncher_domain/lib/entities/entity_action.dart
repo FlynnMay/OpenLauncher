@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/sources/source.dart';
-import 'package:openlauncher/core/sources/source_rows.dart';
+import 'package:meta/meta.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
+import 'package:openlauncher_domain/json/shallow_equality.dart';
+import 'package:openlauncher_domain/sources/source.dart';
 
 /// An action an entity defines: the operation it runs and the arguments it
 /// binds from the entity's own values.
@@ -73,9 +73,9 @@ class EntityAction {
       other.run == run &&
       other.label == label &&
       other.icon == icon &&
-      mapEquals(other.bound, bound) &&
+      mapsEqual(other.bound, bound) &&
       other.args.length == args.length &&
-      args.entries.every((arg) => listEquals(other.args[arg.key], arg.value));
+      args.entries.every((arg) => listsEqual(other.args[arg.key], arg.value));
 
   @override
   int get hashCode => Object.hash(run, label, icon);
@@ -128,7 +128,7 @@ class Feed {
       other is Feed &&
       other.name == name &&
       other.shared == shared &&
-      mapEquals(other.inline, inline);
+      mapsEqual(other.inline, inline);
 
   @override
   int get hashCode => Object.hash(name, shared);

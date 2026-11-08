@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/entities/entity_data.dart';
-import 'package:openlauncher/core/entities/http_feed.dart';
-import 'package:openlauncher/core/values/template.dart';
 import 'package:openlauncher/core/variables/scope.dart';
+import 'package:openlauncher_domain/sources/http_feed.dart';
+import 'package:openlauncher_domain/values/template.dart';
 
 /// The current time. Overridden in tests.
 final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);

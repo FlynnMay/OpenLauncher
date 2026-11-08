@@ -29,24 +29,13 @@ const coreLayers = [
 /// Imports that still point up, as `from -> to` below `lib/core`. Fix one,
 /// then take it off; nothing new goes on.
 const knownUpwardImports = {
-  'config/launcher_config.dart -> entities/entity.dart',
   'config/launcher_config.dart -> entities/user_entities.dart',
-  'config/launcher_config.dart -> updates/update.dart',
   'entities/user_entities.dart -> operations/operation.dart',
-  'packs/pack_contents.dart -> entities/entity.dart',
-  'packs/pack_contents.dart -> sources/generator.dart',
-  'packs/pack_contents.dart -> sources/source.dart',
   'packs/pack_store.dart -> config/config.dart',
-  'sources/generator.dart -> entities/entity.dart',
-  'sources/pack_entities.dart -> entities/entity.dart',
-  'sources/pack_entities.dart -> entities/entity_action.dart',
-  'sources/source.dart -> entities/http_feed.dart',
   'sources/source_endpoints.dart -> entities/entities_provider.dart',
   'sources/source_endpoints.dart -> overlays/overlays.dart',
   'sources/source_endpoints.dart -> updates/updates.dart',
-  'sources/source_rows.dart -> entities/http_feed.dart',
   'values/value_providers.dart -> entities/entity_data.dart',
-  'values/value_providers.dart -> entities/http_feed.dart',
   'values/value_providers.dart -> variables/scope.dart',
 };
 

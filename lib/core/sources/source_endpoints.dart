@@ -7,8 +7,8 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/updates/updates.dart';
-import 'package:openlauncher/core/values/date_format.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
+import 'package:openlauncher_domain/values/date_format.dart';
 
 /// Answers a source at an address the launcher itself answers: plain values
 /// and rows, pictures as file paths. [watch] reads it again when what it

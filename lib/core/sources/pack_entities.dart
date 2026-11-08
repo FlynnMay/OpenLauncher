@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/entities/entity.dart';
-import 'package:openlauncher/core/entities/entity_action.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
 import 'package:openlauncher/core/packs/pack_store.dart';
-import 'package:openlauncher/core/sources/source.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
+import 'package:openlauncher_domain/entities/entity.dart';
+import 'package:openlauncher_domain/entities/entity_action.dart';
+import 'package:openlauncher_domain/sources/source.dart';
 
 /// The entities of every pack: each pack's own, then what its generators
 /// make. `pack:` pictures are given as files.

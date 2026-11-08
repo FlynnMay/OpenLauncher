@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/entities/http_feed.dart';
-import 'package:openlauncher/core/values/template.dart';
+import 'package:meta/meta.dart';
+import 'package:openlauncher_domain/sources/http_feed.dart';
+import 'package:openlauncher_domain/values/template.dart';
 
 /// Where values come from, from a pack's `sources/<name>.json` or written in
 /// place as an entity's feed: `{url, every, watch, rows}`. `url` is
@@ -85,3 +85,7 @@ class Source {
   @override
   int get hashCode => Object.hash(url, every, watch, rows);
 }
+
+/// A source, and what its fetch is known by: `<pack>:<name>` for a pack's,
+/// so every reader shares one, else the entity it feeds.
+typedef SourceAt = ({String id, Source source});

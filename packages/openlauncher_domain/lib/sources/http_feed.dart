@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 
 /// One web source's fetch: what is asked, how often, and what it is known
 /// by.

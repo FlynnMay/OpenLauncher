@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/entities/entity_generators.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher_domain/entities/entity.dart';
 
 final installedAppsProvider =
     AsyncNotifierProvider<InstalledAppsNotifier, List<InstalledApp>>(
