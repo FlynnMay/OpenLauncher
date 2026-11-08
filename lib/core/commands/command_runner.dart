@@ -12,8 +12,8 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Runs commands on the layout this app holds, one at a time.
-class CommandService implements Commands {
-  CommandService(this._ref);
+class CommandRunner implements Commands {
+  CommandRunner(this._ref);
 
   final Ref _ref;
   var _history = CommandHistory();
