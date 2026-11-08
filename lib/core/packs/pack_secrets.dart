@@ -116,7 +116,9 @@ class FileSecretStore implements SecretStore {
 
 /// For tests.
 class MemorySecretStore implements SecretStore {
-  Map<String, Map<String, String>> _secrets = const {};
+  MemorySecretStore([this._secrets = const {}]);
+
+  Map<String, Map<String, String>> _secrets;
 
   @override
   Future<Map<String, Map<String, String>>> load() async => _secrets;

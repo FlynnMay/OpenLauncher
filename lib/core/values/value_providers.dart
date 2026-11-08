@@ -27,9 +27,16 @@ final tickProvider = Provider.autoDispose.family<DateTime, bool>((
 final feedFetcherProvider = Provider<Future<Object?> Function(HttpFeed)>(
   (ref) => (feed) async {
     final address = feed.address;
-    final response = await http
-        .get(address, headers: const {'accept': 'application/json'})
-        .timeout(const Duration(seconds: 15));
+    final request = http.Request(feed.method, address)
+      ..headers.addAll({
+        'accept': 'application/json',
+        if (feed.body != null) 'content-type': 'application/json',
+        ...feed.headers,
+      });
+    if (feed.body case final body?) request.body = body;
+    final response = await http.Response.fromStream(
+      await request.send().timeout(const Duration(seconds: 15)),
+    );
     if (response.statusCode != 200) {
       throw http.ClientException('Status ${response.statusCode}', address);
     }

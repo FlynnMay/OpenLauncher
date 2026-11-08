@@ -129,6 +129,19 @@ class _Reading {
     );
   }
 
+  Source _readSource(String path, Object? json) {
+    final source =
+        Source.fromJson(json) ??
+        (throw FormatException(
+          '$path needs a "url" starting http://, https://, os:// or '
+          'launcher://, and a method of GET or POST',
+        ));
+    if (source.auth case final profile? when !pack.auth.containsKey(profile)) {
+      throw FormatException('$path names auth "$profile", not in pack.json');
+    }
+    return source.inPack(pack.id);
+  }
+
   void _read(String path, Object? json) {
     final [folder, file] = path.split('/');
     final name = file.substring(0, file.length - '.json'.length);
@@ -136,12 +149,7 @@ class _Reading {
       case 'entities':
         _readEntity(path, json);
       case 'sources':
-        sources[name] =
-            Source.fromJson(json) ??
-            (throw FormatException(
-              '$path needs a "url" starting http://, https://, os:// or '
-              'launcher://',
-            ));
+        sources[name] = _readSource(path, json);
       case 'generators':
         _readGenerator(path, name, json);
       case 'prefabs':

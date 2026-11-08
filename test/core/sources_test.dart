@@ -263,7 +263,7 @@ void main() {
     });
 
     test('finds its rows in the answer', () {
-      final source = Source(Uri.parse('os://x'), rows: 'result.items');
+      final source = Source('os://x', rows: 'result.items');
       expect(
         source.rowsOf({
           'result': {
@@ -273,7 +273,7 @@ void main() {
         [1, 2],
       );
       expect(source.rowsOf({'result': {}}), isEmpty);
-      expect(Source(Uri.parse('os://x')).rowsOf({'one': 1}), [
+      expect(Source('os://x').rowsOf({'one': 1}), [
         {'one': 1},
       ]);
     });
@@ -285,7 +285,7 @@ void main() {
       expect(address.isAddress, isTrue);
       expect(address.at('clock'), (
         id: 'launcher://clock',
-        source: Source(Uri.parse('launcher://clock'), watch: true),
+        source: Source('launcher://clock', watch: true),
       ));
       final named = Feed.fromJson('states')!;
       expect((named.isAddress, named.at('lounge')), (false, null));
