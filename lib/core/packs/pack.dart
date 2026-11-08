@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/packs/pack_auth.dart';
 import 'package:openlauncher/core/packs/pack_setting.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
@@ -18,6 +19,7 @@ class Pack {
     this.requires = const [],
     this.categories = const {},
     this.settings = const [],
+    this.auth = const {},
     this.builtIn = false,
     this.bytes = 0,
     this.files = const [],
@@ -42,6 +44,9 @@ class Pack {
   /// What it asks the user for; the values are `packSettings` in the config,
   /// and a secret's is kept apart.
   final List<PackSetting> settings;
+
+  /// How it signs requests, by profile name.
+  final Map<String, PackAuthProfile> auth;
 
   /// Ships with the launcher, so cannot be removed: the one way it differs.
   final bool builtIn;
@@ -88,6 +93,7 @@ class Pack {
               if (key is String && value is String) key: value,
         },
         settings: PackSetting.listFromJson(json['settings']),
+        auth: PackAuthProfile.mapFromJson(json['auth']),
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {
           final num bytes => bytes.toInt(),
@@ -114,6 +120,8 @@ class Pack {
     'categories': categories,
     if (settings.isNotEmpty)
       'settings': {for (final s in settings) s.key: s.toJson()},
+    if (auth.isNotEmpty)
+      'auth': {for (final p in auth.values) p.name: p.toJson()},
     'builtIn': builtIn,
     'bytes': bytes,
     'files': files,
@@ -129,6 +137,7 @@ class Pack {
     requires: requires,
     categories: categories,
     settings: settings,
+    auth: auth,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,
     files: files ?? this.files,
@@ -172,6 +181,7 @@ class Pack {
       listEquals(other.requires, requires) &&
       mapEquals(other.categories, categories) &&
       listEquals(other.settings, settings) &&
+      mapEquals(other.auth, auth) &&
       other.builtIn == builtIn &&
       other.bytes == bytes &&
       listEquals(other.files, files);
