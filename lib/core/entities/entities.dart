@@ -6,4 +6,3 @@ export 'package:openlauncher_domain/entities/entities.dart';
 export 'entities_provider.dart';
 export 'entity_data.dart';
 export 'entity_generators.dart';
-export 'user_entities.dart';

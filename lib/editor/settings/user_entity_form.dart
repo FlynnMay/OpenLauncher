@@ -1,29 +1,7 @@
 import 'package:openlauncher/core/operations/operation.dart';
-import 'package:openlauncher_domain/entities/entity.dart';
-import 'package:openlauncher_domain/entities/entity_action.dart';
-import 'package:openlauncher_domain/layout/layout_ids.dart';
+import 'package:openlauncher_domain/entities/entities.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
-
-/// The most entities a user can make.
-const maxUserEntities = 24;
-
-/// Ids an entity the user makes may not take: what an action's templates
-/// read itself as.
-const reservedIds = {'self'};
-
-/// The user's own entities from a save. Skips what cannot be read, duplicate
-/// ids, ids that are not plain slugs and [reservedIds].
-List<Entity> userEntitiesFromJson(Object? json) {
-  final used = {...reservedIds};
-  return [
-    if (json is List)
-      for (final one in json.take(maxUserEntities))
-        if (Entity.fromJson(one) case final entity?
-            when entity.id == slugOf(entity.id, '') && used.add(entity.id))
-          entity,
-  ];
-}
 
 // Form values of `kind`.
 const _text = 'text', _web = 'http';

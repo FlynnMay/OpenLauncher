@@ -4,3 +4,4 @@ library;
 export 'entity.dart';
 export 'entity_action.dart';
 export 'generator.dart';
+export 'user_entities.dart';
