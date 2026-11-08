@@ -91,7 +91,6 @@ class ScreenProperties extends ConsumerWidget {
             ref,
             (layout) => layout.withContainer(layout.start.root.id, how),
           ),
-          onLayout: (command) => runCommand(context, ref, command),
         ),
       ],
     );

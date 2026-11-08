@@ -54,8 +54,18 @@ Future<void> runCommand(
   WidgetRef ref,
   Command command,
 ) async {
-  if (command is LayoutCommand && ref.read(editedPrefabProvider) != null) {
-    return changeLayout(context, ref, command.apply);
+  if (ref.read(editedPrefabProvider) != null) {
+    switch (command) {
+      case LayoutCommand():
+        return changeLayout(context, ref, command.apply);
+      case PrefabAwareEdit():
+        final prefabs = ref.read(prefabsProvider);
+        return changeLayout(
+          context,
+          ref,
+          (layout) => command.applyUsing(layout, prefabs),
+        );
+    }
   }
   final messenger = ScaffoldMessenger.of(context);
   try {

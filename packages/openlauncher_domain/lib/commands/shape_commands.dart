@@ -8,7 +8,7 @@ import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 const _nothingThere = 'There is nothing there to change.';
 
-Layout _requiring(Layout layout, String id) => layout.node(id) == null
+Layout _requiring(Layout layout, String id) => findItems(layout, {id}).isEmpty
     ? throw const CommandRefused(_nothingThere)
     : layout;
 
@@ -111,7 +111,7 @@ class SetSizing extends NodeEdit {
 
   @override
   Layout apply(Layout layout) {
-    if (!ids.any((id) => layout.node(id) != null)) {
+    if (findItems(layout, ids).isEmpty) {
       throw const CommandRefused(_nothingThere);
     }
     return transformItems(layout, ids, key, value);
@@ -175,8 +175,9 @@ class SetInbox extends NodeEdit {
   String get type => typeName;
 
   @override
-  Layout apply(Layout layout) =>
-      withInbox(_requiring(layout, containerId), containerId);
+  Layout apply(Layout layout) => layout.node(containerId) == null
+      ? throw const CommandRefused(_nothingThere)
+      : withInbox(layout, containerId);
 
   @override
   Map<String, Object?> toJson() => {'type': type, 'container': containerId};

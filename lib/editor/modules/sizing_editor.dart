@@ -25,8 +25,8 @@ List<Widget> sizingEditor(ModuleEdit edit) {
   };
   void set(String key, Object? value) {
     final number = (value as num?)?.toDouble();
-    if (edit.onLayout case final onLayout?) {
-      onLayout(SetSizing(edit.ids, key, number));
+    if (edit.onCommand case final onCommand?) {
+      onCommand(SetSizing(edit.ids, key, number));
     } else {
       edit.onChanged((node) => node.withValue(sizingModule.name, key, number));
     }

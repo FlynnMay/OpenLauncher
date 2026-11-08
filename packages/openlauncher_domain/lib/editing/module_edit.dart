@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
+import 'package:openlauncher_domain/layout/layout.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// [node] with [type] added, and the modules it needs. A Layout places the
 /// children it takes over.

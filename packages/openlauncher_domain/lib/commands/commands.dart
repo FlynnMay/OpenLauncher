@@ -4,6 +4,7 @@ library;
 import 'package:openlauncher_domain/commands/command.dart';
 import 'package:openlauncher_domain/commands/config_commands.dart';
 import 'package:openlauncher_domain/commands/layout_reset_commands.dart';
+import 'package:openlauncher_domain/commands/module_commands.dart';
 import 'package:openlauncher_domain/commands/node_commands.dart';
 import 'package:openlauncher_domain/commands/prefab_commands.dart';
 import 'package:openlauncher_domain/commands/screen_commands.dart';
@@ -16,6 +17,7 @@ export 'command_log.dart';
 export 'config_commands.dart';
 export 'document.dart';
 export 'layout_reset_commands.dart';
+export 'module_commands.dart';
 export 'node_commands.dart';
 export 'prefab_commands.dart';
 export 'screen_commands.dart';
@@ -24,6 +26,7 @@ export 'shape_commands.dart';
 /// Every command there is, by name. A new area of commands adds its own map.
 final Map<String, CommandReader> _readers = {
   ...nodeCommandReaders,
+  ...moduleCommandReaders,
   ...screenCommandReaders,
   ...shapeCommandReaders,
   ...layoutResetCommandReaders,

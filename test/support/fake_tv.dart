@@ -75,6 +75,7 @@ class FakeTv extends TvApi {
       settings: config.open,
       layoutIsTheUsers: config.ownLayout,
       startingLayout: startingLayout,
+      prefabs: {for (final prefab in config.prefabs) prefab.id: prefab},
     );
     final after = command.edit(before);
     final back = command.undoing(before);

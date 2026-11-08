@@ -18,7 +18,7 @@ class ModuleEdit {
     required List<Node> nodes,
     required this.parents,
     required this.onChanged,
-    this.onLayout,
+    this.onCommand,
     this.prefabs = const {},
     this.inPrefab = false,
     this.exposable = false,
@@ -48,8 +48,8 @@ class ModuleEdit {
   /// Called with a change to apply to each node.
   final void Function(Node Function(Node node) how) onChanged;
 
-  /// For a change that moves other nodes too; null where there are none.
-  final void Function(LayoutCommand command)? onLayout;
+  /// Does a command to the nodes, or null where they are not in the layout.
+  final void Function(Command command)? onCommand;
 
   final Map<String, Prefab> prefabs;
 
@@ -98,15 +98,34 @@ class ModuleEdit {
       : const {};
 
   /// Sets [key] on every node: an instance's over its prefab's.
-  void set(String key, Object? value) => onChanged(
-    (node) => node.isInstance && !type.instanceOwned
-        ? withInstanceValue(node, type, key, value, prefabs)
-        : withRule(node, type.name, key, value),
-  );
+  void set(String key, Object? value) => onCommand != null
+      ? onCommand!(SetModuleValue(ids, type.name, key, value))
+      : onChanged(
+          (node) => node.isInstance && !type.instanceOwned
+              ? withInstanceValue(node, type, key, value, prefabs)
+              : withRule(node, type.name, key, value),
+        );
 
   /// Takes the instance's own [key] away.
-  void revert(String key) =>
-      onChanged((node) => withInherited(node, type, key, prefabs));
+  void revert(String key) => revertAll([key]);
+
+  /// Takes the instance's own [keys] away.
+  void revertAll(List<String> keys) => onCommand != null
+      ? onCommand!(RevertModuleValue(ids, type.name, keys))
+      : onChanged(
+          (node) => keys.fold(
+            node,
+            (next, key) => withInherited(next, type, key, prefabs),
+          ),
+        );
+
+  void switchTo({required bool on}) => onCommand != null
+      ? onCommand!(SwitchModule(ids, type.name, on))
+      : onChanged((node) => withSwitch(node, type, on, prefabs));
+
+  void remove() => onCommand != null
+      ? onCommand!(RemoveModule(ids, type.name))
+      : onChanged((node) => withRemoved(node, type));
 
   /// Generated fields for [fields], the module's own by default.
   List<Widget> fields([List<Field>? fields]) => ruleFields(

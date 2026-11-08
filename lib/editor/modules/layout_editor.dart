@@ -10,7 +10,7 @@ import 'package:openlauncher_domain/commands/commands.dart';
 List<Widget> layoutEditor(ModuleEdit edit) => [
   ...edit.fields(),
   // Not an instance or in a prefab, nor docked or in something docked.
-  if (edit.onLayout case final onLayout?
+  if (edit.onCommand case final onCommand?
       when edit.single &&
           !edit.node.isInstance &&
           !edit.inPrefab &&
@@ -22,7 +22,7 @@ List<Widget> layoutEditor(ModuleEdit edit) => [
         label: 'New apps go here',
         value: ref.watch(inboxProvider) == edit.node.id,
         onChanged: (here) {
-          if (here) onLayout(SetInbox(edit.node.id));
+          if (here) onCommand(SetInbox(edit.node.id));
         },
       ),
     ),

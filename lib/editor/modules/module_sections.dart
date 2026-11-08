@@ -17,7 +17,7 @@ class ModuleSections extends ConsumerWidget {
     required this.nodes,
     required this.parents,
     required this.onChanged,
-    this.onLayout,
+    this.onCommand,
     this.inPrefab = false,
     this.exposable = false,
     this.inDock = false,
@@ -31,7 +31,7 @@ class ModuleSections extends ConsumerWidget {
   final List<Node> parents;
 
   final void Function(Node Function(Node node) how) onChanged;
-  final void Function(LayoutCommand command)? onLayout;
+  final void Function(Command command)? onCommand;
   final bool inPrefab, exposable, inDock;
   final Variables scope;
 
@@ -48,7 +48,7 @@ class ModuleSections extends ConsumerWidget {
       nodes: nodes,
       parents: parents,
       onChanged: onChanged,
-      onLayout: onLayout,
+      onCommand: onCommand,
       prefabs: prefabs,
       inPrefab: inPrefab,
       exposable: exposable,
@@ -71,7 +71,11 @@ class ModuleSections extends ConsumerWidget {
             for (final type in moduleTypes)
               if (_offered(type, drawn)) type,
           ],
-          onAdded: (type) => onChanged((node) => withAdded(node, type)),
+          onAdded: (type) => onCommand != null
+              ? onCommand!(
+                  AddModule({for (final node in nodes) node.id}, type.name),
+                )
+              : onChanged((node) => withAdded(node, type)),
         ),
       ],
     );
@@ -130,9 +134,7 @@ class ModuleSection extends StatelessWidget {
               tristate: on == null,
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (_) => edit.onChanged(
-                (node) => withSwitch(node, type, on != true, edit.prefabs),
-              ),
+              onChanged: (_) => edit.switchTo(on: on != true),
             )
           : null,
       trailing: added && !type.mandatory
@@ -143,8 +145,7 @@ class ModuleSection extends StatelessWidget {
               itemBuilder: (context) => [
                 PopupMenuItem(
                   enabled: removable && needed.isEmpty,
-                  value: () =>
-                      edit.onChanged((node) => withRemoved(node, type)),
+                  value: edit.remove,
                   child: Text(switch ((removable, needed)) {
                     (false, _) => 'Remove (its prefab gives it)',
                     (_, final needed) when needed.isNotEmpty =>
@@ -154,13 +155,7 @@ class ModuleSection extends StatelessWidget {
                 ),
                 if (edit.own.isNotEmpty)
                   PopupMenuItem(
-                    value: () => edit.onChanged((node) {
-                      var next = node;
-                      for (final key in edit.own) {
-                        next = withInherited(next, type, key, edit.prefabs);
-                      }
-                      return next;
-                    }),
+                    value: () => edit.revertAll(edit.own.toList()),
                     child: const Text('Revert to prefab'),
                   ),
               ],

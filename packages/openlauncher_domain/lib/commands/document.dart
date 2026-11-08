@@ -1,4 +1,5 @@
 import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
 
 /// What commands edit: the layout and the settings kept beside it, by key.
 class Document {
@@ -7,6 +8,7 @@ class Document {
     this.settings = const {},
     this.layoutIsTheUsers = true,
     this.startingLayout,
+    this.prefabs = const {},
   });
 
   final Layout layout;
@@ -20,6 +22,10 @@ class Document {
   /// The layout the pack starts with, if the app knows it.
   final Layout? startingLayout;
 
+  /// Every prefab in use by id, the packs' and the user's. Read only: a
+  /// command changes the user's through the `prefabs` setting.
+  final Map<String, Prefab> prefabs;
+
   Document copyWith({
     Layout? layout,
     Map<String, Object?>? settings,
@@ -29,5 +35,6 @@ class Document {
     settings: settings ?? this.settings,
     layoutIsTheUsers: layoutIsTheUsers ?? this.layoutIsTheUsers,
     startingLayout: startingLayout,
+    prefabs: prefabs,
   );
 }
