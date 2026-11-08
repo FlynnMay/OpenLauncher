@@ -49,7 +49,7 @@ class LayoutService {
     await _run([
       for (final one in screens)
         for (final node in one.root.all)
-          if (node.isInstance && node.handed.contains(what))
+          if (!node.isContainer && node.handed.contains(what))
             SliceEdit(LayoutAddress(node.id), const [RemoveNode()]),
       SliceEdit(const ConfigAddress(), [
         SetRemoved({...layout.removed, what}),

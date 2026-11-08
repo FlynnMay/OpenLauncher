@@ -1,5 +1,6 @@
 import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/layout_repair.dart';
 import 'package:openlauncher_domain/layout/screen.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
@@ -94,6 +95,7 @@ Document undone(Document after, List<SliceEdit> inverse) {
 }
 
 void main() {
+  unpackedTests();
   nestedTests();
   stepFourTests();
   stepThreeTests();
@@ -832,5 +834,42 @@ void nestedTests() {
         throwsA(isA<CommandRefused>()),
       );
     });
+  });
+}
+
+void unpackedTests() {
+  Layout placing(Layout layout) => layout.withEntities(
+    ['app:a', 'app:b', 'app:c'],
+    instance: (entity, id) =>
+        Node.of(entity, id: id, prefab: 'card', variable: 'what'),
+  );
+
+  int holding(Layout layout, String entity) =>
+      layout.all.where((item) => item.handed.contains(entity)).length;
+
+  test('an unpacked card still places its app, so no card is added', () {
+    final before = document();
+    final unpacked = (Slice.load(
+      before,
+      'layout:a',
+    )..unpack()).save().apply(before).document.layout;
+    expect(unpacked.node('a')!.isInstance, isFalse);
+    final repaired = placing(unpacked);
+    expect(holding(repaired, 'app:a'), 1);
+    expect(repaired.node('a-2'), isNull);
+    expect(repaired.toJson(), unpacked.toJson());
+  });
+
+  test('taking away what an unpacked card became unplaces the app', () {
+    final before = document();
+    final unpacked = (Slice.load(
+      before,
+      'layout:a',
+    )..unpack()).save().apply(before).document;
+    final removed = const SliceEdit(LayoutAddress('a'), [
+      RemoveNode(),
+    ]).apply(unpacked).document.layout;
+    expect(removed.removed, contains('app:a'));
+    expect(holding(placing(removed), 'app:a'), 0);
   });
 }

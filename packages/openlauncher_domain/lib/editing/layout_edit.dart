@@ -313,7 +313,7 @@ Layout dropItem(Layout layout, Node item, Drop drop, {Node? opens}) {
 Layout removeItem(Layout layout, String id) {
   final gone = [
     for (final item in layout.all)
-      if (item.id == id) ...[if (!item.isContainer) item, ...item.contents],
+      if (item.id == id) ...item.all,
   ];
   final handed = layout.node(id) != null;
   final rest = _rebuilt(
@@ -330,11 +330,9 @@ Layout removeItem(Layout layout, String id) {
     removed: {
       ...rest.removed,
       for (final item in gone)
-        if (item.isInstance)
-          for (final source in item.handed)
-            // A node is not an entity to put back.
-            if (!placed.containsKey(source) && rest.node(source) == null)
-              source,
+        for (final source in item.handed)
+          // A node is not an entity to put back.
+          if (!placed.containsKey(source) && rest.node(source) == null) source,
     },
   );
 }
@@ -580,7 +578,6 @@ Layout withInbox(Layout layout, String containerId) =>
 Map<String, int> placedCounts(Layout layout) {
   final counts = <String, int>{};
   for (final item in layout.items) {
-    if (!item.isInstance) continue;
     for (final source in item.handed) {
       counts[source] = (counts[source] ?? 0) + 1;
     }

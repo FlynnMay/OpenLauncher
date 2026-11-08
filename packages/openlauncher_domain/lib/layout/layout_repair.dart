@@ -48,7 +48,8 @@ extension LayoutRepair on Layout {
     final itemIds = <String>{};
     for (final item in kept.all) {
       itemIds.add(item.id);
-      if (item.isInstance) placed.addAll(item.handed);
+      // Whatever names an entity places it: a card, or what a card became.
+      placed.addAll(item.handed);
     }
     String autoId(String entityId) {
       final id = freeId(Node.autoId(entityId, names[entityId]), itemIds);

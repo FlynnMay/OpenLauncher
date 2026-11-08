@@ -147,7 +147,7 @@ class Layout {
   Layout without(Set<String> entityIds, {String? screen}) => rebuild(
     (_, items) => [
       for (final item in items)
-        if (!item.isInstance || !item.handed.any(entityIds.contains)) item,
+        if (!item.handed.any(entityIds.contains)) item,
     ],
     screen: screen,
     removed: {...removed, ...entityIds},
