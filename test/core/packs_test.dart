@@ -103,6 +103,7 @@ void main() {
             (ref) => Directory('${tmp.path}/packs'),
           ),
           bundledPacksProvider.overrideWithValue(BundledPacks(bundled)),
+          secretStoreProvider.overrideWithValue(MemorySecretStore()),
         ],
       );
       addTearDown(() => closePacks(container));

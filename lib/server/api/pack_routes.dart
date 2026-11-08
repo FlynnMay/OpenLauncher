@@ -17,7 +17,10 @@ class PackRoutes implements ApiRoutes {
     router
       ..get('/api/packs/<packId>/<pathInPack|.*>', _serveFileOfPack)
       ..post('/api/packs', _installPack)
-      ..delete('/api/packs', _deletePack);
+      ..delete('/api/packs', _deletePack)
+      // A secret setting is only ever sent this way, and never read back.
+      ..put('/api/secret', _setSecret)
+      ..delete('/api/secret', _clearSecret);
   }
 
   /// Checked with the TV each time: a pack can be replaced by one of the same
@@ -42,5 +45,23 @@ class PackRoutes implements ApiRoutes {
     if (id == null) throw const FormatException('"id" must name a pack');
     await _ref.read(packServiceProvider).delete(id);
     return emptyJsonResponse();
+  }
+
+  Future<Response> _setSecret(Request request) async {
+    final body = await readJsonObject(request);
+    await _keepSecret(request, body['value']);
+    return emptyJsonResponse();
+  }
+
+  Future<Response> _clearSecret(Request request) async {
+    await _keepSecret(request, null);
+    return emptyJsonResponse();
+  }
+
+  Future<void> _keepSecret(Request request, Object? value) {
+    final query = request.url.queryParameters;
+    return _ref
+        .read(packServiceProvider)
+        .setSecret(query['pack'], query['key'], value);
   }
 }

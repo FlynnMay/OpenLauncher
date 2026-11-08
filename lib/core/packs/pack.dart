@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/packs/pack_setting.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
 /// `fonts/`, icon sets in `icons/`, pictures in `images/`, and JSON in
@@ -16,6 +17,7 @@ class Pack {
     this.source = '',
     this.requires = const [],
     this.categories = const {},
+    this.settings = const [],
     this.builtIn = false,
     this.bytes = 0,
     this.files = const [],
@@ -36,6 +38,10 @@ class Pack {
 
   /// What its entity categories are called, in the order they are listed.
   final Map<String, String> categories;
+
+  /// What it asks the user for; the values are `packSettings` in the config,
+  /// and a secret's is kept apart.
+  final List<PackSetting> settings;
 
   /// Ships with the launcher, so cannot be removed: the one way it differs.
   final bool builtIn;
@@ -81,6 +87,7 @@ class Pack {
             for (final MapEntry(:key, :value) in categories.entries)
               if (key is String && value is String) key: value,
         },
+        settings: PackSetting.listFromJson(json['settings']),
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {
           final num bytes => bytes.toInt(),
@@ -105,6 +112,8 @@ class Pack {
     'source': source,
     'requires': requires,
     'categories': categories,
+    if (settings.isNotEmpty)
+      'settings': {for (final s in settings) s.key: s.toJson()},
     'builtIn': builtIn,
     'bytes': bytes,
     'files': files,
@@ -119,6 +128,7 @@ class Pack {
     source: source,
     requires: requires,
     categories: categories,
+    settings: settings,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,
     files: files ?? this.files,
@@ -161,6 +171,7 @@ class Pack {
       other.source == source &&
       listEquals(other.requires, requires) &&
       mapEquals(other.categories, categories) &&
+      listEquals(other.settings, settings) &&
       other.builtIn == builtIn &&
       other.bytes == bytes &&
       listEquals(other.files, files);
