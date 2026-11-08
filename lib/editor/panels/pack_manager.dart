@@ -42,6 +42,10 @@ class PackManager extends ConsumerStatefulWidget {
 
 class _PackManagerState extends ConsumerState<PackManager>
     with Busy<PackManager> {
+  /// Packs the TV has removed but whose state has not arrived yet: they stay
+  /// out of the list so it does not show what is gone.
+  final _removed = <String>{};
+
   Future<void> _install() => whileBusy(() async {
     final file = await pickFile(accept: '.zip,application/zip');
     if (file == null) return;
@@ -53,7 +57,8 @@ class _PackManagerState extends ConsumerState<PackManager>
         !await confirm(context, asked.$1, asked.$2, asked.$3)) {
       return;
     }
-    await api.installPack(file);
+    final id = await api.installPack(file);
+    _removed.remove(id);
   });
 
   /// What to ask before a pack replaces one with its id: title, body and the
@@ -101,6 +106,7 @@ class _PackManagerState extends ConsumerState<PackManager>
     if (answer == null) return;
     await whileBusy(() async {
       await ref.read(tvApiProvider).removePack(pack.id);
+      if (mounted) setState(() => _removed.add(pack.id));
       if (answer == _Removal.packAndSettings && mounted) {
         await _forgetSettingsOf(pack.id);
       }
@@ -164,6 +170,16 @@ class _PackManagerState extends ConsumerState<PackManager>
       if (!installed.any((pack) => pack.id == id)) id,
   ];
 
+  /// [all] without the packs just removed; once the TV's state agrees, they
+  /// are forgotten.
+  List<Pack> _shown(List<Pack> all) {
+    _removed.removeWhere((id) => !all.any((pack) => pack.id == id));
+    return [
+      for (final pack in all)
+        if (!_removed.contains(pack.id)) pack,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -202,15 +218,15 @@ class _PackManagerState extends ConsumerState<PackManager>
             AsyncValue(:final error?) when !packs.hasValue => Center(
               child: Text('$error'.replaceFirst(RegExp(r'^Exception: '), '')),
             ),
-            AsyncValue(:final value?) when value.isNotEmpty => ListView(
+            AsyncValue(:final value?) when _shown(value).isNotEmpty => ListView(
               children: [
-                for (final pack in value)
+                for (final pack in _shown(value))
                   _PackRow(
                     pack: pack,
                     uses: pack.usesIn(saved),
                     onRemove: busy ? null : () => _remove(pack),
                   ),
-                for (final left in _leftBehind(value))
+                for (final left in _leftBehind(_shown(value)))
                   ListTile(
                     leading: const Icon(Icons.history_toggle_off_outlined),
                     title: Text('Settings left by "$left"'),
