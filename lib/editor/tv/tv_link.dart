@@ -107,11 +107,12 @@ class TvActionRunner extends ActionRunner {
   final TvApi _api;
   final EditorMode Function() _mode;
 
-  /// The TV's own updater and web requests (it holds the secrets), as well as
+  /// The TV's own updater, its sources and web requests (it holds the secrets), as well as
   /// what only the TV can do.
   static bool _onTv(Operation operation) =>
       operation.onDevice ||
       operation.address.startsWith('${Operation.launcher}updates/') ||
+      operation.address.startsWith('${Operation.launcher}sources/') ||
       isWebAddress(operation.address);
 
   @override

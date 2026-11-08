@@ -13,7 +13,7 @@ class EntityAction {
     this.args = const {},
     this.label = '',
     this.icon = '',
-    this.then,
+    this.then = const [],
   });
 
   /// The `OperationsRegistry` name.
@@ -33,9 +33,9 @@ class EntityAction {
   /// Default icon for a button that does this.
   final String icon;
 
-  /// A source of the entity's pack to fetch again once this is done, so what
-  /// it changed shows at once.
-  final String? then;
+  /// What is done next, in order, once this has succeeded: each is an address
+  /// and its `with`, filled like this one's. Not run if this fails.
+  final List<EntityAction> then;
 
   static EntityAction? fromJson(Object? json) => switch (json) {
     {'run': final String run} => EntityAction(
@@ -51,8 +51,10 @@ class EntityAction {
         _ => '',
       },
       then: switch (json['then']) {
-        final String then when then.isNotEmpty => then,
-        _ => null,
+        final List<Object?> several => [
+          for (final one in several) ?EntityAction.fromJson(one),
+        ],
+        final one => [?EntityAction.fromJson(one)],
       },
     ),
     _ => null,
@@ -74,7 +76,8 @@ class EntityAction {
     if (args.isNotEmpty) 'args': args,
     if (label.isNotEmpty) 'label': label,
     if (icon.isNotEmpty) 'icon': icon,
-    'then': ?then,
+    if (then.length == 1) 'then': then.single.toJson(),
+    if (then.length > 1) 'then': [for (final one in then) one.toJson()],
   };
 
   @override
@@ -83,7 +86,7 @@ class EntityAction {
       other.run == run &&
       other.label == label &&
       other.icon == icon &&
-      other.then == then &&
+      listsEqual(other.then, then) &&
       mapsEqual(other.bound, bound) &&
       other.args.length == args.length &&
       args.entries.every((arg) => listsEqual(other.args[arg.key], arg.value));

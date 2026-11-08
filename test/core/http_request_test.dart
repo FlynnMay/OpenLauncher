@@ -40,7 +40,12 @@ void main() {
           'auth': 'ha',
           'body': {'entity_id': '{{self.entity_id}}'},
         },
-        then: 'states',
+        then: [
+          EntityAction(
+            run: 'launcher://sources/fetch',
+            bound: {'source': 'states'},
+          ),
+        ],
       ),
     },
   );
@@ -115,7 +120,33 @@ void main() {
     },
   );
 
-  test('then fetches the named source again, once it is done', () async {
+  test(
+    'a follow up that fetches a source runs once the action is done',
+    () async {
+      final watching = container.listen(
+        sourceValueProvider((id: 'hub:states', source: states)),
+        (_, _) {},
+      );
+      addTearDown(watching.close);
+      await container.read(
+        sourceValueProvider((id: 'hub:states', source: states)).future,
+      );
+      expect(sent.map((r) => (r.method, r.url.path)), [('GET', '/api/states')]);
+      await act();
+      await container.pump();
+      await container.read(
+        sourceValueProvider((id: 'hub:states', source: states)).future,
+      );
+      expect(sent.map((r) => (r.method, r.url.path)), [
+        ('GET', '/api/states'),
+        ('POST', '/api/services/light/toggle'),
+        ('GET', '/api/states'),
+      ]);
+    },
+  );
+
+  test('anything but a 2xx is an error', () async {
+    status = 401;
     final watching = container.listen(
       sourceValueProvider((id: 'hub:states', source: states)),
       (_, _) {},
@@ -124,22 +155,10 @@ void main() {
     await container.read(
       sourceValueProvider((id: 'hub:states', source: states)).future,
     );
-    expect(sent.map((r) => (r.method, r.url.path)), [('GET', '/api/states')]);
-    await act();
-    await container.pump();
-    await container.read(
-      sourceValueProvider((id: 'hub:states', source: states)).future,
-    );
-    expect(sent.map((r) => (r.method, r.url.path)), [
-      ('GET', '/api/states'),
-      ('POST', '/api/services/light/toggle'),
-      ('GET', '/api/states'),
-    ]);
-  });
-
-  test('anything but a 2xx is an error', () async {
-    status = 401;
+    final before = sent.length;
     await expectLater(act(), throwsA(isA<http.ClientException>()));
+    // The follow up is not run for an action that failed: only the POST.
+    expect(sent.length, before + 1);
   });
 
   test('a request to another host is not signed, and not made', () async {

@@ -280,6 +280,30 @@ void main() {
   });
 
   group('a feed', () {
+    test('an action\'s follow ups are an address, or a list of them', () {
+      final one = EntityAction.fromJson({
+        'run': 'launcher://sources/fetch',
+        'with': {'source': 'states'},
+      })!;
+      final single = EntityAction.fromJson({
+        'run': 'https://x.test/a',
+        'then': {
+          'run': 'launcher://sources/fetch',
+          'with': {'source': 'states'},
+        },
+      })!;
+      expect(single.then, [one]);
+      final several = EntityAction.fromJson({
+        'run': 'https://x.test/a',
+        'then': [one.toJson(), one.toJson()],
+      })!;
+      expect(several.then, hasLength(2));
+      for (final action in [single, several]) {
+        expect(EntityAction.fromJson(action.toJson()), action);
+      }
+      expect(EntityAction.fromJson({'run': 'https://x.test/a'})!.then, isEmpty);
+    });
+
     test('is only a pack\'s own when the launcher says so', () {
       // Whatever a feed claims in its JSON, whose settings it reads is not
       // its to say.

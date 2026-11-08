@@ -8,6 +8,7 @@ export 'managers/layout_operations.dart';
 export 'managers/media_operations.dart';
 export 'managers/overlay_operations.dart';
 export 'managers/settings_operations.dart';
+export 'managers/source_operations.dart';
 export 'managers/tv_settings_operations.dart';
 export 'managers/variable_operations.dart';
 export 'operation.dart';

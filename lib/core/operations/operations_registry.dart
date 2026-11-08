@@ -7,6 +7,7 @@ import 'package:openlauncher/core/operations/managers/media_operations.dart';
 import 'package:openlauncher/core/operations/managers/overlay_operations.dart';
 import 'package:openlauncher/core/operations/managers/screen_operations.dart';
 import 'package:openlauncher/core/operations/managers/settings_operations.dart';
+import 'package:openlauncher/core/operations/managers/source_operations.dart';
 import 'package:openlauncher/core/operations/managers/tv_settings_operations.dart';
 import 'package:openlauncher/core/operations/managers/update_operations.dart';
 import 'package:openlauncher/core/operations/managers/variable_operations.dart';
@@ -62,6 +63,7 @@ final operationsManagersProvider = Provider<List<OperationsManager>>((ref) {
     MediaOperationsManager(ref.watch(mediaServiceProvider)),
     AccessOperationsManager(ref.watch(accessServiceProvider)),
     SettingsOperationsManager(),
+    SourceOperationsManager(ref.watch(sourceServiceProvider)),
     TvSettingsOperationsManager(ref.watch(tvSettingsServiceProvider)),
     UpdateOperationsManager(ref),
     OverlayOperationsManager(ref.watch(overlayServiceProvider)),

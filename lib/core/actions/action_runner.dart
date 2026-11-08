@@ -4,7 +4,6 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/services/services.dart';
-import 'package:openlauncher/core/sources/source_request.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 import 'package:openlauncher_domain/actions/act.dart';
 
@@ -75,8 +74,13 @@ class ActionRunner {
     bool held = false,
     String? component,
   }) async {
-    final (operation, arguments, entityId, then) = act.isAddress
-        ? (_operationAt(act.name), _withUrl(act.name, act.args), null, null)
+    final (operation, arguments, entityId, followUps) = act.isAddress
+        ? (
+            _operationAt(act.name),
+            _withUrl(act.name, act.args),
+            act.arg(entityArg),
+            const <FollowUp>[],
+          )
         : await _entityOperation(act);
     return carryOut(
       operation,
@@ -87,7 +91,7 @@ class ActionRunner {
         held: held,
         component: component,
         entityId: entityId,
-        then: then,
+        followUps: followUps,
       ),
     );
   }
@@ -96,9 +100,8 @@ class ActionRunner {
       _ref.read(operationsRegistryProvider)[address] ??
       (throw ImproperAct('There is nothing at "$address"'));
 
-  Future<(Operation, Map<String, Object?>, String, String?)> _entityOperation(
-    Act act,
-  ) async {
+  Future<(Operation, Map<String, Object?>, String, List<FollowUp>)>
+  _entityOperation(Act act) async {
     await _ref.read(configProvider.future);
     final (:entity, :action) = targetOf(
       act,
@@ -120,7 +123,16 @@ class ActionRunner {
       operation,
       _withUrl(address, _arguments(action, act, scope)),
       entity.id,
-      action.then,
+      [
+        for (final next in action.then)
+          (
+            address: '${_filled(next.run, scope)}',
+            args: _withUrl('${_filled(next.run, scope)}', {
+              for (final MapEntry(:key, :value) in next.bound.entries)
+                key: _filled(value, scope),
+            }),
+          ),
+      ],
     );
   }
 
@@ -165,14 +177,20 @@ class ActionRunner {
     OperationRun run,
   ) async {
     final message = await operation.run(run);
-    await _fetchAgain(run);
+    for (final next in run.followUps) {
+      await _followUp(next, run.entityId);
+    }
     return message;
   }
 
-  Future<void> _fetchAgain(OperationRun run) async {
-    final pack = HttpService.packOf(run.entityId);
-    if (pack != null && run.then != null) {
-      await fetchSourceAgain(_ref, pack, run.then!);
-    }
+  /// Runs what comes after an action, through [carryOut] again so the web
+  /// editor still sends the TV's work to the TV.
+  Future<void> _followUp(FollowUp next, String? entityId) {
+    final operation = _operationAt(next.address);
+    return carryOut(
+      operation,
+      Act(next.address, {...next.args, entityArg: ?entityId}),
+      OperationRun(next.args, entityId: entityId),
+    );
   }
 }
