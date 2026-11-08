@@ -536,21 +536,21 @@ void main() {
   group('docking', () {
     test('an edge is free with nothing docked, or an empty container', () {
       final template = systemPrefab(sidebarId);
-      final layout = withBar(
+      final layout = withDocked(
         Layout.fromJson(const {}).normalised(),
         'top',
         template,
       );
-      final top = barOn(layout, 'top')!;
+      final top = dockedOn(layout, 'top')!;
       expect((top.id, top.dock), ('top', 'top'));
       expect(resolved(top, {template.id: template}).closed, 0);
       // Asked for again, it is the one there is.
-      expect(withBar(layout, 'top', template), same(layout));
-      final full = withBar(layout, 'left', template).withContainer(
+      expect(withDocked(layout, 'top', template), same(layout));
+      final full = withDocked(layout, 'left', template).withContainer(
         'left',
         (container) => holding(container, [cardOf('x', id: 'a')]),
       );
-      expect(freeEdges(layout), barEdges);
+      expect(freeEdges(layout), dockEdges);
       expect(freeEdges(full), ['right', 'top', 'bottom']);
       // Whatever is docked at an edge takes it once it holds something.
       final folder = folderOf('f')
@@ -629,7 +629,7 @@ void main() {
     });
 
     test('only an edge within reach takes it, the nearest free one', () {
-      const all = barEdges;
+      const all = dockEdges;
       expect(edgeNear(480, 270, 960, 540, all), isNull);
       expect(edgeNear(20, 270, 960, 540, all), 'left');
       expect(edgeNear(950, 270, 960, 540, all), 'right');

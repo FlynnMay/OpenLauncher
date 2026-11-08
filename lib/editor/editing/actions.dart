@@ -158,7 +158,7 @@ Future<void> placeDragged(
 
 /// Docks a container made from [template] to [edge] if none is, and selects it,
 /// which holds it open.
-Future<void> addBar(
+Future<void> dockPrefab(
   BuildContext context,
   WidgetRef ref,
   String edge,
@@ -166,22 +166,24 @@ Future<void> addBar(
 ) async {
   final before = ref.read(editedLayoutProvider);
   if (before == null) return;
-  // The bar is looked for in what was sent: the page hears the TV's answer
+  // The dock is looked for in what was sent: the page hears the TV's answer
   // later.
-  final sent = withBar(before, edge, template);
-  await changeLayout(context, ref, (_) => sent);
+  final sent = withDocked(before, edge, template);
+  if (dockedOn(before, edge) == null) {
+    await runCommand(context, ref, DockPrefab(edge, template));
+  }
   if (!context.mounted) return;
   final selection = ref.read(selectionProvider.notifier);
-  switch (barOn(sent, edge)) {
-    case final bar?:
-      selection.tap(bar.id, adding: false);
+  switch (dockedOn(sent, edge)) {
+    case final docked?:
+      selection.tap(docked.id, adding: false);
     case null:
       selection.clear();
   }
 }
 
 /// Docks a container made from [template] to the first free edge.
-Future<void> addBarSomewhere(
+Future<void> dockPrefabSomewhere(
   BuildContext context,
   WidgetRef ref,
   Prefab template,
@@ -189,7 +191,7 @@ Future<void> addBarSomewhere(
   final layout = ref.read(configProvider).value?.layout;
   if (layout == null) return;
   if (freeEdges(layout).firstOrNull case final edge?) {
-    await addBar(context, ref, edge, template);
+    await dockPrefab(context, ref, edge, template);
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Every edge has something docked already.')),

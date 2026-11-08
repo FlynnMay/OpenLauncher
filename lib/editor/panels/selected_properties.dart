@@ -14,6 +14,7 @@ import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Settings of the selection. With several selected, only shared settings
 /// show and changes apply to all.
@@ -124,7 +125,7 @@ class SelectedProperties extends ConsumerWidget {
           nodes: items,
           parents: [for (final one in found) one.parent],
           onChanged: each,
-          onLayout: change,
+          onLayout: (command) => runCommand(context, ref, command),
           inPrefab: prefab != null,
           exposable: isRoot,
           inDock: found.any((one) => one.dock != null),
@@ -316,11 +317,7 @@ class _HandedNode extends ConsumerWidget {
                   ) &&
                   context.mounted) {
                 ref.read(selectionProvider.notifier).clear();
-                await changeLayout(
-                  context,
-                  ref,
-                  (layout) => removeItem(layout, node.id),
-                );
+                await runCommand(context, ref, RemoveNodes([node.id]));
               }
             },
             icon: const Icon(Icons.delete_outline),

@@ -218,7 +218,7 @@ void main() {
 
     // In the middle of the screen it goes nowhere.
     await drag(screen.center);
-    expect(freeEdges(layout()), barEdges);
+    expect(freeEdges(layout()), dockEdges);
     expect(ref.read(selectionProvider), isEmpty);
 
     await drag(screen.centerLeft + const Offset(10, 0));

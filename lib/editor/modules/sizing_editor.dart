@@ -3,8 +3,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
-import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/module_edit_context.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Cells or share in the parents' Layouts: only what applies in all of them.
 List<Widget> sizingEditor(ModuleEdit edit) {
@@ -26,7 +26,7 @@ List<Widget> sizingEditor(ModuleEdit edit) {
   void set(String key, Object? value) {
     final number = (value as num?)?.toDouble();
     if (edit.onLayout case final onLayout?) {
-      onLayout((layout) => transformItems(layout, edit.ids, key, number));
+      onLayout(SetSizing(edit.ids, key, number));
     } else {
       edit.onChanged((node) => node.withValue(sizingModule.name, key, number));
     }

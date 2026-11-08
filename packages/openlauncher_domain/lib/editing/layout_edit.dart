@@ -604,15 +604,15 @@ Node withColumns(Node container, int columns) {
 }
 
 /// The screen edges a container can dock to.
-const barEdges = ['left', 'right', 'top', 'bottom'];
+const dockEdges = ['left', 'right', 'top', 'bottom'];
 
 /// The container docked to [edge], if any.
-Node? barOn(Layout layout, String edge) =>
+Node? dockedOn(Layout layout, String edge) =>
     layout.docked.where((container) => container.dock == edge).firstOrNull;
 
 /// Adds an instance of [prefab] docked to [edge], if none is.
-Layout withBar(Layout layout, String edge, Prefab prefab) =>
-    barOn(layout, edge) != null
+Layout withDocked(Layout layout, String edge, Prefab prefab) =>
+    dockedOn(layout, edge) != null
     ? layout
     : layout.withContainer(
         layout.start.root.id,
@@ -626,8 +626,8 @@ Layout withBar(Layout layout, String edge, Prefab prefab) =>
 
 /// Edges with no container docked, or an empty one.
 List<String> freeEdges(Layout layout) => [
-  for (final edge in barEdges)
-    if (barOn(layout, edge)?.isEmpty ?? true) edge,
+  for (final edge in dockEdges)
+    if (dockedOn(layout, edge)?.isEmpty ?? true) edge,
 ];
 
 /// The edge of [among] nearest to ([x], [y]), if within [reach].

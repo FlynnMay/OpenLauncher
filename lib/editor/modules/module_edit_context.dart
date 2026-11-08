@@ -6,6 +6,7 @@ import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// The body of a module's section in the inspector.
 typedef ModuleEditor = List<Widget> Function(ModuleEdit edit);
@@ -48,7 +49,7 @@ class ModuleEdit {
   final void Function(Node Function(Node node) how) onChanged;
 
   /// For a change that moves other nodes too; null where there are none.
-  final void Function(Layout Function(Layout layout) how)? onLayout;
+  final void Function(LayoutCommand command)? onLayout;
 
   final Map<String, Prefab> prefabs;
 

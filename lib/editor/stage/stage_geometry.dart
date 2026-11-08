@@ -76,9 +76,9 @@ Drop dropAt(
 
 /// The open rect of the container docked to [edge], or a strip [thickness]
 /// thick.
-Rect barRect(Layout layout, String edge, {double? thickness}) {
+Rect dockRect(Layout layout, String edge, {double? thickness}) {
   final container =
-      barOn(layout, edge) ??
+      dockedOn(layout, edge) ??
       Node.layout(id: edge).withValue(dockModule.name, 'position', edge);
   final Size(:width, :height) = TvScreen.size;
   final across = container.opensAcross;

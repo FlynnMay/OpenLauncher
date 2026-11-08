@@ -7,6 +7,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/module_edit_context.dart';
 import 'package:openlauncher/editor/modules/module_editors.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// A section per module the selected nodes all have, in registry order, then
 /// a way to add one. Sizing shows whenever their parents lay them out.
@@ -30,7 +31,7 @@ class ModuleSections extends ConsumerWidget {
   final List<Node> parents;
 
   final void Function(Node Function(Node node) how) onChanged;
-  final void Function(Layout Function(Layout layout) how)? onLayout;
+  final void Function(LayoutCommand command)? onLayout;
   final bool inPrefab, exposable, inDock;
   final Variables scope;
 

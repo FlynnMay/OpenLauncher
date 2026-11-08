@@ -4,6 +4,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/module_edit_context.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// How it arranges its children, and whether new apps go in it.
 List<Widget> layoutEditor(ModuleEdit edit) => [
@@ -21,7 +22,7 @@ List<Widget> layoutEditor(ModuleEdit edit) => [
         label: 'New apps go here',
         value: ref.watch(inboxProvider) == edit.node.id,
         onChanged: (here) {
-          if (here) onLayout((layout) => withInbox(layout, edit.node.id));
+          if (here) onLayout(SetInbox(edit.node.id));
         },
       ),
     ),
