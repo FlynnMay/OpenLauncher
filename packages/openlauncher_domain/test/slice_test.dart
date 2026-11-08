@@ -1,0 +1,373 @@
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/prefabs/prefab.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
+import 'package:test/test.dart';
+
+Prefab cardPrefab() => Prefab(
+  id: 'card',
+  name: 'Card',
+  root: Node.layout(
+    id: 'root',
+    children: [
+      const Node(
+        id: 'image',
+        modules: {
+          'picture': {'fit': 'cover'},
+        },
+      ),
+      const Node(
+        id: 'name',
+        modules: {
+          'text': {'size': 18},
+        },
+      ),
+    ],
+  ),
+  variants: const {
+    'row': PrefabVariant('Row', {
+      'name': {
+        'modules': {
+          'text': {'size': 14},
+        },
+      },
+    }),
+  },
+);
+
+Node card(String id, [Overrides overrides = const {}]) => Node.of(
+  'app:$id',
+  id: id,
+  prefab: 'card',
+  variable: 'what',
+).copyWith(overrides: overrides);
+
+Document document() {
+  final prefab = cardPrefab();
+  return Document(
+    layout: Layout(
+      inbox: 'main',
+      startup: const Startup('home'),
+      screens: [
+        Screen(
+          id: 'home',
+          root: Node.layout(
+            id: 'main',
+            children: [
+              card('a'),
+              card('b', {
+                'image': {
+                  'modules': {
+                    'picture': {'fit': 'contain'},
+                  },
+                },
+              }),
+              Node.layout(id: 'shelf', children: [card('c')]),
+            ],
+          ),
+        ),
+      ],
+    ),
+    settings: {
+      'prefabs': [prefab.toJson()],
+    },
+    prefabs: {prefab.id: prefab},
+  );
+}
+
+Object? fitOf(Node node) => node.modules['picture']?['fit'];
+
+List<String> ids(Document doc, String container) => [
+  for (final child in doc.layout.node(container)!.children) child.id,
+];
+
+/// Applies the edits that undo, in order.
+Document undone(Document after, List<SliceEdit> inverse) {
+  var doc = after;
+  for (final edit in inverse) {
+    doc = edit.apply(doc).document;
+  }
+  return doc;
+}
+
+void main() {
+  group('Address', () {
+    test('is read and written back', () {
+      for (final text in [
+        '/',
+        'prefab:card/',
+        'prefab:card/image',
+        'prefab:card@row/name',
+        'prefab:system:card/image',
+        'layout:a',
+        'layout:a/image',
+      ]) {
+        expect(Address.parse(text).toString(), text);
+      }
+    });
+
+    test('refuses what is not one', () {
+      expect(() => Address.parse('nope'), throwsA(isA<CommandRefused>()));
+      expect(() => Address.parse('layout:'), throwsA(isA<CommandRefused>()));
+    });
+  });
+
+  group('editing fields', () {
+    test('a prefab child is changed for the prefab, and undone', () {
+      final before = document();
+      final slice = Slice.load(before, 'prefab:card/image')
+        ..edit('picture', 'fit', 'contain');
+      expect(fitOf(slice.node), 'contain');
+      final saved = slice.save();
+      final result = saved.apply(before);
+      final prefab = result.document.prefabs['card']!;
+      expect(
+        fitOf(prefab.root.all.firstWhere((n) => n.id == 'image')),
+        'contain',
+      );
+      expect(result.document.layout.toJson(), before.layout.toJson());
+      final back = undone(result.document, result.inverse);
+      expect(
+        fitOf(
+          back.prefabs['card']!.root.all.firstWhere((n) => n.id == 'image'),
+        ),
+        'cover',
+      );
+    });
+
+    test(
+      'a variant keeps its own overrides, and one equal to the base clears',
+      () {
+        final before = document();
+        final set = (Slice.load(
+          before,
+          'prefab:card@row/name',
+        )..edit('text', 'size', 20)).save().apply(before).document;
+        expect(set.prefabs['card']!.variants['row']!.overrides['name'], {
+          'modules': {
+            'text': {'size': 20},
+          },
+        });
+        final cleared = (Slice.load(
+          set,
+          'prefab:card@row/name',
+        )..edit('text', 'size', 18)).save().apply(set).document;
+        expect(cleared.prefabs['card']!.variants['row']!.overrides, isEmpty);
+        expect(
+          cleared.prefabs['card']!.root.all
+              .firstWhere((n) => n.id == 'name')
+              .modules['text'],
+          {'size': 18},
+        );
+      },
+    );
+
+    test('an instance child changes only that instance', () {
+      final before = document();
+      final result = (Slice.load(
+        before,
+        'layout:a/image',
+      )..edit('picture', 'fit', 'contain')).save().apply(before);
+      final layout = result.document.layout;
+      expect(layout.node('a')!.overrides['image'], isNotEmpty);
+      expect(layout.node('b')!.overrides, before.layout.node('b')!.overrides);
+      expect(
+        result.document.prefabs['card']!.toJson(),
+        before.prefabs['card']!.toJson(),
+      );
+      final back = undone(result.document, result.inverse);
+      expect(back.layout.node('a')!.overrides, isEmpty);
+    });
+
+    test('reverting an instance child hands it back to the prefab', () {
+      final before = document();
+      final reverted = (Slice.load(
+        before,
+        'layout:b/image',
+      )..revert('picture', 'fit')).save().apply(before).document;
+      expect(reverted.layout.node('b')!.overrides, isEmpty);
+    });
+
+    test('the view of an instance child is as the instance draws it', () {
+      expect(fitOf(Slice.load(document(), 'layout:b/image').node), 'contain');
+      expect(fitOf(Slice.load(document(), 'layout:a/image').node), 'cover');
+    });
+
+    test('a missing address or child is refused', () {
+      expect(
+        () => Slice.load(document(), 'layout:zzz'),
+        throwsA(isA<CommandRefused>()),
+      );
+      expect(
+        () => Slice.load(document(), 'prefab:card/zzz'),
+        throwsA(isA<CommandRefused>()),
+      );
+      expect(
+        () => Slice.load(document(), 'prefab:none/'),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+  });
+
+  group('cut, copy and paste', () {
+    test(
+      'a cut keeps its ids and goes where it is pasted, undone in two steps',
+      () {
+        final before = document();
+        final cut = Slice.load(before, 'layout:b');
+        final clip = cut.cut();
+        expect((clip as NodeClip).cut, isTrue);
+        final removed = cut.save().apply(before);
+        expect(ids(removed.document, 'main'), ['a', 'shelf']);
+
+        final paste = Slice.load(removed.document, 'layout:c')
+          ..pasteAfter(clip);
+        final pasted = paste.save().apply(removed.document);
+        expect(ids(pasted.document, 'shelf'), ['c', 'b']);
+
+        final one = undone(pasted.document, pasted.inverse);
+        expect(ids(one, 'shelf'), ['c']);
+        final two = undone(one, removed.inverse);
+        expect(two.layout.toJson(), before.layout.toJson());
+      },
+    );
+
+    test('a copy of something with no entity gets a new id', () {
+      final before = document();
+      final plain = Document(
+        layout: before.layout.withContainer(
+          'main',
+          (main) => main.copyWith(
+            children: [
+              ...main.children,
+              Node.layout(id: 'spacer'),
+            ],
+          ),
+        ),
+        settings: before.settings,
+        prefabs: before.prefabs,
+      );
+      final clip = Slice.load(plain, 'layout:spacer').copy();
+      final result = (Slice.load(
+        plain,
+        'layout:spacer',
+      )..pasteAfter(clip)).save().apply(plain);
+      expect(ids(result.document, 'main').last, 'spacer-2');
+      expect(
+        undone(result.document, result.inverse).layout.toJson(),
+        plain.layout.toJson(),
+      );
+    });
+
+    test('a copy of a card that holds an entity places it a second time', () {
+      final before = document();
+      final clip = Slice.load(before, 'layout:a').copy();
+      final result = (Slice.load(
+        before,
+        'layout:b',
+      )..pasteAfter(clip)).save().apply(before);
+      expect(ids(result.document, 'main'), ['a', 'b', 'a-2', 'shelf']);
+      expect(result.document.layout.node('a-2')!.handed, ['app:a']);
+      expect(
+        undone(result.document, result.inverse).layout.toJson(),
+        before.layout.toJson(),
+      );
+    });
+
+    test('pasting into a place that cannot hold it is refused', () {
+      final before = document();
+      final clip = Slice.load(before, 'layout:a').cut();
+      expect(
+        () => Slice.load(before, 'layout:b').pasteInto(clip),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+
+    test('a module is copied from one node and pasted on another', () {
+      final before = document();
+      final clip = Slice.load(
+        before,
+        'prefab:card/image',
+      ).copyModule('picture');
+      final result = (Slice.load(
+        before,
+        'prefab:card/name',
+      )..pasteModule(clip)).save().apply(before);
+      final name = result.document.prefabs['card']!.root.all.firstWhere(
+        (n) => n.id == 'name',
+      );
+      expect(name.modules['picture'], {'fit': 'cover'});
+      final back = undone(result.document, result.inverse);
+      expect(
+        back.prefabs['card']!.root.all
+            .firstWhere((n) => n.id == 'name')
+            .modules['picture'],
+        isNull,
+      );
+    });
+
+    test(
+      'a child of a prefab, shown through an instance, cannot be lifted out',
+      () {
+        expect(
+          () => Slice.load(document(), 'layout:a/image').cut(),
+          throwsA(isA<CommandRefused>()),
+        );
+      },
+    );
+
+    test('a prefab cannot take a copy of itself', () {
+      final before = document();
+      final clip = NodeClip(card('x'));
+      expect(
+        () => (Slice.load(
+          before,
+          'prefab:card/image',
+        )..pasteAfter(clip)).save().apply(before),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+
+    test('cutting and pasting inside a prefab works', () {
+      final before = document();
+      final slice = Slice.load(before, 'prefab:card/image');
+      final clip = slice.cut();
+      final removed = slice.save().apply(before);
+      final pasted = (Slice.load(
+        removed.document,
+        'prefab:card/name',
+      )..pasteAfter(clip)).save().apply(removed.document).document;
+      expect(
+        [for (final c in pasted.prefabs['card']!.root.children) c.id],
+        ['name', 'image'],
+      );
+    });
+  });
+
+  group('as data', () {
+    test('an edit survives JSON and does the same', () {
+      final before = document();
+      final clip = Slice.load(before, 'layout:b').cut();
+      final slice = Slice.load(before, 'layout:c')
+        ..edit('picture', 'fit', 'contain')
+        ..pasteAfter(clip);
+      final edit = slice.save();
+      final read = SliceEdit.fromJson(edit.toJson());
+      expect(read.toJson(), edit.toJson());
+      expect(
+        read.apply(before).document.layout.toJson(),
+        edit.apply(before).document.layout.toJson(),
+      );
+    });
+
+    test('an operation that is not one is refused', () {
+      expect(
+        () => SliceOp.fromJson({'op': 'explode'}),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+  });
+}

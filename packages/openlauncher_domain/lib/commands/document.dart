@@ -30,11 +30,12 @@ class Document {
     Layout? layout,
     Map<String, Object?>? settings,
     bool? layoutIsTheUsers,
+    Map<String, Prefab>? prefabs,
   }) => Document(
     layout: layout ?? this.layout,
     settings: settings ?? this.settings,
     layoutIsTheUsers: layoutIsTheUsers ?? this.layoutIsTheUsers,
     startingLayout: startingLayout,
-    prefabs: prefabs,
+    prefabs: prefabs ?? this.prefabs,
   );
 }
