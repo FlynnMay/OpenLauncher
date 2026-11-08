@@ -45,13 +45,26 @@ Future<void> runCommand(
   WidgetRef ref,
   Command command,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
   final prefab = ref.read(editedPrefabProvider);
-  final scoped = prefab == null
-      ? command
-      : InPrefab(prefab.id, ref.read(prefabModeProvider)?.variant, command);
+  return runOnLibrary(
+    context,
+    ref,
+    prefab == null
+        ? command
+        : InPrefab(prefab.id, ref.read(prefabModeProvider)?.variant, command),
+  );
+}
+
+/// Does [command] on the whole config, the layout and the prefabs, even with
+/// a prefab open.
+Future<void> runOnLibrary(
+  BuildContext context,
+  WidgetRef ref,
+  Command command,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
   try {
-    await ref.read(commandsProvider).run(scoped);
+    await ref.read(commandsProvider).run(command);
   } on CommandRefused catch (refused) {
     messenger.showSnackBar(SnackBar(content: Text(refused.message)));
   } on Object catch (error) {

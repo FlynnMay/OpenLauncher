@@ -24,6 +24,7 @@ void main() {
   moduleCommandTests();
   leafTests();
   scopeTests();
+  libraryTests();
 
   test('each command survives JSON and undoes', () {
     final before = home();
@@ -129,5 +130,70 @@ void scopeTests() {
       ).edit(Document(layout: home())),
       throwsA(isA<CommandRefused>()),
     );
+  });
+}
+
+void libraryTests() {
+  Layout twoContainers() => Layout(
+    inbox: 'top',
+    startup: const Startup('home'),
+    screens: [
+      Screen(
+        id: 'home',
+        root: Node.layout(
+          id: 'top',
+          children: [
+            Node.layout(id: 'shelf', children: [card('a')]),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  test('a container is made a prefab, and the undo puts it back', () {
+    final before = Document(layout: twoContainers(), settings: {'prefabs': []});
+    final command = commandFromJson(
+      const MakePrefab('shelf', 'made', 'Made').toJson(),
+    );
+    final after = command.edit(before);
+    expect(Prefab.listFromJson(after.settings['prefabs']).single.id, 'made');
+    expect(after.layout.node('shelf')!.prefab, 'made');
+    final back = command.undoing(before).edit(after);
+    expect(back.layout.toJson(), before.layout.toJson());
+    expect(back.settings['prefabs'], isEmpty);
+  });
+
+  test('the inbox cannot become an instance', () {
+    expect(
+      () => const MakePrefab(
+        'top',
+        'made',
+        'Made',
+      ).edit(Document(layout: twoContainers(), settings: {'prefabs': []})),
+      throwsA(isA<CommandRefused>()),
+    );
+  });
+
+  test('a made prefab is deleted, and its instance unpacked', () {
+    final made = const MakePrefab(
+      'shelf',
+      'made',
+      'Made',
+    ).edit(Document(layout: twoContainers(), settings: {'prefabs': []}));
+    final document = made.copyWith(
+      layout: made.layout,
+      settings: made.settings,
+    );
+    final withPrefabs = Document(
+      layout: document.layout,
+      settings: document.settings,
+      prefabs: {
+        for (final prefab in Prefab.listFromJson(document.settings['prefabs']))
+          prefab.id: prefab,
+      },
+    );
+    final after = const DeletePrefab('made').edit(withPrefabs);
+    expect(after.settings['prefabs'], isEmpty);
+    expect(after.layout.node('shelf')!.prefab, isNull);
   });
 }

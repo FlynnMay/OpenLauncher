@@ -111,11 +111,11 @@ class PrefabBar extends ConsumerWidget {
                   // The default is the tree itself and stays.
                   if (shown != null && !byDefault) ...[
                     PopupMenuItem(
-                      value: () => makeDefaultVariant(ref, shown),
+                      value: () => makeDefaultVariant(context, ref, shown),
                       child: const Text('Make default'),
                     ),
                     PopupMenuItem(
-                      value: () => deleteVariant(ref, shown),
+                      value: () => deleteVariant(context, ref, shown),
                       child: const Text('Delete'),
                     ),
                   ],

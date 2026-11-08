@@ -7,6 +7,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/visibility_editor.dart';
 import 'package:openlauncher/editor/settings/style_settings.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 List<Field> _optionsOf(Node part) => part.visual?.fields ?? const [];
 
@@ -345,13 +346,11 @@ class PrefabDetails extends ConsumerWidget {
         value: prefab.name,
         onChanged: (name) {
           if (name.isEmpty) return;
-          ref
-              .read(configProvider.notifier)
-              .change(
-                (c) => c.copyWith(
-                  prefabs: withPrefab(c.prefabs, prefab.copyWith(name: name)),
-                ),
-              );
+          runOnLibrary(
+            context,
+            ref,
+            ChangePrefabs(upserted: [prefab.copyWith(name: name).toJson()]),
+          );
         },
       ),
       Text(_used(ref, prefab), style: Theme.of(context).textTheme.bodySmall),

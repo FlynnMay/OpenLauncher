@@ -61,7 +61,7 @@ class SelectedProperties extends ConsumerWidget {
             OverrideList(
               set: variant.overrides[single.id] ?? const {},
               onReverted: (module, key) =>
-                  revertOverride(ref, single.id, module, key),
+                  revertOverride(context, ref, single.id, module, key),
             ),
           ]),
         // Name and picture apply to auto-placed entities (apps, inputs) only.

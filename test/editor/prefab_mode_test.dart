@@ -17,12 +17,6 @@ import 'package:openlauncher/editor/tv/tv.dart';
 import '../support/fake_tv.dart';
 import '../support/packs.dart';
 
-/// A TV that takes commands and does nothing with them.
-class _Tv extends TvApi {
-  @override
-  Future<int> command(Map<String, Object?> command, {int? basedOn}) async => 0;
-}
-
 const _alpha = Entity(
   id: 'system:app/a',
   category: appCategory,
@@ -32,11 +26,7 @@ const _alpha = Entity(
 );
 
 void main() {
-  Future<WidgetRef> pump(
-    WidgetTester tester, {
-    LauncherConfig? config,
-    bool doesCommands = true,
-  }) async {
+  Future<WidgetRef> pump(WidgetTester tester, {LauncherConfig? config}) async {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -57,7 +47,7 @@ void main() {
         overrides: [
           ...tvOverrides,
           systemContents,
-          tvApiProvider.overrideWithValue(doesCommands ? tv : _Tv()),
+          tvApiProvider.overrideWithValue(tv),
           tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
         child: MaterialApp(
@@ -192,14 +182,22 @@ void main() {
     // they did, as overrides on it.
     final stacked = card().rootAs('stacked').toJson();
     final row = card().rootAs('row').toJson();
-    await makeDefaultVariant(ref, 'row');
+    await makeDefaultVariant(
+      tester.element(find.byType(EditorScreen)),
+      ref,
+      'row',
+    );
     await tester.pumpAndSettle();
     expect(card().variants.keys, ['row', 'stacked']);
     expect(card().isBase('row'), isTrue);
     expect(card().root.toJson(), row);
     expect(card().rootAs('stacked').toJson(), stacked);
     // And back again.
-    await makeDefaultVariant(ref, 'stacked');
+    await makeDefaultVariant(
+      tester.element(find.byType(EditorScreen)),
+      ref,
+      'stacked',
+    );
     await tester.pumpAndSettle();
     expect(card().variants.keys, ['stacked', 'row']);
     expect(card().root.toJson(), stacked);
@@ -270,7 +268,14 @@ void main() {
   testWidgets(
     'a container is made a prefab; deleting it unpacks the instance',
     (tester) async {
-      final ref = await pump(tester, doesCommands: false);
+      // The inbox is the root, so the container below it can become an
+      // instance: the inbox itself cannot.
+      final ref = await pump(
+        tester,
+        config: LauncherConfig(
+          layout: homeLayout(['system:app/a']).copyWith(inbox: 'home/root'),
+        ),
+      );
       LauncherConfig config() => ref.read(configProvider).value!;
       await press(tester, find.text('Objects'));
       await press(tester, inTree('Layout'));

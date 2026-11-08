@@ -9,6 +9,7 @@ import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
+import 'package:openlauncher/editor/editing/actions.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
@@ -39,9 +40,8 @@ final shippedByProvider = Provider.family<String?, String>(
       : null,
 );
 
-Future<void> _put(WidgetRef ref, Prefab prefab) => ref
-    .read(configProvider.notifier)
-    .change((c) => c.copyWith(prefabs: withPrefab(c.prefabs, prefab)));
+Future<void> _put(BuildContext context, WidgetRef ref, Prefab prefab) =>
+    runOnLibrary(context, ref, ChangePrefabs(upserted: [prefab.toJson()]));
 
 void _say(BuildContext context, String message) =>
     ScaffoldMessenger.of(context)
@@ -156,9 +156,10 @@ void previewWith(WidgetRef ref, String name, String id) {
 /// Asks for a name, makes an empty prefab and opens it.
 Future<void> newPrefab(BuildContext context, WidgetRef ref) async {
   final name = await askName(context, 'Prefab', title: 'Prefab name');
-  if (name == null || name.isEmpty) return;
+  if (name == null || name.isEmpty || !context.mounted) return;
   final id = _freePrefabId(ref, name);
   await _put(
+    context,
     ref,
     Prefab(
       id: id,
@@ -179,8 +180,12 @@ Future<void> duplicatePrefab(
     '${prefab.name} copy',
     title: 'Prefab name',
   );
-  if (name == null || name.isEmpty) return;
-  await _put(ref, prefab.copyWith(id: _freePrefabId(ref, name), name: name));
+  if (name == null || name.isEmpty || !context.mounted) return;
+  await _put(
+    context,
+    ref,
+    prefab.copyWith(id: _freePrefabId(ref, name), name: name),
+  );
 }
 
 Future<void> renamePrefab(
@@ -194,8 +199,8 @@ Future<void> renamePrefab(
     title: 'Prefab name',
     does: 'Rename',
   );
-  if (name == null || name.isEmpty) return;
-  await _put(ref, prefab.copyWith(name: name));
+  if (name == null || name.isEmpty || !context.mounted) return;
+  await _put(context, ref, prefab.copyWith(name: name));
 }
 
 /// Deletes [prefab] once confirmed, unpacking its instances where they
@@ -207,7 +212,6 @@ Future<void> deletePrefab(
 ) async {
   final config = ref.read(configProvider).value;
   if (config == null) return;
-  final controller = ref.read(configProvider.notifier);
   if (ref.read(shippedByProvider(prefab.id)) case final pack?) {
     if (!await confirm(
       context,
@@ -218,14 +222,8 @@ Future<void> deletePrefab(
       return;
     }
     ref.read(selectionProvider.notifier).clear();
-    await controller.change(
-      (c) => c.copyWith(
-        prefabs: [
-          for (final one in c.prefabs)
-            if (one.id != prefab.id) one,
-        ],
-      ),
-    );
+    if (!context.mounted) return;
+    await runOnLibrary(context, ref, ChangePrefabs(removed: [prefab.id]));
     return;
   }
   final prefabs = ref.read(prefabsProvider);
@@ -254,13 +252,8 @@ Future<void> deletePrefab(
   if (ref.read(prefabModeProvider)?.id == prefab.id) {
     backPrefab(ref, ref.read(prefabTrailProvider).length - 1);
   }
-  await controller.change((c) {
-    final after = withoutPrefab(c.layout, c.prefabs, prefabs, prefab.id);
-    return c.copyWith(
-      layout: after.layout.normalised(),
-      prefabs: after.prefabs,
-    );
-  });
+  if (!context.mounted) return;
+  await runOnLibrary(context, ref, DeletePrefab(prefab.id));
 }
 
 /// Makes a prefab of the component [found], which an instance replaces.
@@ -271,36 +264,20 @@ Future<void> createPrefab(
 ) async {
   final name = await askName(context, 'Prefab', title: 'Prefab name');
   if (name == null || name.isEmpty) return;
-  final made = asPrefab(
-    found.item,
-    _freePrefabId(ref, name),
-    name,
-    // Placed by its transform: its size on the TV's screen.
-    size: found.parent.mode == LayoutMode.free
-        ? found.item.transform.rectIn(const Size(960, 540)).size.extent
-        : null,
-  );
-  await ref.read(configProvider.notifier).change((c) {
-    final layout = changeItems(c.layout, {
+  if (!context.mounted) return;
+  await runOnLibrary(
+    context,
+    ref,
+    MakePrefab(
       found.item.id,
-    }, (_, _) => made.instance);
-    return c.copyWith(
-      prefabs: [...c.prefabs, made.prefab],
-      // What it holds is no longer on the screen in its own right, and is not
-      // put back.
-      layout: layout
-          .copyWith(
-            removed: {
-              ...layout.removed,
-              for (final part in found.item.all)
-                if (part.isInstance)
-                  for (final id in part.handed)
-                    if (layout.container(id) == null) id,
-            },
-          )
-          .normalised(),
-    );
-  });
+      _freePrefabId(ref, name),
+      name,
+      // Placed by its transform: its size on the TV's screen.
+      size: found.parent.mode == LayoutMode.free
+          ? found.item.transform.rectIn(const Size(960, 540)).size.extent
+          : null,
+    ),
+  );
 }
 
 /// Renames child [part] of the open prefab, and what names it.
@@ -316,16 +293,8 @@ Future<void> renamePart(BuildContext context, WidgetRef ref, Node part) async {
   if (prefab.root.all.any((other) => other.id == to)) {
     return _say(context, 'Another part of the prefab is called "$to".');
   }
-  await ref.read(configProvider.notifier).change((c) {
-    final fixed = withPartRenamed(
-      c.layout,
-      withPrefab(c.prefabs, prefab),
-      prefab,
-      part.id,
-      to,
-    );
-    return c.copyWith(layout: fixed.layout, prefabs: fixed.prefabs);
-  });
+  await runOnLibrary(context, ref, RenamePart(prefab.id, part.id, to));
+  if (!context.mounted) return;
   final selection = ref.read(selectionProvider.notifier);
   if (ref.read(selectionProvider).contains(part.id)) {
     selection.tap(to, adding: false);
@@ -337,9 +306,10 @@ Future<void> addVariant(BuildContext context, WidgetRef ref) async {
   final prefab = ref.read(editedPrefabProvider);
   if (prefab == null) return;
   final name = await askName(context, 'Variant', title: 'Variant name');
-  if (name == null || name.isEmpty) return;
+  if (name == null || name.isEmpty || !context.mounted) return;
   final key = freeId(slugOf(name, 'variant'), {...prefab.variants.keys});
   await _put(
+    context,
     ref,
     prefab.copyWith(
       variants: {
@@ -367,8 +337,9 @@ Future<void> renameVariant(
     title: 'Variant name',
     does: 'Rename',
   );
-  if (name == null || name.isEmpty) return;
+  if (name == null || name.isEmpty || !context.mounted) return;
   await _put(
+    context,
     ref,
     prefab.copyWith(
       variants: {
@@ -381,11 +352,16 @@ Future<void> renameVariant(
 
 /// Makes variant [key] the tree itself; the others are kept as they look,
 /// as overrides on it.
-Future<void> makeDefaultVariant(WidgetRef ref, String key) async {
+Future<void> makeDefaultVariant(
+  BuildContext context,
+  WidgetRef ref,
+  String key,
+) async {
   final prefab = ref.read(editedPrefabProvider);
   if (prefab == null || !prefab.variants.containsKey(key)) return;
   final root = prefab.rootAs(key);
   await _put(
+    context,
     ref,
     prefab.copyWith(
       root: root,
@@ -403,16 +379,25 @@ Future<void> makeDefaultVariant(WidgetRef ref, String key) async {
   );
 }
 
-Future<void> deleteVariant(WidgetRef ref, String key) async {
+Future<void> deleteVariant(
+  BuildContext context,
+  WidgetRef ref,
+  String key,
+) async {
   final prefab = ref.read(editedPrefabProvider);
   if (prefab == null || key == prefab.defaultVariant) return;
   ref.read(prefabTrailProvider.notifier).show(null);
-  await _put(ref, prefab.copyWith(variants: {...prefab.variants}..remove(key)));
+  await _put(
+    context,
+    ref,
+    prefab.copyWith(variants: {...prefab.variants}..remove(key)),
+  );
 }
 
 /// Hands one value of child [part] back to the tree in the shown variant;
 /// with no [key], all of them.
 Future<void> revertOverride(
+  BuildContext context,
   WidgetRef ref,
   String part, [
   String? section,
@@ -423,6 +408,7 @@ Future<void> revertOverride(
   final variant = prefab?.variants[name];
   if (prefab == null || variant == null) return;
   await _put(
+    context,
     ref,
     prefab.copyWith(
       variants: {
