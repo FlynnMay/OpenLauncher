@@ -176,7 +176,7 @@ void main() {
       platform = FakeLauncherPlatform(const [], const []);
       container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           updateSourceProvider.overrideWithValue(source),
           launcherPlatformProvider.overrideWithValue(platform),

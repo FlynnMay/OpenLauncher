@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/anchor_marks.dart';
@@ -16,6 +17,8 @@ import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// The TV's screen, or the open prefab on it. While [editing], components are
 /// selectable and draggable and the screen is a drop target; otherwise it is
@@ -160,7 +163,7 @@ class _StageState extends ConsumerState<Stage> {
 
   /// The drop for [dragged] at [pointer] and its marker rect; null where
   /// nothing accepts it.
-  ({Drop? drop, String? bar, Rect marker})? _target(
+  ({Drop? drop, String? dockTo, Rect marker})? _target(
     Offset pointer,
     Dragged dragged,
   ) {
@@ -179,13 +182,13 @@ class _StageState extends ConsumerState<Stage> {
         freeEdges(layout),
       );
       if (edge == null) return null;
-      return (drop: null, bar: edge, marker: barRect(layout, edge));
+      return (drop: null, dockTo: edge, marker: dockRect(layout, edge));
     }
     final item = dragged.item;
     // The last docked container showing under the pointer, else the home
     // screen.
     var container = layout.start.root;
-    String? bar;
+    String? dockTo;
     for (final dock in layout.docked) {
       // What an instance holds goes in its slot.
       final into = dock.isInstance ? dock.children.firstOrNull : dock;
@@ -196,11 +199,11 @@ class _StageState extends ConsumerState<Stage> {
           ?.visible();
       if (showing?.contains(pointer) ?? false) {
         container = into;
-        bar = dock.id;
+        dockTo = dock.id;
       }
     }
     // A docked container dragged over opens.
-    if (bar != _over) setState(() => _over = bar);
+    if (dockTo != _over) setState(() => _over = dockTo);
     // The innermost container under the pointer, excluding the dragged one.
     for (Node? inner = container; inner != null;) {
       container = inner;
@@ -244,7 +247,7 @@ class _StageState extends ConsumerState<Stage> {
     final rect = rectIn(after, item.id, metrics, grid.size);
     return (
       drop: drop,
-      bar: null,
+      dockTo: null,
       marker: MatrixUtils.transformRect(grid.getTransformTo(screen), rect),
     );
   }
@@ -252,7 +255,7 @@ class _StageState extends ConsumerState<Stage> {
   /// The drop for [item] at [pointer] in the row or column [container]: before
   /// the first child whose middle is past the pointer. The marker is a bar
   /// between the two.
-  ({Drop? drop, String? bar, Rect marker})? _inLine(
+  ({Drop? drop, String? dockTo, Rect marker})? _inLine(
     Node container,
     Offset pointer,
     Node item,
@@ -288,7 +291,7 @@ class _StageState extends ConsumerState<Stage> {
     }
     return (
       drop: Drop(container.id, before: before),
-      bar: null,
+      dockTo: null,
       marker: row
           ? Rect.fromLTWH(along - thick / 2, whole.top, thick, whole.height)
           : Rect.fromLTWH(whole.left, along - thick / 2, whole.width, thick),
@@ -334,6 +337,9 @@ class _StageState extends ConsumerState<Stage> {
   /// The layout as it would be on release, shown by the marker.
   Layout? _resized;
 
+  /// What releasing the handle does.
+  List<SliceOp>? _resizing;
+
   /// The new size and position for [handle] dragged by [moved].
   void _resize(ResizeHandle handle, Offset moved) {
     final picked = _picked();
@@ -350,28 +356,31 @@ class _StageState extends ConsumerState<Stage> {
       snap: ref.read(snapProvider),
       step: ref.read(snapStepProvider),
     );
-    final Layout next;
+    final List<SliceOp> ops;
     if (container.mode == LayoutMode.free) {
-      next = placeItem(
-        layout,
-        found.item.id,
-        resizedRect(found.item.transform.rectIn(size), handle, by, step),
-        size,
-      );
+      ops = [
+        Place(
+          resizedRect(found.item.transform.rectIn(size), handle, by, step).box,
+          size.extent,
+        ),
+      ];
     } else {
       final to = resizedTo(container, placed, metrics, handle, by, step);
-      next = reshapeItem(
-        layout,
-        found.item.id,
-        x: to.x,
-        y: to.y,
-        w: to.w,
-        h: to.h,
-      );
+      ops = [
+        SetField(sizingModule.name, 'w', to.w),
+        SetField(sizingModule.name, 'h', to.h),
+        SetField(sizingModule.name, 'x', to.x),
+        SetField(sizingModule.name, 'y', to.y),
+      ];
     }
+    final next = SliceEdit(LayoutAddress(found.item.id), ops)
+        .apply(Document(layout: layout, prefabs: ref.read(prefabsProvider)))
+        .document
+        .layout;
     final after = findItems(next, {found.item.id}).single;
     setState(() {
       _resized = next;
+      _resizing = ops;
       // Computed from the resulting layout, as for a drop.
       _marker = MatrixUtils.transformRect(
         grid.getTransformTo(screen),
@@ -381,12 +390,14 @@ class _StageState extends ConsumerState<Stage> {
   }
 
   void _resizeDone({required bool kept}) {
-    final next = _resized;
+    final ops = _resizing;
+    final id = _picked()?.found.item.id;
     setState(() {
       _resized = null;
+      _resizing = null;
       _marker = null;
     });
-    if (kept && next != null) changeLayout(context, ref, (_) => next);
+    if (kept && ops != null && id != null) editNodes(context, ref, {id: ops});
   }
 
   void _mark(Rect? marker) {
@@ -421,8 +432,8 @@ class _StageState extends ConsumerState<Stage> {
             final target = _target(details.offset, details.data);
             _mark(null);
             if (_over != null) setState(() => _over = null);
-            if (target?.bar case final bar?) {
-              addBar(context, ref, bar, details.data.docks!);
+            if (target?.dockTo case final dockTo?) {
+              dockPrefab(context, ref, dockTo, details.data.docks!);
             } else if (target?.drop case final drop?) {
               placeDragged(context, ref, details.data, drop);
             }
@@ -493,7 +504,7 @@ class _StageState extends ConsumerState<Stage> {
                   held.any((dragged) => dragged?.docking ?? false))
                 for (final id in freeEdges(layout))
                   Positioned.fromRect(
-                    rect: barRect(layout, id, thickness: 8),
+                    rect: dockRect(layout, id, thickness: 8),
                     child: const IgnorePointer(
                       child: ColoredBox(color: Color(0x9940C4FF)),
                     ),

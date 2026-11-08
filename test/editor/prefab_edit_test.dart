@@ -5,6 +5,8 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 import '../support/packs.dart';
 
@@ -13,16 +15,17 @@ void main() {
   final prefabs = {for (final prefab in systemPrefabs) prefab.id: prefab};
   final text = drawn('badge', textModule.name, values: const {'text': 'New'});
 
-  /// [prefab] after [change] to it as a layout, shown as [variant].
-  Prefab? edited(
-    Prefab prefab,
-    Layout Function(Layout layout) change, [
-    String? variant,
-  ]) => withEdited(
-    prefab,
-    variant,
-    prefabRootIn(change(prefabAsLayout(prefab, variant)), prefab.root.id)!,
+  /// The document with [prefab] in use, and nothing else.
+  Document inUse(Prefab prefab) => Document(
+    layout: Layout.blank(),
+    settings: const {'prefabs': []},
+    prefabs: {prefab.id: prefab},
+    shippedPrefabs: {prefab.id: prefab},
   );
+
+  /// [prefab] after [edit] to it.
+  Prefab edited(Prefab prefab, SliceEdit edit) =>
+      edit.apply(inUse(prefab)).document.prefabs[prefab.id]!;
 
   test('a prefab is edited as a layout of its root alone', () {
     final layout = prefabAsLayout(card);
@@ -36,30 +39,32 @@ void main() {
 
     final added = edited(
       card,
-      (layout) => dropItem(layout, text, const Drop('root', before: 'name')),
-    )!;
+      SliceEdit(PrefabAddress(card.id, child: 'name'), [
+        Insert(Where.before, NodeClip(text)),
+      ]),
+    );
     expect(added.root.children.map((part) => part.id), [
       'picture',
       'badge',
       'name',
     ]);
     expect(added.variants.keys, card.variants.keys);
-    // Without its root there is nothing to save.
-    expect(prefabRootIn(removeItem(layout, 'root'), 'root'), isNull);
+    // Its root cannot be taken out.
+    expect(
+      () =>
+          edited(card, SliceEdit(PrefabAddress(card.id), const [RemoveNode()])),
+      throwsA(isA<CommandRefused>()),
+    );
   });
 
   test('under a variant an edit is that variant\'s override', () {
     final row = edited(
       card,
-      (layout) => changeItems(
-        layout,
-        {'name'},
-        (item, _) => item
-            .withVisible(false)
-            .styled(withStyle(item.style, {'fontSize': 20})),
-      ),
-      'row',
-    )!;
+      SliceEdit(PrefabAddress(card.id, variant: 'row', child: 'name'), const [
+        SetField('visibility', 'visible', false),
+        SetField('style', 'fontSize', 20),
+      ]),
+    );
     // The tree and the other variant are as they were.
     expect(row.root.toJson(), card.root.toJson());
     expect(row.variants['stacked']!.overrides, isEmpty);
@@ -83,22 +88,22 @@ void main() {
 
     // Structure, variables and triggers are the tree's alone.
     expect(
-      edited(
+      () => edited(
         card,
-        (layout) => dropItem(layout, text, const Drop('root')),
-        'row',
+        SliceEdit(PrefabAddress(card.id, variant: 'row', child: 'root'), [
+          Insert(Where.into, NodeClip(text)),
+        ]),
       ),
-      isNull,
+      throwsA(isA<CommandRefused>()),
     );
     expect(
-      edited(
+      () => edited(
         card,
-        (layout) => changeItems(layout, {
-          'root',
-        }, (item, _) => item.withVars(const {'x': Variable(1)})),
-        'row',
+        SliceEdit(PrefabAddress(card.id, variant: 'row', child: 'root'), [
+          SetModule('variables', variablesToJson(const {'x': Variable(1)})),
+        ]),
       ),
-      isNull,
+      throwsA(isA<CommandRefused>()),
     );
   });
 
@@ -315,7 +320,9 @@ void main() {
     expect(held.children.single.id, 'label-label');
 
     // One instance alone, the prefab kept.
-    final one = withUnpacked(layout, 'b', all);
+    final one = SliceEdit(const LayoutAddress('b'), const [
+      Unpack(),
+    ]).apply(Document(layout: layout, prefabs: all)).document.layout;
     expect(one.container('main')!.children.map((item) => item.isInstance), [
       true,
       false,

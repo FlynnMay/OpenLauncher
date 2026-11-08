@@ -5,28 +5,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
+import '../support/fake_tv.dart';
 import '../support/packs.dart';
 
 class _Tv extends TvApi {
   final sent = <String>[];
 
   @override
-  Future<void> setLayout(Layout layout) async => sent.add('layout');
-
-  @override
-  Future<void> revertLayout() async => sent.add('revert');
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async =>
-      sent.add('config ${changed.keys.join(' ')}');
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) async {
+    sent.add(describeCommand(commandFromJson(command)));
+    return 0;
+  }
 
   /// What the TV says of an action, by its name.
   final answers = <String, String>{};
@@ -74,52 +75,11 @@ TvState _state() => TvState(
 );
 
 void main() {
-  test('saving sends the TV only what changed', () async {
-    final tv = _Tv();
-    final store = TvConfigStore(tv, Future.value(_state()));
+  test('the page reads the TV\'s config and does not save its own', () async {
+    final store = TvConfigStore(Future.value(_state()));
     final config = await store.load();
-
-    await store.save(config);
-    expect(tv.sent, isEmpty);
-
-    final emptied = config.copyWith(
-      layout: config.layout.without({'system:app/a'}),
-    );
-    await store.save(emptied);
-    expect(tv.sent, ['layout']);
-
-    // What was sent is what the TV now has.
-    await store.save(emptied.copyWith(toasts: const ToastOptions(seconds: 9)));
-    expect(tv.sent, ['layout', 'config toasts']);
-  });
-
-  test('a starting layout is not sent; reverting to it is', () async {
-    final tv = _Tv();
-    final store = TvConfigStore(
-      tv,
-      Future.value(
-        TvState(
-          entities: const [_entity],
-          config: startingConfig,
-          visuals: const [],
-        ),
-      ),
-    );
-    final start = await store.load();
-
-    // The editor has the pack's own; another setting changing leaves it.
-    final saved = start.copyWith(
-      layout: homeLayout(['system:app/a']),
-      ownLayout: false,
-      toasts: const ToastOptions(seconds: 9),
-    );
-    await store.save(saved);
-    expect(tv.sent, ['config toasts']);
-
-    final edited = saved.copyWith(layout: homeLayout(['system:app/a']));
-    await store.save(edited);
-    await store.save(edited.copyWith(layout: homeLayout(), ownLayout: false));
-    expect(tv.sent, ['config toasts', 'layout', 'revert']);
+    expect(config.layout.toJson(), _state().config.layout.toJson());
+    expect(store.save(config), throwsStateError);
   });
 
   testWidgets('the launcher runs on what the TV sends, and edits go back', (
@@ -152,14 +112,20 @@ void main() {
     // picture, its name is on it as well as under it.
     expect(find.text('Alpha'), findsNWidgets(2));
 
-    // A change made through the launcher's own controller reaches the TV.
+    // An edit made here reaches the TV as it is.
     final layout = ref.read(configProvider).value!.layout;
+    final card = layout.items.firstWhere(
+      (item) => item.handed.contains('system:app/a'),
+    );
     await ref
-        .read(configProvider.notifier)
-        .setLayout(layout.without({'system:app/a'}));
+        .read(commandsProvider)
+        .run(
+          EditSlice([
+            SliceEdit(LayoutAddress(card.id), const [RemoveNode()]),
+          ]),
+        );
     await tester.pumpAndSettle();
-    expect(tv.sent, ['layout']);
-    expect(find.text('Alpha'), findsNothing);
+    expect(tv.sent, ['edit']);
   });
 
   testWidgets('an entity pressed here is opened on the TV', (tester) async {
@@ -273,6 +239,57 @@ void main() {
       expect(tv.sent, hasLength(2));
     },
   );
+
+  group('where an act goes depends on the mode', () {
+    late _Tv tv;
+    late ProviderContainer container;
+
+    setUp(() {
+      tv = _Tv();
+      container = ProviderContainer(
+        overrides: [
+          ...tvOverrides,
+          systemContents,
+          tvApiProvider.overrideWithValue(tv),
+          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(entitiesProvider, (_, _) {});
+    });
+
+    Future<String?> run(Act act) =>
+        container.read(actionRunnerProvider).run(act);
+
+    test('testing says what only the TV could do and sends nothing', () async {
+      container.read(editorModeProvider.notifier).choose(EditorMode.test);
+      expect(
+        await run(const Act('os://apps/launch', {'package': 'a'})),
+        'Test: would open an app (package: a)',
+      );
+      expect(
+        await run(const Act('launcher://updates/check')),
+        'Test: would check for an update of the launcher',
+      );
+      expect(tv.sent, isEmpty);
+    });
+
+    test('remote sends every act to the TV', () async {
+      container.read(editorModeProvider.notifier).choose(EditorMode.remote);
+      await run(const Act('os://apps/launch', {'package': 'a'}));
+      await run(
+        const Act('launcher://variables/set', {
+          'of': 'x',
+          'var': 'on',
+          'value': 2,
+        }),
+      );
+      expect(tv.sent, [
+        '{run: os://apps/launch, with: {package: a}}',
+        '{run: launcher://variables/set, with: {of: x, var: on, value: 2}}',
+      ]);
+    });
+  });
 
   test('what the TV allows is what the TV says', () async {
     final container = ProviderContainer(

@@ -7,6 +7,8 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/module_edit_context.dart';
 import 'package:openlauncher/editor/modules/module_editors.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// A section per module the selected nodes all have, in registry order, then
 /// a way to add one. Sizing shows whenever their parents lay them out.
@@ -15,8 +17,8 @@ class ModuleSections extends ConsumerWidget {
     super.key,
     required this.nodes,
     required this.parents,
-    required this.onChanged,
-    this.onLayout,
+    required this.send,
+    this.onCommand,
     this.inPrefab = false,
     this.exposable = false,
     this.inDock = false,
@@ -29,8 +31,9 @@ class ModuleSections extends ConsumerWidget {
   /// Their parents; none for a screen's root.
   final List<Node> parents;
 
-  final void Function(Node Function(Node node) how) onChanged;
-  final void Function(Layout Function(Layout layout) how)? onLayout;
+  /// Does operations to nodes, by id, as one step.
+  final void Function(Map<String, List<SliceOp>> opsByNode) send;
+  final void Function(Command command)? onCommand;
   final bool inPrefab, exposable, inDock;
   final Variables scope;
 
@@ -46,8 +49,8 @@ class ModuleSections extends ConsumerWidget {
       type: type,
       nodes: nodes,
       parents: parents,
-      onChanged: onChanged,
-      onLayout: onLayout,
+      send: send,
+      onCommand: onCommand,
       prefabs: prefabs,
       inPrefab: inPrefab,
       exposable: exposable,
@@ -70,7 +73,9 @@ class ModuleSections extends ConsumerWidget {
             for (final type in moduleTypes)
               if (_offered(type, drawn)) type,
           ],
-          onAdded: (type) => onChanged((node) => withAdded(node, type)),
+          onAdded: (type) => send({
+            for (final node in nodes) node.id: [AddModule(type.name)],
+          }),
         ),
       ],
     );
@@ -129,9 +134,7 @@ class ModuleSection extends StatelessWidget {
               tristate: on == null,
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (_) => edit.onChanged(
-                (node) => withSwitch(node, type, on != true, edit.prefabs),
-              ),
+              onChanged: (_) => edit.switchTo(on: on != true),
             )
           : null,
       trailing: added && !type.mandatory
@@ -142,8 +145,7 @@ class ModuleSection extends StatelessWidget {
               itemBuilder: (context) => [
                 PopupMenuItem(
                   enabled: removable && needed.isEmpty,
-                  value: () =>
-                      edit.onChanged((node) => withRemoved(node, type)),
+                  value: edit.remove,
                   child: Text(switch ((removable, needed)) {
                     (false, _) => 'Remove (its prefab gives it)',
                     (_, final needed) when needed.isNotEmpty =>
@@ -153,13 +155,7 @@ class ModuleSection extends StatelessWidget {
                 ),
                 if (edit.own.isNotEmpty)
                   PopupMenuItem(
-                    value: () => edit.onChanged((node) {
-                      var next = node;
-                      for (final key in edit.own) {
-                        next = withInherited(next, type, key, edit.prefabs);
-                      }
-                      return next;
-                    }),
+                    value: () => edit.revertAll(edit.own.toList()),
                     child: const Text('Revert to prefab'),
                   ),
               ],

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 
 import '../support/packs.dart';
@@ -276,6 +277,7 @@ void main() {
       final packs = container({'core': packZip('core')});
       final store = packs.read(packStoreProvider);
       await store.install(Stream.value(packZip('mdi')));
+      final service = packs.read(packServiceProvider);
       final home = (await packs.read(configProvider.future)).layout;
       await packs
           .read(configProvider.notifier)
@@ -295,18 +297,18 @@ void main() {
             ),
           );
 
-      expect((await refused(store.delete('none'))).status, 404);
+      expect((await refused(service.delete('none'))).status, 404);
       expect(
-        (await refused(store.delete('core'))).message,
+        (await refused(service.delete('core'))).message,
         '"Pack core" is built in',
       );
       expect(
-        (await refused(store.delete('mdi'))).message,
+        (await refused(service.delete('mdi'))).message,
         '"Pack mdi" is in use in 1 place',
       );
 
       await packs.read(configProvider.notifier).setLayout(home);
-      await store.delete('mdi');
+      await service.delete('mdi');
       expect((await packs.read(packsProvider.future)).map((pack) => pack.id), [
         'core',
       ]);

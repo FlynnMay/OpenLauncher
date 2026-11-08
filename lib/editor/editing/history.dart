@@ -1,70 +1,61 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/config/config.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
-/// What undo puts back: the config, the selection and the open prefabs.
-typedef Moment = ({
-  LauncherConfig config,
-  Set<String> selection,
-  List<PrefabMode> trail,
-});
+/// What undo puts back in the editor: the selection and the open prefabs. The
+/// change itself is undone by the TV.
+typedef Moment = ({Set<String> selection, List<PrefabMode> trail});
 
 typedef Moments = ({List<Moment> past, List<Moment> future});
 
-/// The editor's undo and redo steps, newest last.
+/// One moment for each change the TV can undo or redo for this editor, newest
+/// last.
 final historyProvider = NotifierProvider<History, Moments>(History.new);
 
 class History extends Notifier<Moments> {
   static const limit = 100;
 
-  /// While a step is being put back, which is not itself a change.
-  bool _restoring = false;
-
   @override
   Moments build() => (past: const [], future: const []);
 
-  Moment _moment(LauncherConfig config) => (
-    config: config,
+  Moment _currentViewMoment() => (
     selection: ref.read(selectionProvider),
     trail: ref.read(prefabTrailProvider),
   );
 
-  /// Keeps [before], the config a change is replacing, as a step to undo to.
-  void record(LauncherConfig before) {
-    if (_restoring) return;
-    final past = [...state.past, _moment(before)];
+  /// The TV did a change: keep how the editor looked, to undo to.
+  void recordChange() {
+    final past = [...state.past, _currentViewMoment()];
     state = (
       past: past.sublist(past.length > limit ? past.length - limit : 0),
       future: const [],
     );
   }
 
-  Future<void> undo() => _step(back: true);
+  Future<void> undo() => _undoOrRedo(back: true);
 
-  Future<void> redo() => _step(back: false);
+  Future<void> redo() => _undoOrRedo(back: false);
 
-  Future<void> _step({required bool back}) async {
+  Future<void> _undoOrRedo({required bool back}) async {
     final from = back ? state.past : state.future;
-    final config = ref.read(configProvider).value;
-    if (from.isEmpty || config == null || _restoring) return;
+    if (from.isEmpty) return;
+    final commands = ref.read(commandsProvider);
+    try {
+      await (back ? commands.undo() : commands.redo());
+    } on CommandRefused {
+      // The TV has nothing to undo for this editor: it was restarted, or the
+      // steps here are no longer its steps.
+      state = (past: const [], future: const []);
+      rethrow;
+    }
     final to = from.last, rest = from.sublist(0, from.length - 1);
-    final now = _moment(config);
+    final now = _currentViewMoment();
     state = back
         ? (past: rest, future: [...state.future, now])
         : (past: [...state.past, now], future: rest);
-    _restoring = true;
-    try {
-      ref.read(prefabTrailProvider.notifier).restore(to.trail);
-      ref.read(selectionProvider.notifier).restore(to.selection);
-      await ref.read(configProvider.notifier).change((_) => to.config);
-    } on Object {
-      // What the TV has is unknown now: start again from it.
-      state = (past: const [], future: const []);
-      ref.invalidate(configProvider);
-      rethrow;
-    } finally {
-      _restoring = false;
-    }
+    ref.read(prefabTrailProvider.notifier).restore(to.trail);
+    ref.read(selectionProvider.notifier).restore(to.selection);
   }
 }

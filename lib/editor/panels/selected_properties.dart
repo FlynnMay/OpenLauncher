@@ -14,6 +14,8 @@ import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher/features/home/entity_art.dart';
 import 'package:openlauncher/features/home/picture.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// Settings of the selection. With several selected, only shared settings
 /// show and changes apply to all.
@@ -28,10 +30,8 @@ class SelectedProperties extends ConsumerWidget {
     final items = [for (final one in found) one.item];
     final single = items.length == 1 ? items.single : null;
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
-    void change(Layout Function(Layout layout) how) =>
-        changeLayout(context, ref, how);
-    void each(Node Function(Node item) how) =>
-        change((layout) => changeItems(layout, ids, (item, _) => how(item)));
+    void edit(List<SliceOp> ops) =>
+        editNodes(context, ref, {for (final id in ids) id: ops});
 
     // In an open prefab: the prefab, the variant shown when its edits are
     // overrides, and whether the selection is the prefab's root.
@@ -60,7 +60,7 @@ class SelectedProperties extends ConsumerWidget {
             OverrideList(
               set: variant.overrides[single.id] ?? const {},
               onReverted: (module, key) =>
-                  revertOverride(ref, single.id, module, key),
+                  revertOverride(context, ref, single.id, module, key),
             ),
           ]),
         // Name and picture apply to auto-placed entities (apps, inputs) only.
@@ -71,16 +71,16 @@ class SelectedProperties extends ConsumerWidget {
         if (single != null && handed.length == 1)
           _HandedNode(
             node: handed.values.single,
-            onChanged: (how) => change(
-              (layout) => layout.withContainer(handed.keys.single, how),
-            ),
+            onRename: (name) => editNodes(context, ref, {
+              handed.keys.single: [SetName(name)],
+            }),
           ),
         Section('Node', [
           if (single != null)
             CommitField(
               label: 'Name',
               value: single.name,
-              onChanged: (name) => each((item) => item.copyWith(name: name)),
+              onChanged: (name) => edit([SetName(name)]),
             ),
         ]),
         if (single != null)
@@ -95,8 +95,7 @@ class SelectedProperties extends ConsumerWidget {
                 "its parent's Layout",
               _ => null,
             },
-            onChanged: (transform) =>
-                each((item) => item.copyWith(transform: transform)),
+            onChanged: (transform) => edit([SetTransform(transform)]),
           ),
         if (single != null && single.isInstance) ...[
           if (found.single.parent.prefabRules.containsKey(single.prefab))
@@ -111,20 +110,38 @@ class SelectedProperties extends ConsumerWidget {
           InstanceSettings(
             prefabs: prefabs,
             item: single,
-            onChanged: (next) => each((_) => next),
-            onOpen: () => openPrefab(ref, single.prefab!, from: single),
-            onUnpack: () => changeLayout(
+            onVariant: (name) => edit([SetVariant(name)]),
+            onOverride: (part, module, values) => runCommand(
               context,
               ref,
-              (layout) => withUnpacked(layout, single.id, prefabs),
+              EditSlice([
+                SliceEdit(
+                  prefab == null
+                      ? LayoutAddress.child(single.id, part)
+                      : addressOf(ref, '${single.id}/$part'),
+                  [
+                    for (final MapEntry(:key, :value) in values.entries)
+                      SetField(module, key, value),
+                  ],
+                ),
+              ]),
             ),
+            onResetOverrides: () => runCommand(
+              context,
+              ref,
+              EditSlice([
+                SliceEdit(addressOf(ref, single.id), [SetOverrides(const {})]),
+              ]),
+            ),
+            onOpen: () => openPrefab(ref, single.prefab!, from: single),
+            onUnpack: () => edit(const [Unpack()]),
           ),
         ],
         ModuleSections(
           nodes: items,
           parents: [for (final one in found) one.parent],
-          onChanged: each,
-          onLayout: change,
+          send: (opsByNode) => editNodes(context, ref, opsByNode),
+          onCommand: (command) => runCommand(context, ref, command),
           inPrefab: prefab != null,
           exposable: isRoot,
           inDock: found.any((one) => one.dock != null),
@@ -190,15 +207,14 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
     final borrowed = entities.byId(from);
     final custom =
         from != null || (config?.iconOverrides.containsKey(entity.id) ?? false);
-    Future<void> change(
-      Future<void> Function(ConfigController controller) how,
-    ) => whileBusy(() => changeConfig(context, ref, how));
+    Future<void> change(Future<void> Function() how) => whileBusy(how);
     return Section('Source', [
       CommitField(
         label: 'Name',
         value: entity.label,
         // Empty restores the device's name.
-        onChanged: (name) => change((c) => c.setName(entity.id, name)),
+        onChanged: (name) =>
+            change(() => setName(context, ref, entity.id, name)),
       ),
       if (config?.names.containsKey(entity.id) ?? false)
         Align(
@@ -206,7 +222,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
           child: TextButton(
             onPressed: busy
                 ? null
-                : () => change((c) => c.setName(entity.id, null)),
+                : () => change(() => setName(context, ref, entity.id, null)),
             child: const Text('Reset name'),
           ),
         ),
@@ -215,10 +231,10 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
         clearLabel: 'Reset picture',
         onPicked: (file) async {
           final url = await api.upload(file);
-          await change((c) => c.setIconOverride(entity.id, url));
+          await change(() => setIconOverride(context, ref, entity.id, url));
         },
         onCleared: custom
-            ? () => change((c) => c.setIconOverride(entity.id, null))
+            ? () => change(() => setIconOverride(context, ref, entity.id, null))
             : null,
       ),
       Align(
@@ -237,7 +253,9 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
                     ],
                   );
                   if (from != null) {
-                    await change((c) => c.setIconSource(entity.id, from.id));
+                    await change(
+                      () => setIconSource(context, ref, entity.id, from.id),
+                    );
                   }
                 },
           icon: const Icon(Icons.collections_outlined),
@@ -256,10 +274,10 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
 /// The node an instance is handed, as a card shows it: its name and picture,
 /// and ways to open it, select it or delete it.
 class _HandedNode extends ConsumerWidget {
-  const _HandedNode({required this.node, required this.onChanged});
+  const _HandedNode({required this.node, required this.onRename});
 
   final Node node;
-  final void Function(Node Function(Node node) how) onChanged;
+  final void Function(String name) onRename;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -268,11 +286,7 @@ class _HandedNode extends ConsumerWidget {
     final picture = ref.watch(configProvider).value?.iconOverrides[key];
     return Section('Handed node', [
       Align(alignment: Alignment.centerLeft, child: IdLabel(node.id)),
-      CommitField(
-        label: 'Name',
-        value: node.name,
-        onChanged: (name) => onChanged((node) => node.copyWith(name: name)),
-      ),
+      CommitField(label: 'Name', value: node.name, onChanged: onRename),
       PictureSettings(
         picture: picture == null
             ? null
@@ -282,15 +296,11 @@ class _HandedNode extends ConsumerWidget {
         onPicked: (file) async {
           final url = await api.upload(file);
           if (!context.mounted) return;
-          await changeConfig(context, ref, (c) => c.setIconOverride(key, url));
+          await setIconOverride(context, ref, key, url);
         },
         onCleared: picture == null
             ? null
-            : () => changeConfig(
-                context,
-                ref,
-                (c) => c.setIconOverride(key, null),
-              ),
+            : () => setIconOverride(context, ref, key, null),
       ),
       Wrap(
         spacing: 8,
@@ -316,11 +326,9 @@ class _HandedNode extends ConsumerWidget {
                   ) &&
                   context.mounted) {
                 ref.read(selectionProvider.notifier).clear();
-                await changeLayout(
-                  context,
-                  ref,
-                  (layout) => removeItem(layout, node.id),
-                );
+                await runEdits(context, ref, [
+                  SliceEdit(addressOf(ref, node.id), const [RemoveNode()]),
+                ]);
               }
             },
             icon: const Icon(Icons.delete_outline),

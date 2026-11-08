@@ -142,10 +142,10 @@ class Pack {
   /// first to name one names it.
   static Map<String, String> categoriesOf(Iterable<Pack> packs) {
     final named = <String, String>{};
-    for (final pack in packs) {
-      for (final MapEntry(:key, :value) in pack.categories.entries) {
-        named.putIfAbsent(key, () => value);
-      }
+    for (final MapEntry(:key, :value) in packs.expand(
+      (pack) => pack.categories.entries,
+    )) {
+      named.putIfAbsent(key, () => value);
     }
     return named;
   }

@@ -1,19 +1,14 @@
 /// The layout model, placement and navigation.
 library;
 
-export 'package:openlauncher/core/modules/modules.dart';
-export 'package:openlauncher/core/nodes/node.dart';
-export 'package:openlauncher/core/style/box_style.dart';
-export 'package:openlauncher/core/style/scrollbar_style.dart';
-export 'package:openlauncher/core/style/style.dart';
+export 'package:openlauncher_domain/layout/layout.dart';
+export 'package:openlauncher_domain/modules/modules.dart';
+export 'package:openlauncher_domain/nodes/nodes.dart';
+export 'package:openlauncher_domain/style/box_style.dart';
+export 'package:openlauncher_domain/style/scrollbar_style.dart';
+export 'package:openlauncher_domain/style/style.dart';
 
-export 'layout_enums.dart';
-export 'layout_ids.dart';
-export 'layout_model.dart';
-export 'layout_repair.dart';
+export 'geometry_ui.dart';
 export 'layout_view.dart';
 export 'navigation.dart';
-export 'placement.dart';
-export 'screen.dart';
-export 'screen_copy.dart';
-export 'tree.dart';
+export 'style_reading.dart';

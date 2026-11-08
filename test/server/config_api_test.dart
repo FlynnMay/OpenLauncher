@@ -37,6 +37,31 @@ final _png = Uint8List.fromList([
   0x0A,
 ]);
 
+Map<String, Object?> _addScreen(String id, {int? basedOn}) => {
+  'type': 'slice.edit',
+  'edits': [
+    {
+      'address': '/',
+      'ops': [
+        {'op': 'addScreen', 'id': id, 'screenName': ''},
+      ],
+    },
+  ],
+  'basedOn': ?basedOn,
+};
+
+Map<String, Object?> _removeScreen(String id) => {
+  'type': 'slice.edit',
+  'edits': [
+    {
+      'address': 'screen:$id',
+      'ops': [
+        {'op': 'removeScreen'},
+      ],
+    },
+  ],
+};
+
 void main() {
   late MemoryConfigStore store;
   late Directory tmp;
@@ -343,6 +368,101 @@ void main() {
 
     expect((await act('dance', on: 'system:device')).statusCode, 400);
     expect((await call('POST', '/api/act', body: {})).statusCode, 400);
+  });
+
+  test('the page changes the layout by command, and undoes it', () async {
+    Future<List<String>> screens() async => [
+      for (final screen in (await state())['layout']['screens'])
+        screen['id'] as String,
+    ];
+    Future<Map<String, dynamic>> said(Response response, int status) async {
+      expect(response.statusCode, status);
+      return jsonDecode(await response.readAsString());
+    }
+
+    final before = await screens();
+    final added = await said(
+      await call('POST', '/api/commands', body: _addScreen('x')),
+      200,
+    );
+    expect(added['revision'], 1);
+    expect(await screens(), [...before, 'x']);
+
+    await said(await call('POST', '/api/commands/undo', body: {}), 200);
+    expect(await screens(), before);
+    await said(await call('POST', '/api/commands/redo', body: {}), 200);
+    expect(await screens(), [...before, 'x']);
+
+    // What cannot be done is a conflict; what is no command is a bad request.
+    expect(
+      (await said(
+        await call('POST', '/api/commands', body: _removeScreen('nope')),
+        409,
+      ))['error'],
+      isNotEmpty,
+    );
+    await said(
+      await call('POST', '/api/commands', body: {'type': 'dance'}),
+      400,
+    );
+  });
+
+  test('the page removes a card by command, and undoes it exactly', () async {
+    Future<Map<String, dynamic>> layout() async => (await state())['layout'];
+    final before = await layout();
+    final card = Layout.fromJson(before).all
+        .firstWhere((node) => node.isInstance);
+
+    final removed = await call(
+      'POST',
+      '/api/commands',
+      body: {
+        'type': 'slice.edit',
+        'edits': [
+          {
+            'address': 'layout:${card.id}',
+            'ops': [
+              {'op': 'remove'},
+            ],
+          },
+        ],
+      },
+    );
+    expect(removed.statusCode, 200, reason: await removed.readAsString());
+    expect(
+      Layout.fromJson(await layout()).node(card.id),
+      isNull,
+      reason: 'the card is gone',
+    );
+
+    expect(
+      (await call('POST', '/api/commands/undo', body: {})).statusCode,
+      200,
+    );
+    expect(await layout(), before);
+
+    expect(
+      (await call('POST', '/api/commands/redo', body: {})).statusCode,
+      200,
+    );
+    expect(Layout.fromJson(await layout()).node(card.id), isNull);
+
+    final nothing = await call(
+      'POST',
+      '/api/commands',
+      body: {
+        'type': 'slice.edit',
+        'edits': [
+          {
+            'address': 'layout:no-such-node',
+            'ops': [
+              {'op': 'remove'},
+            ],
+          },
+        ],
+      },
+    );
+    expect(nothing.statusCode, 409);
   });
 
   test(
@@ -1108,9 +1228,13 @@ void main() {
     final response = await call('GET', '/api/events');
     expect(response.headers['content-type'], 'text/event-stream');
     final events = <Map<String, dynamic>>[];
+    var named = false;
     final sub = response.read().transform(utf8.decoder).listen((chunk) {
       for (final line in const LineSplitter().convert(chunk)) {
-        if (line.startsWith('data: ')) {
+        if (line.startsWith('event: ')) named = true;
+        if (line.isEmpty) named = false;
+        // Named events are not states.
+        if (line.startsWith('data: ') && !named) {
           events.add(jsonDecode(line.substring(6)));
         }
       }
@@ -1131,6 +1255,80 @@ void main() {
     await pumpEventQueue();
     expect(events, hasLength(2));
     expect(events.last['config']['toasts']['seconds'], 9);
+  });
+
+  test('event stream tells of each command as a named event', () async {
+    final response = await call('GET', '/api/events');
+    final text = StringBuffer();
+    final sub = response.read().transform(utf8.decoder).listen(text.write);
+    addTearDown(sub.cancel);
+    await entities();
+    await pumpEventQueue();
+
+    await call('POST', '/api/commands', body: _addScreen('seen'));
+    await pumpEventQueue();
+
+    final blocks = text.toString().split('\n\n');
+    final command = blocks.singleWhere((b) => b.startsWith('event: command'));
+    final entry = jsonDecode(command.split('\n').last.substring(6)) as Map;
+    expect(entry['revision'], 1);
+    expect(entry['action'], 'run');
+    expect(entry['command'], containsPair('type', 'slice.edit'));
+    // Plain events are still only states.
+    expect(
+      blocks
+          .where((b) => b.startsWith('data: '))
+          .every(
+            (b) =>
+                jsonDecode(b.substring(6)) is Map &&
+                (jsonDecode(b.substring(6)) as Map).containsKey('layout'),
+          ),
+      isTrue,
+    );
+  });
+
+  test(
+    'a new event stream starts with how far the commands have got',
+    () async {
+      await call('POST', '/api/commands', body: _addScreen('q'));
+      final response = await call('GET', '/api/events');
+      final text = StringBuffer();
+      final sub = response.read().transform(utf8.decoder).listen(text.write);
+      addTearDown(sub.cancel);
+      await entities();
+      await pumpEventQueue();
+      expect(
+        text.toString(),
+        startsWith('event: revision\ndata: {"revision":1}'),
+      );
+    },
+  );
+
+  test('a view only the same device has changed since is not stale', () async {
+    Future<Response> add(String id, {int? basedOn}) =>
+        call('POST', '/api/commands', body: _addScreen(id, basedOn: basedOn));
+    expect((await add('one')).statusCode, 200);
+    // The same device looking at an older layout is fine: it did the change.
+    expect((await add('two', basedOn: 0)).statusCode, 200);
+    expect((await add('three', basedOn: 2)).statusCode, 200);
+  });
+
+  test('the commands done after a revision can be asked for', () async {
+    Future<Map<String, dynamic>> after(int revision) async => jsonDecode(
+      await (await call(
+        'GET',
+        '/api/commands/log?after=$revision',
+      )).readAsString(),
+    );
+    for (final id in ['a', 'b']) {
+      await call('POST', '/api/commands', body: _addScreen(id));
+    }
+    await call('POST', '/api/commands/undo', body: {});
+
+    final entries = (await after(1))['entries'] as List;
+    expect([for (final e in entries) e['revision']], [2, 3]);
+    expect([for (final e in entries) e['action']], ['run', 'undo']);
+    expect((await call('GET', '/api/commands/log')).statusCode, 400);
   });
 
   test('the real server answers over HTTP', () async {

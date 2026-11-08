@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
@@ -14,6 +16,7 @@ import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
 
 /// A node with one visual module, as the catalogue offers it.
 typedef VisualOffer = ({
@@ -77,6 +80,17 @@ final tvStateProvider = StreamProvider<TvState>(
 );
 
 /// The TV's HTTP API, at this page's origin.
+/// The TV answered with an error and its reason.
+class TvRefused implements Exception {
+  const TvRefused(this.status, this.message);
+
+  final int status;
+  final String message;
+
+  @override
+  String toString() => 'Exception: $message';
+}
+
 class TvApi {
   TvApi({http.Client? client, void Function()? onRefused})
     : _client = SessionClient(client ?? http.Client(), onRefused: onRefused);
@@ -100,6 +114,7 @@ class TvApi {
   /// the first connection does.
   Stream<TvState> states() async* {
     var reached = false;
+    var event = '';
     while (true) {
       try {
         final response = await _client.send(
@@ -112,8 +127,23 @@ class TvApi {
             .transform(utf8.decoder)
             .transform(const LineSplitter());
         await for (final line in lines) {
+          if (line.startsWith('event: ')) event = line.substring(7);
+          if (line.isEmpty) event = '';
           if (!line.startsWith('data: ')) continue;
-          yield await _state(jsonDecode(line.substring(6)) as Map);
+          final data = jsonDecode(line.substring(6)) as Map;
+          if (event == 'revision') {
+            knownRevision = data['revision'] as int;
+            continue;
+          }
+          if (event == 'command') {
+            final entry = CommandLogEntry.fromJson(
+              data.cast<String, Object?>(),
+            );
+            knownRevision = max(knownRevision ?? 0, entry.revision);
+            _commandEntries.add(entry);
+            continue;
+          }
+          yield await _state(data);
           reached = true;
         }
       } on NeedsPairing {
@@ -123,6 +153,28 @@ class TvApi {
       }
       await Future<void>.delayed(const Duration(seconds: 2));
     }
+  }
+
+  final _commandEntries = StreamController<CommandLogEntry>.broadcast();
+
+  /// The newest revision of the TV's commands this page has heard of, which
+  /// is how far its view of the layout can be trusted to go.
+  int? knownRevision;
+
+  /// Each command the TV does, as it hears of it on the event stream that
+  /// [states] follows.
+  Stream<CommandLogEntry> get commandEntries => _commandEntries.stream;
+
+  /// What the TV did after [revision]; null if it no longer keeps all of it.
+  Future<List<CommandLogEntry>?> commandEntriesAfter(int revision) async {
+    final reply = await _ask('GET', '/api/commands/log?after=$revision') as Map;
+    if (reply['entries'] case final List<Object?> entries) {
+      return [
+        for (final entry in entries)
+          CommandLogEntry.fromJson((entry! as Map).cast<String, Object?>()),
+      ];
+    }
+    return null;
   }
 
   Future<TvState> _state(Map<Object?, Object?> json) async {
@@ -212,7 +264,7 @@ class TvApi {
   static Exception _refused(int status, String body) {
     try {
       if (jsonDecode(body) case {'error': final String error}) {
-        return Exception(error);
+        return TvRefused(status, error);
       }
     } on FormatException {
       // Not one of the TV's own replies.
@@ -250,26 +302,17 @@ class TvApi {
 
   static String _id(String id) => '?id=${Uri.encodeQueryComponent(id)}';
 
-  Future<void> setLayout(Layout layout) =>
-      _ask('PUT', '/api/layout', layout.toJson());
-
-  Future<void> revertLayout() => _ask('DELETE', '/api/layout');
-
-  /// Sends the changed config keys, files as ids.
-  Future<void> setConfig(Map<String, Object?> changed) => _ask(
-    'PUT',
-    '/api/config',
-    {
-      ...changed,
-      if (changed['iconOverrides'] case final Map<Object?, Object?> pictures)
-        'iconOverrides': {
-          for (final MapEntry(:key, :value) in pictures.entries)
-            key: mediaIdOf(value as String),
-        },
-      if (changed['wallpapers'] case final List<Object?> wallpapers)
-        'wallpapers': [for (final url in wallpapers) mediaIdOf(url as String)],
-    },
-  );
+  /// [changed] config keys as the TV is sent them: files as ids.
+  static Map<String, Object?> withMediaIds(Map<String, Object?> changed) => {
+    ...changed,
+    if (changed['iconOverrides'] case final Map<Object?, Object?> pictures)
+      'iconOverrides': {
+        for (final MapEntry(:key, :value) in pictures.entries)
+          key: mediaIdOf(value as String),
+      },
+    if (changed['wallpapers'] case final List<Object?> wallpapers)
+      'wallpapers': [for (final url in wallpapers) mediaIdOf(url as String)],
+  };
 
   /// Uploads [file] and returns its URL; nothing points at it until the
   /// config does.
@@ -335,6 +378,23 @@ class TvApi {
       (await _ask('POST', '/api/act', act.toJson()) as Map)['message']
           as String?;
 
+  /// Has the TV do [command]; returns the revision it left the layout at.
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) =>
+      _revision('/api/commands', {...command, 'basedOn': ?basedOn});
+
+  Future<int> undoCommand() => _revision('/api/commands/undo');
+
+  Future<int> redoCommand() => _revision('/api/commands/redo');
+
+  Future<int> _revision(String path, [Object? body]) async {
+    try {
+      return (await _ask('POST', path, body) as Map)['revision'] as int;
+    } on TvRefused catch (refused) {
+      if (refused.status == 409) throw CommandRefused(refused.message);
+      rethrow;
+    }
+  }
+
   Future<List<Place>> findPlaces(String name) async {
     final reply = await _ask(
       'GET',
@@ -349,4 +409,45 @@ class TvApi {
         ),
     ];
   }
+}
+
+/// Commands the TV does, for the page; the TV knows who is asking by the
+/// device the page paired as.
+class TvCommands implements Commands {
+  const TvCommands(this._api, {this.onRan});
+
+  final TvApi _api;
+
+  /// Told after the TV did a command, which the editor can undo.
+  final void Function()? onRan;
+
+  @override
+  Future<int> run(
+    Command command, {
+    String session = launcherSession,
+    int? basedOn,
+  }) async {
+    final revision = await _api.command(
+      command.toJson(),
+      basedOn: basedOn ?? _api.knownRevision,
+    );
+    onRan?.call();
+    return revision;
+  }
+
+  @override
+  Future<int> undo({String session = launcherSession}) => _api.undoCommand();
+
+  @override
+  Future<int> redo({String session = launcherSession}) => _api.redoCommand();
+
+  @override
+  int get revision => _api.knownRevision ?? 0;
+
+  @override
+  Stream<CommandLogEntry> get entries => _api.commandEntries;
+
+  @override
+  Future<List<CommandLogEntry>?> entriesAfter(int revision) =>
+      _api.commandEntriesAfter(revision);
 }

@@ -5,8 +5,11 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/settings/place_search.dart';
+import 'package:openlauncher/editor/settings/user_entity_form.dart';
+import 'package:openlauncher_domain/sources/sources.dart';
 
 /// Built-in values with their current reading, the TV's place, and the user's
 /// own entities: what each reads and the actions it defines.

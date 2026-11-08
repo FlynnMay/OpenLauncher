@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/sources/pack_entities.dart';
+import 'package:openlauncher_domain/entities/entity.dart';
 
 /// Makes entities at runtime; re-run when what it watches changes.
 typedef EntityGenerator = Future<List<Entity>> Function(Ref ref);

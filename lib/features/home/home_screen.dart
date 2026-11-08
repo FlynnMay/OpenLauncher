@@ -7,6 +7,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/overlays/overlays.dart';
 import 'package:openlauncher/core/screens/screens.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/features/home/dock_host.dart';
 import 'package:openlauncher/features/home/docked_node.dart';
 import 'package:openlauncher/features/home/focus_navigation.dart';
@@ -43,7 +44,7 @@ class HomeScreen extends ConsumerWidget {
     final keys = ref.watch(_dockKeysProvider);
     final held = context.dependOnInheritedWidgetOfExactType<DockHold>()?.ids;
     void shut(OpenOverlay overlay) =>
-        ref.read(overlaysProvider.notifier).close(overlay.id);
+        ref.read(overlayServiceProvider).closeOverlay(overlay.id);
 
     // A modal overlay closing gives the focus back to what opened it, else to
     // the home screen.
@@ -74,7 +75,7 @@ class HomeScreen extends ConsumerWidget {
         if (overlays.where((open) => open.modal).lastOrNull case final top?) {
           shut(top);
         } else {
-          ref.read(shownScreensProvider.notifier).back();
+          ref.read(screenServiceProvider).back();
         }
       },
       child: Scaffold(

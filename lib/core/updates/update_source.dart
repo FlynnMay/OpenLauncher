@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:openlauncher/core/updates/update.dart';
+import 'package:openlauncher_domain/updates/update.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 

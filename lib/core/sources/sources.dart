@@ -2,8 +2,7 @@
 /// entities from them.
 library;
 
-export 'generator.dart';
+export 'package:openlauncher_domain/sources/sources.dart';
+
 export 'pack_entities.dart';
-export 'source.dart';
-export 'source_endpoints.dart';
 export 'source_rows.dart';

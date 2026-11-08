@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/nodes/field.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/visibility_editor.dart';
 import 'package:openlauncher/editor/settings/style_settings.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 List<Field> _optionsOf(Node part) => part.visual?.fields ?? const [];
 
@@ -24,7 +24,9 @@ class InstanceSettings extends StatelessWidget {
     super.key,
     required this.prefabs,
     required this.item,
-    required this.onChanged,
+    required this.onVariant,
+    required this.onOverride,
+    required this.onResetOverrides,
     this.onOpen,
     this.onUnpack,
   });
@@ -32,7 +34,15 @@ class InstanceSettings extends StatelessWidget {
   final Map<String, Prefab> prefabs;
   final Node item;
 
-  final void Function(Node item) onChanged;
+  /// The variant chosen.
+  final void Function(String variant) onVariant;
+
+  /// Values set on one of the prefab's nodes, for this instance only.
+  final void Function(String part, String module, Map<String, Object?> values)
+  onOverride;
+
+  /// All of this instance's own values handed back to the prefab.
+  final VoidCallback onResetOverrides;
 
   /// Opens its prefab for editing.
   final VoidCallback? onOpen;
@@ -40,12 +50,9 @@ class InstanceSettings extends StatelessWidget {
   /// Replaces it with a plain copy.
   final VoidCallback? onUnpack;
 
-  void _override(String part, Map<String, Object?> values, [String? module]) =>
-      onChanged(
-        item.copyWith(
-          overrides: withOverride(item.overrides, part, values, module),
-        ),
-      );
+  void _override(String part, Map<String, Object?> values, [String? module]) {
+    if (module != null) onOverride(part, module, values);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +112,7 @@ class InstanceSettings extends StatelessWidget {
                 for (final MapEntry(:key, :value) in prefab.variants.entries)
                   key: value.label.isEmpty ? key : value.label,
               },
-              onChanged: (name) => onChanged(item.withVariant(name)),
+              onChanged: onVariant,
             ),
           ),
         for (final MapEntry(key: id, value: part) in parts.entries) ...[
@@ -151,7 +158,7 @@ class InstanceSettings extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => onChanged(item.copyWith(overrides: const {})),
+              onPressed: onResetOverrides,
               child: const Text('Reset to prefab'),
             ),
           ),
@@ -346,13 +353,11 @@ class PrefabDetails extends ConsumerWidget {
         value: prefab.name,
         onChanged: (name) {
           if (name.isEmpty) return;
-          ref
-              .read(configProvider.notifier)
-              .change(
-                (c) => c.copyWith(
-                  prefabs: withPrefab(c.prefabs, prefab.copyWith(name: name)),
-                ),
-              );
+          runEdits(context, ref, [
+            SliceEdit(PrefabAddress(prefab.id), [
+              SavePrefab(prefab.copyWith(name: name)),
+            ]),
+          ]);
         },
       ),
       Text(_used(ref, prefab), style: Theme.of(context).textTheme.bodySmall),

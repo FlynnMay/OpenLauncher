@@ -1,5 +1,6 @@
 /// Actions, triggers and the runner.
 library;
 
-export 'act.dart';
+export 'package:openlauncher_domain/actions/act.dart';
+
 export 'action_runner.dart';

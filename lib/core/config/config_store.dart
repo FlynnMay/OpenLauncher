@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
-import 'package:openlauncher/core/config/migrations/migrations.dart';
-import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher_domain/config/migrations/migrations.dart';
+import 'package:openlauncher_domain/layout/layout.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -15,8 +15,6 @@ abstract class ConfigStore {
   Future<void> save(LauncherConfig config);
 }
 
-/// The layout a new home screen starts as: the first a pack marks to start
-/// with, by id; blank if none does.
 final startingLayoutProvider = FutureProvider<({String? id, Layout layout})>((
   ref,
 ) async {
@@ -26,87 +24,69 @@ final startingLayoutProvider = FutureProvider<({String? id, Layout layout})>((
         return (id: pack.start, layout: layout);
       }
     }
-  } on Object catch (e) {
-    debugPrint('Packs unreadable, starting from a blank layout: $e');
+  } on Object catch (error) {
+    debugPrint('Packs unreadable, starting from a blank layout: $error');
   }
   return (id: null, layout: Layout.blank());
 });
 
 final configStoreProvider = Provider<ConfigStore>(
   (ref) => FileConfigStore(
-    starting: () async =>
+    startingLayout: () async =>
         (await ref.read(startingLayoutProvider.future)).layout,
   ),
 );
 
-/// `config.json` in the app's support directory, with each screen, prefab
-/// and entity of the user's in a file of its own under `screens/`,
-/// `prefabs/` and `entities/`, as a pack keeps them; `config.json` lists
-/// them by id, in order. Without a layout of the user's it has the
-/// [starting] one.
 class FileConfigStore implements ConfigStore {
   FileConfigStore({
     this.device,
-    this.starting,
+    this.startingLayout,
     Future<Directory> Function()? dir,
-  }) : _dir = dir ?? getApplicationSupportDirectory;
+  }) : _directory = dir ?? getApplicationSupportDirectory;
 
-  final Future<Layout> Function()? starting;
-
-  /// Device info for migrations that use it. Waited on for at most 5 s.
+  final Future<Layout> Function()? startingLayout;
   final Future<Device> Function()? device;
-
-  final Future<Directory> Function() _dir;
-
-  /// Text last written, by path, so what has not changed is not written
-  /// again.
-  final _written = <String, String>{};
-
-  static const _folders = ['screens', 'prefabs', 'entities'];
+  final Future<Directory> Function() _directory;
+  final _lastWritten = <String, String>{};
 
   Future<Device> _device() async {
     try {
       return await device?.call().timeout(const Duration(seconds: 5)) ??
           Device.unknown;
-    } on Object catch (e) {
-      debugPrint('Bringing the config up to date without the device: $e');
+    } on Object catch (error) {
+      debugPrint('Bringing the config up to date without the device: $error');
       return Device.unknown;
     }
   }
 
-  static String _name(String id) => '${Uri.encodeComponent(id)}.json';
+  static String _fileName(String id) => '${Uri.encodeComponent(id)}.json';
 
   @override
   Future<LauncherConfig> load() async {
     final config = await _read();
-    if (config.ownLayout || starting == null) return config;
-    return config.copyWith(layout: await starting!(), ownLayout: false);
+    if (config.ownLayout || startingLayout == null) return config;
+    return config.copyWith(layout: await startingLayout!(), ownLayout: false);
   }
 
   Future<LauncherConfig> _read() async {
-    final dir = await _dir();
-    final file = File(p.join(dir.path, 'config.json'));
+    final directory = await _directory();
+    final file = File(p.join(directory.path, 'config.json'));
     if (!await file.exists()) return LauncherConfig();
-    final Map<String, dynamic> json;
+    final Json json;
     try {
-      json = await _whole(
-        jsonDecode(await file.readAsString()) as Map<String, dynamic>,
-        dir,
+      json = await _withPartsRead(
+        jsonDecode(await file.readAsString()) as Json,
+        directory,
       );
-    } on Object catch (e) {
-      // Never fail on a bad file: keep it for inspection and use defaults.
-      debugPrint('config.json unreadable, using defaults: $e');
-      await file.copy('${file.path}.corrupt');
-      return LauncherConfig();
+    } on Object catch (error) {
+      return _defaultsKeeping(file, error);
     }
     final version = versionOf(json);
-    // A copy of what was read, whole, before it is changed.
-    Future<void> keep() =>
-        File(p.join(dir.path, 'config.v$version.json'))
+    Future<void> keepUnmigratedCopy() =>
+        File(p.join(directory.path, 'config.v$version.json'))
             .writeAsString(jsonEncode(json));
     if (isNewer(json)) {
-      // From a newer release: keep a copy and start fresh.
-      await keep();
+      await keepUnmigratedCopy();
       return LauncherConfig();
     }
     try {
@@ -115,118 +95,142 @@ class FileConfigStore implements ConfigStore {
         device: needsDevice(json) ? await _device() : Device.unknown,
       );
       if (version < saveVersion) {
-        // Save the migrated config at once, keeping the old one.
-        await keep();
+        await keepUnmigratedCopy();
         await save(config);
-      } else if (_inline(json)) {
+      } else if (_isOldSingleFile(json)) {
         await save(config);
       }
       return config;
-    } on Object catch (e) {
-      debugPrint('config.json unreadable, using defaults: $e');
-      await file.copy('${file.path}.corrupt');
-      return LauncherConfig();
+    } on Object catch (error) {
+      return _defaultsKeeping(file, error);
     }
   }
 
-  /// Whether [json] holds screens, prefabs or entities itself, as one file
-  /// did before they had their own.
-  static bool _inline(Map<String, dynamic> json) => [
+  Future<LauncherConfig> _defaultsKeeping(File unreadable, Object error) async {
+    debugPrint('config.json unreadable, using defaults: $error');
+    await _keepCorrupt(unreadable);
+    return LauncherConfig();
+  }
+
+  static Future<void> _keepCorrupt(File file) =>
+      file.copy('${file.path}.corrupt');
+
+  static bool _isOldSingleFile(Json json) => [
     if (json['layout'] case {'screens': final List<Object?> screens})
       ...screens,
     ...?json['prefabs'] as List<Object?>?,
     ...?json['entities'] as List<Object?>?,
   ].any((part) => part is! String);
 
-  /// [json] with the screens, prefabs and entities it names by id read from
-  /// their files. One whose file cannot be read is left out, the file kept.
-  Future<Map<String, dynamic>> _whole(
-    Map<String, dynamic> json,
-    Directory dir,
-  ) async {
-    Future<Object?> read(String folder, Object? parts) async {
-      if (parts is! List<Object?>) return parts;
-      return [
-        for (final part in parts)
-          if (part is String) ?await _part(dir, folder, part) else part,
-      ];
-    }
+  Future<Json> _withPartsRead(Json json, Directory directory) async => {
+    ...json,
+    if (json['layout'] case final Json layout)
+      'layout': {
+        ...layout,
+        'screens': await _readParts(directory, 'screens', layout['screens']),
+      },
+    if (json.containsKey('prefabs'))
+      'prefabs': await _readParts(directory, 'prefabs', json['prefabs']),
+    if (json.containsKey('entities'))
+      'entities': await _readParts(directory, 'entities', json['entities']),
+  };
 
-    return {
-      ...json,
-      if (json['layout'] case final Map<String, dynamic> layout)
-        'layout': {
-          ...layout,
-          'screens': await read('screens', layout['screens']),
-        },
-      if (json.containsKey('prefabs'))
-        'prefabs': await read('prefabs', json['prefabs']),
-      if (json.containsKey('entities'))
-        'entities': await read('entities', json['entities']),
-    };
+  Future<Object?> _readParts(
+    Directory directory,
+    String folder,
+    Object? parts,
+  ) async {
+    if (parts is! List<Object?>) return parts;
+    return [
+      for (final part in parts)
+        if (part is String) ?await _readPart(directory, folder, part) else part,
+    ];
   }
 
-  Future<Object?> _part(Directory dir, String folder, String id) async {
-    final file = File(p.join(dir.path, folder, _name(id)));
+  Future<Object?> _readPart(
+    Directory directory,
+    String folder,
+    String id,
+  ) async {
+    final file = File(p.join(directory.path, folder, _fileName(id)));
     try {
       return jsonDecode(await file.readAsString());
-    } on Object catch (e) {
-      debugPrint('$folder/${_name(id)} unreadable, left out: $e');
-      if (await file.exists()) await file.copy('${file.path}.corrupt');
+    } on Object catch (error) {
+      debugPrint('$folder/${_fileName(id)} unreadable, left out: $error');
+      if (await file.exists()) await _keepCorrupt(file);
       return null;
     }
   }
 
   @override
   Future<void> save(LauncherConfig config) async {
-    final dir = await _dir();
+    final directory = await _directory();
     final json = config.toJson();
-    final names = {for (final folder in _folders) folder: <String>{}};
-    // Each part to its file; the ids, in order, in its place.
-    Future<List<String>> split(String folder, Object? parts) async {
-      final ids = <String>[];
-      for (final part in parts is List<Object?> ? parts : const <Object?>[]) {
-        if (part case {'id': final String id}) {
-          ids.add(id);
-          names[folder]!.add(_name(id));
-          await _write(File(p.join(dir.path, folder, _name(id))), part);
-        }
-      }
-      return ids;
+    final layout = json['layout'];
+    final ids = {
+      'screens': await _writeParts(
+        directory,
+        'screens',
+        layout is Json ? layout['screens'] : null,
+      ),
+      'prefabs': await _writeParts(directory, 'prefabs', json['prefabs']),
+      'entities': await _writeParts(directory, 'entities', json['entities']),
+    };
+    if (layout is Json) json['layout'] = {...layout, 'screens': ids['screens']};
+    json['prefabs'] = ids['prefabs'];
+    json['entities'] = ids['entities'];
+    await _writeIfChanged(File(p.join(directory.path, 'config.json')), json);
+    for (final MapEntry(key: folder, value: listed) in ids.entries) {
+      await _removeUnlisted(
+        Directory(p.join(directory.path, folder)),
+        listed.map(_fileName).toSet(),
+      );
     }
+  }
 
-    if (json['layout'] case final Map<String, dynamic> layout) {
-      json['layout'] = {
-        ...layout,
-        'screens': await split('screens', layout['screens']),
-      };
+  Future<List<String>> _writeParts(
+    Directory directory,
+    String folder,
+    Object? parts,
+  ) async {
+    final ids = <String>[];
+    for (final part in parts is List<Object?> ? parts : const <Object?>[]) {
+      if (part case {'id': final String id}) {
+        ids.add(id);
+        await _writeIfChanged(
+          File(p.join(directory.path, folder, _fileName(id))),
+          part,
+        );
+      }
     }
-    json['prefabs'] = await split('prefabs', json['prefabs']);
-    json['entities'] = await split('entities', json['entities']);
-    await _write(File(p.join(dir.path, 'config.json')), json);
-    // What is no longer listed goes.
-    for (final MapEntry(key: folder, value: kept) in names.entries) {
-      final folderDir = Directory(p.join(dir.path, folder));
-      if (!await folderDir.exists()) continue;
-      await for (final entry in folderDir.list()) {
-        final name = p.basename(entry.path);
-        if (entry is File && name.endsWith('.json') && !kept.contains(name)) {
-          await entry.delete();
-          _written.remove(entry.path);
-        }
+    return ids;
+  }
+
+  Future<void> _removeUnlisted(Directory folder, Set<String> fileNames) async {
+    if (!await folder.exists()) return;
+    await for (final entry in folder.list()) {
+      final name = p.basename(entry.path);
+      if (entry is File &&
+          name.endsWith('.json') &&
+          !fileNames.contains(name)) {
+        await entry.delete();
+        _lastWritten.remove(entry.path);
       }
     }
   }
 
-  /// Writes [json] to [file] whole or not at all, unless it holds it already.
-  Future<void> _write(File file, Object? json) async {
+  Future<void> _writeIfChanged(File file, Object? json) async {
     final text = jsonEncode(json);
-    if (_written[file.path] == text) return;
+    if (_lastWritten[file.path] == text) return;
+    await _writeWholeOrNothing(file, text);
+    _lastWritten[file.path] = text;
+  }
+
+  static Future<void> _writeWholeOrNothing(File file, String text) async {
     await file.parent.create(recursive: true);
-    final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(text, flush: true);
-    await tmp.rename(file.path);
-    _written[file.path] = text;
+    final temporary = File('${file.path}.tmp');
+    await temporary.writeAsString(text, flush: true);
+    await temporary.rename(file.path);
   }
 }
 

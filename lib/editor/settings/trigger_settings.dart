@@ -5,8 +5,9 @@ import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/packs/packs.dart';
-import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher_domain/nodes/nodes.dart';
+import 'package:openlauncher_domain/variables/variable.dart';
 
 /// Action chains per trigger. An act is an entity and one of that entity's
 /// actions, or an address; chains equal to [defaults] are not stored.
@@ -148,9 +149,9 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       final there = ref.read(operationsRegistryProvider).inArea(target);
       if (there.isEmpty) return null;
       final operation =
-          there.where((one) => one.name == from?.name).firstOrNull ??
+          there.where((one) => one.address == from?.name).firstOrNull ??
           there.first;
-      return Act(operation.name, {
+      return Act(operation.address, {
         for (final MapEntry(:key, :value) in from?.args.entries ?? const [])
           if (operation.args.containsKey(key)) key: value,
       });
@@ -251,7 +252,7 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
         : actionsOf(_entityOf(target), entities);
     // What the second box offers, and what the chosen one is told.
     final offered = act.isAddress
-        ? {for (final one in registry.inArea(target!)) one.name: one.label}
+        ? {for (final one in registry.inArea(target!)) one.address: one.label}
         : {
             for (final MapEntry(key: name, value: action) in actions.entries)
               name: action.label.isEmpty ? name : action.label,
@@ -302,7 +303,7 @@ class _TriggerSettingsState extends ConsumerState<TriggerSettings> {
       else if (args.isNotEmpty) ...[
         const SizedBox(height: 8),
         ...optionFields(
-          options: argOptions(args),
+          options: argFields(args),
           values: {
             for (final MapEntry(:key, :value) in act.args.entries)
               if (key != entityArg) key: value,

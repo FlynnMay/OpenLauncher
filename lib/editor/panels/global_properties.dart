@@ -6,6 +6,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/modules.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// Launcher-wide settings, shown when nothing is selected.
 class GlobalProperties extends ConsumerWidget {
@@ -15,7 +16,6 @@ class GlobalProperties extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(configProvider).value;
     if (config == null) return const SizedBox.shrink();
-    final controller = ref.read(configProvider.notifier);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -36,10 +36,16 @@ class GlobalProperties extends ConsumerWidget {
         ValuesSettings(
           entities: config.entities,
           place: config.place,
-          onEntities: (entities) =>
-              controller.change((c) => c.copyWith(entities: entities)),
-          onPlace: (place) =>
-              controller.change((c) => c.copyWith(place: () => place)),
+          onEntities: (entities) => changeSettings(
+            context,
+            ref,
+            (c) => c.copyWith(entities: entities),
+          ),
+          onPlace: (place) => changeSettings(
+            context,
+            ref,
+            (c) => c.copyWith(place: () => place),
+          ),
         ),
         const PrefabList(),
         Section('Notifications', open: false, [
@@ -47,7 +53,8 @@ class GlobalProperties extends ConsumerWidget {
           ...optionFields(
             options: ToastOptions.options,
             values: config.toasts.toJson(),
-            onChanged: (toasts) => controller.patch({'toasts': toasts}),
+            onChanged: (toasts) =>
+                setSettings(context, ref, {'toasts': toasts}),
           ),
         ]),
         const UpdateSettings(),
@@ -85,12 +92,7 @@ class ScreenProperties extends ConsumerWidget {
         ModuleSections(
           nodes: [screen.root],
           parents: const [],
-          onChanged: (how) => changeLayout(
-            context,
-            ref,
-            (layout) => layout.withContainer(layout.start.root.id, how),
-          ),
-          onLayout: (how) => changeLayout(context, ref, how),
+          send: (opsByNode) => editNodes(context, ref, opsByNode),
         ),
       ],
     );
@@ -120,7 +122,10 @@ class _RevertLayout extends ConsumerWidget {
             return;
           }
           ref.read(selectionProvider.notifier).clear();
-          await ref.read(configProvider.notifier).revertLayout();
+          if (!context.mounted) return;
+          await runEdits(context, ref, [
+            const SliceEdit(ConfigAddress(), [ResetLayout()]),
+          ]);
         },
         child: Text('Screen modified · Revert to $pack'),
       ),

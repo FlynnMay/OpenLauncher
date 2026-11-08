@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities.dart';
-import 'package:openlauncher/core/nodes/field.dart';
-import 'package:openlauncher/core/variables/variable.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher_domain/nodes/field.dart';
+import 'package:openlauncher_domain/variables/variable.dart';
 
 /// A component's variables, generated from [variableOptions].
 class VariablesSettings extends ConsumerStatefulWidget {

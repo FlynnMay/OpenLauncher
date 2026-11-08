@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/variables/variables.dart';
@@ -35,7 +36,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(startingConfig),
           ),
@@ -74,7 +75,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
+            commandHistoryStoreProvider.overrideWithValue(
+              MemoryCommandHistoryStore(),
+            ),
             configStoreProvider.overrideWithValue(
               MemoryConfigStore(config ?? startingConfig),
             ),
@@ -1115,7 +1119,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            ...packOverrides,
+            ...launcherOverrides,
             configStoreProvider.overrideWithValue(
               MemoryConfigStore(startingConfig),
             ),

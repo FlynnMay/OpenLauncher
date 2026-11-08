@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/overlays/overlays.dart';
+import 'package:openlauncher/core/screens/last_screen_store.dart';
+
+export 'package:openlauncher/core/screens/last_screen_store.dart';
 
 /// The screen shown, if one was opened since starting, and those it was
 /// opened from, oldest first.
@@ -21,13 +22,25 @@ final shownScreensProvider = NotifierProvider<ShownScreen, ShownScreens>(
 /// The screen drawn: the one opened, else the one [Startup] says.
 final currentScreenProvider = Provider<Screen?>((ref) {
   final layout = ref.watch(layoutViewProvider).value;
-  if (layout == null) return null;
-  return _current(
-    layout,
-    ref.watch(shownScreensProvider).id,
-    ref.watch(configProvider.select((c) => c.value?.lastScreen)),
-  );
+  final last = ref.watch(lastScreenProvider);
+  if (layout == null || last.isLoading) return null;
+  return _current(layout, ref.watch(shownScreensProvider).id, last.value);
 });
+
+/// The screen shown last, loaded before the first one is drawn.
+final lastScreenProvider = AsyncNotifierProvider<LastScreen, String?>(
+  LastScreen.new,
+);
+
+class LastScreen extends AsyncNotifier<String?> {
+  @override
+  Future<String?> build() => ref.read(lastScreenStoreProvider).load();
+
+  Future<void> remember(String id) async {
+    state = AsyncData(id);
+    await ref.read(lastScreenStoreProvider).save(id);
+  }
+}
 
 Screen _current(Layout layout, String? shown, String? last) {
   final id = shown ?? (layout.startup.remember ? last : null);
@@ -38,19 +51,16 @@ class ShownScreen extends Notifier<ShownScreens> {
   @override
   ShownScreens build() => const ShownScreens();
 
-  /// Shows [id], keeping the screen before it for [back]. What is open over
-  /// the screen closes.
-  void open(String id) {
+  /// Shows [id], keeping the screen before it for [back]; false if it is
+  /// already shown.
+  bool open(String id) {
     final layout = ref.read(layoutViewProvider).value;
     final now = layout == null
         ? null
-        : _current(
-            layout,
-            state.id,
-            ref.read(configProvider).value?.lastScreen,
-          ).id;
-    if (now == id) return;
+        : _current(layout, state.id, ref.read(lastScreenProvider).value).id;
+    if (now == id) return false;
     _show(ShownScreens(id, [...state.back, ?now]));
+    return true;
   }
 
   /// Shows the screen before; false if there is none.
@@ -66,11 +76,10 @@ class ShownScreen extends Notifier<ShownScreens> {
   }
 
   void _show(ShownScreens next) {
-    ref.read(overlaysProvider.notifier).closeAll();
     state = next;
     final layout = ref.read(layoutViewProvider).value;
     if (layout != null && layout.startup.remember) {
-      ref.read(configProvider.notifier).setLastScreen(next.id!);
+      ref.read(lastScreenProvider.notifier).remember(next.id!);
     }
   }
 }

@@ -110,7 +110,7 @@ class TileActions {
     }
 
     if (closed) close();
-    final screen = _Screen(navigator, closed ? () {} : close);
+    final screen = _Screen(navigator);
     for (final act in acts) {
       final told = actIn(act, _ref.read, scope);
       String? message;
@@ -144,18 +144,12 @@ class TileActions {
 }
 
 class _Screen implements ActionScreen {
-  _Screen(this._navigator, this._close);
+  _Screen(this._navigator);
 
   final NavigatorState _navigator;
-  final VoidCallback _close;
 
   @override
   Future<void> openSettings() async {
     if (_navigator.mounted) await SettingsScreen.open(_navigator);
-  }
-
-  @override
-  void close() {
-    _close();
   }
 }

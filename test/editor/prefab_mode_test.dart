@@ -14,15 +14,8 @@ import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 
+import '../support/fake_tv.dart';
 import '../support/packs.dart';
-
-class _Tv extends TvApi {
-  @override
-  Future<void> setLayout(Layout layout) async {}
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async {}
-}
 
 const _alpha = Entity(
   id: 'system:app/a',
@@ -37,27 +30,25 @@ void main() {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final tv = FakeTv(
+      TvState(
+        packs: [systemPack],
+        entities: const [_alpha],
+        config: config ?? LauncherConfig(layout: homeLayout(['system:app/a'])),
+        visuals: const [
+          (module: 'text', label: 'Text', w: 2, h: 1, values: {}),
+        ],
+      ),
+      shippedPrefabs: systemPrefabs,
+    );
     late WidgetRef ref;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           ...tvOverrides,
           systemContents,
-          tvApiProvider.overrideWithValue(_Tv()),
-          tvStateProvider.overrideWith(
-            (ref) => Stream.value(
-              TvState(
-                packs: [systemPack],
-                entities: const [_alpha],
-                config:
-                    config ??
-                    LauncherConfig(layout: homeLayout(['system:app/a'])),
-                visuals: const [
-                  (module: 'text', label: 'Text', w: 2, h: 1, values: {}),
-                ],
-              ),
-            ),
-          ),
+          tvApiProvider.overrideWithValue(tv),
+          tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
         child: MaterialApp(
           home: Consumer(
@@ -191,14 +182,22 @@ void main() {
     // they did, as overrides on it.
     final stacked = card().rootAs('stacked').toJson();
     final row = card().rootAs('row').toJson();
-    await makeDefaultVariant(ref, 'row');
+    await makeDefaultVariant(
+      tester.element(find.byType(EditorScreen)),
+      ref,
+      'row',
+    );
     await tester.pumpAndSettle();
     expect(card().variants.keys, ['row', 'stacked']);
     expect(card().isBase('row'), isTrue);
     expect(card().root.toJson(), row);
     expect(card().rootAs('stacked').toJson(), stacked);
     // And back again.
-    await makeDefaultVariant(ref, 'stacked');
+    await makeDefaultVariant(
+      tester.element(find.byType(EditorScreen)),
+      ref,
+      'stacked',
+    );
     await tester.pumpAndSettle();
     expect(card().variants.keys, ['stacked', 'row']);
     expect(card().root.toJson(), stacked);
@@ -269,7 +268,14 @@ void main() {
   testWidgets(
     'a container is made a prefab; deleting it unpacks the instance',
     (tester) async {
-      final ref = await pump(tester);
+      // The inbox is the root, so the container below it can become an
+      // instance: the inbox itself cannot.
+      final ref = await pump(
+        tester,
+        config: LauncherConfig(
+          layout: homeLayout(['system:app/a']).copyWith(inbox: 'home/root'),
+        ),
+      );
       LauncherConfig config() => ref.read(configProvider).value!;
       await press(tester, find.text('Objects'));
       await press(tester, inTree('Layout'));

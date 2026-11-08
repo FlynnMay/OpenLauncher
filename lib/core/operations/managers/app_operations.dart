@@ -1,48 +1,41 @@
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
-import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher/core/services/services.dart';
 
 /// What can be done to an installed app, named by its `package`.
-class AppOperationsManager implements OperationsManager {
-  AppOperationsManager(this._platform);
+class AppOperationsManager extends OperationsManager {
+  AppOperationsManager(this._apps);
 
-  final LauncherPlatform _platform;
+  final AppService _apps;
 
   static const _package = {'package': <String>[]};
+  static const _needsPackage = {'package'};
+
+  @override
+  String get area => 'os://apps';
 
   @override
   late final List<Operation> operations = [
-    Operation(
-      name: 'os://apps/launch',
+    operation(
+      'launch',
       label: 'Open an app',
       args: _package,
-      run: (run) async {
-        await _platform.launchApp(_packageOf(run));
-        return null;
-      },
+      requiredArgs: _needsPackage,
+      run: (run) => _apps.launch(run.required('package')),
     ),
-    Operation(
-      name: 'os://apps/info',
+    operation(
+      'info',
       label: "Open an app's info screen",
       args: _package,
-      run: (run) async {
-        await _platform.openAppInfo(_packageOf(run));
-        return null;
-      },
+      requiredArgs: _needsPackage,
+      run: (run) => _apps.showInfo(run.required('package')),
     ),
-    Operation(
-      name: 'os://apps/uninstall',
+    operation(
+      'uninstall',
       label: 'Uninstall an app',
       args: _package,
-      run: (run) async {
-        await _platform.uninstallApp(_packageOf(run));
-        return null;
-      },
+      requiredArgs: _needsPackage,
+      run: (run) => _apps.uninstall(run.required('package')),
     ),
   ];
-
-  String _packageOf(OperationRun run) => switch (run.arg('package')) {
-    final String package when package.isNotEmpty => package,
-    _ => throw const FormatException('No package was given'),
-  };
 }

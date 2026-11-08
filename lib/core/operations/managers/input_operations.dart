@@ -1,25 +1,24 @@
 import 'package:openlauncher/core/operations/operation.dart';
 import 'package:openlauncher/core/operations/operations_manager.dart';
-import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher/core/services/services.dart';
 
 /// What can be done to a TV input.
-class InputOperationsManager implements OperationsManager {
-  InputOperationsManager(this._platform);
+class InputOperationsManager extends OperationsManager {
+  InputOperationsManager(this._inputs);
 
-  final LauncherPlatform _platform;
+  final InputService _inputs;
+
+  @override
+  String get area => 'os://inputs';
 
   @override
   late final List<Operation> operations = [
-    Operation(
-      name: 'os://inputs/switch',
+    operation(
+      'switch',
       label: 'Switch to a TV input',
       args: const {'input': []},
-      run: (run) async {
-        final input = run.arg('input');
-        if (input == null) throw const FormatException('No input was given');
-        await _platform.switchToInput(input);
-        return null;
-      },
+      requiredArgs: const {'input'},
+      run: (run) => _inputs.switchTo(run.required('input')),
     ),
   ];
 }

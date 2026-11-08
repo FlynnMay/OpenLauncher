@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -9,25 +10,11 @@ import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/main.dart';
 import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
+import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
+import '../support/fake_tv.dart';
 import '../support/packs.dart';
-
-class _Tv extends TvApi {
-  final sent = <String>[];
-
-  /// When set, the TV refuses what it is sent.
-  bool refuses = false;
-
-  @override
-  Future<void> setLayout(Layout layout) async {
-    if (refuses) throw Exception('No');
-    sent.add('layout');
-  }
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async =>
-      sent.add('config ${changed.keys.join(' ')}');
-}
 
 const _entities = [
   Entity(id: 'system:app/a', category: appCategory, label: 'Alpha'),
@@ -42,16 +29,16 @@ TvState _state() => TvState(
 
 void main() {
   group('history', () {
-    late _Tv tv;
+    late FakeTv tv;
     late ProviderContainer container;
 
     setUp(() async {
-      tv = _Tv();
+      tv = FakeTv(_state());
       container = ProviderContainer(
         overrides: [
           ...tvOverrides,
           tvApiProvider.overrideWithValue(tv),
-          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+          tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
       );
       addTearDown(container.dispose);
@@ -60,9 +47,35 @@ void main() {
     });
 
     LauncherConfig config() => container.read(configProvider).value!;
-    ConfigController controller() => container.read(configProvider.notifier);
+    Future<void> send(List<SliceEdit> edits) async {
+      await container.read(commandsProvider).run(EditSlice(edits));
+      await pumpEventQueue();
+    }
+
+    Future<void> setting(String key, Object? value) => send([
+      SliceEdit(const ConfigAddress(), [SetSetting(key, value)]),
+    ]);
+
+    Future<void> entry(String key, String name, String? value) => send([
+      SliceEdit(const ConfigAddress(), [SetEntry(key, name, value)]),
+    ]);
     History history() => container.read(historyProvider.notifier);
     Moments moments() => container.read(historyProvider);
+
+    /// Takes the cards that hold [entity] off the screen, as one edit.
+    Future<void> takeOff(String entity) async {
+      await container
+          .read(commandsProvider)
+          .run(
+            EditSlice([
+              for (final item in config().layout.items)
+                if (item.handed.contains(entity))
+                  SliceEdit(LayoutAddress(item.id), const [RemoveNode()]),
+            ]),
+          );
+      await pumpEventQueue();
+    }
+
     bool placed(String id) =>
         config().layout.items.any((item) => item.handed.contains(id));
 
@@ -71,20 +84,22 @@ void main() {
           .firstWhere((item) => item.handed.contains('system:app/a'))
           .id;
       container.read(selectionProvider.notifier).tap(card, adding: false);
-      await controller().setLayout(config().layout.without({'system:app/a'}));
+      await takeOff('system:app/a');
       container.read(selectionProvider.notifier).clear();
       expect(placed('system:app/a'), isFalse);
       expect(moments().past, hasLength(1));
 
       await history().undo();
+      await pumpEventQueue();
       expect(placed('system:app/a'), isTrue);
       expect(container.read(selectionProvider), {card});
       expect(moments().past, isEmpty);
       expect(moments().future, hasLength(1));
-      // The TV is sent each step.
-      expect(tv.sent, ['layout', 'layout']);
+      // The TV does each step.
+      expect(tv.sent, ['edit', 'undo']);
 
       await history().redo();
+      await pumpEventQueue();
       expect(placed('system:app/a'), isFalse);
       expect(container.read(selectionProvider), isEmpty);
       expect(moments().past, hasLength(1));
@@ -96,49 +111,62 @@ void main() {
     });
 
     test('a new change drops what could be redone', () async {
-      await controller().setLayout(config().layout.without({'system:app/a'}));
+      await takeOff('system:app/a');
       await history().undo();
-      await controller().setLayout(config().layout.without({'system:app/b'}));
+      await takeOff('system:app/b');
       expect(moments().future, isEmpty);
       await history().undo();
+      await pumpEventQueue();
       expect(placed('system:app/a') && placed('system:app/b'), isTrue);
     });
 
-    test('a save that changes nothing is not a step', () async {
-      await controller().setLayout(config().layout);
-      expect(moments().past, isEmpty);
-      expect(tv.sent, isEmpty);
-    });
-
     test('names, pictures and wallpapers are steps like any other', () async {
-      await controller().setName('system:app/a', 'Films');
-      await controller().setWallpapers(['http://tv/api/media/w-1.png']);
-      await controller().setIconOverride(
-        'system:app/a',
-        'http://tv/api/media/p.png',
-      );
+      await entry('names', 'system:app/a', 'Films');
+      await setting('wallpapers', ['/media/w-1.png']);
+      await entry('iconOverrides', 'system:app/a', '/media/p.png');
       expect(moments().past, hasLength(3));
 
       // Undoing past an upload only stops pointing at its file.
       await history().undo();
+      await pumpEventQueue();
       expect(config().iconOverrides, isEmpty);
       expect(config().wallpapers, hasLength(1));
       await history().undo();
       await history().undo();
+      await pumpEventQueue();
       expect(config().wallpapers, isEmpty);
       expect(config().names, isEmpty);
       expect(tv.sent, [
         'config names',
         'config wallpapers',
         'config iconOverrides',
-        'config iconOverrides',
-        'config wallpapers',
-        'config names',
+        'undo',
+        'undo',
+        'undo',
       ]);
     });
 
+    test('a layout edit and a setting changed together are one step', () async {
+      final card = config().layout.items
+          .firstWhere((item) => item.handed.contains('system:app/a'))
+          .id;
+      await send([
+        SliceEdit(LayoutAddress(card), const [RemoveNode()]),
+        const SliceEdit(ConfigAddress(), [
+          SetEntry('names', 'system:app/b', 'Series'),
+        ]),
+      ]);
+      expect(tv.sent, ['edit + config names']);
+      expect(moments().past, hasLength(1));
+
+      await history().undo();
+      await pumpEventQueue();
+      expect(placed('system:app/a'), isTrue);
+      expect(config().names, isEmpty);
+    });
+
     test('the open prefab is part of the step', () async {
-      await controller().setName('system:app/a', 'Films');
+      await entry('names', 'system:app/a', 'Films');
       container.read(prefabTrailProvider.notifier).open('system:app-card');
       await history().undo();
       expect(container.read(prefabTrailProvider), isEmpty);
@@ -148,22 +176,21 @@ void main() {
 
     test('only the newest steps are kept', () async {
       for (var i = 0; i <= History.limit; i++) {
-        await controller().setWallpaperEvery(i + 1);
+        await setting('wallpaperEvery', i + 1);
       }
       expect(moments().past, hasLength(History.limit));
-      expect(moments().past.first.config.wallpaperEvery, 1);
     });
 
-    test('a step the TV refuses starts the history again', () async {
-      await controller().setLayout(config().layout.without({'system:app/a'}));
-      tv.refuses = true;
-      await expectLater(history().undo(), throwsException);
+    test('a TV with nothing to undo starts the history again', () async {
+      await takeOff('system:app/a');
+      tv.restart();
+      await expectLater(history().undo(), throwsA(isA<CommandRefused>()));
       expect(moments().past, isEmpty);
       expect(moments().future, isEmpty);
     });
   });
 
-  Future<WidgetRef> pump(WidgetTester tester, _Tv tv, Size size) async {
+  Future<WidgetRef> pump(WidgetTester tester, FakeTv tv, Size size) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -173,7 +200,7 @@ void main() {
         overrides: [
           ...tvOverrides,
           tvApiProvider.overrideWithValue(tv),
-          tvStateProvider.overrideWith((ref) => Stream.value(_state())),
+          tvStateProvider.overrideWith((ref) => tv.pushed.stream),
         ],
         child: MaterialApp(
           home: Consumer(
@@ -189,10 +216,42 @@ void main() {
     return ref;
   }
 
+  testWidgets('a command the TV refuses is said, and is not a step to undo', (
+    tester,
+  ) async {
+    final tv = FakeTv(_state())..commandRefusal = 'That layout is gone.';
+    final ref = await pump(tester, tv, const Size(1600, 900));
+    await tester.tap(find.text('Objects'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ObjectTree),
+        matching: find.text('Alpha'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    // Settling would wait for the message to go again.
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('That layout is gone.'), findsOneWidget);
+    expect(ref.read(historyProvider).past, isEmpty);
+    expect(
+      ref
+          .read(configProvider)
+          .value!
+          .layout
+          .items
+          .any((item) => item.handed.contains('system:app/a')),
+      isTrue,
+    );
+  });
+
   testWidgets('Ctrl+Z brings back what Delete removed, selected again', (
     tester,
   ) async {
-    final ref = await pump(tester, _Tv(), const Size(1600, 900));
+    final ref = await pump(tester, FakeTv(_state()), const Size(1600, 900));
     bool placed() => ref
         .read(configProvider)
         .value!

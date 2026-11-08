@@ -12,9 +12,10 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
-import 'package:openlauncher/editor/editing/docked_prefabs.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
+import 'package:openlauncher_domain/editing/docked_prefabs.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
 /// with no font loaded.
@@ -205,9 +206,16 @@ final systemContents = packContentsProvider.overrideWith(
   (ref) async => [_systemContents],
 );
 
-/// The packs in `packs/` installed, read from there rather than through the
-/// pack store, and no font loaded.
-final List<Override> packOverrides = [
+/// The launcher as tests run it: the packs in `packs/` installed, read from
+/// there rather than through the pack store, and no font loaded.
+final List<Override> launcherOverrides = launcherOverridesKeeping(
+  MemoryLastScreenStore(),
+);
+
+/// [launcherOverrides], with the screen shown last kept in [lastScreen].
+List<Override> launcherOverridesKeeping(LastScreenStore lastScreen) => [
+  // A real file never finishes under a widget test's clock.
+  lastScreenStoreProvider.overrideWithValue(lastScreen),
   packsProvider.overrideWith((ref) async => [materialPack, systemPack]),
   // Read at once: real file reads never finish under a widget test's clock.
   packReaderProvider.overrideWithValue((pack, path) async {

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config_store.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
-import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher_domain/layout/layout.dart';
 
 final configProvider = AsyncNotifierProvider<ConfigController, LauncherConfig>(
   ConfigController.new,
@@ -12,106 +12,58 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   @override
   Future<LauncherConfig> build() => ref.watch(configStoreProvider).load();
 
-  Future<void> _update(LauncherConfig Function(LauncherConfig) change) async {
-    final next = change(await future);
-    state = AsyncData(next);
-    await ref.read(configStoreProvider).save(next);
+  Future<void> _lastUpdate = Future.value();
+
+  /// Changes run one after another, each reading what the one before left and
+  /// finishing its save first; a failed change does not block the next.
+  Future<void> _update(LauncherConfig Function(LauncherConfig) change) {
+    final turn = _lastUpdate.catchError((Object _) {}).then((_) async {
+      final next = change(await future);
+      state = AsyncData(next);
+      await ref.read(configStoreProvider).save(next);
+    });
+    _lastUpdate = turn;
+    return turn;
   }
 
-  /// Replaces the layout, repaired first. The pictures of nodes it no longer
-  /// has go with them.
   Future<void> setLayout(Layout layout) =>
-      _update((c) => _withLayout(c, layout.normalised()));
+      _update((config) => _withLayout(config, layout.normalised()));
 
-  /// Puts back the starting layout as its pack has it.
   Future<void> revertLayout() async {
     final start = await ref.read(startingLayoutProvider.future);
-    await _update((c) => _withLayout(c, start.layout, own: false));
+    await _update(
+      (config) => _withLayout(config, start.layout, ownLayout: false),
+    );
   }
 
   static LauncherConfig _withLayout(
-    LauncherConfig c,
-    Layout next, {
-    bool own = true,
+    LauncherConfig config,
+    Layout layout, {
+    bool ownLayout = true,
   }) {
-    final nodes = {for (final node in next.all) Layout.pictureKey(node.id)};
-    return c.copyWith(
-      layout: next,
-      ownLayout: own,
-      iconOverrides: {
-        for (final MapEntry(:key, :value) in c.iconOverrides.entries)
-          if (!key.startsWith(Layout.pictureKey('')) || nodes.contains(key))
-            key: value,
-      },
+    return config.copyWith(
+      layout: layout,
+      ownLayout: ownLayout,
+      iconOverrides: _withoutRemovedNodePictures(config.iconOverrides, layout),
     );
   }
 
-  /// Applies [how] to the config.
-  Future<void> change(LauncherConfig Function(LauncherConfig config) how) =>
-      _update(how);
+  static Map<String, String> _withoutRemovedNodePictures(
+    Map<String, String> pictures,
+    Layout layout,
+  ) {
+    final nodePictures = {
+      for (final node in layout.all) Layout.pictureKey(node.id),
+    };
+    bool kept(String key) =>
+        !key.startsWith(Layout.pictureKey('')) || nodePictures.contains(key);
+    return {
+      for (final MapEntry(:key, :value) in pictures.entries)
+        if (kept(key)) key: value,
+    };
+  }
 
-  /// Sets the [LauncherConfig.openKeys] parts present in [json].
+  /// Sets the settings in [json], leaving the rest as it is.
   Future<void> patch(Map<String, Object?> json) =>
-      _update((c) => c.patched(json));
-
-  /// Removes an entity from [screen], or from every screen, until it is
-  /// placed again.
-  Future<void> removeEntity(String id, {String? screen}) => _update(
-    (c) =>
-        c.copyWith(layout: c.layout.without({id}, screen: screen).normalised()),
-  );
-
-  /// Adds [item] to container [container].
-  Future<void> addItem(Node item, String container) => _update(
-    (c) => c.copyWith(layout: c.layout.withAdded(item, container).normalised()),
-  );
-
-  Future<void> setLastScreen(String id) =>
-      _update((c) => c.copyWith(lastScreen: () => id));
-
-  Future<void> setWallpapers(List<String> paths) =>
-      _update((c) => c.copyWith(wallpapers: List.unmodifiable(paths)));
-
-  /// Minutes per wallpaper; 0 stays on the first.
-  Future<void> setWallpaperEvery(int minutes) => _update(
-    (c) => c.copyWith(
-      wallpaperEvery: minutes.clamp(0, LauncherConfig.maxWallpaperEvery),
-    ),
-  );
-
-  /// Sets a custom picture; null restores the automatic one. Clears any
-  /// borrowed picture.
-  Future<void> setIconOverride(String id, String? path) => _update(
-    (c) => c.copyWith(
-      iconOverrides: path == null
-          ? ({...c.iconOverrides}..remove(id))
-          : {...c.iconOverrides, id: path},
-      iconSources: {...c.iconSources}..remove(id),
-    ),
-  );
-
-  /// Makes [id] show [from]'s picture, in place of a custom one; null
-  /// restores its own.
-  Future<void> setIconSource(String id, String? from) => _update(
-    (c) => c.copyWith(
-      iconSources: from == null
-          ? ({...c.iconSources}..remove(id))
-          : {...c.iconSources, id: from},
-      iconOverrides: from == null
-          ? c.iconOverrides
-          : ({...c.iconOverrides}..remove(id)),
-    ),
-  );
-
-  /// Renames an entity; null or blank restores the device's name.
-  Future<void> setName(String id, String? name) {
-    final trimmed = name?.trim() ?? '';
-    return _update(
-      (c) => c.copyWith(
-        names: trimmed.isEmpty
-            ? ({...c.names}..remove(id))
-            : {...c.names, id: trimmed},
-      ),
-    );
-  }
+      _update((config) => config.patched(json));
 }

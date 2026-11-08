@@ -39,11 +39,7 @@ class _UpdateSettingsState extends ConsumerState<UpdateSettings> with Busy {
       ...optionFields(
         options: UpdateOptions.options,
         values: config.updates.toJson(),
-        onChanged: (updates) => changeConfig(
-          context,
-          ref,
-          (controller) => controller.patch({'updates': updates}),
-        ),
+        onChanged: (updates) => setSettings(context, ref, {'updates': updates}),
       ),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),

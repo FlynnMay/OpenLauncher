@@ -35,7 +35,7 @@ class TransformSettings extends StatelessWidget {
     final t = node.transform;
     final theme = Theme.of(context);
     void anchored((double, double) x, (double, double) y) =>
-        onChanged(withAnchors(node, x, y, parentSize()).transform);
+        onChanged(withAnchors(node, x, y, parentSize().extent).transform);
     NodeTransform moved({
       double? left,
       double? top,

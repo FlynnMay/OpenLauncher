@@ -8,9 +8,12 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/core/variables/variables.dart';
+import 'package:openlauncher/editor/settings/user_entity_form.dart';
 import 'package:openlauncher/features/components/marquee.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
+import 'package:openlauncher_domain/sources/sources.dart';
 
 import '../support/packs.dart';
 
@@ -227,7 +230,7 @@ void main() {
       final store = MemoryConfigStore();
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(store),
         ],
       );
@@ -264,13 +267,13 @@ void main() {
     test('the form keeps what it does not show, and makes actions', () {
       final operations = [
         Operation(
-          name: 'os://apps/launch',
+          address: 'os://apps/launch',
           label: 'Open an app',
           args: const {'package': []},
           run: (run) async => null,
         ),
         Operation(
-          name: 'os://media/command',
+          address: 'os://media/command',
           label: 'Tell the media player',
           args: const {
             'command': ['next', 'previous'],
@@ -340,7 +343,7 @@ void main() {
       asked = [];
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
           launcherPlatformProvider.overrideWithValue(platform),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4, 9)),
@@ -468,7 +471,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           launcherPlatformProvider.overrideWithValue(
             FakeLauncherPlatform(const [], const []),
           ),
@@ -570,7 +573,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
         ],
         child: MaterialApp(

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-/// Fetches JSON over HTTP. Overridden in tests.
+/// Overridden in tests.
 final jsonFetcherProvider =
     Provider<Future<Map<String, Object?>> Function(Uri)>(
       (ref) => (uri) async {
@@ -38,8 +38,9 @@ class Weather {
   /// The WMO weather code.
   final int code;
 
-  /// Today's highest and lowest temperature.
-  final double? high, low;
+  final double? high;
+
+  final double? low;
 
   Sky get sky => switch (code) {
     0 || 1 => Sky.clear,
@@ -67,28 +68,27 @@ class Weather {
   };
 
   factory Weather.fromJson(Map<String, Object?> json) {
-    final current = json['current'];
-    final daily = json['daily'];
-    double? first(String key) => switch (daily is Map ? daily[key] : null) {
-      [final num value, ...] => value.toDouble(),
-      _ => null,
-    };
-    if (current case {
+    if (json['current'] case {
       'temperature_2m': final num temperature,
       'weather_code': final num code,
     }) {
       return Weather(
         temperature: temperature.toDouble(),
         code: code.toInt(),
-        high: first('temperature_2m_max'),
-        low: first('temperature_2m_min'),
+        high: _today(json['daily'], 'temperature_2m_max'),
+        low: _today(json['daily'], 'temperature_2m_min'),
       );
     }
     throw const FormatException('Unexpected weather reply');
   }
+
+  static double? _today(Object? daily, String key) =>
+      switch (daily is Map ? daily[key] : null) {
+        [final num value, ...] => value.toDouble(),
+        _ => null,
+      };
 }
 
-/// Weather from Open-Meteo, refreshed every 30 minutes while watched.
 final weatherProvider = FutureProvider.autoDispose
     .family<Weather, WeatherQuery>((ref, query) async {
       // Also retries after a failure, e.g. no network just after boot.
@@ -110,7 +110,7 @@ final weatherProvider = FutureProvider.autoDispose
 
 typedef Place = ({String name, double latitude, double longitude});
 
-/// Looks up places called [name], best match first.
+/// Best match first.
 Future<List<Place>> findPlaces(
   Future<Map<String, Object?>> Function(Uri) fetch,
   String name,
@@ -124,19 +124,24 @@ Future<List<Place>> findPlaces(
   );
   return [
     for (final result in (reply['results'] as List?) ?? const [])
-      if (result case {
-        'name': final String name,
-        'latitude': final num latitude,
-        'longitude': final num longitude,
-      })
-        (
-          name: [
-            name,
-            if (result case {'admin1': final String region}) region,
-            if (result case {'country': final String country}) country,
-          ].join(', '),
-          latitude: latitude.toDouble(),
-          longitude: longitude.toDouble(),
-        ),
+      ?_placeFrom(result),
   ];
 }
+
+Place? _placeFrom(Object? result) => switch (result) {
+  {
+    'name': final String name,
+    'latitude': final num latitude,
+    'longitude': final num longitude,
+  } =>
+    (
+      name: [
+        name,
+        if (result case {'admin1': final String region}) region,
+        if (result case {'country': final String country}) country,
+      ].join(', '),
+      latitude: latitude.toDouble(),
+      longitude: longitude.toDouble(),
+    ),
+  _ => null,
+};

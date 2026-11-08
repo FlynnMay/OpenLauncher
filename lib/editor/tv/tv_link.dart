@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/media/media_dirs.dart';
@@ -10,6 +9,7 @@ import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
+import 'package:openlauncher/editor/editing/editor_mode.dart';
 import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
@@ -18,13 +18,15 @@ import 'package:openlauncher/server/config_server.dart';
 /// Provider overrides that run the launcher in a browser: config, entities
 /// and wallpapers come from the TV, and config changes go back to it.
 final List<Override> tvOverrides = [
+  commandsProvider.overrideWith(
+    (ref) => TvCommands(
+      ref.watch(tvApiProvider),
+      onRan: ref.read(historyProvider.notifier).recordChange,
+    ),
+  ),
   configStoreProvider.overrideWith(
     // A new store per state, so the config is re-read.
-    (ref) => TvConfigStore(
-      ref.watch(tvApiProvider),
-      ref.watch(tvStateProvider.future),
-      onChange: (before) => ref.read(historyProvider.notifier).record(before),
-    ),
+    (ref) => TvConfigStore(ref.watch(tvStateProvider.future)),
   ),
   entitiesProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).entities,
@@ -34,7 +36,11 @@ final List<Override> tvOverrides = [
   ),
   packReaderProvider.overrideWith((ref) => ref.watch(tvApiProvider).packFile),
   actionRunnerProvider.overrideWith(
-    (ref) => TvActionRunner(ref, ref.watch(tvApiProvider)),
+    (ref) => TvActionRunner(
+      ref,
+      ref.watch(tvApiProvider),
+      () => ref.read(editorModeProvider),
+    ),
   ),
   accessProvider.overrideWith(
     (ref, access) async =>
@@ -64,43 +70,19 @@ final List<Override> tvOverrides = [
   ),
 ];
 
-/// The TV's config. Saving sends what changed.
+/// The TV's config, as the TV last said it. The page does not keep it: it
+/// sends edits, and the TV answers with the new state.
 class TvConfigStore implements ConfigStore {
-  TvConfigStore(this._api, this._state, {this.onChange});
+  TvConfigStore(this._state);
 
-  final TvApi _api;
   final Future<TvState> _state;
 
-  /// Told the config a save is about to replace.
-  final void Function(LauncherConfig before)? onChange;
-
-  /// What the TV has: last received or last sent.
-  LauncherConfig? _known;
-
   @override
-  Future<LauncherConfig> load() async => _known = (await _state).config;
+  Future<LauncherConfig> load() async => (await _state).config;
 
   @override
   Future<void> save(LauncherConfig config) async {
-    final known = _known ?? await load();
-    _known = config;
-    // Only the user's own layout is sent; the TV has the starting one.
-    final revert = !config.ownLayout && known.ownLayout;
-    final layout =
-        config.ownLayout &&
-        (!known.ownLayout ||
-            jsonEncode(config.layout) != jsonEncode(known.layout));
-    // Compared key by key.
-    final was = known.open, now = config.open;
-    final changed = {
-      for (final key in LauncherConfig.openKeys)
-        if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
-    };
-    if (!layout && !revert && changed.isEmpty) return;
-    onChange?.call(known);
-    if (layout) await _api.setLayout(config.layout);
-    if (revert) await _api.revertLayout();
-    if (changed.isNotEmpty) await _api.setConfig(changed);
+    throw StateError('The config is changed with edits, not saved.');
   }
 }
 
@@ -115,19 +97,36 @@ class BrowserPlatform extends FakeLauncherPlatform {
   }
 }
 
-/// Sends device operations to the TV, as the act that asked for them, and
-/// runs the rest locally.
+/// Where an act goes depends on the [EditorMode]. Editing sends device
+/// operations to the TV, as the act that asked for them, and runs the rest
+/// here. Testing runs the rest here and says what the TV would have done.
+/// Remote sends everything to the TV.
 class TvActionRunner extends ActionRunner {
-  TvActionRunner(super.ref, this._api);
+  TvActionRunner(super.ref, this._api, this._mode);
 
   final TvApi _api;
+  final EditorMode Function() _mode;
 
   /// The TV's own updater, as well as what only the TV can do.
   static bool _onTv(Operation operation) =>
       operation.onDevice ||
-      operation.name.startsWith('${Operation.launcher}updates/');
+      operation.address.startsWith('${Operation.launcher}updates/');
 
   @override
   Future<String?> carryOut(Operation operation, Act act, OperationRun run) =>
-      _onTv(operation) ? _api.act(act) : super.carryOut(operation, act, run);
+      switch (_mode()) {
+        EditorMode.remote => _api.act(act),
+        EditorMode.test when _onTv(operation) => Future.value(
+          _wouldHaveDone(operation, run),
+        ),
+        EditorMode.edit when _onTv(operation) => _api.act(act),
+        _ => super.carryOut(operation, act, run),
+      };
+
+  static String _wouldHaveDone(Operation operation, OperationRun run) {
+    final label = operation.label;
+    final what = label.substring(0, 1).toLowerCase() + label.substring(1);
+    final given = run.args.entries.map((e) => '${e.key}: ${e.value}');
+    return 'Test: would $what${given.isEmpty ? '' : ' (${given.join(', ')})'}';
+  }
 }

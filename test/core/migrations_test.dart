@@ -4,13 +4,13 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_overlays.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_panes.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_slots.dart';
-import 'package:openlauncher/core/config/migrations/v2_to_v3_visibility.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_overlays.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_panes.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_slots.dart';
+import 'package:openlauncher_domain/config/migrations/v2_to_v3_visibility.dart';
 
 import '../support/packs.dart';
 
@@ -1397,5 +1397,55 @@ void main() {
       'run': 'launcher://overlay/close',
       'with': {'of': 'menu'},
     });
+  });
+
+  test('3 to 4: closing a popup is closing an overlay', () {
+    final next = migrate({
+      'v': 3,
+      'entities': [
+        {
+          'id': 'x',
+          'actions': {
+            'shut': {'run': 'launcher://popups/close'},
+            'open': {
+              'run': 'os://apps/launch',
+              'with': {'package': 'a'},
+            },
+          },
+        },
+      ],
+      'layout': {
+        'v': 3,
+        'screens': [
+          {
+            'id': 'home',
+            'root': {
+              'id': 'home/root',
+              'modules': {
+                'triggers': {
+                  'press': [
+                    {'run': 'launcher://popups/close'},
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+    expect(next['v'], saveVersion);
+    final [entity] = next['entities']! as List;
+    expect((entity as Map)['actions'], {
+      'shut': {'run': 'launcher://overlay/close'},
+      'open': {
+        'run': 'os://apps/launch',
+        'with': {'package': 'a'},
+      },
+    });
+    final layout = next['layout']! as Json;
+    final [home] = layout['screens']! as List;
+    expect((home as Map)['root']['modules']['triggers']['press'], [
+      {'run': 'launcher://overlay/close'},
+    ]);
   });
 }

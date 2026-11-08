@@ -28,9 +28,9 @@ class _WallpaperSettingsState extends ConsumerState<WallpaperSettings>
     final config = ref.watch(configProvider).value;
     final wallpapers = config?.wallpapers ?? const <String>[];
     final every = config?.wallpaperEvery ?? 0;
-    Future<void> change(
-      Future<void> Function(ConfigController controller) how,
-    ) => whileBusy(() => changeConfig(context, ref, how));
+    Future<void> setWallpapers(List<String> paths) => whileBusy(
+      () => setSettings(context, ref, {'wallpapers': List.unmodifiable(paths)}),
+    );
     return Section('Wallpaper', [
       ImageCarousel(
         max: LauncherConfig.maxWallpapers,
@@ -51,26 +51,20 @@ class _WallpaperSettingsState extends ConsumerState<WallpaperSettings>
           if (file == null) return;
           final url = await api.upload(file, wallpaper: true);
           if (!context.mounted) return;
-          await changeConfig(
-            context,
-            ref,
-            (c) => c.setWallpapers([...wallpapers, url]),
-          );
+          await setSettings(context, ref, {
+            'wallpapers': [...wallpapers, url],
+          });
         }),
         // The file stays on the TV; Media deletes it.
-        onRemove: (url) => change(
-          (c) => c.setWallpapers([
-            for (final other in wallpapers)
-              if (other != url) other,
-          ]),
-        ),
-        onFirst: (url) => change(
-          (c) => c.setWallpapers([
-            url,
-            for (final other in wallpapers)
-              if (other != url) other,
-          ]),
-        ),
+        onRemove: (url) => setWallpapers([
+          for (final other in wallpapers)
+            if (other != url) other,
+        ]),
+        onFirst: (url) => setWallpapers([
+          url,
+          for (final other in wallpapers)
+            if (other != url) other,
+        ]),
       ),
       if (wallpapers.length > 1)
         LabelledRow(
@@ -78,7 +72,14 @@ class _WallpaperSettingsState extends ConsumerState<WallpaperSettings>
           ChoiceBox<int>(
             value: WallpaperSettings.turns.containsKey(every) ? every : null,
             choices: WallpaperSettings.turns,
-            onChanged: (minutes) => change((c) => c.setWallpaperEvery(minutes)),
+            onChanged: (minutes) => whileBusy(
+              () => setSettings(context, ref, {
+                'wallpaperEvery': minutes.clamp(
+                  0,
+                  LauncherConfig.maxWallpaperEvery,
+                ),
+              }),
+            ),
           ),
         ),
     ]);

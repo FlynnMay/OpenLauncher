@@ -37,10 +37,7 @@ class _Tv extends TvApi {
   final removed = <String>[];
 
   @override
-  Future<void> setLayout(Layout layout) async {}
-
-  @override
-  Future<void> setConfig(Map<String, Object?> changed) async {}
+  Future<int> command(Map<String, Object?> command, {int? basedOn}) async => 0;
 
   @override
   Future<void> removePack(String id) async => removed.add(id);

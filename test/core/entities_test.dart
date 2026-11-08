@@ -6,6 +6,7 @@ import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/modules/drawers.dart';
@@ -24,23 +25,27 @@ Entity _entity(String name, {String? icon}) => Entity(
 );
 
 /// Operations that record what they were told.
-class _Manager implements OperationsManager {
-  _Manager(List<String> names, [List<Object?>? said])
-    : operations = [
-        for (final name in names)
-          Operation(
-            name: name,
-            label: name,
-            args: const {'what': []},
-            run: (run) async {
-              said?.add(run.args['what']);
-              return 'said';
-            },
-          ),
-      ];
+class _Manager extends OperationsManager {
+  _Manager(List<String> verbs, [List<Object?>? said]) {
+    operations = [
+      for (final verb in verbs)
+        operation(
+          verb,
+          label: verb,
+          args: const {'what': []},
+          run: (run) async {
+            said?.add(run.args['what']);
+            return 'said';
+          },
+        ),
+    ];
+  }
 
   @override
-  final List<Operation> operations;
+  String get area => 'launcher://test';
+
+  @override
+  late final List<Operation> operations;
 }
 
 void main() {
@@ -123,7 +128,7 @@ void main() {
       ], []);
       container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
         ],
@@ -163,24 +168,19 @@ void main() {
 
       // Removed entities are gone until they are placed again; they are not
       // mistaken for new apps.
-      await config.removeEntity('system:app/b');
+      await container.read(layoutServiceProvider).remove(what: 'system:app/b');
       expect(await ids(), ['system:app/a']);
       expect(store.config.layout.removed, {'system:app/b'});
       await config.setLayout(homeLayout(['system:app/b', 'system:app/a']));
       expect(await ids(), ['system:app/b', 'system:app/a']);
       expect(store.config.layout.removed, isEmpty);
 
-      await config.setIconOverride('system:app/a', '/x.png');
+      await config.patch({
+        'iconOverrides': {'system:app/a': '/x.png'},
+      });
       expect(store.config.iconOverrides, {'system:app/a': '/x.png'});
-      await config.setIconOverride('system:app/a', null);
+      await config.patch({'iconOverrides': <String, Object?>{}});
       expect(store.config.iconOverrides, isEmpty);
-
-      // A custom picture and a borrowed one replace each other.
-      await config.setIconOverride('system:app/a', '/x.png');
-      await config.setIconSource('system:app/a', 'system:app/b');
-      expect(store.config.iconOverrides, isEmpty);
-      await config.setIconOverride('system:app/a', '/x.png');
-      expect(store.config.iconSources, isEmpty);
     });
 
     test('entities refresh when the device reports a package change', () async {
@@ -300,11 +300,11 @@ void main() {
           ),
           contains('A'),
         );
-        // It is saved where it was put; what is placed nowhere comes after.
+        // It goes last in the inbox, after what is already there.
         expect(await ids(), [
-          'system:app/a',
           'system:input/tv/HW15',
           'system:app/b',
+          'system:app/a',
         ]);
         final layout = container.read(configProvider).value!.layout;
         final added = layout.container(layout.inbox)!.children.last;
@@ -380,7 +380,7 @@ void main() {
     ProviderContainer container(List<Entity> own) {
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(LauncherConfig(entities: own)),
           ),
@@ -421,7 +421,7 @@ void main() {
       // runs is called by its address.
       final operations = c.read(operationsRegistryProvider);
       expect(
-        {for (final operation in operations.all) operation.name},
+        {for (final operation in operations.all) operation.address},
         containsAll({
           for (final entity in all)
             for (final action in entity.actions.values) action.run,
@@ -433,15 +433,15 @@ void main() {
       final c = container(const []);
       for (final operation in c.read(operationsRegistryProvider).all) {
         expect(
-          operation.name,
+          operation.address,
           matches(RegExp(r'^(os|launcher)://[a-z]+/[a-z]+$')),
         );
-        expect(operation.onDevice, operation.name.startsWith('os://'));
+        expect(operation.onDevice, operation.address.startsWith('os://'));
       }
       expect(Operation.areaOf('os://apps/launch'), 'os://apps');
       final registry = c.read(operationsRegistryProvider);
       expect(registry.areas, containsAll(['os://apps', 'launcher://overlay']));
-      expect(registry.inArea('launcher://overlay').map((one) => one.name), [
+      expect(registry.inArea('launcher://overlay').map((one) => one.address), [
         'launcher://overlay/open',
         'launcher://overlay/close',
       ]);
@@ -533,7 +533,7 @@ void main() {
       final platform = FakeLauncherPlatform(const [], const []);
       final c = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
@@ -620,11 +620,12 @@ void main() {
     test('operations come from managers, and none twice', () {
       final one = _Manager(['a', 'b']), two = _Manager(['c']);
       expect(
-        OperationsRegistry([one, two]).all.map((operation) => operation.name),
-        ['a', 'b', 'c'],
+        OperationsRegistry([one, two]).all
+            .map((operation) => operation.address),
+        ['launcher://test/a', 'launcher://test/b', 'launcher://test/c'],
       );
-      expect(OperationsRegistry([one])['b'], isNotNull);
-      expect(OperationsRegistry([one])['c'], isNull);
+      expect(OperationsRegistry([one])['launcher://test/b'], isNotNull);
+      expect(OperationsRegistry([one])['launcher://test/c'], isNull);
       expect(
         () => OperationsRegistry([
           one,
@@ -639,7 +640,7 @@ void main() {
       final platform = FakeLauncherPlatform(const [], const []);
       final c = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
@@ -653,7 +654,7 @@ void main() {
                     placed: true,
                     actions: {
                       'toggle': EntityAction(
-                        run: 'say',
+                        run: 'launcher://test/say',
                         bound: {'what': '{{self.label}} in the {{self.room}}'},
                       ),
                     },
@@ -665,7 +666,7 @@ void main() {
           launcherPlatformProvider.overrideWithValue(platform),
           operationsManagersProvider.overrideWith(
             (ref) => [
-              AppOperationsManager(platform),
+              AppOperationsManager(ref.watch(appServiceProvider)),
               _Manager(['say'], said),
             ],
           ),
@@ -710,7 +711,7 @@ void main() {
       ], const []);
       final container = ProviderContainer(
         overrides: [
-          ...packOverrides,
+          ...launcherOverrides,
           configStoreProvider.overrideWithValue(MemoryConfigStore()),
           launcherPlatformProvider.overrideWithValue(platform),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4, 9)),

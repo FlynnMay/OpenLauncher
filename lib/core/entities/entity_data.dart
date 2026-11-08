@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities_provider.dart';
-import 'package:openlauncher/core/entities/entity.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
+import 'package:openlauncher_domain/entities/entity.dart';
 
 /// What `{{<id>...}}` reads for an entity: its label, id, category and
 /// [Entity.data], with what its feed reads on top. Null if unknown.

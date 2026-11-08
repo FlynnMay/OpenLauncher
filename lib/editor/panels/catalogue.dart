@@ -263,7 +263,11 @@ class _CatalogueState extends ConsumerState<Catalogue> {
                   },
                   // A new docked instance goes to an edge, not a container.
                   onTap: () => switch (offer.dragged.docks) {
-                    final template? => addBarSomewhere(context, ref, template),
+                    final template? => dockPrefabSomewhere(
+                      context,
+                      ref,
+                      template,
+                    ),
                     null => placeDragged(context, ref, offer.dragged, inbox),
                   },
                 ),
