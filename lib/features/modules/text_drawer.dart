@@ -48,15 +48,16 @@ class TextVisual extends ConsumerWidget {
       height: 1.15,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    final overflow = values['overflow'] ?? 'fade';
+    final speed = values['speed'];
     if (shrink) {
-      return Text(
+      return _atNaturalSize(
         text,
-        style: style,
-        textAlign: align,
-        maxLines: 1,
-        overflow: values['overflow'] == 'fade'
-            ? TextOverflow.fade
-            : TextOverflow.ellipsis,
+        style,
+        align,
+        alignment,
+        overflow,
+        speed is num ? speed.toDouble() : 40,
       );
     }
     if (text.isEmpty) return const SizedBox.expand();
@@ -69,9 +70,8 @@ class TextVisual extends ConsumerWidget {
         ),
       );
     }
-    final speed = values['speed'];
     return SizedBox.expand(
-      child: switch (values['overflow']) {
+      child: switch (overflow) {
         'scroll' => Marquee(
           text: text.replaceAll('\n', ' '),
           style: style,
@@ -81,16 +81,7 @@ class TextVisual extends ConsumerWidget {
         'wrap' => LayoutBuilder(
           builder: (context, box) => Align(
             alignment: alignment,
-            child: Text(
-              text,
-              style: style,
-              textAlign: align,
-              // As many whole lines as fit.
-              maxLines: (box.maxHeight / (style.fontSize! * style.height!))
-                  .floor()
-                  .clamp(1, 100),
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: _wrapped(text, style, align, _linesIn(box, style)),
           ),
         ),
         final overflow => Align(
@@ -111,4 +102,68 @@ class TextVisual extends ConsumerWidget {
       },
     );
   }
+
+  /// [text] over as many lines as it needs, or as there are room for. An
+  /// ellipsis with no limit on the lines would keep it to one.
+  static Widget _wrapped(
+    String text,
+    TextStyle style,
+    TextAlign align,
+    int? lines,
+  ) => Text(
+    text,
+    style: style,
+    textAlign: align,
+    maxLines: lines,
+    overflow: lines == null ? TextOverflow.clip : TextOverflow.ellipsis,
+  );
+
+  /// As many whole lines as [box] has room for; all of them if its height has
+  /// no limit.
+  static int? _linesIn(BoxConstraints box, TextStyle style) {
+    if (!box.hasBoundedHeight) return null;
+    return (box.maxHeight / (style.fontSize! * style.height!)).floor().clamp(
+      1,
+      100,
+    );
+  }
+
+  /// One line's natural size, or as much of it as the room around allows,
+  /// with what is done about text too long for that room.
+  Widget _atNaturalSize(
+    String text,
+    TextStyle style,
+    TextAlign align,
+    Alignment alignment,
+    Object? overflow,
+    double speed,
+  ) => LayoutBuilder(
+    builder: (context, box) {
+      Widget oneLine(TextOverflow how) => Text(
+        text,
+        style: style,
+        textAlign: align,
+        maxLines: 1,
+        softWrap: false,
+        overflow: how,
+      );
+      return switch (overflow) {
+        'ellipsis' => oneLine(TextOverflow.ellipsis),
+        'clip' => oneLine(TextOverflow.clip),
+        // Onto as many lines as it needs, within the height there is.
+        'wrap' => _wrapped(text, style, align, _linesIn(box, style)),
+        // It can only move along in a width it knows.
+        'scroll' when box.hasBoundedWidth => SizedBox(
+          height: style.fontSize! * style.height!,
+          child: Marquee(
+            text: text.replaceAll('\n', ' '),
+            style: style,
+            alignment: alignment,
+            speed: speed,
+          ),
+        ),
+        _ => oneLine(TextOverflow.fade),
+      };
+    },
+  );
 }
