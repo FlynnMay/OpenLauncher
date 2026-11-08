@@ -18,13 +18,19 @@ void main() {
       final controller = container.read(configProvider.notifier);
 
       await Future.wait([
-        controller.setName('a', 'One'),
-        controller.setName('b', 'Two'),
-        controller.setName('c', 'Three'),
+        controller.patch({'wallpaperEvery': 5}),
+        controller.patch({
+          'toasts': {'seconds': 9},
+        }),
+        controller.patch({
+          'names': {'a': 'One'},
+        }),
       ]);
 
-      final names = (await container.read(configProvider.future)).names;
-      expect(names, {'a': 'One', 'b': 'Two', 'c': 'Three'});
+      final config = await container.read(configProvider.future);
+      expect(config.wallpaperEvery, 5);
+      expect(config.toasts.seconds, 9);
+      expect(config.names, {'a': 'One'});
     },
   );
 }

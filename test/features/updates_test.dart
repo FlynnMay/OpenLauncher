@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/app.dart';
+import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/updates/updates.dart';
 import 'package:openlauncher/core/values/values.dart';
@@ -160,6 +161,9 @@ void main() {
       ProviderScope(
         overrides: [
           ...launcherOverrides,
+          commandHistoryStoreProvider.overrideWithValue(
+            MemoryCommandHistoryStore(),
+          ),
           configStoreProvider.overrideWithValue(store),
           launcherPlatformProvider.overrideWithValue(platform),
           updateSourceProvider.overrideWithValue(source),

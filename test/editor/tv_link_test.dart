@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/commands/commands.dart';
@@ -13,7 +10,6 @@ import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
-import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
@@ -79,115 +75,11 @@ TvState _state() => TvState(
 );
 
 void main() {
-  test('saving sends the TV only what changed', () async {
-    final tv = _Tv();
-    final store = TvConfigStore(TvCommands(tv), Future.value(_state()));
+  test('the page reads the TV\'s config and does not save its own', () async {
+    final store = TvConfigStore(Future.value(_state()));
     final config = await store.load();
-
-    await store.save(config);
-    expect(tv.sent, isEmpty);
-
-    await store.save(config.copyWith(toasts: const ToastOptions(seconds: 9)));
-    expect(tv.sent, ['config toasts']);
-
-    // What was sent is what the TV now has.
-    await store.save(
-      config.copyWith(
-        toasts: const ToastOptions(seconds: 9),
-        wallpaperEvery: 7,
-      ),
-    );
-    expect(tv.sent, ['config toasts', 'config wallpaperEvery']);
-  });
-
-  test('the layout and the prefabs are not sent again, only edited', () async {
-    final tv = _Tv();
-    final store = TvConfigStore(TvCommands(tv), Future.value(_state()));
-    final config = await store.load();
-
-    expect(
-      store.save(
-        config.copyWith(layout: config.layout.without({'system:app/a'})),
-      ),
-      throwsStateError,
-    );
-    final prefab = Prefab(
-      id: 'mine',
-      name: 'Mine',
-      root: Node(id: 'root'),
-    );
-    expect(store.save(config.copyWith(prefabs: [prefab])), throwsStateError);
-    expect(tv.sent, isEmpty);
-  });
-
-  test('commands the TV announces are heard apart from its states', () async {
-    final state = jsonEncode({
-      'entities': [],
-      'layout': homeLayout().toJson(),
-      'config': <String, Object?>{},
-      'visuals': [],
-      'widgetProviders': [],
-    });
-    final entry = jsonEncode(
-      const CommandLogEntry(
-        revision: 3,
-        session: 'phone',
-        action: CommandAction.run,
-        command: {'type': 'screen.add', 'id': 'tv'},
-      ).toJson(),
-    );
-    final api = TvApi(
-      client: MockClient.streaming(
-        (request, body) async => http.StreamedResponse(
-          Stream.value(
-            utf8.encode(
-              'data: $state\n\nevent: command\ndata: $entry\n\ndata: $state\n\n',
-            ),
-          ),
-          200,
-        ),
-      ),
-    );
-    final heard = <CommandLogEntry>[];
-    api.commandEntries.listen(heard.add);
-
-    expect(api.knownRevision, isNull);
-    final states = await api.states().take(2).toList();
-    expect(states, hasLength(2));
-    expect(heard.single.revision, 3);
-    expect(api.knownRevision, 3);
-    expect(heard.single.session, 'phone');
-  });
-
-  test('a starting layout is not sent; reverting to it is', () async {
-    final tv = _Tv();
-    final store = TvConfigStore(
-      TvCommands(tv),
-      Future.value(
-        TvState(
-          entities: const [_entity],
-          config: startingConfig,
-          visuals: const [],
-        ),
-      ),
-    );
-    final start = await store.load();
-
-    // The editor has the pack's own; another setting changing leaves it.
-    final saved = start.copyWith(
-      layout: homeLayout(['system:app/a']),
-      ownLayout: false,
-      toasts: const ToastOptions(seconds: 9),
-    );
-    await store.save(saved);
-    expect(tv.sent, ['config toasts']);
-
-    // Reverting to the starting layout is what is sent when the TV had its own.
-    final ownTv = _Tv();
-    final own = TvConfigStore(TvCommands(ownTv), Future.value(_state()));
-    final had = await own.load();
-    await own.save(had.copyWith(layout: homeLayout(), ownLayout: false));
-    expect(ownTv.sent, ['revert']);
+    expect(config.layout.toJson(), _state().config.layout.toJson());
+    expect(store.save(config), throwsStateError);
   });
 
   testWidgets('the launcher runs on what the TV sends, and edits go back', (
@@ -233,7 +125,7 @@ void main() {
           ]),
         );
     await tester.pumpAndSettle();
-    expect(tv.sent, ['edit 1']);
+    expect(tv.sent, ['edit']);
   });
 
   testWidgets('an entity pressed here is opened on the TV', (tester) async {

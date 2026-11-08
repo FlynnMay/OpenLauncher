@@ -175,17 +175,12 @@ void main() {
       expect(await ids(), ['system:app/b', 'system:app/a']);
       expect(store.config.layout.removed, isEmpty);
 
-      await config.setIconOverride('system:app/a', '/x.png');
+      await config.patch({
+        'iconOverrides': {'system:app/a': '/x.png'},
+      });
       expect(store.config.iconOverrides, {'system:app/a': '/x.png'});
-      await config.setIconOverride('system:app/a', null);
+      await config.patch({'iconOverrides': <String, Object?>{}});
       expect(store.config.iconOverrides, isEmpty);
-
-      // A custom picture and a borrowed one replace each other.
-      await config.setIconOverride('system:app/a', '/x.png');
-      await config.setIconSource('system:app/a', 'system:app/b');
-      expect(store.config.iconOverrides, isEmpty);
-      await config.setIconOverride('system:app/a', '/x.png');
-      expect(store.config.iconSources, isEmpty);
     });
 
     test('entities refresh when the device reports a package change', () async {

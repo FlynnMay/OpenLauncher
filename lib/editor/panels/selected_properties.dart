@@ -207,15 +207,14 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
     final borrowed = entities.byId(from);
     final custom =
         from != null || (config?.iconOverrides.containsKey(entity.id) ?? false);
-    Future<void> change(
-      Future<void> Function(ConfigController controller) how,
-    ) => whileBusy(() => changeConfig(context, ref, how));
+    Future<void> change(Future<void> Function() how) => whileBusy(how);
     return Section('Source', [
       CommitField(
         label: 'Name',
         value: entity.label,
         // Empty restores the device's name.
-        onChanged: (name) => change((c) => c.setName(entity.id, name)),
+        onChanged: (name) =>
+            change(() => setName(context, ref, entity.id, name)),
       ),
       if (config?.names.containsKey(entity.id) ?? false)
         Align(
@@ -223,7 +222,7 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
           child: TextButton(
             onPressed: busy
                 ? null
-                : () => change((c) => c.setName(entity.id, null)),
+                : () => change(() => setName(context, ref, entity.id, null)),
             child: const Text('Reset name'),
           ),
         ),
@@ -232,10 +231,10 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
         clearLabel: 'Reset picture',
         onPicked: (file) async {
           final url = await api.upload(file);
-          await change((c) => c.setIconOverride(entity.id, url));
+          await change(() => setIconOverride(context, ref, entity.id, url));
         },
         onCleared: custom
-            ? () => change((c) => c.setIconOverride(entity.id, null))
+            ? () => change(() => setIconOverride(context, ref, entity.id, null))
             : null,
       ),
       Align(
@@ -254,7 +253,9 @@ class _EntityDetailsState extends ConsumerState<_EntityDetails>
                     ],
                   );
                   if (from != null) {
-                    await change((c) => c.setIconSource(entity.id, from.id));
+                    await change(
+                      () => setIconSource(context, ref, entity.id, from.id),
+                    );
                   }
                 },
           icon: const Icon(Icons.collections_outlined),
@@ -295,15 +296,11 @@ class _HandedNode extends ConsumerWidget {
         onPicked: (file) async {
           final url = await api.upload(file);
           if (!context.mounted) return;
-          await changeConfig(context, ref, (c) => c.setIconOverride(key, url));
+          await setIconOverride(context, ref, key, url);
         },
         onCleared: picture == null
             ? null
-            : () => changeConfig(
-                context,
-                ref,
-                (c) => c.setIconOverride(key, null),
-              ),
+            : () => setIconOverride(context, ref, key, null),
       ),
       Wrap(
         spacing: 8,

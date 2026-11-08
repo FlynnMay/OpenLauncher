@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/commands/commands.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
 import 'package:openlauncher/server/media_store.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -55,12 +57,30 @@ class CommandRoutes implements ApiRoutes {
 
   /// Files arrive as ids and are kept as paths.
   Future<Command> _withFilePaths(Command command) async => switch (command) {
-    SetConfig(:final values) => SetConfig(
-      await _ref.read(mediaStoreProvider).withPaths(values),
-    ),
-    Batch(:final commands) => Batch([
-      for (final each in commands) await _withFilePaths(each),
+    EditSlice(:final edits) => EditSlice([
+      for (final edit in edits)
+        SliceEdit(edit.address, [
+          for (final op in edit.ops) await _opWithPaths(edit.address, op),
+        ]),
     ]),
     _ => command,
   };
+
+  Future<SliceOp> _opWithPaths(Address address, SliceOp op) async {
+    if (address is! ConfigAddress) return op;
+    final media = _ref.read(mediaStoreProvider);
+    switch (op) {
+      case SetSetting(:final key, :final value)
+          when LauncherConfig.fileKeys.contains(key):
+        return SetSetting(key, (await media.withPaths({key: value}))[key]);
+      case SetEntry(:final key, :final entry, :final value)
+          when LauncherConfig.fileKeys.contains(key) && value != null:
+        final paths = await media.withPaths({
+          key: {entry: value},
+        });
+        return SetEntry(key, entry, (paths[key] as Map?)?[entry]);
+      default:
+        return op;
+    }
+  }
 }

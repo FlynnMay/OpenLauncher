@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/access/access.dart';
 import 'package:openlauncher/core/actions/actions.dart';
@@ -16,7 +14,6 @@ import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/tv/tv_api.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher/server/config_server.dart';
-import 'package:openlauncher_domain/commands/commands.dart';
 
 /// Provider overrides that run the launcher in a browser: config, entities
 /// and wallpapers come from the TV, and config changes go back to it.
@@ -29,10 +26,7 @@ final List<Override> tvOverrides = [
   ),
   configStoreProvider.overrideWith(
     // A new store per state, so the config is re-read.
-    (ref) => TvConfigStore(
-      ref.watch(commandsProvider),
-      ref.watch(tvStateProvider.future),
-    ),
+    (ref) => TvConfigStore(ref.watch(tvStateProvider.future)),
   ),
   entitiesProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).entities,
@@ -76,45 +70,19 @@ final List<Override> tvOverrides = [
   ),
 ];
 
-/// The TV's config. Saving sends what changed.
+/// The TV's config, as the TV last said it. The page does not keep it: it
+/// sends edits, and the TV answers with the new state.
 class TvConfigStore implements ConfigStore {
-  TvConfigStore(this._commands, this._state);
+  TvConfigStore(this._state);
 
-  final Commands _commands;
   final Future<TvState> _state;
 
-  /// What the TV has: last received or last sent.
-  LauncherConfig? _known;
-
   @override
-  Future<LauncherConfig> load() async => _known = (await _state).config;
+  Future<LauncherConfig> load() async => (await _state).config;
 
   @override
   Future<void> save(LauncherConfig config) async {
-    final known = _known ?? await load();
-    _known = config;
-    // Only the user's own layout is sent; the TV has the starting one.
-    final revert = !config.ownLayout && known.ownLayout;
-    // Compared key by key.
-    final was = known.open, now = config.open;
-    final changed = {
-      for (final key in LauncherConfig.openKeys)
-        if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
-    };
-    // The layout and the prefabs are changed by slice edits, never by sending
-    // them again.
-    if (changed.containsKey('prefabs') ||
-        (config.ownLayout &&
-            jsonEncode(config.layout) != jsonEncode(known.layout))) {
-      throw StateError('The layout and the prefabs are changed with edits.');
-    }
-    final steps = [
-      if (revert) const ResetLayoutToStarting(),
-      if (changed.isNotEmpty) SetConfig(TvApi.withMediaIds(changed)),
-    ];
-    if (steps.isNotEmpty) {
-      await _commands.run(steps.length == 1 ? steps.single : Batch(steps));
-    }
+    throw StateError('The config is changed with edits, not saved.');
   }
 }
 

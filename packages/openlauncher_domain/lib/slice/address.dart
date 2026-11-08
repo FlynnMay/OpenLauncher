@@ -20,6 +20,9 @@ sealed class Address {
         child: child == null || child.isEmpty ? null : child,
       );
     }
+    if (trimmed.startsWith('screen:') && trimmed.length > 'screen:'.length) {
+      return ScreenAddress(trimmed.substring('screen:'.length));
+    }
     if (trimmed.startsWith('layout:') && trimmed.length > 'layout:'.length) {
       return LayoutAddress(trimmed.substring('layout:'.length));
     }
@@ -89,4 +92,21 @@ class LayoutAddress extends Address {
 
   @override
   int get hashCode => path.hashCode;
+}
+
+/// A screen as a whole: its label, its place among the screens.
+class ScreenAddress extends Address {
+  const ScreenAddress(this.screenId);
+
+  final String screenId;
+
+  @override
+  String toString() => 'screen:$screenId';
+
+  @override
+  bool operator ==(Object other) =>
+      other is ScreenAddress && other.screenId == screenId;
+
+  @override
+  int get hashCode => screenId.hashCode;
 }

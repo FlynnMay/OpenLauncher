@@ -63,50 +63,7 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
     };
   }
 
-  Future<void> change(LauncherConfig Function(LauncherConfig config) how) =>
-      _update(how);
-
+  /// Sets the settings in [json], leaving the rest as it is.
   Future<void> patch(Map<String, Object?> json) =>
       _update((config) => config.patched(json));
-
-  Future<void> setWallpapers(List<String> paths) => _update(
-    (config) => config.copyWith(wallpapers: List.unmodifiable(paths)),
-  );
-
-  Future<void> setWallpaperEvery(int minutes) => _update(
-    (config) => config.copyWith(
-      wallpaperEvery: minutes.clamp(0, LauncherConfig.maxWallpaperEvery),
-    ),
-  );
-
-  Future<void> setIconOverride(String id, String? path) => _update(
-    (config) => config.copyWith(
-      iconOverrides: path == null
-          ? ({...config.iconOverrides}..remove(id))
-          : {...config.iconOverrides, id: path},
-      iconSources: {...config.iconSources}..remove(id),
-    ),
-  );
-
-  Future<void> setIconSource(String id, String? from) => _update(
-    (config) => config.copyWith(
-      iconSources: from == null
-          ? ({...config.iconSources}..remove(id))
-          : {...config.iconSources, id: from},
-      iconOverrides: from == null
-          ? config.iconOverrides
-          : ({...config.iconOverrides}..remove(id)),
-    ),
-  );
-
-  Future<void> setName(String id, String? name) {
-    final trimmed = name?.trim() ?? '';
-    return _update(
-      (config) => config.copyWith(
-        names: trimmed.isEmpty
-            ? ({...config.names}..remove(id))
-            : {...config.names, id: trimmed},
-      ),
-    );
-  }
 }

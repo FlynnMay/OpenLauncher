@@ -37,6 +37,31 @@ final _png = Uint8List.fromList([
   0x0A,
 ]);
 
+Map<String, Object?> _addScreen(String id, {int? basedOn}) => {
+  'type': 'slice.edit',
+  'edits': [
+    {
+      'address': '/',
+      'ops': [
+        {'op': 'addScreen', 'id': id, 'screenName': ''},
+      ],
+    },
+  ],
+  'basedOn': ?basedOn,
+};
+
+Map<String, Object?> _removeScreen(String id) => {
+  'type': 'slice.edit',
+  'edits': [
+    {
+      'address': 'screen:$id',
+      'ops': [
+        {'op': 'removeScreen'},
+      ],
+    },
+  ],
+};
+
 void main() {
   late MemoryConfigStore store;
   late Directory tmp;
@@ -357,11 +382,7 @@ void main() {
 
     final before = await screens();
     final added = await said(
-      await call(
-        'POST',
-        '/api/commands',
-        body: {'type': 'screen.add', 'id': 'x'},
-      ),
+      await call('POST', '/api/commands', body: _addScreen('x')),
       200,
     );
     expect(added['revision'], 1);
@@ -375,25 +396,13 @@ void main() {
     // What cannot be done is a conflict; what is no command is a bad request.
     expect(
       (await said(
-        await call(
-          'POST',
-          '/api/commands',
-          body: {'type': 'screen.remove', 'id': 'nope'},
-        ),
+        await call('POST', '/api/commands', body: _removeScreen('nope')),
         409,
       ))['error'],
       isNotEmpty,
     );
     await said(
       await call('POST', '/api/commands', body: {'type': 'dance'}),
-      400,
-    );
-    await said(
-      await call(
-        'POST',
-        '/api/commands',
-        body: {'type': 'screen.add', 'target': 'prefab:a'},
-      ),
       400,
     );
   });
@@ -1256,11 +1265,7 @@ void main() {
     await entities();
     await pumpEventQueue();
 
-    await call(
-      'POST',
-      '/api/commands',
-      body: {'type': 'screen.add', 'id': 'seen'},
-    );
+    await call('POST', '/api/commands', body: _addScreen('seen'));
     await pumpEventQueue();
 
     final blocks = text.toString().split('\n\n');
@@ -1268,7 +1273,7 @@ void main() {
     final entry = jsonDecode(command.split('\n').last.substring(6)) as Map;
     expect(entry['revision'], 1);
     expect(entry['action'], 'run');
-    expect(entry['command'], containsPair('id', 'seen'));
+    expect(entry['command'], containsPair('type', 'slice.edit'));
     // Plain events are still only states.
     expect(
       blocks
@@ -1285,11 +1290,7 @@ void main() {
   test(
     'a new event stream starts with how far the commands have got',
     () async {
-      await call(
-        'POST',
-        '/api/commands',
-        body: {'type': 'screen.add', 'id': 'q'},
-      );
+      await call('POST', '/api/commands', body: _addScreen('q'));
       final response = await call('GET', '/api/events');
       final text = StringBuffer();
       final sub = response.read().transform(utf8.decoder).listen(text.write);
@@ -1304,11 +1305,8 @@ void main() {
   );
 
   test('a view only the same device has changed since is not stale', () async {
-    Future<Response> add(String id, {int? basedOn}) => call(
-      'POST',
-      '/api/commands',
-      body: {'type': 'screen.add', 'id': id, 'basedOn': ?basedOn},
-    );
+    Future<Response> add(String id, {int? basedOn}) =>
+        call('POST', '/api/commands', body: _addScreen(id, basedOn: basedOn));
     expect((await add('one')).statusCode, 200);
     // The same device looking at an older layout is fine: it did the change.
     expect((await add('two', basedOn: 0)).statusCode, 200);
@@ -1323,11 +1321,7 @@ void main() {
       )).readAsString(),
     );
     for (final id in ['a', 'b']) {
-      await call(
-        'POST',
-        '/api/commands',
-        body: {'type': 'screen.add', 'id': id},
-      );
+      await call('POST', '/api/commands', body: _addScreen(id));
     }
     await call('POST', '/api/commands/undo', body: {});
 

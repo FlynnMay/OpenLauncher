@@ -94,6 +94,7 @@ Document undone(Document after, List<SliceEdit> inverse) {
 }
 
 void main() {
+  stepFourTests();
   stepThreeTests();
   stepTwoTests();
   group('Address', () {
@@ -685,6 +686,81 @@ void stepThreeTests() {
       final back = undone(result.document, result.inverse);
       expect(back.layout.removed, before.layout.removed);
       expect(back.layout.inbox, before.layout.inbox);
+    });
+  });
+}
+
+void stepFourTests() {
+  Document withSettings() => Document(
+    layout: document().layout,
+    settings: {
+      'names': {'a': 'Alpha'},
+      'wallpaperEvery': 0,
+      'iconOverrides': <String, Object?>{},
+    },
+    startingLayout: Layout.blank(),
+  );
+
+  group('settings', () {
+    test('a whole value is set and the old one comes back', () {
+      final before = withSettings();
+      final result = const SliceEdit(ConfigAddress(), [
+        SetSetting('wallpaperEvery', 5),
+      ]).apply(before);
+      expect(result.document.settings['wallpaperEvery'], 5);
+      expect(
+        undone(result.document, result.inverse).settings['wallpaperEvery'],
+        0,
+      );
+    });
+
+    test('one entry of a map is set, and taken away again by its undo', () {
+      final before = withSettings();
+      final result = const SliceEdit(ConfigAddress(), [
+        SetEntry('names', 'b', 'Beta'),
+        SetEntry('names', 'a', null),
+      ]).apply(before);
+      expect(result.document.settings['names'], {'b': 'Beta'});
+      expect(undone(result.document, result.inverse).settings['names'], {
+        'a': 'Alpha',
+      });
+    });
+
+    test('something that is not a setting is refused', () {
+      expect(
+        () => const SliceEdit(ConfigAddress(), [
+          SetSetting('layout', 1),
+        ]).apply(withSettings()),
+        throwsA(isA<CommandRefused>()),
+      );
+      expect(
+        () => const SliceEdit(ConfigAddress(), [
+          SetEntry('wallpaperEvery', 'x', 1),
+        ]).apply(withSettings()),
+        throwsA(isA<CommandRefused>()),
+      );
+    });
+  });
+
+  group('the layout as the user\'s own', () {
+    test('a reset goes to the starting layout, and its undo brings the user\'s back', () {
+      final before = withSettings();
+      final reset = const SliceEdit(ConfigAddress(), [
+        ResetLayout(),
+      ]).apply(before);
+      expect(reset.document.layoutIsTheUsers, isFalse);
+      final back = undone(reset.document, reset.inverse);
+      expect(back.layoutIsTheUsers, isTrue);
+      expect(back.layout.toJson(), before.layout.toJson());
+    });
+
+    test('a reset with no starting layout is refused', () {
+      expect(
+        () => const SliceEdit(ConfigAddress(), [
+          ResetLayout(),
+        ]).apply(Document(layout: document().layout)),
+        throwsA(isA<CommandRefused>()),
+      );
     });
   });
 }

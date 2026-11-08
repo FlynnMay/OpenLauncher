@@ -8,6 +8,8 @@ import 'package:openlauncher_domain/layout/layout_enums.dart';
 import 'package:openlauncher_domain/layout/layout_ids.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/layout_repair.dart';
+import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/layout/screen_copy.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
 import 'package:openlauncher_domain/prefabs/prefab.dart';
@@ -66,6 +68,8 @@ const variantsShareStructure =
     'Variants share the prefab\'s structure, variables and actions. Switch '
     'to the default variant to change them.';
 
+const noSuchScreen = 'There is no such screen.';
+
 const _nothingThere = 'There is nothing there to change.';
 const _overridesOnly =
     'Only values can be changed there, since the prefab owns its modules.';
@@ -87,6 +91,7 @@ class _Applier {
 
   _Target _targetFor(Address address, SliceOp op) => switch (address) {
     ConfigAddress() => _ConfigTarget(this),
+    ScreenAddress(:final screenId) => _ScreenTarget(this, screenId),
     PrefabAddress(:final prefabId, :final child)
         when op is SavePrefab ||
             op is RevertPrefab ||

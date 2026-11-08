@@ -6,6 +6,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
 import 'package:openlauncher/server/media_store.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -30,14 +31,24 @@ class ConfigRoutes implements ApiRoutes {
     return revisionResponse(
       _ref
           .read(commandsProvider)
-          .run(ReplaceWholeLayout(layout), session: editingSessionOf(request)),
+          .run(
+            EditSlice([
+              SliceEdit(const ConfigAddress(), [SetLayout(layout)]),
+            ]),
+            session: editingSessionOf(request),
+          ),
     );
   }
 
   Future<Response> _resetLayoutToStarting(Request request) => revisionResponse(
     _ref
         .read(commandsProvider)
-        .run(const ResetLayoutToStarting(), session: editingSessionOf(request)),
+        .run(
+          EditSlice([
+            const SliceEdit(ConfigAddress(), [ResetLayout()]),
+          ]),
+          session: editingSessionOf(request),
+        ),
   );
 
   /// Sets the config keys in the body; files are named by id. Unreadable
@@ -51,7 +62,15 @@ class ConfigRoutes implements ApiRoutes {
     return revisionResponse(
       _ref
           .read(commandsProvider)
-          .run(SetConfig(values), session: editingSessionOf(request)),
+          .run(
+            EditSlice([
+              SliceEdit(const ConfigAddress(), [
+                for (final MapEntry(:key, :value) in values.entries)
+                  SetSetting(key, value),
+              ]),
+            ]),
+            session: editingSessionOf(request),
+          ),
     );
   }
 

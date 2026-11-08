@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/commands/commands.dart';
@@ -12,6 +14,7 @@ import 'package:openlauncher/editor/editing/dragging.dart';
 import 'package:openlauncher/editor/editing/history.dart';
 import 'package:openlauncher/editor/editing/prefab_mode.dart';
 import 'package:openlauncher/editor/editing/selection.dart';
+import 'package:openlauncher/editor/tv/tv_api.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/editing/docked_prefabs.dart';
 import 'package:openlauncher_domain/editing/layout_edit.dart';
@@ -85,21 +88,89 @@ Future<void> runLauncher(
   if (message != null) messenger.showSnackBar(SnackBar(content: Text(message)));
 }
 
-/// Changes the config through its controller; a change the TV refuses is
-/// reported and the TV's config read again.
-Future<void> changeConfig(
+/// Sets settings to whole new values, as the editor holds them: a picture
+/// by its address on the TV is sent as the id of its file.
+Future<void> setSettings(
   BuildContext context,
   WidgetRef ref,
-  Future<void> Function(ConfigController controller) change,
-) async {
-  final messenger = ScaffoldMessenger.of(context);
-  try {
-    await change(ref.read(configProvider.notifier));
-  } on Object catch (error) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
-    ref.invalidate(configProvider);
-  }
+  Map<String, Object?> values,
+) => runEdits(context, ref, [
+  SliceEdit(const ConfigAddress(), [
+    for (final MapEntry(:key, :value) in TvApi.withMediaIds(values).entries)
+      SetSetting(key, value),
+  ]),
+]);
+
+/// Changes the config by [how], and sets the settings that came out
+/// different, each to its whole new value.
+Future<void> changeSettings(
+  BuildContext context,
+  WidgetRef ref,
+  LauncherConfig Function(LauncherConfig config) how,
+) {
+  final config = ref.read(configProvider).value;
+  if (config == null) return Future.value();
+  final was = config.open, now = how(config).open;
+  return setSettings(context, ref, {
+    for (final key in LauncherConfig.openKeys)
+      if (jsonEncode(now[key]) != jsonEncode(was[key])) key: now[key],
+  });
 }
+
+/// Sets entries of the settings that are maps, each as `(setting, entry,
+/// value)`; a null value takes the entry away.
+Future<void> setEntries(
+  BuildContext context,
+  WidgetRef ref,
+  List<(String, String, String?)> entries,
+) => runEdits(context, ref, [
+  SliceEdit(const ConfigAddress(), [
+    for (final (setting, entry, value) in entries)
+      SetEntry(
+        setting,
+        entry,
+        setting == 'iconOverrides' && value != null
+            ? TvApi.mediaIdOf(value)
+            : value,
+      ),
+  ]),
+]);
+
+/// Calls app or node [id] [name]; none, or empty, restores its own name.
+Future<void> setName(
+  BuildContext context,
+  WidgetRef ref,
+  String id,
+  String? name,
+) {
+  final trimmed = name?.trim() ?? '';
+  return setEntries(context, ref, [
+    ('names', id, trimmed.isEmpty ? null : trimmed),
+  ]);
+}
+
+/// Gives [id] the picture at [path]; none takes its own away. It stops
+/// borrowing another's.
+Future<void> setIconOverride(
+  BuildContext context,
+  WidgetRef ref,
+  String id,
+  String? path,
+) => setEntries(context, ref, [
+  ('iconOverrides', id, path),
+  ('iconSources', id, null),
+]);
+
+/// Makes [id] use the picture of [from]; none stops it.
+Future<void> setIconSource(
+  BuildContext context,
+  WidgetRef ref,
+  String id,
+  String? from,
+) => setEntries(context, ref, [
+  ('iconSources', id, from),
+  if (from != null) ('iconOverrides', id, null),
+]);
 
 /// Why [dragged] cannot go into container [containerId] of what is being
 /// edited, or null.

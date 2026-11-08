@@ -1,77 +1,42 @@
 import 'package:openlauncher_domain/commands/commands.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 import 'package:test/test.dart';
 
 List<String> _ids(Layout layout) => [for (final s in layout.screens) s.id];
 
+/// A command that adds or removes the screen [id], to have something to keep.
+Command _remove(String id) => EditSlice([
+  SliceEdit(ScreenAddress(id), const [RemoveScreen()]),
+]);
+
+Command _add(String id) => EditSlice([
+  SliceEdit(const ConfigAddress(), [AddScreen(id: id)]),
+]);
+
 void main() {
   historyKeptAsJson();
-  screenEditingCommands();
-  final blank = Layout.blank();
-
-  group('screen commands', () {
-    test('AddScreen adds an empty screen with a free id', () {
-      final once = const AddScreen(name: 'Kitchen').apply(blank);
-      final twice = const AddScreen(name: 'Kitchen').apply(once);
-      expect(_ids(twice), ['home', 'kitchen', 'kitchen-2']);
-      expect(once.screen('kitchen')!.root.name, 'Kitchen');
-    });
-
-    test('RemoveScreen refuses the last screen and one that is not there', () {
-      expect(
-        () => const RemoveScreen('home').apply(blank),
-        throwsA(isA<CommandRefused>()),
-      );
-      final two = const AddScreen(id: 'tv').apply(blank);
-      expect(
-        () => const RemoveScreen('nope').apply(two),
-        throwsA(isA<CommandRefused>()),
-      );
-      expect(_ids(const RemoveScreen('tv').apply(two)), ['home']);
-    });
-
-    test('each command is undone by its inverse', () {
-      final two = const AddScreen(id: 'tv').apply(blank);
-      final added = const AddScreen(id: 'tv');
-      expect(_ids(added.inverse(blank).apply(two)), ['home']);
-
-      final removed = const RemoveScreen('home');
-      final back = removed.inverse(two).apply(removed.apply(two));
-      expect(_ids(back), ['home', 'tv']);
-    });
-
-    test('an undone add takes the screen it made, not one with its id', () {
-      final first = const AddScreen(id: 'tv').apply(blank);
-      final taken = const AddScreen(id: 'tv');
-      expect(taken.idIn(first), 'tv-2');
-      expect(_ids(taken.inverse(first).apply(taken.apply(first))), [
-        'home',
-        'tv',
-      ]);
-    });
-
-    test('a removed screen comes back as it was, where it was', () {
-      final three = const AddScreen(id: 'c')
-          .apply(const AddScreen(id: 'b').apply(blank));
-      const removal = RemoveScreen('b');
-      final restored = removal.inverse(three).apply(removal.apply(three));
-      expect(_ids(restored), ['home', 'b', 'c']);
-    });
-  });
 
   group('commandFromJson', () {
     test('reads what toJson writes', () {
-      final two = const AddScreen(id: 'tv').apply(blank);
-      for (final command in <Command>[
-        const AddScreen(id: 'x', name: 'X'),
-        const RemoveScreen('x'),
-        RestoreScreen(two.screen('tv')!, 1),
-      ]) {
-        expect(commandFromJson(command.toJson()).toJson(), command.toJson());
-      }
+      final command = EditSlice([
+        SliceEdit(const ConfigAddress(), [
+          const AddScreen(id: 'x', label: 'X'),
+          const SetSetting('wallpaperEvery', 5),
+          const SetEntry('names', 'a', 'Alpha'),
+          const SetStartup(screenId: 'x', remember: true),
+          const ResetLayout(),
+        ]),
+        const SliceEdit(ScreenAddress('x'), [
+          RenameScreen('Y'),
+          DuplicateScreen(),
+          RemoveScreen(),
+        ]),
+      ]);
+      expect(commandFromJson(command.toJson()).toJson(), command.toJson());
     });
 
-    test('refuses what is not a command, or is not for the layout', () {
+    test('refuses what is not a command', () {
       expect(
         () => commandFromJson({'type': 'nope'}),
         throwsA(isA<FormatException>()),
@@ -80,22 +45,18 @@ void main() {
         () => commandFromJson({'type': 'screen.remove'}),
         throwsA(isA<FormatException>()),
       );
-      expect(
-        () => commandFromJson({'type': 'screen.add', 'target': 'prefab:a'}),
-        throwsA(isA<FormatException>()),
-      );
     });
   });
 
   group('CommandHistory', () {
     test('undo and redo go back and forth, per session', () {
       final history = CommandHistory();
-      const undo = RemoveScreen('a');
+      final undo = _remove('a');
       history.recordChange('one', undo);
       expect(history.nextUndo('two'), isNull);
       expect(history.nextUndo('one'), same(undo));
 
-      const redo = AddScreen(id: 'a');
+      final redo = _add('a');
       history.recordUndo('one', redo);
       expect(history.nextUndo('one'), isNull);
       expect(history.nextRedo('one'), same(redo));
@@ -107,52 +68,104 @@ void main() {
 
     test('a new change clears what could be redone', () {
       final history = CommandHistory()
-        ..recordChange('one', const RemoveScreen('a'))
-        ..recordUndo('one', const AddScreen(id: 'a'))
-        ..recordChange('one', const RemoveScreen('b'));
+        ..recordChange('one', _remove('a'))
+        ..recordUndo('one', _add('a'))
+        ..recordChange('one', _remove('b'));
       expect(history.nextRedo('one'), isNull);
     });
 
     test('keeps only the last [limit] steps', () {
       final history = CommandHistory(limit: 2)
-        ..recordChange('one', const RemoveScreen('a'))
-        ..recordChange('one', const RemoveScreen('b'))
-        ..recordChange('one', const RemoveScreen('c'));
-      history.recordUndo('one', const AddScreen());
-      history.recordUndo('one', const AddScreen());
+        ..recordChange('one', _remove('a'))
+        ..recordChange('one', _remove('b'))
+        ..recordChange('one', _remove('c'));
+      history.recordUndo('one', _add('a'));
+      history.recordUndo('one', _add('b'));
       expect(history.nextUndo('one'), isNull);
     });
   });
-}
 
-void screenEditingCommands() {
-  group('RenameScreen, SetStartup and DuplicateScreen', () {
-    final two = const AddScreen(id: 'tv', name: 'TV').apply(Layout.blank());
+  group('screens', () {
+    final blank = Document(layout: Layout.blank());
+
+    Document run(Document document, List<SliceEdit> edits) =>
+        EditSlice(edits).edit(document);
+
+    test('an added screen has a free id, and is removed again by its undo', () {
+      final command = EditSlice([
+        SliceEdit(const ConfigAddress(), [const AddScreen(label: 'Kitchen')]),
+      ]);
+      final once = command.edit(blank);
+      final twice = command.edit(once);
+      expect(_ids(twice.layout), ['home', 'kitchen', 'kitchen-2']);
+      expect(once.layout.screen('kitchen')!.root.name, 'Kitchen');
+      // The undo takes away the screen it made, not one with the same id.
+      final back = command.undoing(once).edit(twice);
+      expect(_ids(back.layout), ['home', 'kitchen']);
+    });
+
+    test('the last screen stays, and one that is not there is refused', () {
+      expect(() => _remove('home').edit(blank), throwsA(isA<CommandRefused>()));
+      final two = run(blank, [
+        const SliceEdit(ConfigAddress(), [AddScreen(id: 'tv')]),
+      ]);
+      expect(() => _remove('nope').edit(two), throwsA(isA<CommandRefused>()));
+      expect(_ids(_remove('tv').edit(two).layout), ['home']);
+    });
+
+    test('a removed screen comes back as it was, where it was', () {
+      final three = run(blank, [
+        const SliceEdit(ConfigAddress(), [AddScreen(id: 'b')]),
+        const SliceEdit(ConfigAddress(), [AddScreen(id: 'c')]),
+      ]);
+      final command = _remove('b');
+      final restored = command.undoing(three).edit(command.edit(three));
+      expect(_ids(restored.layout), ['home', 'b', 'c']);
+    });
 
     test('a rename is undone by the old label', () {
-      const rename = RenameScreen('tv', 'Lounge');
-      final renamed = rename.apply(two);
-      expect(renamed.screen('tv')!.root.name, 'Lounge');
-      expect(rename.inverse(two).apply(renamed).screen('tv')!.root.name, 'TV');
+      final two = run(blank, [
+        const SliceEdit(ConfigAddress(), [AddScreen(id: 'tv', label: 'TV')]),
+      ]);
+      final command = EditSlice([
+        const SliceEdit(ScreenAddress('tv'), [RenameScreen('Lounge')]),
+      ]);
+      final renamed = command.edit(two);
+      expect(renamed.layout.screen('tv')!.root.name, 'Lounge');
       expect(
-        () => const RenameScreen('nope', 'x').apply(two),
+        command.undoing(two).edit(renamed).layout.screen('tv')!.root.name,
+        'TV',
+      );
+      expect(
+        () => EditSlice([
+          const SliceEdit(ScreenAddress('nope'), [RenameScreen('x')]),
+        ]).edit(two),
         throwsA(isA<CommandRefused>()),
       );
     });
 
     test('startup changes only what it is given, and is undone', () {
-      const onTv = SetStartup(screenId: 'tv');
-      final set = onTv.apply(two);
-      expect(set.startup.screen, 'tv');
-      final remembered = const SetStartup(remember: true).apply(set);
-      expect(remembered.startup.screen, 'tv');
-      expect(remembered.startup.remember, isTrue);
-      final back = const SetStartup(remember: true)
-          .inverse(set)
-          .apply(remembered);
-      expect(back.startup, set.startup);
+      final two = run(blank, [
+        const SliceEdit(ConfigAddress(), [AddScreen(id: 'tv')]),
+      ]);
+      final on = EditSlice([
+        const SliceEdit(ConfigAddress(), [SetStartup(screenId: 'tv')]),
+      ]).edit(two);
+      expect(on.layout.startup.screen, 'tv');
+      final remember = EditSlice([
+        const SliceEdit(ConfigAddress(), [SetStartup(remember: true)]),
+      ]);
+      final remembered = remember.edit(on);
+      expect(remembered.layout.startup.screen, 'tv');
+      expect(remembered.layout.startup.remember, isTrue);
       expect(
-        () => const SetStartup(screenId: 'nope').apply(two),
+        remember.undoing(on).edit(remembered).layout.startup,
+        on.layout.startup,
+      );
+      expect(
+        () => EditSlice([
+          const SliceEdit(ConfigAddress(), [SetStartup(screenId: 'nope')]),
+        ]).edit(two),
         throwsA(isA<CommandRefused>()),
       );
     });
@@ -160,23 +173,27 @@ void screenEditingCommands() {
     test(
       'a copy carries the pictures of its nodes, and one undo removes both',
       () {
+        final two = run(blank, [
+          const SliceEdit(ConfigAddress(), [AddScreen(id: 'tv', label: 'TV')]),
+        ]);
         final withNode = Document(
-          layout: two,
+          layout: two.layout,
           settings: {
             'iconOverrides': {
-              Layout.pictureKey(two.screen('tv')!.root.id): '/a.png',
+              Layout.pictureKey(two.layout.screen('tv')!.root.id): '/a.png',
             },
             'iconSources': <String, Object?>{},
           },
         );
-        const copy = DuplicateScreen('tv');
+        final copy = EditSlice([
+          const SliceEdit(ScreenAddress('tv'), [DuplicateScreen()]),
+        ]);
         final after = copy.edit(withNode);
         expect(after.layout.screens.map((s) => s.id), ['home', 'tv', 'tv-2']);
         expect(
           (after.settings['iconOverrides']! as Map).keys,
           contains(Layout.pictureKey(after.layout.screen('tv-2')!.root.id)),
         );
-
         final back = copy.undoing(withNode).edit(after);
         expect(back.layout.screens.map((s) => s.id), ['home', 'tv']);
         expect(
@@ -192,34 +209,25 @@ void historyKeptAsJson() {
   group('CommandHistory as JSON', () {
     test('what a session can undo and redo comes back as it was', () {
       final history = CommandHistory()
-        ..recordChange('phone', const RemoveScreen('a'))
-        ..recordChange('phone', const RemoveScreen('b'))
-        ..recordUndo('phone', const AddScreen(id: 'b'))
-        ..recordChange('laptop', const RemoveScreen('c'));
+        ..recordChange('phone', _remove('a'))
+        ..recordChange('phone', _remove('b'))
+        ..recordUndo('phone', _add('b'))
+        ..recordChange('laptop', _remove('c'));
 
       final back = CommandHistory.fromJson(
         history.toJson(),
         read: commandFromJson,
       );
-      expect(
-        back.nextUndo('phone')!.toJson(),
-        const RemoveScreen('a').toJson(),
-      );
-      expect(
-        back.nextRedo('phone')!.toJson(),
-        const AddScreen(id: 'b').toJson(),
-      );
-      expect(
-        back.nextUndo('laptop')!.toJson(),
-        const RemoveScreen('c').toJson(),
-      );
+      expect(back.nextUndo('phone')!.toJson(), _remove('a').toJson());
+      expect(back.nextRedo('phone')!.toJson(), _add('b').toJson());
+      expect(back.nextUndo('laptop')!.toJson(), _remove('c').toJson());
       expect(back.nextUndo('nobody'), isNull);
     });
 
     test('a session with a command that cannot be read starts empty', () {
       final back = CommandHistory.fromJson({
         'good': {
-          'undo': [const RemoveScreen('a').toJson()],
+          'undo': [_remove('a').toJson()],
         },
         'bad': {
           'undo': [

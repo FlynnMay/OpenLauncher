@@ -88,6 +88,16 @@ class _StoredTarget extends _Target {
       case MakePrefab():
         return _madePrefab(node, op);
       case SetRemoved() ||
+          SetSetting() ||
+          SetEntry() ||
+          AddScreen() ||
+          RestoreScreen() ||
+          SetStartup() ||
+          SetLayout() ||
+          ResetLayout() ||
+          RenameScreen() ||
+          RemoveScreen() ||
+          DuplicateScreen() ||
           SetInbox() ||
           SavePrefab() ||
           RevertPrefab() ||
@@ -523,20 +533,25 @@ class _PrefabTree extends _Tree {
   }
 }
 
-/// Things that belong to the whole layout.
+/// Things that belong to the whole config: the settings, the removed apps and
+/// the inbox, the startup screen and the screens as a list, the layout whole.
 class _ConfigTarget extends _Target {
   _ConfigTarget(this.applier);
 
   final _Applier applier;
 
+  Document get _document => applier.document;
+
+  static const _address = ConfigAddress();
+
   @override
   List<SliceEdit> apply(SliceOp op) {
-    final layout = applier.document.layout;
+    final layout = _document.layout;
     switch (op) {
       case SetRemoved(:final ids):
         applier.setLayout(layout.copyWith(removed: ids));
         return [
-          SliceEdit(const ConfigAddress(), [SetRemoved(layout.removed)]),
+          SliceEdit(_address, [SetRemoved(layout.removed)]),
         ];
       case SetInbox(:final containerId):
         if (layout.node(containerId) == null) {
@@ -544,11 +559,208 @@ class _ConfigTarget extends _Target {
         }
         applier.setLayout(layout.copyWith(inbox: containerId));
         return [
-          SliceEdit(const ConfigAddress(), [SetInbox(layout.inbox)]),
+          SliceEdit(_address, [SetInbox(layout.inbox)]),
         ];
+      case SetSetting(:final key, :final value):
+        final was = _settingNamed(key);
+        _setSettings({..._document.settings, key: value});
+        return [
+          SliceEdit(_address, [SetSetting(key, was)]),
+        ];
+      case SetEntry(:final key, :final entry, :final value):
+        final map = _mapNamed(key);
+        _setSettings({
+          ..._document.settings,
+          key: {...map}
+            ..remove(entry)
+            ..addAll({entry: ?value}),
+        });
+        return [
+          SliceEdit(_address, [SetEntry(key, entry, map[entry])]),
+        ];
+      case AddScreen():
+        return _addScreen(op);
+      case RestoreScreen(:final screen, :final index):
+        if (layout.screen(screen.id) != null) {
+          throw CommandRefused('Screen "${screen.id}" is already there.');
+        }
+        final screens = [...layout.screens];
+        screens.insert(index.clamp(0, screens.length), screen);
+        applier.setLayout(layout.copyWith(screens: screens));
+        return [
+          SliceEdit(ScreenAddress(screen.id), const [RemoveScreen()]),
+        ];
+      case SetStartup(:final screenId, :final remember):
+        if (screenId != null && layout.screen(screenId) == null) {
+          throw const CommandRefused(noSuchScreen);
+        }
+        applier.setLayout(
+          layout.copyWith(
+            startup: Startup(
+              screenId ?? layout.startup.screen,
+              remember: remember ?? layout.startup.remember,
+            ),
+          ),
+        );
+        return [
+          SliceEdit(_address, [
+            SetStartup(
+              screenId: layout.startup.screen,
+              remember: layout.startup.remember,
+            ),
+          ]),
+        ];
+      case SetLayout(layout: final next):
+        return _replacedLayout(next.normalised(), ownLayout: true);
+      case ResetLayout():
+        return _replacedLayout(
+          _document.startingLayout ??
+              (throw const CommandRefused('There is no starting layout.')),
+          ownLayout: false,
+        );
       default:
         throw const CommandRefused('That cannot be done to the config.');
     }
+  }
+
+  Object? _settingNamed(String key) {
+    if (!_document.settings.containsKey(key)) {
+      throw CommandRefused('Not a setting: $key');
+    }
+    return _document.settings[key];
+  }
+
+  Map<Object?, Object?> _mapNamed(String key) => switch (_settingNamed(key)) {
+    final Map<Object?, Object?> map => map,
+    null => const {},
+    _ => throw CommandRefused('"$key" does not hold entries.'),
+  };
+
+  void _setSettings(Map<String, Object?> settings) =>
+      applier.document = _document.copyWith(settings: settings);
+
+  List<SliceEdit> _addScreen(AddScreen op) {
+    final layout = _document.layout;
+    final id = op.idIn(layout);
+    final empty = Screen.empty(id);
+    applier.setLayout(
+      layout.copyWith(
+        screens: [
+          ...layout.screens,
+          empty.withRoot(empty.root.copyWith(name: op.label)),
+        ],
+      ),
+    );
+    return [
+      SliceEdit(ScreenAddress(id), const [RemoveScreen()]),
+    ];
+  }
+
+  /// The layout replaced whole; the edit that puts the old one back.
+  List<SliceEdit> _replacedLayout(Layout next, {required bool ownLayout}) {
+    final was = _document.layout;
+    final wasOwn = _document.layoutIsTheUsers;
+    applier.document = _document.copyWith(
+      layout: next,
+      layoutIsTheUsers: ownLayout,
+    );
+    return [
+      SliceEdit(_address, [wasOwn ? SetLayout(was) : const ResetLayout()]),
+    ];
+  }
+}
+
+/// One screen as a whole.
+class _ScreenTarget extends _Target {
+  _ScreenTarget(this.applier, this.screenId);
+
+  final _Applier applier;
+  final String screenId;
+
+  Layout get _layout => applier.document.layout;
+
+  Screen get _screen =>
+      _layout.screen(screenId) ?? (throw const CommandRefused(noSuchScreen));
+
+  @override
+  List<SliceEdit> apply(SliceOp op) {
+    switch (op) {
+      case RenameScreen(:final label):
+        final was = _screen.root.name;
+        _replaceScreen(_screen.withRoot(_screen.root.copyWith(name: label)));
+        return [
+          SliceEdit(ScreenAddress(screenId), [RenameScreen(was)]),
+        ];
+      case RemoveScreen():
+        final screen = _screen;
+        if (_layout.screens.length < 2) {
+          throw const CommandRefused('The last screen stays.');
+        }
+        final index = _layout.screens.indexWhere((one) => one.id == screenId);
+        applier.setLayout(
+          _layout
+              .copyWith(
+                screens: [
+                  for (final one in _layout.screens)
+                    if (one.id != screenId) one,
+                ],
+              )
+              .normalised(),
+        );
+        return [
+          SliceEdit(const ConfigAddress(), [RestoreScreen(screen, index)]),
+        ];
+      case DuplicateScreen():
+        return _duplicate();
+      default:
+        throw const CommandRefused('That cannot be done to a screen.');
+    }
+  }
+
+  void _replaceScreen(Screen next) => applier.setLayout(
+    _layout.copyWith(
+      screens: [
+        for (final one in _layout.screens) one.id == screenId ? next : one,
+      ],
+    ),
+  );
+
+  static const _pictureSettings = ['iconOverrides', 'iconSources'];
+
+  List<SliceEdit> _duplicate() {
+    final layout = _layout;
+    final original = _screen;
+    final copyId = DuplicateScreen.copyIdIn(layout, screenId);
+    final (:screen, :renamed) = original.copied(copyId);
+    applier.setLayout(
+      layout.copyWith(
+        screens: [
+          for (final one in layout.screens) ...[
+            one,
+            if (one.id == screenId) screen,
+          ],
+        ],
+      ),
+    );
+    final undo = <SliceEdit>[
+      SliceEdit(ScreenAddress(copyId), const [RemoveScreen()]),
+    ];
+    final settings = {...applier.document.settings};
+    for (final setting in _pictureSettings) {
+      if (settings[setting] case final Map<Object?, Object?> pictures) {
+        final added = {
+          for (final MapEntry(:key, :value) in renamed.entries)
+            Layout.pictureKey(value): ?pictures[Layout.pictureKey(key)],
+        };
+        settings[setting] = {...pictures, ...added};
+        undo.addAll([
+          for (final key in added.keys)
+            SliceEdit(const ConfigAddress(), [SetEntry(setting, key, null)]),
+        ]);
+      }
+    }
+    applier.document = applier.document.copyWith(settings: settings);
+    return undo;
   }
 }
 

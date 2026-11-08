@@ -1,10 +1,13 @@
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 import 'package:test/test.dart';
 
 CommandLogEntry _record(CommandLog log, String session) => log.record(
   session: session,
   action: CommandAction.run,
-  command: const AddScreen(id: 'tv').toJson(),
+  command: EditSlice([
+    const SliceEdit(ConfigAddress(), [AddScreen(id: 'tv')]),
+  ]).toJson(),
 );
 
 void main() {
@@ -41,7 +44,9 @@ void main() {
       revision: 7,
       session: 'phone',
       action: CommandAction.undo,
-      command: const RemoveScreen('tv').toJson(),
+      command: EditSlice([
+        const SliceEdit(ScreenAddress('tv'), [RemoveScreen()]),
+      ]).toJson(),
     );
     expect(CommandLogEntry.fromJson(entry.toJson()).toJson(), entry.toJson());
   });

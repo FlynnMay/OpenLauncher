@@ -4,8 +4,23 @@ import 'package:openlauncher/core/commands/commands.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 import '../support/packs.dart';
+
+Command addScreen(String id, {String name = ''}) => EditSlice([
+  SliceEdit(const ConfigAddress(), [AddScreen(id: id, label: name)]),
+]);
+
+Command removeScreen(String id) => EditSlice([
+  SliceEdit(ScreenAddress(id), const [RemoveScreen()]),
+]);
+
+Command setConfig(Map<String, Object?> values) => EditSlice([
+  SliceEdit(const ConfigAddress(), [
+    for (final MapEntry(:key, :value) in values.entries) SetSetting(key, value),
+  ]),
+]);
 
 void main() {
   Future<ProviderContainer> launcher() async {
@@ -33,16 +48,16 @@ void main() {
   test('a command changes the saved layout and counts a revision', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);
-    expect(await commands.run(const AddScreen(id: 'tv')), 1);
-    expect(await commands.run(const AddScreen(id: 'tv')), 2);
+    expect(await commands.run(addScreen('tv')), 1);
+    expect(await commands.run(addScreen('tv')), 2);
     expect(await screensOf(c), ['home', 'tv', 'tv-2']);
   });
 
   test('a session undoes and redoes only what it did', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);
-    await commands.run(const AddScreen(id: 'mine'), session: 'one');
-    await commands.run(const AddScreen(id: 'yours'), session: 'two');
+    await commands.run(addScreen('mine'), session: 'one');
+    await commands.run(addScreen('yours'), session: 'two');
 
     await commands.undo(session: 'one');
     expect(await screensOf(c), ['home', 'yours']);
@@ -60,7 +75,7 @@ void main() {
     final c = await launcher();
     final commands = c.read(commandsProvider);
     await expectLater(
-      commands.run(const RemoveScreen('home'), session: 'one'),
+      commands.run(removeScreen('home'), session: 'one'),
       throwsA(isA<CommandRefused>()),
     );
     expect(await screensOf(c), ['home']);
@@ -75,14 +90,14 @@ void main() {
     final commands = c.read(commandsProvider);
     Future<LauncherConfig> config() => c.read(configProvider.future);
 
-    await commands.run(const SetConfig({'wallpaperEvery': 5}), session: 'one');
-    await commands.run(const AddScreen(id: 'tv'), session: 'one');
+    await commands.run(setConfig({'wallpaperEvery': 5}), session: 'one');
+    await commands.run(addScreen('tv'), session: 'one');
     await commands.run(
-      const Batch([
-        SetConfig({
-          'names': {'a': 'Films'},
-        }),
-        AddScreen(id: 'den'),
+      EditSlice([
+        const SliceEdit(ConfigAddress(), [
+          SetSetting('names', {'a': 'Films'}),
+          AddScreen(id: 'den'),
+        ]),
       ]),
       session: 'one',
     );
@@ -102,11 +117,16 @@ void main() {
   test('a reset to the starting layout is undone', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);
-    await commands.run(const AddScreen(id: 'mine'), session: 'one');
+    await commands.run(addScreen('mine'), session: 'one');
     expect(await screensOf(c), ['home', 'mine']);
     expect((await c.read(configProvider.future)).ownLayout, isTrue);
 
-    await commands.run(const ResetLayoutToStarting(), session: 'one');
+    await commands.run(
+      EditSlice([
+        const SliceEdit(ConfigAddress(), [ResetLayout()]),
+      ]),
+      session: 'one',
+    );
     expect(await screensOf(c), ['system:home']);
     expect((await c.read(configProvider.future)).ownLayout, isFalse);
 
@@ -122,12 +142,12 @@ void main() {
     final c = await launcher();
     final commands = c.read(commandsProvider);
     await expectLater(
-      commands.run(const SetConfig({'layout': 1})),
+      commands.run(setConfig({'layout': 1})),
       throwsA(isA<CommandRefused>()),
     );
     await expectLater(
       commands.run(
-        SetConfig({
+        setConfig({
           'names': {'a': 'x' * 61},
         }),
       ),
@@ -141,7 +161,7 @@ void main() {
     final heard = <CommandLogEntry>[];
     commands.entries.listen(heard.add);
 
-    await commands.run(const AddScreen(id: 'tv'), session: 'phone');
+    await commands.run(addScreen('tv'), session: 'phone');
     await commands.undo(session: 'phone');
     await commands.redo(session: 'phone');
 
@@ -152,7 +172,7 @@ void main() {
     );
     expect(heard.every((e) => e.session == 'phone'), isTrue);
     // An undo logs the command that took the change back.
-    expect(heard[1].command['type'], 'screen.remove');
+    expect(heard[1].command['type'], 'slice.edit');
     expect(
       [for (final e in (await commands.entriesAfter(1))!) e.revision],
       [2, 3],
@@ -162,27 +182,23 @@ void main() {
   test('a command from a view someone else has changed is refused', () async {
     final c = await launcher();
     final commands = c.read(commandsProvider);
-    await commands.run(const AddScreen(id: 'mine'), session: 'phone');
+    await commands.run(addScreen('mine'), session: 'phone');
     final seen = commands.revision;
-    await commands.run(const AddScreen(id: 'theirs'), session: 'laptop');
+    await commands.run(addScreen('theirs'), session: 'laptop');
 
     // The phone looked before the laptop's change.
     await expectLater(
-      commands.run(
-        const AddScreen(id: 'late'),
-        session: 'phone',
-        basedOn: seen,
-      ),
+      commands.run(addScreen('late'), session: 'phone', basedOn: seen),
       throwsA(isA<CommandRefused>()),
     );
     // Its own changes do not make it stale, and a current view is fine.
     await commands.run(
-      const AddScreen(id: 'again'),
+      addScreen('again'),
       session: 'phone',
       basedOn: commands.revision,
     );
     await commands.run(
-      const AddScreen(id: 'more'),
+      addScreen('more'),
       session: 'phone',
       basedOn: commands.revision - 1,
     );
@@ -207,8 +223,8 @@ void main() {
     final before = started();
     await before.read(configProvider.future);
     final commands = before.read(commandsProvider);
-    await commands.run(const AddScreen(id: 'tv'), session: 'phone');
-    await commands.run(const AddScreen(id: 'den'), session: 'phone');
+    await commands.run(addScreen('tv'), session: 'phone');
+    await commands.run(addScreen('den'), session: 'phone');
     await commands.undo(session: 'phone');
     before.dispose();
 
@@ -248,7 +264,7 @@ void main() {
     final c = await launcher();
     final commands = c.read(commandsProvider);
     await expectLater(
-      commands.run(const RemoveScreen('home')),
+      commands.run(removeScreen('home')),
       throwsA(isA<CommandRefused>()),
     );
     expect(await commands.entriesAfter(0), isEmpty);
@@ -258,7 +274,7 @@ void main() {
     final c = await launcher();
     final commands = c.read(commandsProvider);
     await Future.wait([
-      for (var i = 0; i < 5; i++) commands.run(const AddScreen(id: 'tv')),
+      for (var i = 0; i < 5; i++) commands.run(addScreen('tv')),
     ]);
     expect(await screensOf(c), ['home', 'tv', 'tv-2', 'tv-3', 'tv-4', 'tv-5']);
   });
@@ -268,8 +284,8 @@ void main() {
     () async {
       final c = await launcher();
       final commands = c.read(commandsProvider);
-      await commands.run(const AddScreen(id: 'tv', name: 'TV room'));
-      await commands.run(const RemoveScreen('tv'), session: 'one');
+      await commands.run(addScreen('tv', name: 'TV room'));
+      await commands.run(removeScreen('tv'), session: 'one');
       await commands.undo(session: 'one');
       final layout = (await c.read(configProvider.future)).layout;
       expect(layout.screen('tv')?.root.name, 'TV room');

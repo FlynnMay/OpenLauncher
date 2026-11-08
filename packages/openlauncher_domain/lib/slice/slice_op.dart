@@ -1,5 +1,8 @@
 import 'package:openlauncher_domain/commands/command.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
+import 'package:openlauncher_domain/layout/layout_ids.dart';
+import 'package:openlauncher_domain/layout/layout_model.dart';
+import 'package:openlauncher_domain/layout/screen.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/geometry.dart';
 import 'package:openlauncher_domain/nodes/node.dart';
@@ -53,6 +56,34 @@ sealed class SliceOp {
       rect: Box.fromJson(json['rect']),
       size: Extent.fromJson(json['size']),
     ),
+    SetSetting.name => SetSetting(
+      jsonRequired<String>(json, 'key'),
+      json['value'],
+    ),
+    SetEntry.name => SetEntry(
+      jsonRequired<String>(json, 'key'),
+      jsonRequired<String>(json, 'entry'),
+      json['value'],
+    ),
+    AddScreen.name => AddScreen(
+      id: jsonOptional<String>(json, 'id'),
+      label: jsonOptional<String>(json, 'screenName') ?? '',
+    ),
+    RestoreScreen.name => RestoreScreen(
+      Screen.fromJson(jsonRequired<Map<Object?, Object?>>(json, 'screen')),
+      jsonOptional<int>(json, 'index') ?? 0,
+    ),
+    SetStartup.name => SetStartup(
+      screenId: jsonOptional<String>(json, 'screen'),
+      remember: jsonOptional<bool>(json, 'remember'),
+    ),
+    SetLayout.name => SetLayout(Layout.fromJson(jsonObject(json['layout']))),
+    ResetLayout.name => const ResetLayout(),
+    RenameScreen.name => RenameScreen(
+      jsonOptional<String>(json, 'screenName') ?? '',
+    ),
+    RemoveScreen.name => const RemoveScreen(),
+    DuplicateScreen.name => const DuplicateScreen(),
     SetRemoved.name => SetRemoved({
       for (final id in jsonRequired<List<Object?>>(json, 'ids')) id! as String,
     }),
@@ -285,6 +316,153 @@ class Insert extends SliceOp {
     if (rect != null) 'rect': rect!.toJson(),
     if (size != null) 'size': size!.toJson(),
   };
+}
+
+/// At `/`: sets a setting to a whole new value.
+class SetSetting extends SliceOp {
+  const SetSetting(this.key, this.value);
+
+  static const name = 'setSetting';
+
+  final String key;
+  final Object? value;
+
+  @override
+  Map<String, Object?> toJson() => {'op': name, 'key': key, 'value': value};
+}
+
+/// At `/`: sets one entry of a setting that is a map, such as one app's name;
+/// null takes the entry away.
+class SetEntry extends SliceOp {
+  const SetEntry(this.key, this.entry, this.value);
+
+  static const name = 'setEntry';
+
+  final String key, entry;
+  final Object? value;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'op': name,
+    'key': key,
+    'entry': entry,
+    'value': value,
+  };
+}
+
+/// At `/`: an empty screen. [id] is wanted, not promised; [name] is its label.
+class AddScreen extends SliceOp {
+  const AddScreen({this.id, this.label = ''});
+
+  static const name = 'addScreen';
+
+  final String? id;
+  final String label;
+
+  /// The id the screen gets in [layout].
+  String idIn(Layout layout) =>
+      freeId(id ?? slugOf(label, 'screen'), layout.itemIds);
+
+  @override
+  Map<String, Object?> toJson() => {
+    'op': name,
+    if (id != null) 'id': id,
+    'screenName': label,
+  };
+}
+
+/// At `/`: a screen put back as it was, at place [index] among the screens.
+class RestoreScreen extends SliceOp {
+  const RestoreScreen(this.screen, this.index);
+
+  static const name = 'restoreScreen';
+
+  final Screen screen;
+  final int index;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'op': name,
+    'screen': screen.toJson(),
+    'index': index,
+  };
+}
+
+/// At `/`: which screen the launcher opens on, and whether it opens on the one
+/// shown last instead. A value left out stays as it is.
+class SetStartup extends SliceOp {
+  const SetStartup({this.screenId, this.remember});
+
+  static const name = 'setStartup';
+
+  final String? screenId;
+  final bool? remember;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'op': name,
+    if (screenId != null) 'screen': screenId,
+    if (remember != null) 'remember': remember,
+  };
+}
+
+/// At `/`: puts a whole layout in as the user's own.
+class SetLayout extends SliceOp {
+  const SetLayout(this.layout);
+
+  static const name = 'setLayout';
+
+  final Layout layout;
+
+  @override
+  Map<String, Object?> toJson() => {'op': name, 'layout': layout.toJson()};
+}
+
+/// At `/`: goes back to the layout the pack starts with, dropping the user's.
+class ResetLayout extends SliceOp {
+  const ResetLayout();
+
+  static const name = 'resetLayout';
+
+  @override
+  Map<String, Object?> toJson() => {'op': name};
+}
+
+/// At `screen:<id>`: gives the screen another label.
+class RenameScreen extends SliceOp {
+  const RenameScreen(this.label);
+
+  static const name = 'renameScreen';
+
+  final String label;
+
+  @override
+  Map<String, Object?> toJson() => {'op': name, 'screenName': label};
+}
+
+/// At `screen:<id>`: takes the screen away; the last one stays.
+class RemoveScreen extends SliceOp {
+  const RemoveScreen();
+
+  static const name = 'removeScreen';
+
+  @override
+  Map<String, Object?> toJson() => {'op': name};
+}
+
+/// At `screen:<id>`: a copy of the screen next to it, with new nodes. Pictures
+/// set on a node go with its copy.
+class DuplicateScreen extends SliceOp {
+  const DuplicateScreen();
+
+  static const name = 'duplicateScreen';
+
+  /// The id the copy of screen [id] gets in [layout].
+  static String copyIdIn(Layout layout, String id) =>
+      freeId(id, layout.itemIds);
+
+  @override
+  Map<String, Object?> toJson() => {'op': name};
 }
 
 /// At `/`: the apps the user took off the screens, which are not put back.

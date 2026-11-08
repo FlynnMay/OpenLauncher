@@ -42,7 +42,8 @@ class Slice {
   /// The node as the address shows it: an instance's child as that instance
   /// draws it, a prefab's child as its variant has it.
   Node get node => switch (address) {
-    ConfigAddress() => throw const CommandRefused('There is no node there.'),
+    ConfigAddress() ||
+    ScreenAddress() => throw const CommandRefused('There is no node there.'),
     PrefabAddress(:final prefabId, :final variant, :final child) => _inPrefab(
       prefabId,
       variant,

@@ -5,6 +5,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/services/overlay_service.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// Which screen is shown, and the screens there are. Where a screen is named
 /// by `id`, none means the one shown. Each returns a message for the user, or
@@ -31,11 +32,17 @@ class ScreenService {
   /// What was open over the screen left behind.
   void _closeOverlays() => _ref.read(overlayServiceProvider).closeAll();
 
+  /// Done as the launcher's own command, so it is logged and shown to editors.
+  Future<void> _run(List<SliceEdit> edits) =>
+      _ref.read(commandsProvider).run(EditSlice(edits));
+
   /// An empty screen. [id] is wanted, not promised; [name] is its label.
   Future<String?> add({String? id, String name = ''}) async {
-    final command = AddScreen(id: id, name: name);
-    final free = command.idIn(await _layout());
-    await _ref.read(commandsProvider).run(command);
+    final add = AddScreen(id: id, label: name);
+    final free = add.idIn(await _layout());
+    await _run([
+      SliceEdit(const ConfigAddress(), [add]),
+    ]);
     return 'Screen "$free" was added.';
   }
 
@@ -43,7 +50,9 @@ class ScreenService {
     final screen = await _screenNamed(id);
     if (screen == null) return noSuchScreen;
     try {
-      await _ref.read(commandsProvider).run(RemoveScreen(screen.id));
+      await _run([
+        SliceEdit(ScreenAddress(screen.id), const [RemoveScreen()]),
+      ]);
     } on CommandRefused catch (refused) {
       return refused.message;
     }
@@ -53,16 +62,19 @@ class ScreenService {
   Future<String?> rename({String? id, required String name}) async {
     final screen = await _screenNamed(id);
     if (screen == null) return noSuchScreen;
-    await _ref.read(commandsProvider).run(RenameScreen(screen.id, name));
+    await _run([
+      SliceEdit(ScreenAddress(screen.id), [RenameScreen(name)]),
+    ]);
     return null;
   }
 
   Future<String?> duplicate({String? id}) async {
     final original = await _screenNamed(id);
     if (original == null) return noSuchScreen;
-    final command = DuplicateScreen(original.id);
-    final copyId = command.copyIdIn(await _layout());
-    await _ref.read(commandsProvider).run(command);
+    final copyId = DuplicateScreen.copyIdIn(await _layout(), original.id);
+    await _run([
+      SliceEdit(ScreenAddress(original.id), const [DuplicateScreen()]),
+    ]);
     return 'Screen "$copyId" was added.';
   }
 
@@ -72,9 +84,11 @@ class ScreenService {
     if (id != null && await _screenNamed(id) == null) {
       return 'There is no screen "$id".';
     }
-    await _ref
-        .read(commandsProvider)
-        .run(SetStartup(screenId: id, remember: remember));
+    await _run([
+      SliceEdit(const ConfigAddress(), [
+        SetStartup(screenId: id, remember: remember),
+      ]),
+    ]);
     return null;
   }
 

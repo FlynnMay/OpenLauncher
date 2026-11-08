@@ -6,6 +6,7 @@ import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/slice/slice.dart';
 
 /// A TV for the editor's tests. It does what it is sent, as the real one does:
 /// a command is done to its layout, and the page is told the new state.
@@ -120,9 +121,19 @@ class FakeTv extends TvApi {
 
 /// A command in a word or two, for what a test expects the TV was sent.
 String describeCommand(Command command) => switch (command) {
-  SetConfig(:final values) => 'config ${values.keys.join(' ')}',
-  Batch(:final commands) => commands.map(describeCommand).join(' + '),
-  ResetLayoutToStarting() => 'revert',
-  EditSlice(:final edits) => 'edit ${edits.length}',
+  EditSlice(:final edits) => edits.map(_describeEdit).join(' + '),
   _ => command.type,
 };
+
+String _describeEdit(SliceEdit edit) {
+  if (edit.address is! ConfigAddress) return 'edit';
+  final keys = {
+    for (final op in edit.ops)
+      switch (op) {
+        SetSetting(:final key) || SetEntry(:final key) => key,
+        ResetLayout() => 'revert',
+        _ => 'layout',
+      },
+  };
+  return keys.contains('revert') ? 'revert' : 'config ${keys.join(' ')}';
+}

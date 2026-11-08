@@ -47,7 +47,18 @@ void main() {
     });
 
     LauncherConfig config() => container.read(configProvider).value!;
-    ConfigController controller() => container.read(configProvider.notifier);
+    Future<void> send(List<SliceEdit> edits) async {
+      await container.read(commandsProvider).run(EditSlice(edits));
+      await pumpEventQueue();
+    }
+
+    Future<void> setting(String key, Object? value) => send([
+      SliceEdit(const ConfigAddress(), [SetSetting(key, value)]),
+    ]);
+
+    Future<void> entry(String key, String name, String? value) => send([
+      SliceEdit(const ConfigAddress(), [SetEntry(key, name, value)]),
+    ]);
     History history() => container.read(historyProvider.notifier);
     Moments moments() => container.read(historyProvider);
 
@@ -85,7 +96,7 @@ void main() {
       expect(moments().past, isEmpty);
       expect(moments().future, hasLength(1));
       // The TV does each step.
-      expect(tv.sent, ['edit 1', 'undo']);
+      expect(tv.sent, ['edit', 'undo']);
 
       await history().redo();
       await pumpEventQueue();
@@ -109,19 +120,10 @@ void main() {
       expect(placed('system:app/a') && placed('system:app/b'), isTrue);
     });
 
-    test('a save that changes nothing is not a step', () async {
-      await controller().setLayout(config().layout);
-      expect(moments().past, isEmpty);
-      expect(tv.sent, isEmpty);
-    });
-
     test('names, pictures and wallpapers are steps like any other', () async {
-      await controller().setName('system:app/a', 'Films');
-      await controller().setWallpapers(['http://tv/api/media/w-1.png']);
-      await controller().setIconOverride(
-        'system:app/a',
-        'http://tv/api/media/p.png',
-      );
+      await entry('names', 'system:app/a', 'Films');
+      await setting('wallpapers', ['/media/w-1.png']);
+      await entry('iconOverrides', 'system:app/a', '/media/p.png');
       expect(moments().past, hasLength(3));
 
       // Undoing past an upload only stops pointing at its file.
@@ -148,19 +150,13 @@ void main() {
       final card = config().layout.items
           .firstWhere((item) => item.handed.contains('system:app/a'))
           .id;
-      await container
-          .read(commandsProvider)
-          .run(
-            Batch([
-              EditSlice([
-                SliceEdit(LayoutAddress(card), const [RemoveNode()]),
-              ]),
-              const SetConfig({
-                'names': {'system:app/b': 'Series'},
-              }),
-            ]),
-          );
-      expect(tv.sent, ['edit 1 + config names']);
+      await send([
+        SliceEdit(LayoutAddress(card), const [RemoveNode()]),
+        const SliceEdit(ConfigAddress(), [
+          SetEntry('names', 'system:app/b', 'Series'),
+        ]),
+      ]);
+      expect(tv.sent, ['edit + config names']);
       expect(moments().past, hasLength(1));
 
       await history().undo();
@@ -170,7 +166,7 @@ void main() {
     });
 
     test('the open prefab is part of the step', () async {
-      await controller().setName('system:app/a', 'Films');
+      await entry('names', 'system:app/a', 'Films');
       container.read(prefabTrailProvider.notifier).open('system:app-card');
       await history().undo();
       expect(container.read(prefabTrailProvider), isEmpty);
@@ -180,7 +176,7 @@ void main() {
 
     test('only the newest steps are kept', () async {
       for (var i = 0; i <= History.limit; i++) {
-        await controller().setWallpaperEvery(i + 1);
+        await setting('wallpaperEvery', i + 1);
       }
       expect(moments().past, hasLength(History.limit));
     });
