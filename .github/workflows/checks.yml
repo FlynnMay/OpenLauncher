@@ -26,7 +26,9 @@ jobs:
           cache: true
 
       - run: flutter pub get
+      - run: dart pub get
+        working-directory: packages/openlauncher_domain
       - run: flutter analyze
       - run: flutter test
-      - run: dart pub get && dart test
+      - run: dart test
         working-directory: packages/openlauncher_domain
