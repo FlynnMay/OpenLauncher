@@ -12,10 +12,18 @@ class ConfigController extends AsyncNotifier<LauncherConfig> {
   @override
   Future<LauncherConfig> build() => ref.watch(configStoreProvider).load();
 
-  Future<void> _update(LauncherConfig Function(LauncherConfig) change) async {
-    final next = change(await future);
-    state = AsyncData(next);
-    await ref.read(configStoreProvider).save(next);
+  Future<void> _lastUpdate = Future.value();
+
+  /// Changes run one after another, each reading what the one before left and
+  /// finishing its save first; a failed change does not block the next.
+  Future<void> _update(LauncherConfig Function(LauncherConfig) change) {
+    final turn = _lastUpdate.catchError((Object _) {}).then((_) async {
+      final next = change(await future);
+      state = AsyncData(next);
+      await ref.read(configStoreProvider).save(next);
+    });
+    _lastUpdate = turn;
+    return turn;
   }
 
   Future<void> setLayout(Layout layout) =>
