@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entity_generators.dart';
@@ -96,4 +97,23 @@ void _sortByCategoryThenLabel(
     }
     return a.label.toLowerCase().compareTo(b.label.toLowerCase());
   });
+}
+
+/// The entities without their values: what the screen is laid out from. The
+/// same list while only values change, so a light's state changing does not
+/// lay the whole screen out again.
+final entityShapesProvider = AsyncNotifierProvider<EntityShapes, List<Entity>>(
+  EntityShapes.new,
+);
+
+class EntityShapes extends AsyncNotifier<List<Entity>> {
+  @override
+  Future<List<Entity>> build() async {
+    final shapes = [
+      for (final entity in await ref.watch(entitiesProvider.future))
+        entity.copyWith(data: const {}),
+    ];
+    final before = state.value;
+    return before != null && listEquals(before, shapes) ? before : shapes;
+  }
 }

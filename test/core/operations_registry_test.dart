@@ -43,6 +43,7 @@ void main() {
       'launcher://screen/duplicate',
       'launcher://screen/startup',
       'launcher://settings/open',
+      'launcher://sources/fetch',
       'launcher://updates/check',
       'launcher://updates/install',
       'launcher://variables/set',

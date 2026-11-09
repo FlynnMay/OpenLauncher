@@ -10,6 +10,9 @@ class BadArguments extends FormatException {
   const BadArguments(super.message);
 }
 
+/// An address and its arguments, filled, to run after something else.
+typedef FollowUp = ({String address, Map<String, Object?> args});
+
 /// One operation being run.
 class OperationRun {
   const OperationRun(
@@ -17,6 +20,8 @@ class OperationRun {
     this.screen,
     this.held = false,
     this.component,
+    this.entityId,
+    this.followUps = const [],
   });
 
   /// What the entity's action bound and what the act passed, or what an
@@ -27,6 +32,12 @@ class OperationRun {
 
   /// The component it fired from, if any.
   final String? component;
+
+  /// The entity whose action this is, if it is an entity's.
+  final String? entityId;
+
+  /// What is run after it, once it has succeeded.
+  final List<FollowUp> followUps;
 
   /// The argument [key], if it is a string.
   String? arg(String key) => switch (args[key]) {

@@ -185,6 +185,31 @@ class PackStore with ChangeNotifier {
     Set<String> builtIn, {
     String? stamp,
   }) async {
+    final (:pack, :files) = await _checked(bytes, builtIn, stamp: stamp);
+    final dir = await _dir();
+    final fresh = Directory(p.join(dir.path, '.${pack.id}.new'));
+    if (await fresh.exists()) await fresh.delete(recursive: true);
+    for (final MapEntry(key: path, value: content) in files.entries) {
+      final file = File(p.joinAll([fresh.path, ...path.split('/')]));
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(content);
+    }
+    if (stamp != null) {
+      await File(p.join(fresh.path, _stamp)).writeAsString(stamp);
+    }
+    final home = Directory(p.join(dir.path, pack.id));
+    if (await home.exists()) await home.delete(recursive: true);
+    await fresh.rename(home.path);
+    return pack;
+  }
+
+  /// The pack in the zip [bytes] and its files, once all of it checks out.
+  /// Throws [PackRefused] if it does not.
+  Future<({Pack pack, Map<String, Uint8List> files})> _checked(
+    Uint8List bytes,
+    Set<String> builtIn, {
+    String? stamp,
+  }) async {
     final files = <String, Uint8List>{};
     if (bytes.length < 4 || bytes[0] != 0x50 || bytes[1] != 0x4B) {
       throw const PackRefused(415, 'Not a zip file');
@@ -285,25 +310,10 @@ class PackStore with ChangeNotifier {
       throw PackRefused(400, error.message);
     }
 
-    final dir = await _dir();
-    final fresh = Directory(p.join(dir.path, '.${pack.id}.new'));
-    if (await fresh.exists()) await fresh.delete(recursive: true);
-    for (final MapEntry(key: path, value: content) in files.entries) {
-      final file = File(p.joinAll([fresh.path, ...path.split('/')]));
-      await file.parent.create(recursive: true);
-      await file.writeAsBytes(content);
-    }
-    if (stamp != null) {
-      await File(p.join(fresh.path, _stamp)).writeAsString(stamp);
-    }
-    final home = Directory(p.join(dir.path, pack.id));
-    if (await home.exists()) await home.delete(recursive: true);
-    await fresh.rename(home.path);
-    return pack;
+    return (pack: pack, files: files);
   }
 
-  /// Installs the zip in [body], replacing a pack with the same id.
-  Future<Pack> install(Stream<List<int>> body) async {
+  Future<Uint8List> _zipOf(Stream<List<int>> body) async {
     final zip = BytesBuilder(copy: false);
     await for (final chunk in body) {
       zip.add(chunk);
@@ -314,10 +324,26 @@ class PackStore with ChangeNotifier {
         );
       }
     }
+    return zip.takeBytes();
+  }
+
+  /// Installs the zip in [body], replacing a pack with the same id.
+  Future<Pack> install(Stream<List<int>> body) async {
+    final zip = await _zipOf(body);
     final builtIn = await (_builtIn ??= _unpackBundled());
-    final pack = await _unpack(zip.takeBytes(), builtIn);
+    final pack = await _unpack(zip, builtIn);
     notifyListeners();
     return pack;
+  }
+
+  /// What installing the zip in [body] would do, without doing it. Throws
+  /// [PackRefused] for a zip that could not be installed.
+  Future<PackChange> inspect(Stream<List<int>> body) async {
+    final zip = await _zipOf(body);
+    final builtIn = await (_builtIn ??= _unpackBundled());
+    final (:pack, files: _) = await _checked(zip, builtIn);
+    final there = (await list()).where((one) => one.id == pack.id).firstOrNull;
+    return PackChange(pack, there);
   }
 
   /// Pack [id], if nothing but the config could stop its removal: it exists,
@@ -341,4 +367,34 @@ class PackStore with ChangeNotifier {
     await Directory(p.join((await _dir()).path, id)).delete(recursive: true);
     notifyListeners();
   }
+}
+
+/// What installing [incoming] would do to the pack with its id, if there is
+/// one ([installed]).
+class PackChange {
+  const PackChange(this.incoming, this.installed);
+
+  final Pack incoming;
+  final Pack? installed;
+
+  /// `new`, `same` version, `older` (a downgrade), `newer` (an upgrade) or
+  /// `different` when the versions cannot be compared.
+  String get kind {
+    final there = installed;
+    if (there == null) return 'new';
+    return switch (Pack.compareVersions(incoming.version, there.version)) {
+      null => 'different',
+      0 => 'same',
+      < 0 => 'older',
+      _ => 'newer',
+    };
+  }
+
+  Map<String, Object?> toJson() => {
+    'id': incoming.id,
+    'name': incoming.name,
+    'version': incoming.version,
+    'change': kind,
+    if (installed case final there?) 'installedVersion': there.version,
+  };
 }

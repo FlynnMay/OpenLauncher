@@ -131,10 +131,22 @@ DateTime? _time(Object? value) => switch (value) {
   _ => null,
 };
 
+/// Patterns already compiled: a generator tries the same one on every row.
+final _patterns = <String, RegExp>{};
+
+/// [made], after emptying [cache] if it has grown past what is worth keeping.
+T _bounded<T>(Map<String, RegExp> cache, T made) {
+  if (cache.length > 512) cache.clear();
+  return made;
+}
+
 /// Nothing when [pattern] finds nothing or is not one.
 String? _match(String pattern, String text) {
   try {
-    final found = RegExp(pattern).firstMatch(text);
+    final found = (_patterns[pattern] ??= _bounded(
+      _patterns,
+      RegExp(pattern),
+    )).firstMatch(text);
     if (found == null) return null;
     return found.groupCount > 0 ? found[1] : found[0];
   } on FormatException {
@@ -381,11 +393,16 @@ class _Parser {
     '>', '<', '+', '*', '/', '%', '!', '(', ')', ',', '?', ':', '-',
   ];
 
-  static bool _wordStart(String char) => RegExp(r'[A-Za-z_]').hasMatch(char);
+  static final _wordStartPattern = RegExp(r'[A-Za-z_]');
+  static final _wordPartPattern = RegExp(r'[A-Za-z0-9_.:\[\]\-]');
+  static final _digitPattern = RegExp(r'[0-9]');
+  static final _numberPattern = RegExp(r'\d+(\.\d+)?');
+  static final _pathSplit = RegExp(r'[.\[\]]+');
+
+  static bool _wordStart(String char) => _wordStartPattern.hasMatch(char);
 
   // A name may hold `.`, `:`, `-`, `[` and `]` after its first letter.
-  static bool _wordPart(String char) =>
-      RegExp(r'[A-Za-z0-9_.:\[\]\-]').hasMatch(char);
+  static bool _wordPart(String char) => _wordPartPattern.hasMatch(char);
 
   static List<_Token> _tokenize(String source) {
     final tokens = <_Token>[];
@@ -399,8 +416,8 @@ class _Parser {
         if (end == -1) throw const FormatException('Unclosed quote');
         tokens.add((kind: 'text', text: source.substring(i + 1, end)));
         i = end + 1;
-      } else if (RegExp(r'[0-9]').hasMatch(char)) {
-        final number = RegExp(r'\d+(\.\d+)?').matchAsPrefix(source, i)![0]!;
+      } else if (_digitPattern.hasMatch(char)) {
+        final number = _numberPattern.matchAsPrefix(source, i)![0]!;
         tokens.add((kind: 'number', text: number));
         i += number.length;
       } else if (_wordStart(char)) {
@@ -498,7 +515,7 @@ class _Parser {
           'false' => const _Literal(false),
           'null' => const _Literal(null),
           final name => _Path([
-            for (final step in name.split(RegExp(r'[.\[\]]+')))
+            for (final step in name.split(_pathSplit))
               if (step.isNotEmpty) int.tryParse(step) ?? step,
           ]),
         };

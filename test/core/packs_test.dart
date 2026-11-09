@@ -103,6 +103,7 @@ void main() {
             (ref) => Directory('${tmp.path}/packs'),
           ),
           bundledPacksProvider.overrideWithValue(BundledPacks(bundled)),
+          secretStoreProvider.overrideWithValue(MemorySecretStore()),
         ],
       );
       addTearDown(() => closePacks(container));
@@ -273,47 +274,47 @@ void main() {
       expect(Directory('${tmp.path}/packs').listSync().length, 1);
     });
 
-    test('removes a pack unless it is built in or in use', () async {
-      final packs = container({'core': packZip('core')});
-      final store = packs.read(packStoreProvider);
-      await store.install(Stream.value(packZip('mdi')));
-      final service = packs.read(packServiceProvider);
-      final home = (await packs.read(configProvider.future)).layout;
-      await packs
-          .read(configProvider.notifier)
-          .setLayout(
-            home.withContainer(
-              home.start.root.id,
-              (container) => container.copyWith(
-                children: [
-                  ...container.children,
-                  drawn(
-                    'b',
-                    iconModule.name,
-                    values: const {'icon': 'mdi:lamp'},
-                  ),
-                ],
+    test(
+      'removes a pack unless it is built in, and leaves what used it',
+      () async {
+        final packs = container({'core': packZip('core')});
+        final store = packs.read(packStoreProvider);
+        await store.install(Stream.value(packZip('mdi')));
+        final service = packs.read(packServiceProvider);
+        final home = (await packs.read(configProvider.future)).layout;
+        await packs
+            .read(configProvider.notifier)
+            .setLayout(
+              home.withContainer(
+                home.start.root.id,
+                (container) => container.copyWith(
+                  children: [
+                    ...container.children,
+                    drawn(
+                      'b',
+                      iconModule.name,
+                      values: const {'icon': 'mdi:lamp'},
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
+            );
 
-      expect((await refused(service.delete('none'))).status, 404);
-      expect(
-        (await refused(service.delete('core'))).message,
-        '"Pack core" is built in',
-      );
-      expect(
-        (await refused(service.delete('mdi'))).message,
-        '"Pack mdi" is in use in 1 place',
-      );
+        expect((await refused(service.delete('none'))).status, 404);
+        expect(
+          (await refused(service.delete('core'))).message,
+          '"Pack core" is built in',
+        );
 
-      await packs.read(configProvider.notifier).setLayout(home);
-      await service.delete('mdi');
-      expect((await packs.read(packsProvider.future)).map((pack) => pack.id), [
-        'core',
-      ]);
-      expect(Directory('${tmp.path}/packs/mdi').existsSync(), isFalse);
-    });
+        // In use is no reason to keep it: that place shows nothing.
+        await service.delete('mdi');
+        expect(
+          (await packs.read(packsProvider.future)).map((pack) => pack.id),
+          ['core'],
+        );
+        expect(Directory('${tmp.path}/packs/mdi').existsSync(), isFalse);
+      },
+    );
   });
 
   testWidgets('a pack icon is drawn from its set\'s font, by its saved name', (

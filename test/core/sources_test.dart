@@ -263,7 +263,7 @@ void main() {
     });
 
     test('finds its rows in the answer', () {
-      final source = Source(Uri.parse('os://x'), rows: 'result.items');
+      final source = Source('os://x', rows: 'result.items');
       expect(
         source.rowsOf({
           'result': {
@@ -273,19 +273,60 @@ void main() {
         [1, 2],
       );
       expect(source.rowsOf({'result': {}}), isEmpty);
-      expect(Source(Uri.parse('os://x')).rowsOf({'one': 1}), [
+      expect(Source('os://x').rowsOf({'one': 1}), [
         {'one': 1},
       ]);
     });
   });
 
   group('a feed', () {
+    test('an action\'s follow ups are an address, or a list of them', () {
+      final one = EntityAction.fromJson({
+        'run': 'launcher://sources/fetch',
+        'with': {'source': 'states'},
+      })!;
+      final single = EntityAction.fromJson({
+        'run': 'https://x.test/a',
+        'then': {
+          'run': 'launcher://sources/fetch',
+          'with': {'source': 'states'},
+        },
+      })!;
+      expect(single.then, [one]);
+      final several = EntityAction.fromJson({
+        'run': 'https://x.test/a',
+        'then': [one.toJson(), one.toJson()],
+      })!;
+      expect(several.then, hasLength(2));
+      for (final action in [single, several]) {
+        expect(EntityAction.fromJson(action.toJson()), action);
+      }
+      expect(EntityAction.fromJson({'run': 'https://x.test/a'})!.then, isEmpty);
+    });
+
+    test('is only a pack\'s own when the launcher says so', () {
+      // Whatever a feed claims in its JSON, whose settings it reads is not
+      // its to say.
+      final claiming = Feed.fromJson({
+        'url': 'https://x.test/a',
+        'pack': 'ha',
+        'auth': 'ha',
+      })!;
+      expect(claiming.source!.pack, isNull);
+      final named = Feed(
+        'states',
+        inline: const {'url': 'https://x.test/a'},
+        shared: 'ha:states',
+      );
+      expect(named.source!.pack, 'ha');
+    });
+
     test('is an address, a source of its pack by name, or one in place', () {
       final address = Feed.fromJson('launcher://clock')!;
       expect(address.isAddress, isTrue);
       expect(address.at('clock'), (
         id: 'launcher://clock',
-        source: Source(Uri.parse('launcher://clock'), watch: true),
+        source: Source('launcher://clock', watch: true),
       ));
       final named = Feed.fromJson('states')!;
       expect((named.isAddress, named.at('lounge')), (false, null));
@@ -329,6 +370,23 @@ void main() {
 
   group('a generator', () {
     final generator = Generator.fromJson(_apps)!;
+
+    test('reads the pack\'s settings, so a user can prefix its names', () {
+      final prefixed = Generator.fromJson({
+        'from': 'rows',
+        'entity': {
+          'id': '{{settings.prefix}}/{{row.id}}',
+          'label': '{{settings.prefix}} {{row.name}}',
+        },
+      })!;
+      final made = prefixed.entitiesFrom(
+        [
+          {'id': 'a', 'name': 'Lamp'},
+        ],
+        settings: {'prefix': 'Lounge'},
+      );
+      expect((made.single.id, made.single.label), ('Lounge/a', 'Lounge Lamp'));
+    });
 
     test('makes an entity of each row it holds for', () {
       final made = generator.entitiesFrom([

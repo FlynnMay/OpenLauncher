@@ -13,6 +13,7 @@ class EntityAction {
     this.args = const {},
     this.label = '',
     this.icon = '',
+    this.then = const [],
   });
 
   /// The `OperationsRegistry` name.
@@ -32,6 +33,10 @@ class EntityAction {
   /// Default icon for a button that does this.
   final String icon;
 
+  /// What is done next, in order, once this has succeeded: each is an address
+  /// and its `with`, filled like this one's. Not run if this fails.
+  final List<EntityAction> then;
+
   static EntityAction? fromJson(Object? json) => switch (json) {
     {'run': final String run} => EntityAction(
       run: run,
@@ -44,6 +49,12 @@ class EntityAction {
       icon: switch (json['icon']) {
         final String icon => icon,
         _ => '',
+      },
+      then: switch (json['then']) {
+        final List<Object?> several => [
+          for (final one in several) ?EntityAction.fromJson(one),
+        ],
+        final one => [?EntityAction.fromJson(one)],
       },
     ),
     _ => null,
@@ -65,6 +76,8 @@ class EntityAction {
     if (args.isNotEmpty) 'args': args,
     if (label.isNotEmpty) 'label': label,
     if (icon.isNotEmpty) 'icon': icon,
+    if (then.length == 1) 'then': then.single.toJson(),
+    if (then.length > 1) 'then': [for (final one in then) one.toJson()],
   };
 
   @override
@@ -73,6 +86,7 @@ class EntityAction {
       other.run == run &&
       other.label == label &&
       other.icon == icon &&
+      listsEqual(other.then, then) &&
       mapsEqual(other.bound, bound) &&
       other.args.length == args.length &&
       args.entries.every((arg) => listsEqual(other.args[arg.key], arg.value));
@@ -106,8 +120,13 @@ class Feed {
 
   /// The source, if it can be read: an address, or one written in place.
   Source? get source => isAddress
-      ? Source(Uri.parse(name!), watch: true)
-      : Source.fromJson(inline);
+      ? Source(name!, watch: true)
+      : switch (shared) {
+          final String shared when shared.contains(':') => Source.fromJson(
+            inline,
+          )?.inPack(shared.substring(0, shared.indexOf(':'))),
+          _ => Source.fromJson(inline),
+        };
 
   /// The source and what its fetch is known by, for an entity called [id].
   SourceAt? at(String id) => switch (source) {

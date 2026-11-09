@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
+import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 import 'package:openlauncher_domain/actions/act.dart';
 
@@ -72,13 +74,25 @@ class ActionRunner {
     bool held = false,
     String? component,
   }) async {
-    final (operation, arguments) = act.isAddress
-        ? (_operationAt(act.name), act.args)
+    final (operation, arguments, entityId, followUps) = act.isAddress
+        ? (
+            _operationAt(act.name),
+            _withUrl(act.name, act.args),
+            act.arg(entityArg),
+            const <FollowUp>[],
+          )
         : await _entityOperation(act);
     return carryOut(
       operation,
       act,
-      OperationRun(arguments, screen: screen, held: held, component: component),
+      OperationRun(
+        arguments,
+        screen: screen,
+        held: held,
+        component: component,
+        entityId: entityId,
+        followUps: followUps,
+      ),
     );
   }
 
@@ -86,36 +100,97 @@ class ActionRunner {
       _ref.read(operationsRegistryProvider)[address] ??
       (throw ImproperAct('There is nothing at "$address"'));
 
-  Future<(Operation, Map<String, Object?>)> _entityOperation(Act act) async {
+  Future<(Operation, Map<String, Object?>, String, List<FollowUp>)>
+  _entityOperation(Act act) async {
+    await _ref.read(configProvider.future);
     final (:entity, :action) = targetOf(
       act,
       await _ref.read(entitiesProvider.future),
     );
-    final operation = _ref.read(operationsRegistryProvider)[action.run];
+    final scope = {
+      'self': entity.self,
+      'settings': plainSettingsOf(_ref, HttpService.packOf(entity.id)),
+    };
+    final address = '${_filled(action.run, scope)}';
+    final operation = _ref.read(operationsRegistryProvider)[address];
     if (operation == null) {
       throw ImproperAct(
-        '"${act.name}" of ${entity.label} runs "${action.run}", '
+        '"${act.name}" of ${entity.label} runs "$address", '
         'which there is none of',
       );
     }
-    return (operation, _arguments(entity, action, act));
+    return (
+      operation,
+      _withUrl(address, _arguments(action, act, scope)),
+      entity.id,
+      [
+        for (final next in action.then)
+          (
+            address: '${_filled(next.run, scope)}',
+            args: _withUrl('${_filled(next.run, scope)}', {
+              for (final MapEntry(:key, :value) in next.bound.entries)
+                key: _filled(value, scope),
+            }),
+          ),
+      ],
+    );
   }
 
-  Map<String, Object?> _arguments(Entity entity, EntityAction action, Act act) {
-    final scope = {'self': entity.self};
+  /// A web address is the `url` of the request it makes.
+  Map<String, Object?> _withUrl(String address, Map<String, Object?> args) =>
+      isWebAddress(address) ? {...args, 'url': address} : args;
+
+  Map<String, Object?> _arguments(
+    EntityAction action,
+    Act act,
+    Map<String, Object?> scope,
+  ) {
     return {
       for (final MapEntry(:key, :value) in action.bound.entries)
-        key: value is String && value.contains('{{')
-            ? readTemplate(_ref.read, value, scope)
-            : value,
+        key: _filled(value, scope),
       for (final name in action.args.keys)
         if (act.args.containsKey(name)) name: act.args[name],
     };
   }
 
+  /// [value] with every template in it filled, however deep.
+  Object? _filled(Object? value, Map<String, Object?> scope) => switch (value) {
+    final String text when text.contains('{{') => readTemplate(
+      _ref.read,
+      text,
+      scope,
+    ),
+    final Map<Object?, Object?> map => {
+      for (final MapEntry(:key, :value) in map.entries)
+        key: _filled(value, scope),
+    },
+    final List<Object?> list => [for (final item in list) _filled(item, scope)],
+    _ => value,
+  };
+
   /// Runs [operation] locally. The web editor overrides this to forward
   /// device operations to the TV, as the [act] that asked for them.
   @protected
-  Future<String?> carryOut(Operation operation, Act act, OperationRun run) =>
-      operation.run(run);
+  Future<String?> carryOut(
+    Operation operation,
+    Act act,
+    OperationRun run,
+  ) async {
+    final message = await operation.run(run);
+    for (final next in run.followUps) {
+      await _followUp(next, run.entityId);
+    }
+    return message;
+  }
+
+  /// Runs what comes after an action, through [carryOut] again so the web
+  /// editor still sends the TV's work to the TV.
+  Future<void> _followUp(FollowUp next, String? entityId) {
+    final operation = _operationAt(next.address);
+    return carryOut(
+      operation,
+      Act(next.address, {...next.args, entityArg: ?entityId}),
+      OperationRun(next.args, entityId: entityId),
+    );
+  }
 }

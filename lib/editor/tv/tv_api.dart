@@ -37,6 +37,7 @@ class TvState {
     required this.config,
     required this.visuals,
     this.packs = const [],
+    this.secrets = const {},
     this.widgetProviders = const {},
     this.access = const {},
     this.nowPlaying,
@@ -51,6 +52,9 @@ class TvState {
 
   /// The packs installed on the TV.
   final List<Pack> packs;
+
+  /// Pack id -> the keys of its secret settings that have a value.
+  final Map<String, Set<String>> secrets;
 
   /// App widget ids with their labels.
   final Map<String, String> widgetProviders;
@@ -218,6 +222,12 @@ class TvApi {
         if (json['packs'] case final List<Object?> packs)
           for (final pack in packs) ?Pack.fromJson(pack),
       ],
+      secrets: {
+        if (json['secrets'] case final Map<Object?, Object?> secrets)
+          for (final MapEntry(:key, :value) in secrets.entries)
+            if (key is String && value is List)
+              key: {...value.whereType<String>()},
+      },
       widgetProviders: {
         for (final Map provider in providers)
           provider['id'] as String: '${provider['app']}: ${provider['label']}',
@@ -354,6 +364,11 @@ class TvApi {
     return reply['id'] as String;
   }
 
+  /// What installing the pack in [file] would do, without doing it:
+  /// `change` is `new`, `same`, `older`, `newer` or `different`.
+  Future<Map<Object?, Object?>> checkPack(PickedFile file) =>
+      _sendFile(file, '/api/packs?check=true');
+
   /// Streamed by the browser from disk, so not through [_client].
   Future<Map<Object?, Object?>> _sendFile(PickedFile file, String path) async {
     final reply = await file.send(
@@ -368,6 +383,21 @@ class TvApi {
 
   /// Removes a pack nothing uses.
   Future<void> removePack(String id) => _ask('DELETE', '/api/packs${_id(id)}');
+
+  /// Keeps [value] as pack [pack]'s secret setting [key]; blank clears it.
+  Future<void> setSecret(String pack, String key, String value) => _ask(
+    'PUT',
+    '/api/secret?pack=${Uri.encodeQueryComponent(pack)}'
+        '&key=${Uri.encodeQueryComponent(key)}',
+    {'value': value},
+  );
+
+  /// Forgets pack [pack]'s secret setting [key].
+  Future<void> clearSecret(String pack, String key) => _ask(
+    'DELETE',
+    '/api/secret?pack=${Uri.encodeQueryComponent(pack)}'
+        '&key=${Uri.encodeQueryComponent(key)}',
+  );
 
   /// What entity [id]'s `http` feed reads, fetched by the TV.
   Future<Object?> feedValue(String id) async =>

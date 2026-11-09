@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher/core/packs/pack_auth.dart';
+import 'package:openlauncher/core/packs/pack_setting.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
 /// `fonts/`, icon sets in `icons/`, pictures in `images/`, and JSON in
@@ -16,12 +18,34 @@ class Pack {
     this.source = '',
     this.requires = const [],
     this.categories = const {},
+    this.settings = const [],
+    this.auth = const {},
     this.builtIn = false,
     this.bytes = 0,
     this.files = const [],
   });
 
   static final _id = RegExp(r'^[a-z0-9][a-z0-9_-]{0,39}$');
+
+  /// Below zero if version [a] is older than [b], zero if the same, above
+  /// if newer; null if either is not dotted numbers (`1`, `0.2.1`).
+  static int? compareVersions(String a, String b) {
+    final left = _numbers(a), right = _numbers(b);
+    if (left == null || right == null) return null;
+    for (var i = 0; i < left.length || i < right.length; i++) {
+      final difference =
+          (i < left.length ? left[i] : 0) - (i < right.length ? right[i] : 0);
+      if (difference != 0) return difference;
+    }
+    return 0;
+  }
+
+  static List<int>? _numbers(String version) {
+    final parts = version.trim().split('.').map(int.tryParse).toList();
+    return parts.contains(null) || version.trim().isEmpty
+        ? null
+        : parts.cast<int>();
+  }
 
   /// Whether [id] can name a pack or one of its icon sets.
   static bool validId(Object? id) => id is String && _id.hasMatch(id);
@@ -36,6 +60,13 @@ class Pack {
 
   /// What its entity categories are called, in the order they are listed.
   final Map<String, String> categories;
+
+  /// What it asks the user for; the values are `packSettings` in the config,
+  /// and a secret's is kept apart.
+  final List<PackSetting> settings;
+
+  /// How it signs requests, by profile name.
+  final Map<String, PackAuthProfile> auth;
 
   /// Ships with the launcher, so cannot be removed: the one way it differs.
   final bool builtIn;
@@ -81,6 +112,8 @@ class Pack {
             for (final MapEntry(:key, :value) in categories.entries)
               if (key is String && value is String) key: value,
         },
+        settings: PackSetting.listFromJson(json['settings']),
+        auth: PackAuthProfile.mapFromJson(json['auth']),
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {
           final num bytes => bytes.toInt(),
@@ -105,6 +138,10 @@ class Pack {
     'source': source,
     'requires': requires,
     'categories': categories,
+    if (settings.isNotEmpty)
+      'settings': {for (final s in settings) s.key: s.toJson()},
+    if (auth.isNotEmpty)
+      'auth': {for (final p in auth.values) p.name: p.toJson()},
     'builtIn': builtIn,
     'bytes': bytes,
     'files': files,
@@ -119,6 +156,8 @@ class Pack {
     source: source,
     requires: requires,
     categories: categories,
+    settings: settings,
+    auth: auth,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,
     files: files ?? this.files,
@@ -161,6 +200,8 @@ class Pack {
       other.source == source &&
       listEquals(other.requires, requires) &&
       mapEquals(other.categories, categories) &&
+      listEquals(other.settings, settings) &&
+      mapEquals(other.auth, auth) &&
       other.builtIn == builtIn &&
       other.bytes == bytes &&
       listEquals(other.files, files);

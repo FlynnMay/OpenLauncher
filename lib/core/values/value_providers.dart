@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:openlauncher_domain/sources/http_feed.dart';
@@ -27,9 +29,16 @@ final tickProvider = Provider.autoDispose.family<DateTime, bool>((
 final feedFetcherProvider = Provider<Future<Object?> Function(HttpFeed)>(
   (ref) => (feed) async {
     final address = feed.address;
-    final response = await http
-        .get(address, headers: const {'accept': 'application/json'})
-        .timeout(const Duration(seconds: 15));
+    final request = http.Request(feed.method, address)
+      ..headers.addAll({
+        'accept': 'application/json',
+        if (feed.body != null) 'content-type': 'application/json',
+        ...feed.headers,
+      });
+    if (feed.body case final body?) request.body = body;
+    final response = await http.Response.fromStream(
+      await request.send().timeout(const Duration(seconds: 15)),
+    );
     if (response.statusCode != 200) {
       throw http.ClientException('Status ${response.statusCode}', address);
     }
@@ -38,12 +47,16 @@ final feedFetcherProvider = Provider<Future<Object?> Function(HttpFeed)>(
     }
     final body = utf8.decode(response.bodyBytes, allowMalformed: true);
     try {
-      return jsonDecode(body);
+      // A big answer (Home Assistant's is hundreds of KB) is decoded off the
+      // main isolate, so frames keep coming.
+      return await compute(_decodeJson, body);
     } on FormatException {
       return body.trim();
     }
   },
 );
+
+Object? _decodeJson(String body) => jsonDecode(body);
 
 /// Largest accepted response.
 const maxFeedBytes = 512 * 1024;
