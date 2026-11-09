@@ -8,5 +8,29 @@
     "input": "Inputs",
     "app": "Apps",
     "launcher": "Launcher"
+  },
+  "settings": {
+    "place": {
+      "label": "Weather place",
+      "type": "search",
+      "required": true,
+      "search": {
+        "url": "https://geocoding-api.open-meteo.com/v1/search?name={{query}}&count=6&format=json",
+        "rows": "results"
+      },
+      "title": "{{row.name}}{{row.admin1 ? ', ' + row.admin1 : ''}}{{row.country ? ', ' + row.country : ''}}",
+      "keep": {
+        "latitude": "{{row.latitude}}",
+        "longitude": "{{row.longitude}}"
+      }
+    },
+    "unit": {
+      "label": "Temperature",
+      "type": "choice",
+      "choices": {
+        "celsius": "Celsius",
+        "fahrenheit": "Fahrenheit"
+      }
+    }
   }
 }

@@ -35,7 +35,8 @@ Future<HttpFeed> requestOf(Ref ref, SourceAt at, {bool reactive = true}) async {
       (config) => config.value?.packSettings[source.pack] ?? const {},
     ),
   );
-  final secrets = pack == null
+  // Secrets are a file read, so only a pack that keeps some asks for them.
+  final secrets = pack == null || !pack.settings.any((one) => one.secret)
       ? const <String, String>{}
       : (await read(packSecretsProvider.future))[pack.id] ?? const {};
   if (pack != null) _requireSettings(pack, settings, secrets);

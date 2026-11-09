@@ -1,5 +1,4 @@
-/// Device data and weather.
+/// Device data.
 library;
 
 export 'device_sources.dart';
-export 'weather.dart';

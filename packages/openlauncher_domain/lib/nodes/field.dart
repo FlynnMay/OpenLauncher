@@ -27,7 +27,14 @@ enum FieldKind {
 
   /// A repeating group of [Field.fields].
   list,
+
+  /// A small map chosen from what [Field.find] finds for typed text; it has
+  /// at least a `name`.
+  search,
 }
+
+/// What a search found: how it is listed, and the value choosing it keeps.
+typedef FieldHit = ({String title, Map<String, Object?> value});
 
 /// Parses [text] as null, a number, a bool, or leaves it as text.
 Object? typedValue(String text) => switch (text.trim()) {
@@ -56,6 +63,7 @@ class Field {
     this.blank = const {},
     this.heading,
     this.asks,
+    this.find,
   });
 
   final String key, label;
@@ -88,6 +96,9 @@ class Field {
   /// For a list: the field shown as each entry's heading, and the prompt for
   /// it when adding.
   final String? heading, asks;
+
+  /// For a search: what typed text finds.
+  final Future<List<FieldHit>> Function(String text)? find;
 }
 
 /// [choices] each labelled with its own value.

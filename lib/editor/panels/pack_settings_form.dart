@@ -14,15 +14,20 @@ class PackSettingsForm extends ConsumerWidget {
 
   final Pack pack;
 
-  static Field _field(PackSetting setting) => Field(
+  static Field _field(
+    PackSetting setting, {
+    required Future<List<FieldHit>> Function(String text) find,
+  }) => Field(
     setting.key,
     labelOf(setting),
     switch (setting.type) {
       PackSettingType.number => FieldKind.number,
       PackSettingType.tick => FieldKind.toggle,
       PackSettingType.choice => FieldKind.choice,
+      PackSettingType.search => FieldKind.search,
       _ => FieldKind.text,
     },
+    find: find,
     choices: setting.choices,
     min: -1000000,
     max: 1000000,
@@ -62,7 +67,15 @@ class PackSettingsForm extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ...optionFields(
-            options: [for (final setting in plain) _field(setting)],
+            options: [
+              for (final setting in plain)
+                _field(
+                  setting,
+                  find: (text) => ref
+                      .read(tvApiProvider)
+                      .searchSetting(pack.id, setting.key, text),
+                ),
+            ],
             values: values,
             onChanged: (next) => setSettings(context, ref, {
               'packSettings': {...config.packSettings, pack.id: next},

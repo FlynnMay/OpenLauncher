@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/operations/operations.dart';
@@ -77,6 +76,19 @@ void main() {
       expect(_render('[{{lounge.attributes.readings[9]}}]', values), '[]');
       expect(_render('{{nothing | default:Idle}}', values), 'Idle');
       expect(_render('{{nothing | default:"a b"}}', values), 'a b');
+    });
+
+    test('get reads a table by a key that is itself a value', () {
+      final values = {
+        'tables': {
+          'sky': {'3': 'cloudy'},
+          'list': ['a', 'b'],
+        },
+        'code': 3,
+      };
+      expect(_render('{{get(tables.sky, code)}}', values), 'cloudy');
+      expect(_render('{{get(tables.sky, 4) ?? \'rain\'}}', values), 'rain');
+      expect(_render('{{get(tables.list, 1)}}', values), 'b');
     });
 
     test('pipes change how a value reads', () {
@@ -251,16 +263,12 @@ void main() {
             'feed': {'url': 'http://x.test'},
           },
         ],
-        'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
         // Not set this way: left alone.
         'layout': {'screens': []},
       });
       expect(jsonEncode(store.config.layout), layout);
       final read = LauncherConfig.fromJson(store.config.toJson());
       expect(read.entities.map((entity) => entity.id), ['motto']);
-      expect(read.place?.name, 'Perth');
-      await config.patch({'place': null});
-      expect(store.config.place, isNull);
       expect(store.config.entities, hasLength(1));
     });
 
@@ -347,18 +355,18 @@ void main() {
           configStoreProvider.overrideWithValue(MemoryConfigStore(config)),
           launcherPlatformProvider.overrideWithValue(platform),
           nowProvider.overrideWithValue(() => DateTime(2026, 10, 11, 15, 4, 9)),
-          jsonFetcherProvider.overrideWithValue(
-            (uri) async => {
-              'current': {'temperature_2m': 17.6, 'weather_code': 2},
-              'daily': {
-                'temperature_2m_max': [22.0],
-                'temperature_2m_min': [9.0],
-              },
-            },
-          ),
           feedFetcherProvider.overrideWithValue((feed) async {
             asked.add(feed);
             if ('${feed.address}'.contains('broken')) throw Exception('No');
+            if (feed.address.host == 'api.open-meteo.com') {
+              return {
+                'current': {'temperature_2m': 17.6, 'weather_code': 2},
+                'daily': {
+                  'temperature_2m_max': [22.0],
+                  'temperature_2m_min': [9.0],
+                },
+              };
+            }
             return {
               'state': '21.46',
               'list': [1, 2],
@@ -420,24 +428,43 @@ void main() {
       );
     });
 
-    test('the place and its weather, once a place is said', () async {
+    test('the weather, once the System pack has a place', () async {
       var c = container(LauncherConfig());
-      expect(await reads(c, '[{{system:location}}{{system:weather}}]'), '[]');
+      expect(await reads(c, '[{{system:weather}}]'), '[]');
+      expect(
+        asked.where((feed) => feed.address.host == 'api.open-meteo.com'),
+        isEmpty,
+      );
       c = container(
         LauncherConfig(
-          place: (name: 'Perth', latitude: -31.95, longitude: 115.86),
+          packSettings: {
+            'system': {
+              'place': {
+                'name': 'Perth',
+                'latitude': -31.95,
+                'longitude': 115.86,
+              },
+              'unit': 'fahrenheit',
+            },
+          },
         ),
-      );
-      expect(
-        await reads(c, '{{system:location}} {{system:location.latitude}}'),
-        'Perth -31.95',
       );
       expect(
         await reads(
           c,
-          '{{system:weather}} {{system:weather.description}} {{system:weather.high|round}}',
+          '{{system:weather}} {{system:weather.description}} '
+          '{{system:weather.high|round}} {{system:weather.sky}} '
+          '{{system:weather.place}}',
         ),
-        '18° Partly cloudy 22',
+        '18° Partly cloudy 22 partlyCloudy Perth',
+      );
+      final forecast = asked.singleWhere(
+        (feed) => feed.address.host == 'api.open-meteo.com',
+      );
+      expect(forecast.address.queryParameters['latitude'], '-31.95');
+      expect(
+        forecast.address.queryParameters['temperature_unit'],
+        'fahrenheit',
       );
     });
 

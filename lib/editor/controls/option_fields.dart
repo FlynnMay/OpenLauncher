@@ -9,6 +9,7 @@ import 'package:openlauncher/editor/controls/fill_field.dart';
 import 'package:openlauncher/editor/controls/icon_field.dart';
 import 'package:openlauncher/editor/controls/labelled_row.dart';
 import 'package:openlauncher/editor/controls/number_field.dart';
+import 'package:openlauncher/editor/controls/search_picker.dart';
 import 'package:openlauncher/editor/controls/template_field.dart';
 import 'package:openlauncher/editor/controls/tick_box.dart';
 
@@ -100,6 +101,17 @@ List<Widget> optionFields({
             choices: {'': ?option.unset, ...option.choices},
             onChanged: (choice) => set(option, choice.isEmpty ? null : choice),
           ),
+        );
+      case FieldKind.search:
+        return SearchPicker(
+          label: option.label,
+          said: switch (value) {
+            {'name': final Object name} => '${option.label}: $name',
+            _ => 'No ${option.label.toLowerCase()} chosen.',
+          },
+          find: option.find ?? (_) async => const [],
+          onChosen: (chosen) => set(option, chosen),
+          onCleared: value == null ? null : () => set(option, null),
         );
       case FieldKind.icon:
         return IconField(

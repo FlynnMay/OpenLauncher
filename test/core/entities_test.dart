@@ -738,10 +738,8 @@ void main() {
         'system:settings',
         'system:clock',
         'system:device',
-        'system:location',
         'system:media',
         'system:updates',
-        'system:weather',
       ]);
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);

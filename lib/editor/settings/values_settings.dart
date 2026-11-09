@@ -1,31 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/components/weather.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/values/values.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
-import 'package:openlauncher/editor/settings/place_search.dart';
 import 'package:openlauncher/editor/settings/user_entity_form.dart';
 import 'package:openlauncher_domain/sources/sources.dart';
 
-/// Built-in values with their current reading, the TV's place, and the user's
-/// own entities: what each reads and the actions it defines.
+/// Built-in values with their current reading, and the user's own entities: what each reads and the actions it defines.
 class ValuesSettings extends ConsumerWidget {
   const ValuesSettings({
     super.key,
     required this.entities,
-    required this.place,
     required this.onEntities,
-    required this.onPlace,
   });
 
   final List<Entity> entities;
-  final Place? place;
   final void Function(List<Entity> entities) onEntities;
-  final void Function(Place? place) onPlace;
 
   /// Most fields listed per value.
   static const _mostParts = 12;
@@ -67,21 +60,6 @@ class ValuesSettings extends ConsumerWidget {
         if (entity.feed != null && entities.byId(entity.id) == null)
           reading(entity.id, ref.watch(valueProvider(entity.id))),
       const SizedBox(height: 12),
-      PlaceSearch(
-        said: switch (place) {
-          null => 'Location and weather need a location.',
-          final place => 'Location: ${place.name}',
-        },
-        onChosen: onPlace,
-      ),
-      if (place != null)
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            onPressed: () => onPlace(null),
-            child: const Text('Clear location'),
-          ),
-        ),
       const Divider(height: 24),
       ListField(
         option: userEntityOptions(operations),

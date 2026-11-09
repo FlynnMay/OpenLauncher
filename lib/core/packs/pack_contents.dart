@@ -303,8 +303,14 @@ class _Glue {
 
   String _withRootsInFull(String text) => text.replaceAllMapped(_root, (root) {
     final name = root[2]!;
-    return entities.contains(name) ? '${root[1]}${pack.id}:$name' : root[0]!;
+    return entities.contains(name) && !_readByGenerators.contains(name)
+        ? '${root[1]}${pack.id}:$name'
+        : root[0]!;
   });
+
+  /// What a generator's slots read besides entities: an entity of the same
+  /// name is still reached as `pack:name`.
+  static const _readByGenerators = {'row', 'settings', 'tables'};
 
   static final _unquoted = RegExp('(\'[^\']*\'|"[^"]*")|[^\'"]+');
 

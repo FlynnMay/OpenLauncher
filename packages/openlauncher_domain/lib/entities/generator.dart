@@ -4,12 +4,18 @@ import 'package:openlauncher_domain/json/shallow_equality.dart';
 import 'package:openlauncher_domain/values/template.dart';
 
 /// Turns a source's rows into entities, from a pack's
-/// `generators/<name>.json`: `{from, where, entity}`. `entity` is Entity JSON
-/// whose `{{row...}}` slots are filled from each row; other slots (`self`,
-/// args) are left for when an action runs.
+/// `generators/<name>.json`: `{from, where, tables, entity}`. `entity` is
+/// Entity JSON whose `{{row...}}` slots are filled from each row; other slots
+/// (`self`, args) are left for when an action runs. `tables` are lookups the
+/// slots read as `{{get(tables.sky, row.code)}}`.
 @immutable
 class Generator {
-  const Generator({required this.from, required this.entity, this.where});
+  const Generator({
+    required this.from,
+    required this.entity,
+    this.where,
+    this.tables = const {},
+  });
 
   static const maxEntities = 500;
 
@@ -20,6 +26,9 @@ class Generator {
   final String? where;
 
   final Map<String, Object?> entity;
+
+  /// Table name -> key -> value.
+  final Map<String, Object?> tables;
 
   static Generator? fromJson(Object? json) => switch (json) {
     {'from': final String from, 'entity': final Map<Object?, Object?> entity}
@@ -34,6 +43,13 @@ class Generator {
           for (final MapEntry(:key, :value) in entity.entries)
             if (key is String) key: value,
         },
+        tables: switch (json['tables']) {
+          final Map<Object?, Object?> tables => {
+            for (final MapEntry(:key, :value) in tables.entries)
+              if (key is String) key: value,
+          },
+          _ => const {},
+        },
       ),
     _ => null,
   };
@@ -41,6 +57,7 @@ class Generator {
   Map<String, Object?> toJson() => {
     'from': from,
     'where': ?where,
+    if (tables.isNotEmpty) 'tables': tables,
     'entity': entity,
   };
 
@@ -57,6 +74,7 @@ class Generator {
       Object? lookup(String root) => switch (root) {
         'row' => row,
         'settings' => settings,
+        'tables' => tables,
         _ => null,
       };
       if (where case final where?
@@ -66,6 +84,7 @@ class Generator {
       final json = filled(entity, lookup, const {
         'row',
         'settings',
+        'tables',
       }) as Map<String, Object?>;
       // A value with nothing to say is left out.
       if (json['data'] case final Map<String, Object?> data) {
@@ -83,7 +102,8 @@ class Generator {
       other is Generator &&
       other.from == from &&
       other.where == where &&
-      mapsEqual(other.entity, entity);
+      mapsEqual(other.entity, entity) &&
+      mapsEqual(other.tables, tables);
 
   @override
   int get hashCode => Object.hash(from, where);

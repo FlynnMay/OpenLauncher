@@ -14,7 +14,8 @@ import 'package:openlauncher_domain/values/date_format.dart';
 /// - `condition ? yes : no`, with a space either side of `?` and `:`; or
 ///   `if(condition, yes, no)`.
 /// - Functions: `round(x)` / `round(x, places)`, `floor`, `ceil`, `abs`,
-///   `min`, `max`, `clamp(x, low, high)`, `upper`, `lower`, `if`.
+///   `min`, `max`, `clamp(x, low, high)`, `upper`, `lower`, `if`, and
+///   `get(table, key)`, which reads a map by a key that is itself a value.
 /// - After all that, `| name:argument` changes how the result reads, as
 ///   [pipe] lists.
 ///
@@ -344,6 +345,7 @@ class _Call extends _Node {
     final values = [for (final arg in args) arg.value(lookup)];
     final numbers = [for (final value in values) numberOf(value)];
     num? first() => numbers.isEmpty ? null : numbers.first;
+    if (name == 'get') return _entryOf(values[0], values[1]);
     if (name == 'upper') return valueText(values.first).toUpperCase();
     if (name == 'lower') return valueText(values.first).toLowerCase();
     if (numbers.contains(null)) return null;
@@ -366,8 +368,20 @@ class _Call extends _Node {
   }
 }
 
+/// What `get(table, key)` finds: the value of [key] in a map, or the item at
+/// that number in a list. Nothing if there is none.
+Object? _entryOf(Object? table, Object? key) => switch (table) {
+  final Map<Object?, Object?> map => map[valueText(key)],
+  final List<Object?> list => switch (numberOf(key)?.toInt()) {
+    final int at when at >= 0 && at < list.length => list[at],
+    _ => null,
+  },
+  _ => null,
+};
+
 /// How many arguments a function takes, from to.
 const _arity = {
+  'get': (2, 2),
   'round': (1, 2),
   'floor': (1, 1),
   'ceil': (1, 1),

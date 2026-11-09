@@ -20,6 +20,7 @@ export 'number_field.dart';
 export 'option_fields.dart';
 export 'picture_tile.dart';
 export 'search_box.dart';
+export 'search_picker.dart';
 export 'section.dart';
 export 'shared.dart';
 export 'slide_bar.dart';

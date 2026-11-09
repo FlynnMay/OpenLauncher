@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/access/access.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -104,21 +103,21 @@ void main() {
         ),
         feedFetcherProvider.overrideWithValue((feed) async {
           if (feed.address.host == 'broken') throw Exception('No answer');
+          if (feed.address.host == 'geocoding-api.open-meteo.com') {
+            fetched.add(feed.address);
+            return {
+              'results': [
+                {
+                  'name': 'Perth',
+                  'admin1': 'Western Australia',
+                  'country': 'Australia',
+                  'latitude': -31.95,
+                  'longitude': 115.86,
+                },
+              ],
+            };
+          }
           return {'state': 'on', 'asked': '${feed.address}'};
-        }),
-        jsonFetcherProvider.overrideWithValue((uri) async {
-          fetched.add(uri);
-          return {
-            'results': [
-              {
-                'name': 'Perth',
-                'admin1': 'Western Australia',
-                'country': 'Australia',
-                'latitude': -31.95,
-                'longitude': 115.86,
-              },
-            ],
-          };
         }),
       ],
     );
@@ -773,7 +772,6 @@ void main() {
               'feed': {'from': 'http', 'url': 'http://broken/x'},
             },
           ],
-          'place': {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86},
         },
       );
       expect(response.statusCode, 200);
@@ -782,7 +780,6 @@ void main() {
         'motto',
         'broken',
       ]);
-      expect(store.config.place?.name, 'Perth');
       final told = await state();
       expect(told['config']['entities'][0], {
         'id': 'lamp',
@@ -794,7 +791,6 @@ void main() {
       expect([
         for (final entity in told['entities']) entity['id'],
       ], containsAll(['lamp', 'motto', 'broken']));
-      expect(told['config']['place']['latitude'], -31.95);
       // The three of the user's own are offered like any other widget.
       expect([
         for (final widget in told['visuals']) widget['module'],
@@ -814,10 +810,6 @@ void main() {
       expect((await value('broken')).$1, 502);
       expect((await value('nobody')).$1, 404);
 
-      // Only what is named is touched; a place is taken away with null.
-      response = await call('PUT', '/api/config', body: {'place': null});
-      expect(response.statusCode, 200);
-      expect(store.config.place, isNull);
       expect(store.config.entities, hasLength(3));
 
       // A value that cannot be kept is left out; the rest are.
@@ -837,20 +829,39 @@ void main() {
     },
   );
 
-  test('looks places up for the weather widget', () async {
-    final response = await call('GET', '/api/geocode?q=Perth');
+  test('looks a place up for the System pack setting', () async {
+    final response = await call(
+      'GET',
+      '/api/pack-search?pack=system&key=place&q=Perth',
+    );
     expect(response.statusCode, 200);
     expect(jsonDecode(await response.readAsString()), {
-      'places': [
+      'hits': [
         {
-          'name': 'Perth, Western Australia, Australia',
-          'latitude': -31.95,
-          'longitude': 115.86,
+          'title': 'Perth, Western Australia, Australia',
+          'value': {
+            'name': 'Perth, Western Australia, Australia',
+            'latitude': -31.95,
+            'longitude': 115.86,
+          },
         },
       ],
     });
     expect(fetched.single.queryParameters['name'], 'Perth');
-    expect((await call('GET', '/api/geocode?q=')).statusCode, 400);
+    expect(
+      (await call(
+        'GET',
+        '/api/pack-search?pack=system&key=place&q=',
+      )).statusCode,
+      400,
+    );
+    expect(
+      (await call(
+        'GET',
+        '/api/pack-search?pack=system&key=unit&q=a',
+      )).statusCode,
+      400,
+    );
   });
 
   test('entities left out of the layout are removed, not put back', () async {
@@ -1535,9 +1546,9 @@ void main() {
     expect(response.statusCode, 200);
     final state = jsonDecode(await response.transform(utf8.decoder).join());
     // An input, two apps, the launcher's settings, and those there is one
-    // of: the clock, the weather, the place, the media player, the device
-    // and updates.
-    expect(state['entities'], hasLength(10));
+    // of: the clock, the media player, the device and updates. The weather
+    // waits for a place.
+    expect(state['entities'], hasLength(8));
   });
 
   test('a forwarded host does not pass the host check', () async {

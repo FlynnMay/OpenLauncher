@@ -85,7 +85,7 @@
             "id": "temperature",
             "modules": {
               "text": {
-                "text": "{{source | default:Choose a place in the editor}}"
+                "text": "{{source | default:Choose a place in the System pack settings}}"
               },
               "style": {
                 "fontSize": 38

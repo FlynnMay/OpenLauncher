@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/commands/commands.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -425,17 +424,23 @@ class TvApi {
     }
   }
 
-  Future<List<Place>> findPlaces(String name) async {
+  /// What the search setting [key] of pack [packId] finds for [text].
+  Future<List<FieldHit>> searchSetting(
+    String packId,
+    String key,
+    String text,
+  ) async {
     final reply = await _ask(
       'GET',
-      '/api/geocode?q=${Uri.encodeQueryComponent(name)}',
+      '/api/pack-search?pack=${Uri.encodeQueryComponent(packId)}'
+          '&key=${Uri.encodeQueryComponent(key)}'
+          '&q=${Uri.encodeQueryComponent(text)}',
     ) as Map;
     return [
-      for (final Map place in reply['places'] as List)
+      for (final Map hit in reply['hits'] as List)
         (
-          name: place['name'] as String,
-          latitude: (place['latitude'] as num).toDouble(),
-          longitude: (place['longitude'] as num).toDouble(),
+          title: hit['title'] as String,
+          value: (hit['value'] as Map).cast<String, Object?>(),
         ),
     ];
   }

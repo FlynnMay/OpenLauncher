@@ -1,0 +1,4 @@
+{
+  "url": "https://api.open-meteo.com/v1/forecast?latitude={{settings.place.latitude}}&longitude={{settings.place.longitude}}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto&temperature_unit={{settings.unit??'celsius'}}",
+  "every": 1800
+}
