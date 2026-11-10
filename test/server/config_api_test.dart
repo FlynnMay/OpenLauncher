@@ -942,7 +942,12 @@ void main() {
         'Study',
       ]);
       expect(await set('Lounge'), 400);
-      expect(await set([['Lounge']]), 400);
+      expect(
+        await set([
+          ['Lounge'],
+        ]),
+        400,
+      );
       // A text setting is no choice from the web.
       expect(
         (await call(
@@ -953,6 +958,63 @@ void main() {
       );
     },
   );
+
+  test('any kind of setting can be a secret', () async {
+    await call(
+      'POST',
+      '/api/packs',
+      body: zipOf({
+        'pack.json': jsonEncode({
+          'id': 'hub',
+          'settings': {
+            'pin': {'type': 'number', 'secret': true, 'min': 1000},
+            'beta': {'type': 'toggle', 'secret': true},
+            'rooms': {
+              'type': 'choice',
+              'secret': true,
+              'multiple': true,
+              'options': ['a', 'b'],
+            },
+          },
+        }),
+      }),
+    );
+    Future<int> put(String key, Object? value) async => (await call(
+      'PUT',
+      '/api/secret?pack=hub&key=$key',
+      body: {'value': value},
+    )).statusCode;
+    expect(await put('pin', 1234), 200);
+    expect(await put('beta', false), 200);
+    expect(await put('rooms', ['a', 'b']), 200);
+    // The wrong kind, out of range, blank, not an option.
+    expect(await put('pin', '1234'), 400);
+    expect(await put('pin', 5), 400);
+    expect(await put('rooms', []), 400);
+    expect(await put('rooms', ['z']), 400);
+    expect(
+      secrets.load(),
+      completion({
+        'hub': {'pin': '1234', 'beta': 'false', 'rooms': '["a","b"]'},
+      }),
+    );
+    final told = await state();
+    expect(told['secrets']['hub'], unorderedEquals(['pin', 'beta', 'rooms']));
+    expect(jsonEncode(told), isNot(contains('1234')));
+    // A secret is never a plain setting.
+    expect(
+      (await call(
+        'PUT',
+        '/api/config',
+        body: {
+          'packSettings': {
+            'hub': {'pin': 1234},
+          },
+        },
+      )).statusCode,
+      400,
+    );
+  });
 
   test('entities left out of the layout are removed, not put back', () async {
     final page = await state();
@@ -1346,7 +1408,7 @@ void main() {
               'type': 'choice',
               'options': {'a': 'Lounge', 'b': 'Study'},
             },
-            'token': {'label': 'Access token', 'type': 'secret'},
+            'token': {'label': 'Access token', 'type': 'text', 'secret': true},
             'bad name': {'type': 'text'},
             'odd': {'type': 'nothing'},
           },
@@ -1366,7 +1428,7 @@ void main() {
         'type': 'choice',
         'options': {'a': 'Lounge', 'b': 'Study'},
       },
-      'token': {'label': 'Access token', 'type': 'secret'},
+      'token': {'label': 'Access token', 'type': 'text', 'secret': true},
     });
 
     Future<int> set(Object? settings) async => (await call(

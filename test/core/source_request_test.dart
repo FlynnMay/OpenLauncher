@@ -10,7 +10,12 @@ void main() {
     'name': 'Hub',
     'settings': {
       'host': {'label': 'Address', 'type': 'url', 'required': true},
-      'token': {'label': 'Token', 'type': 'secret', 'required': true},
+      'token': {
+        'label': 'Token',
+        'type': 'text',
+        'secret': true,
+        'required': true,
+      },
     },
     'auth': {
       'ha': {

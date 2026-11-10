@@ -18,7 +18,7 @@ void main() {
     'id': 'hub',
     'settings': {
       'host': {'type': 'url'},
-      'token': {'type': 'secret'},
+      'token': {'type': 'text', 'secret': true},
     },
     'auth': {
       'ha': {

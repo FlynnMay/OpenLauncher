@@ -33,14 +33,31 @@ List<Widget> optionFields({
     {...values, option.key: value == option.defaultValue ? null : value}
       ..removeWhere((_, value) => value == null),
   );
-  Widget field(Field option) {
-    final value = values[option.key] ?? option.defaultValue;
+  Widget field(
+    Field option, {
+    ({Object? value, void Function(Object? next) set})? draft,
+  }) {
+    // A secret is drawn around its own control, which edits a draft.
+    if (option.secret case final secret? when draft == null) {
+      return SecretField(
+        label: option.label,
+        secret: secret,
+        kind: option.kind,
+        inner: (chosen, change) =>
+            field(option, draft: (value: chosen, set: change)),
+      );
+    }
+    final value = draft != null
+        ? draft.value
+        : values[option.key] ?? option.defaultValue;
+    void put(Object? next) =>
+        draft != null ? draft.set(next) : set(option, next);
     switch (option.kind) {
       case FieldKind.template:
         return TemplateField(
           label: option.label,
           value: value is String ? value : '',
-          onChanged: (text) => set(option, text.isEmpty ? null : text),
+          onChanged: (text) => put(text.isEmpty ? null : text),
         );
       case FieldKind.text:
         return CommitField(
@@ -50,13 +67,13 @@ List<Widget> optionFields({
           help: option.help,
           multiline: option.multiline,
           fits: option.fits,
-          onChanged: (text) => set(option, text),
+          onChanged: (text) => put(text),
         );
       case FieldKind.value:
         return CommitField(
           label: option.label,
           value: value == null ? '' : '$value',
-          onChanged: (text) => set(option, typedValue(text)),
+          onChanged: (text) => put(typedValue(text)),
         );
       case FieldKind.list:
         return ListField(
@@ -66,13 +83,13 @@ List<Widget> optionFields({
               for (final one in several)
                 if (one is Map) one.cast(),
           ],
-          onChanged: (records) => set(option, records),
+          onChanged: (records) => put(records),
         );
       case FieldKind.toggle:
         return TickBox(
           label: option.label,
           value: value == true,
-          onChanged: (on) => set(option, on),
+          onChanged: (on) => put(on),
         );
       case FieldKind.number:
         final fallback = option.defaultValue;
@@ -88,25 +105,21 @@ List<Widget> optionFields({
           decimal: option.decimal,
           placeholder: option.unset,
           start: fallback is num ? fallback.round() : null,
-          onChanged: (number) => set(option, number),
+          onChanged: (number) => put(number),
           // One with a default is cleared back to it.
           onCleared:
               values[option.key] != null &&
                   (option.unset != null || fallback != null)
-              ? () => set(option, null)
+              ? () => put(null)
               : null,
         );
       case FieldKind.choice:
-        return _choiceField(option, value, (chosen) => set(option, chosen));
-      case FieldKind.secret:
-        return option.secret == null
-            ? const SizedBox.shrink()
-            : SecretField(label: option.label, secret: option.secret!);
+        return _choiceField(option, value, (chosen) => put(chosen));
       case FieldKind.icon:
         return IconField(
           label: option.label,
           value: value is String ? value : '',
-          onChanged: (name) => set(option, name.isEmpty ? null : name),
+          onChanged: (name) => put(name.isEmpty ? null : name),
         );
       case FieldKind.colour:
         return LabelledRow(
@@ -116,7 +129,7 @@ List<Widget> optionFields({
             child: ColourChip(
               colour: BoxStyle.parseColor(value),
               onChanged: (next) =>
-                  set(option, next == null ? null : BoxStyle.colorToCss(next)),
+                  put(next == null ? null : BoxStyle.colorToCss(next)),
             ),
           ),
         );
@@ -124,7 +137,7 @@ List<Widget> optionFields({
         return FillField(
           label: option.label,
           value: value,
-          onChanged: (fill) => set(option, fill),
+          onChanged: (fill) => put(fill),
         );
       case FieldKind.corners:
         return CornerSettings(

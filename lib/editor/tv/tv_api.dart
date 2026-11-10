@@ -384,7 +384,7 @@ class TvApi {
   Future<void> removePack(String id) => _ask('DELETE', '/api/packs${_id(id)}');
 
   /// Keeps [value] as pack [pack]'s secret setting [key]; blank clears it.
-  Future<void> setSecret(String pack, String key, String value) => _ask(
+  Future<void> setSecret(String pack, String key, Object value) => _ask(
     'PUT',
     '/api/secret?pack=${Uri.encodeQueryComponent(pack)}'
         '&key=${Uri.encodeQueryComponent(key)}',

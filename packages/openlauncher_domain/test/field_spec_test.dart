@@ -198,4 +198,26 @@ void main() {
     expect(FieldSpec.isBlank(['a']), isFalse);
     expect(FieldSpec.isBlank(false), isFalse);
   });
+
+  test('any kind of field can be a secret, which has no default', () {
+    for (final type in ['text', 'number', 'toggle']) {
+      final hidden = spec({'type': type, 'secret': true, 'default': 1});
+      expect(hidden.secret, isTrue, reason: type);
+      expect(hidden.defaultValue, isNull, reason: type);
+      expect(FieldSpec.fromJson(hidden.toJson()), hidden);
+    }
+    final pin = spec({'type': 'number', 'secret': true, 'min': 1000});
+    expect(pin.accepts(1234), isTrue);
+    expect(pin.accepts('1234'), isFalse);
+    expect(spec({'type': 'text'}).secret, isFalse);
+    // It used to be a type of its own.
+    expect(FieldSpec.fromJson({'type': 'secret'}), isNull);
+  });
+
+  test('a secret is kept as text, or as JSON when it is not text', () {
+    expect(FieldSpec.storedAs('abc'), 'abc');
+    expect(FieldSpec.storedAs(1234), '1234');
+    expect(FieldSpec.storedAs(false), 'false');
+    expect(FieldSpec.storedAs(['a', 'b']), '["a","b"]');
+  });
 }

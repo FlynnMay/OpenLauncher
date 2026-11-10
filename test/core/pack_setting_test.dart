@@ -21,7 +21,10 @@ void main() {
   });
 
   test('a secret is a setting of the secret type', () {
-    expect(PackSetting.fromJson('token', {'type': 'secret'})!.secret, isTrue);
+    expect(
+      PackSetting.fromJson('token', {'type': 'text', 'secret': true})!.secret,
+      isTrue,
+    );
   });
 
   test('what is not a field, or has a bad key, is dropped', () {

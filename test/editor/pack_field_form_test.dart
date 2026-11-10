@@ -192,11 +192,11 @@ void main() {
     final form = _Form(
       tester,
       {
-        'token': {'type': 'secret', 'label': 'Token'},
+        'token': {'type': 'text', 'secret': true, 'label': 'Token'},
       },
       secret: FieldSecret(
         isSet: true,
-        replace: (text) async => replaced.add(text),
+        replace: (value) async => replaced.add('$value'),
         clear: () async => cleared++,
       ),
     );
@@ -383,5 +383,100 @@ void main() {
       await tester.pump();
       expect(find.textContaining('no network'), findsOneWidget);
     });
+  });
+
+  testWidgets('a secret number is typed hidden and saved as a number', (
+    tester,
+  ) async {
+    final replaced = <Object>[];
+    final form = _Form(
+      tester,
+      {
+        'pin': {'type': 'number', 'secret': true, 'label': 'PIN'},
+      },
+      secret: FieldSecret(
+        isSet: false,
+        replace: (value) async => replaced.add(value),
+        clear: () async {},
+      ),
+    );
+    await form.show();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).obscureText,
+      isTrue,
+    );
+    await tester.enterText(find.byType(TextField), 'abc');
+    await tester.pump();
+    // Not a number, so nothing to save.
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+    await tester.enterText(find.byType(TextField), '1234');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(replaced, [1234]);
+    expect(form.values, isEmpty);
+  });
+
+  testWidgets('a secret choice is picked with its own control', (tester) async {
+    final replaced = <Object>[];
+    var cleared = 0;
+    final form = _Form(
+      tester,
+      {
+        'room': {
+          'type': 'choice',
+          'secret': true,
+          'label': 'Room',
+          'options': fruit,
+        },
+      },
+      secret: FieldSecret(
+        isSet: true,
+        replace: (value) async => replaced.add(value),
+        clear: () async => cleared++,
+      ),
+    );
+    await form.show();
+    // What is saved is never shown; only that it is.
+    expect(find.textContaining('Saved on the TV'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+    await tester.tap(find.text('Bean'));
+    await tester.pump();
+    expect(form.values, isEmpty);
+    await tester.tap(find.text('Replace'));
+    await tester.pump();
+    expect(replaced, ['b']);
+    await tester.tap(find.byTooltip('Clear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Clear'));
+    await tester.pumpAndSettle();
+    expect(cleared, 1);
+  });
+
+  testWidgets('a secret tick is saved once it is changed', (tester) async {
+    final replaced = <Object>[];
+    final form = _Form(
+      tester,
+      {
+        'beta': {'type': 'toggle', 'secret': true, 'label': 'Beta'},
+      },
+      secret: FieldSecret(
+        isSet: false,
+        replace: (value) async => replaced.add(value),
+        clear: () async {},
+      ),
+    );
+    await form.show();
+    await tester.tap(find.text('Beta'));
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(replaced, [true]);
   });
 }

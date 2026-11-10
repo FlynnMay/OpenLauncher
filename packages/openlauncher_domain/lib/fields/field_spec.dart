@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:meta/meta.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
@@ -5,7 +7,7 @@ import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
 
 /// The primitives a field is made of.
-enum FieldType { text, number, toggle, choice, secret }
+enum FieldType { text, number, toggle, choice }
 
 /// What a text must look like beyond being text.
 enum TextFormat { plain, url }
@@ -154,6 +156,7 @@ class FieldSpec {
     this.label = '',
     this.help = '',
     this.required = false,
+    this.secret = false,
     this.defaultValue,
     this.visible = '',
     this.placeholder = '',
@@ -181,7 +184,11 @@ class FieldSpec {
   /// Whether the pack does nothing until it has a value.
   final bool required;
 
-  /// The value when none is saved.
+  /// Kept apart on the TV, never sent to the editor, and censored there: the
+  /// field only says whether it is set. Of any [type].
+  final bool secret;
+
+  /// The value when none is saved; a secret has none.
   final Object? defaultValue;
 
   /// A template over `values`, the sibling fields' values; the field applies
@@ -217,8 +224,6 @@ class FieldSpec {
   final bool multiple;
   final int? minChoices, maxChoices;
 
-  bool get secret => type == FieldType.secret;
-
   static const _singleLooks = {
     ChoiceLook.dropdown,
     ChoiceLook.radio,
@@ -235,7 +240,8 @@ class FieldSpec {
       label: _text(json['label']),
       help: _text(json['help']),
       required: json['required'] == true,
-      defaultValue: json['default'],
+      secret: json['secret'] == true,
+      defaultValue: json['secret'] == true ? null : json['default'],
       visible: _text(json['visible']),
       placeholder: _text(json['placeholder']),
       multiline: json['multiline'] == true,
@@ -317,6 +323,7 @@ class FieldSpec {
           label: label,
           help: help,
           required: required,
+          secret: secret,
           visible: visible,
           placeholder: placeholder,
           multiline: multiline,
@@ -342,6 +349,7 @@ class FieldSpec {
     if (label.isNotEmpty) 'label': label,
     if (help.isNotEmpty) 'help': help,
     if (required) 'required': true,
+    if (secret) 'secret': true,
     'default': ?defaultValue,
     if (visible.isNotEmpty) 'visible': visible,
     if (placeholder.isNotEmpty) 'placeholder': placeholder,
@@ -369,7 +377,6 @@ class FieldSpec {
   /// Whether [value] is a usable value of this field.
   bool accepts(Object? value) => switch (type) {
     FieldType.text => value is String && _textFits(value),
-    FieldType.secret => value is String,
     FieldType.number =>
       value is num &&
           (min == null || value >= min!) &&
@@ -403,6 +410,11 @@ class FieldSpec {
       (maxChoices == null || value.length <= maxChoices!) &&
       value.every(_oneFits);
 
+  /// A secret's value as the text the TV keeps: text as it is, anything else
+  /// as JSON (a number or a tick as written, a list as a list).
+  static String storedAs(Object value) =>
+      value is String ? value : jsonEncode(value);
+
   /// Whether [value] counts as nothing given, for a required field.
   static bool isBlank(Object? value) =>
       value == null || value == '' || value is List && value.isEmpty;
@@ -431,7 +443,7 @@ class FieldSpec {
                 : ChoiceLook.dropdown));
 
   /// The editor's field for this one under [key]. [find] answers a choice
-  /// from the web; [secretState] says about a secret.
+  /// from the web; [secretState] says about it when it is a [secret].
   Field toField(
     String key, {
     String? labelled,
@@ -445,7 +457,6 @@ class FieldSpec {
       FieldType.number => FieldKind.number,
       FieldType.toggle => FieldKind.toggle,
       FieldType.choice => FieldKind.choice,
-      FieldType.secret => FieldKind.secret,
     },
     defaultValue: defaultValue,
     choices: options,
@@ -457,7 +468,7 @@ class FieldSpec {
     unset: unset,
     when: visible.isEmpty ? null : shows,
     find: from == null ? null : find,
-    secret: secretState,
+    secret: secret ? secretState : null,
     placeholder: placeholder,
     multiline: multiline,
     help: help,

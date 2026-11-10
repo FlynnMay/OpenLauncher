@@ -27,9 +27,6 @@ enum FieldKind {
 
   /// A repeating group of [Field.fields].
   list,
-
-  /// Text that is kept apart and never shown again; see [Field.secret].
-  secret,
 }
 
 /// How a choice is drawn. The first three pick one; the last three pick
@@ -62,6 +59,7 @@ class FieldFinding {
 }
 
 /// What a secret field can say and do; the secret itself is never here.
+/// [replace] gets a value of the field's own kind.
 class FieldSecret {
   const FieldSecret({
     required this.isSet,
@@ -70,7 +68,7 @@ class FieldSecret {
   });
 
   final bool isSet;
-  final Future<void> Function(String text) replace;
+  final Future<void> Function(Object value) replace;
   final Future<void> Function() clear;
 }
 
@@ -151,7 +149,8 @@ class Field {
   /// For a choice from the web: what typed text finds.
   final Future<List<FieldHit>> Function(String text)? find;
 
-  /// For a secret: whether it is set, and how to replace or clear it.
+  /// When given, the field is a secret of its own kind: whether it is set,
+  /// and how to replace or clear it.
   final FieldSecret? secret;
 
   /// For text: the hint, whether it has several lines, and whether a typed

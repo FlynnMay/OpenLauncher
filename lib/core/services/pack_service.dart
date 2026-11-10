@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/sources/source_request.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
@@ -21,9 +22,9 @@ class PackService {
     await _ref.read(packSecretsProvider.notifier).forget(id);
   }
 
-  /// Keeps [value] as the secret setting [key] of [packId]. No value (a
-  /// delete) clears it; a blank one is refused, so a secret is only ever
-  /// cleared on purpose.
+  /// Keeps [value], one the setting accepts, as the secret setting [key] of
+  /// [packId]. No value (a delete) clears it; a blank one is refused, so a
+  /// secret is only ever cleared on purpose.
   Future<void> setSecret(String? packId, String? key, Object? value) async {
     final setting = settingOf(
       await _ref.read(packsProvider.future),
@@ -33,15 +34,19 @@ class PackService {
     if (setting == null || !setting.secret) {
       throw const FormatException('"pack" and "key" must name a secret');
     }
-    if (value != null && value is! String) {
-      throw const FormatException('"value" must be text');
-    }
-    if (value is String && value.isEmpty) {
+    if (value != null && FieldSpec.isBlank(value)) {
       throw const FormatException('A secret cannot be blank; delete it');
+    }
+    if (value != null && !setting.accepts(value)) {
+      throw FormatException('"value" does not fit ${setting.label}');
     }
     await _ref
         .read(packSecretsProvider.notifier)
-        .set(packId!, setting.key, (value as String?) ?? '');
+        .set(
+          packId!,
+          setting.key,
+          value == null ? '' : FieldSpec.storedAs(value),
+        );
   }
 
   /// The options the setting [key] of [packId] finds for [query], each as it
