@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/editor/controls/check_choices.dart';
 import 'package:openlauncher/editor/controls/choice_box.dart';
 import 'package:openlauncher/editor/controls/colour_picker.dart';
 import 'package:openlauncher/editor/controls/commit_field.dart';
 import 'package:openlauncher/editor/controls/corner_settings.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
 import 'package:openlauncher/editor/controls/fill_field.dart';
+import 'package:openlauncher/editor/controls/found_choice.dart';
 import 'package:openlauncher/editor/controls/icon_field.dart';
 import 'package:openlauncher/editor/controls/labelled_row.dart';
+import 'package:openlauncher/editor/controls/multi_dropdown.dart';
 import 'package:openlauncher/editor/controls/number_field.dart';
-import 'package:openlauncher/editor/controls/search_picker.dart';
+import 'package:openlauncher/editor/controls/radio_choices.dart';
+import 'package:openlauncher/editor/controls/secret_field.dart';
 import 'package:openlauncher/editor/controls/template_field.dart';
 import 'package:openlauncher/editor/controls/tick_box.dart';
 
@@ -42,6 +46,10 @@ List<Widget> optionFields({
         return CommitField(
           label: option.label,
           value: value is String ? value : '',
+          hint: option.placeholder,
+          help: option.help,
+          multiline: option.multiline,
+          fits: option.fits,
           onChanged: (text) => set(option, text),
         );
       case FieldKind.value:
@@ -89,30 +97,11 @@ List<Widget> optionFields({
               : null,
         );
       case FieldKind.choice:
-        return LabelledRow(
-          option.label,
-          ChoiceBox<String>(
-            // One that may be left unmade has that among its choices.
-            value: option.choices.containsKey(value)
-                ? value as String
-                : option.unset == null
-                ? null
-                : '',
-            choices: {'': ?option.unset, ...option.choices},
-            onChanged: (choice) => set(option, choice.isEmpty ? null : choice),
-          ),
-        );
-      case FieldKind.search:
-        return SearchPicker(
-          label: option.label,
-          said: switch (value) {
-            {'name': final Object name} => '${option.label}: $name',
-            _ => 'No ${option.label.toLowerCase()} chosen.',
-          },
-          find: option.find ?? (_) async => const [],
-          onChosen: (chosen) => set(option, chosen),
-          onCleared: value == null ? null : () => set(option, null),
-        );
+        return _choiceField(option, value, (chosen) => set(option, chosen));
+      case FieldKind.secret:
+        return option.secret == null
+            ? const SizedBox.shrink()
+            : SecretField(label: option.label, secret: option.secret!);
       case FieldKind.icon:
         return IconField(
           label: option.label,
@@ -162,6 +151,98 @@ List<Widget> optionFields({
               )
             : field(option),
   ];
+}
+
+/// A choice of [option], drawn as its look says. [onChosen] gets the new
+/// value: one option, or a list of them for several; null for none.
+Widget _choiceField(
+  Field option,
+  Object? value,
+  void Function(Object? chosen) onChosen,
+) {
+  if (option.find != null) {
+    return FoundChoice(
+      label: option.label,
+      help: option.help,
+      chosen: switch (value) {
+        null => const [],
+        final List<Object?> several => several,
+        final one => [one],
+      },
+      find: option.find!,
+      finding:
+          option.remote ??
+          const FieldFinding(
+            on: FindOn.type,
+            debounce: Duration(milliseconds: 300),
+            minChars: 1,
+          ),
+      multiple: option.multiple,
+      most: option.maxChoices,
+      onChanged: (chosen) => onChosen(
+        option.multiple ? (chosen.isEmpty ? null : chosen) : chosen.firstOrNull,
+      ),
+    );
+  }
+  if (option.multiple) return _severalChoices(option, value, onChosen);
+  // One that may be left unmade has that among its choices.
+  final choices = {'': ?option.unset, ...option.choices};
+  final chosen = option.choices.containsKey(value)
+      ? value as String
+      : option.unset == null
+      ? null
+      : '';
+  void pick(String choice) => onChosen(choice.isEmpty ? null : choice);
+  return switch (option.look) {
+    ChoiceLook.radio => LabelledColumn(
+      option.label,
+      RadioChoices(value: chosen, choices: choices, onChanged: pick),
+      help: option.help,
+    ),
+    ChoiceLook.segmented => LabelledColumn(
+      option.label,
+      SegmentedChoice(value: chosen, choices: choices, onChanged: pick),
+      help: option.help,
+    ),
+    _ => LabelledRow(
+      option.label,
+      ChoiceBox<String>(value: chosen, choices: choices, onChanged: pick),
+    ),
+  };
+}
+
+Widget _severalChoices(
+  Field option,
+  Object? value,
+  void Function(Object? chosen) onChosen,
+) {
+  final chosen = <String>{
+    if (value case final List<Object?> several)
+      for (final one in several)
+        if (one is String && option.choices.containsKey(one)) one,
+  };
+  void pick(Set<String> next) => onChosen(next.isEmpty ? null : [...next]);
+  final control = switch (option.look) {
+    ChoiceLook.chips => ChipChoices(
+      chosen: chosen,
+      choices: option.choices,
+      most: option.maxChoices,
+      onChanged: pick,
+    ),
+    ChoiceLook.multiDropdown => MultiDropdown(
+      chosen: chosen,
+      choices: option.choices,
+      most: option.maxChoices,
+      onChanged: pick,
+    ),
+    _ => CheckChoices(
+      chosen: chosen,
+      choices: option.choices,
+      most: option.maxChoices,
+      onChanged: pick,
+    ),
+  };
+  return LabelledColumn(option.label, control, help: option.help);
 }
 
 /// A field set over what it inherits: a bar beside it and a revert.

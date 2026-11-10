@@ -245,8 +245,8 @@ class LauncherConfig {
     };
   }
 
-  /// One pack's setting key -> value, keeping only text, numbers, ticks and
-  /// the small maps of a search.
+  /// One pack's setting key -> value, keeping only text, numbers, ticks, the
+  /// small maps a choice keeps and lists of these.
   static Map<String, Object?> _settingValues(Object? json) {
     if (json is! Map) return const {};
     return {
@@ -259,7 +259,11 @@ class LauncherConfig {
       value is String ||
       value is num ||
       value is bool ||
-      value is Map && value.values.every(_isPlainInMap);
+      value is Map && value.values.every(_isPlainInMap) ||
+      value is List && value.every(_isPlainOrSmallMap);
+
+  static bool _isPlainOrSmallMap(Object? value) =>
+      _isPlainInMap(value) || value is Map && value.values.every(_isPlainInMap);
 
   static bool _isPlainInMap(Object? value) =>
       value is String || value is num || value is bool;

@@ -424,23 +424,24 @@ class TvApi {
     }
   }
 
-  /// What the search setting [key] of pack [packId] finds for [text].
-  Future<List<FieldHit>> searchSetting(
+  /// The options the choice [key] of pack [packId] finds for [text].
+  Future<List<FieldHit>> fieldOptions(
     String packId,
     String key,
     String text,
   ) async {
     final reply = await _ask(
       'GET',
-      '/api/pack-search?pack=${Uri.encodeQueryComponent(packId)}'
+      '/api/field-options?pack=${Uri.encodeQueryComponent(packId)}'
           '&key=${Uri.encodeQueryComponent(key)}'
           '&q=${Uri.encodeQueryComponent(text)}',
     ) as Map;
     return [
-      for (final Map hit in reply['hits'] as List)
+      for (final Map option in reply['options'] as List)
         (
-          title: hit['title'] as String,
-          value: (hit['value'] as Map).cast<String, Object?>(),
+          title: option['title'] as String,
+          group: option['group'] as String,
+          value: option['value'],
         ),
     ];
   }

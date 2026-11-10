@@ -28,13 +28,55 @@ enum FieldKind {
   /// A repeating group of [Field.fields].
   list,
 
-  /// A small map chosen from what [Field.find] finds for typed text; it has
-  /// at least a `name`.
-  search,
+  /// Text that is kept apart and never shown again; see [Field.secret].
+  secret,
 }
 
-/// What a search found: how it is listed, and the value choosing it keeps.
-typedef FieldHit = ({String title, Map<String, Object?> value});
+/// How a choice is drawn. The first three pick one; the last three pick
+/// several.
+enum ChoiceLook { dropdown, radio, segmented, checks, chips, multiDropdown }
+
+/// When a choice that asks the web does so.
+enum FindOn {
+  /// Asked once, then filtered here as the user types.
+  filter,
+
+  /// Asked as the user types, after a pause.
+  type,
+
+  /// Asked when the user presses Enter.
+  enter,
+}
+
+/// How a choice finds its options by asking.
+class FieldFinding {
+  const FieldFinding({
+    required this.on,
+    required this.debounce,
+    required this.minChars,
+  });
+
+  final FindOn on;
+  final Duration debounce;
+  final int minChars;
+}
+
+/// What a secret field can say and do; the secret itself is never here.
+class FieldSecret {
+  const FieldSecret({
+    required this.isSet,
+    required this.replace,
+    required this.clear,
+  });
+
+  final bool isSet;
+  final Future<void> Function(String text) replace;
+  final Future<void> Function() clear;
+}
+
+/// One option a search found: how it is listed, under which heading, and
+/// the value choosing it keeps.
+typedef FieldHit = ({String title, String group, Object? value});
 
 /// Parses [text] as null, a number, a bool, or leaves it as text.
 Object? typedValue(String text) => switch (text.trim()) {
@@ -64,6 +106,15 @@ class Field {
     this.heading,
     this.asks,
     this.find,
+    this.secret,
+    this.placeholder = '',
+    this.multiline = false,
+    this.help = '',
+    this.fits,
+    this.look,
+    this.multiple = false,
+    this.remote,
+    this.maxChoices,
   });
 
   final String key, label;
@@ -97,8 +148,28 @@ class Field {
   /// it when adding.
   final String? heading, asks;
 
-  /// For a search: what typed text finds.
+  /// For a choice from the web: what typed text finds.
   final Future<List<FieldHit>> Function(String text)? find;
+
+  /// For a secret: whether it is set, and how to replace or clear it.
+  final FieldSecret? secret;
+
+  /// For text: the hint, whether it has several lines, and whether a typed
+  /// text is acceptable (a text that is not is shown as such, not kept).
+  final String placeholder;
+  final bool multiline;
+  final bool Function(String text)? fits;
+
+  /// Shown under the field.
+  final String help;
+
+  /// For a choice: how it is drawn, null to pick by the number of options;
+  /// whether several may be chosen (the value is then a list); how many at
+  /// most; and how a choice from the web asks.
+  final ChoiceLook? look;
+  final bool multiple;
+  final int? maxChoices;
+  final FieldFinding? remote;
 }
 
 /// [choices] each labelled with its own value.

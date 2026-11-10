@@ -12,22 +12,25 @@
   "settings": {
     "place": {
       "label": "Weather place",
-      "type": "search",
+      "type": "choice",
       "required": true,
-      "search": {
+      "from": {
         "url": "https://geocoding-api.open-meteo.com/v1/search?name={{query}}&count=6&format=json",
-        "rows": "results"
-      },
-      "title": "{{row.name}}{{row.admin1 ? ', ' + row.admin1 : ''}}{{row.country ? ', ' + row.country : ''}}",
-      "keep": {
-        "latitude": "{{row.latitude}}",
-        "longitude": "{{row.longitude}}"
+        "rows": "results",
+        "label": "{{row.name}}{{row.admin1 ? ', ' + row.admin1 : ''}}{{row.country ? ', ' + row.country : ''}}",
+        "keep": {
+          "latitude": "{{row.latitude}}",
+          "longitude": "{{row.longitude}}"
+        },
+        "on": "type",
+        "minChars": 2
       }
     },
     "unit": {
       "label": "Temperature",
       "type": "choice",
-      "choices": {
+      "as": "segmented",
+      "options": {
         "celsius": "Celsius",
         "fahrenheit": "Fahrenheit"
       }

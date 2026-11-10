@@ -75,6 +75,18 @@ class Source {
     pack: packId,
   );
 
+  /// This with another [address].
+  Source withAddress(String address) => Source(
+    address,
+    every: every,
+    watch: watch,
+    rows: rows,
+    method: method,
+    auth: auth,
+    body: body,
+    pack: pack,
+  );
+
   static Source? fromJson(Object? json) {
     if (json case {'url': final String text}) {
       final address = text.trim();

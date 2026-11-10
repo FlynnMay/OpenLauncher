@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/packs.dart';
+import 'package:openlauncher/core/sources/source_request.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
-import 'package:openlauncher_domain/sources/http_feed.dart';
+import 'package:openlauncher_domain/nodes/field.dart';
+import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
 
 /// Installed packs, as the user's config sees them.
@@ -42,9 +44,9 @@ class PackService {
         .set(packId!, setting.key, (value as String?) ?? '');
   }
 
-  /// What the search setting [key] of [packId] finds for [query]: each hit
-  /// as it is listed, and the value choosing it keeps.
-  Future<List<({String title, Map<String, Object?> value})>> search(
+  /// The options the setting [key] of [packId] finds for [query], each as it
+  /// is listed, and the value choosing it keeps.
+  Future<List<FieldHit>> options(
     String? packId,
     String? key,
     String? query,
@@ -54,27 +56,31 @@ class PackService {
       packId,
       key,
     );
-    final source = setting?.search;
-    if (setting == null || source == null) {
-      throw const FormatException('"pack" and "key" must name a search');
+    final from = setting?.spec.from;
+    if (setting == null || from == null) {
+      throw const FormatException(
+        '"pack" and "key" must name a choice from '
+        'the web',
+      );
     }
-    if (query == null || query.trim().isEmpty) {
-      throw const FormatException('"q" must say what to look for');
+    final typed = (query ?? '').trim();
+    if (typed.length < from.leastTyped) {
+      throw FormatException('"q" must be at least ${from.leastTyped} long');
     }
-    final address = HttpFeed.addressOf(
-      Template.parse(source.address).render(
-        (root) =>
-            root == 'query' ? Uri.encodeQueryComponent(query.trim()) : null,
-      ),
+    final feed = await requestOf(
+      _ref,
+      (id: '$packId:$key', source: _asking(from.source.inPack(packId!), typed)),
+      reactive: false,
+      needsAllSettings: false,
     );
-    if (address == null) {
-      throw FormatException('"$packId" has no address for ${setting.label}');
-    }
-    final answer = await _ref.read(feedFetcherProvider)(
-      HttpFeed('$packId:$key', address, source.every ?? 60),
-    );
-    return [for (final row in source.rowsOf(answer)) ?setting.chosenFrom(row)];
+    final answer = await _ref.read(feedFetcherProvider)(feed);
+    return [for (final row in from.source.rowsOf(answer)) ?from.hitFrom(row)];
   }
+
+  /// [source] with what was typed put in its address.
+  Source _asking(Source source, String typed) => source.withAddress(
+    '${Template.parse(source.address).fill(const {'query'}, (root) => root == 'query' ? Uri.encodeQueryComponent(typed) : null)}',
+  );
 }
 
 final packServiceProvider = Provider<PackService>(PackService.new);

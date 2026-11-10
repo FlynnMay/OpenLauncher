@@ -103,6 +103,16 @@ void main() {
         ),
         feedFetcherProvider.overrideWithValue((feed) async {
           if (feed.address.host == 'broken') throw Exception('No answer');
+          if (feed.address.host == 'rooms.test') {
+            fetched.add(feed.address);
+            return {
+              'rooms': [
+                {'name': 'Lounge', 'floor': 'Up'},
+                {'name': 'Study', 'floor': 'Down'},
+                {'name': 'Hall'},
+              ],
+            };
+          }
           if (feed.address.host == 'geocoding-api.open-meteo.com') {
             fetched.add(feed.address);
             return {
@@ -832,13 +842,14 @@ void main() {
   test('looks a place up for the System pack setting', () async {
     final response = await call(
       'GET',
-      '/api/pack-search?pack=system&key=place&q=Perth',
+      '/api/field-options?pack=system&key=place&q=Perth',
     );
     expect(response.statusCode, 200);
     expect(jsonDecode(await response.readAsString()), {
-      'hits': [
+      'options': [
         {
           'title': 'Perth, Western Australia, Australia',
+          'group': '',
           'value': {
             'name': 'Perth, Western Australia, Australia',
             'latitude': -31.95,
@@ -847,22 +858,101 @@ void main() {
         },
       ],
     });
-    expect(fetched.single.queryParameters['name'], 'Perth');
+    expect(fetched.last.queryParameters['name'], 'Perth');
     expect(
       (await call(
         'GET',
-        '/api/pack-search?pack=system&key=place&q=',
+        '/api/field-options?pack=system&key=place&q=',
       )).statusCode,
       400,
     );
     expect(
       (await call(
         'GET',
-        '/api/pack-search?pack=system&key=unit&q=a',
+        '/api/field-options?pack=system&key=unit&q=a',
       )).statusCode,
       400,
     );
   });
+
+  test(
+    'options asked for before the setting has a value, from the pack',
+    () async {
+      await call(
+        'POST',
+        '/api/packs',
+        body: zipOf({
+          'pack.json': jsonEncode({
+            'id': 'hub',
+            'settings': {
+              'host': {'type': 'text', 'required': true},
+              'rooms': {
+                'type': 'choice',
+                'multiple': true,
+                'required': true,
+                'from': {
+                  'url': 'http://rooms.test/{{settings.host}}?q={{query}}',
+                  'rows': 'rooms',
+                  'label': '{{row.name}}',
+                  'group': '{{row.floor}}',
+                  'where': '{{row.name != "Hall"}}',
+                  'on': 'filter',
+                },
+              },
+            },
+          }),
+        }),
+      );
+      await call(
+        'PUT',
+        '/api/config',
+        body: {
+          'packSettings': {
+            'hub': {'host': 'main'},
+          },
+        },
+      );
+      final response = await call(
+        'GET',
+        '/api/field-options?pack=hub&key=rooms&q=',
+      );
+      expect(response.statusCode, 200);
+      expect(jsonDecode(await response.readAsString()), {
+        'options': [
+          {'title': 'Lounge', 'group': 'Up', 'value': 'Lounge'},
+          {'title': 'Study', 'group': 'Down', 'value': 'Study'},
+        ],
+      });
+      expect(fetched.last.path, '/main');
+      expect(fetched.last.queryParameters['q'], '');
+
+      // Several kept are a list of single values.
+      Future<int> set(Object? rooms) async => (await call(
+        'PUT',
+        '/api/config',
+        body: {
+          'packSettings': {
+            'hub': {'host': 'main', 'rooms': rooms},
+          },
+        },
+      )).statusCode;
+      expect(await set(['Lounge', 'Study']), 200);
+      expect((await state())['config']['packSettings']['hub']['rooms'], [
+        'Lounge',
+        'Study',
+      ]);
+      expect(await set('Lounge'), 400);
+      expect(await set([['Lounge']]), 400);
+      // A text setting is no choice from the web.
+      expect(
+        (await call(
+          'GET',
+          '/api/field-options?pack=hub&key=host&q=a',
+        )).statusCode,
+        400,
+      );
+    },
+  );
 
   test('entities left out of the layout are removed, not put back', () async {
     final page = await state();
@@ -1246,10 +1336,15 @@ void main() {
         'pack.json': jsonEncode({
           'id': 'hub',
           'settings': {
-            'host': {'label': 'Address', 'type': 'url', 'required': true},
+            'host': {
+              'label': 'Address',
+              'type': 'text',
+              'format': 'url',
+              'required': true,
+            },
             'room': {
               'type': 'choice',
-              'choices': {'a': 'Lounge', 'b': 'Study'},
+              'options': {'a': 'Lounge', 'b': 'Study'},
             },
             'token': {'label': 'Access token', 'type': 'secret'},
             'bad name': {'type': 'text'},
@@ -1261,11 +1356,15 @@ void main() {
     expect(response.statusCode, 200);
     final pack = (await state())['packs'].firstWhere((p) => p['id'] == 'hub');
     expect(pack['settings'], {
-      'host': {'label': 'Address', 'type': 'url', 'required': true},
+      'host': {
+        'label': 'Address',
+        'type': 'text',
+        'format': 'url',
+        'required': true,
+      },
       'room': {
-        'label': 'room',
         'type': 'choice',
-        'choices': {'a': 'Lounge', 'b': 'Study'},
+        'options': {'a': 'Lounge', 'b': 'Study'},
       },
       'token': {'label': 'Access token', 'type': 'secret'},
     });
@@ -1348,7 +1447,7 @@ void main() {
         'pack.json': jsonEncode({
           'id': 'hub',
           'settings': {
-            'host': {'type': 'url'},
+            'host': {'type': 'text', 'format': 'url'},
           },
         }),
       }),

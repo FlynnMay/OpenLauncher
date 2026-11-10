@@ -22,7 +22,7 @@ class PackRoutes implements ApiRoutes {
       ..post('/api/packs', _installPack)
       ..delete('/api/packs', _deletePack)
       // A secret setting is only ever sent this way, and never read back.
-      ..get('/api/pack-search', _searchSetting)
+      ..get('/api/field-options', _fieldOptions)
       ..put('/api/secret', _setSecret)
       ..delete('/api/secret', _clearSecret);
   }
@@ -54,16 +54,18 @@ class PackRoutes implements ApiRoutes {
     return emptyJsonResponse();
   }
 
-  /// What a search setting finds, proxied so the page only talks to the TV.
-  Future<Response> _searchSetting(Request request) async {
+  /// The options a choice from the web finds, proxied so the page only
+  /// talks to the TV.
+  Future<Response> _fieldOptions(Request request) async {
     final query = request.url.queryParameters;
     try {
       final hits = await _ref
           .read(packServiceProvider)
-          .search(query['pack'], query['key'], query['q']);
+          .options(query['pack'], query['key'], query['q']);
       return jsonResponse({
-        'hits': [
-          for (final hit in hits) {'title': hit.title, 'value': hit.value},
+        'options': [
+          for (final hit in hits)
+            {'title': hit.title, 'group': hit.group, 'value': hit.value},
         ],
       });
     } on http.ClientException catch (error) {

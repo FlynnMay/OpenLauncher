@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
@@ -21,8 +22,15 @@ class SourceNotReady implements Exception {
 
 /// The fetch a web source in [at] asks for: its address and body filled from
 /// its pack's settings, and signed by its auth profile. Throws
-/// [SourceNotReady] while a required setting of the pack has no value.
-Future<HttpFeed> requestOf(Ref ref, SourceAt at, {bool reactive = true}) async {
+/// [SourceNotReady] while a required setting of the pack has no value,
+/// unless [needsAllSettings] is false (a field's own options are asked for
+/// before it has its value).
+Future<HttpFeed> requestOf(
+  Ref ref,
+  SourceAt at, {
+  bool reactive = true,
+  bool needsAllSettings = true,
+}) async {
   final T Function<T>(ProviderListenable<T>) read = reactive
       ? ref.watch
       : ref.read;
@@ -39,7 +47,9 @@ Future<HttpFeed> requestOf(Ref ref, SourceAt at, {bool reactive = true}) async {
   final secrets = pack == null || !pack.settings.any((one) => one.secret)
       ? const <String, String>{}
       : (await read(packSecretsProvider.future))[pack.id] ?? const {};
-  if (pack != null) _requireSettings(pack, settings, secrets);
+  if (pack != null && needsAllSettings) {
+    _requireSettings(pack, settings, secrets);
+  }
   final address = HttpFeed.addressOf(_fill(source.address, settings));
   if (address == null) {
     throw SourceNotReady('"${source.address}" is not a web address yet');
@@ -71,7 +81,7 @@ void _requireSettings(
 ) {
   for (final setting in pack.settings) {
     final value = setting.secret ? secrets[setting.key] : settings[setting.key];
-    if (setting.required && '${value ?? ''}'.isEmpty) {
+    if (setting.required && FieldSpec.isBlank(value)) {
       throw SourceNotReady('${pack.name} needs "${setting.label}"');
     }
   }
