@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:openlauncher_domain/updates/update.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -110,7 +111,9 @@ class GitHubUpdateSource implements UpdateSource {
     if (response.statusCode != 200) {
       throw UpdateFailure('GitHub answered ${response.statusCode}.');
     }
-    return Release.fromGitHub(jsonDecode(utf8.decode(response.bodyBytes)));
+    return Release.fromGitHub(
+      decodeJson(utf8.decode(response.bodyBytes), source: 'GitHub release'),
+    );
   }
 
   Future<String> _fetch(

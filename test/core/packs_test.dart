@@ -209,6 +209,57 @@ void main() {
       },
     );
 
+    test('a pack may be written in JSONC, and may mix the two', () async {
+      final store = container().read(packStoreProvider);
+      await store.install(
+        Stream.value(
+          zipOf({
+            'pack.jsonc':
+                '{ // the lamp pack\n  "id": "lamp", "name": "Lamp",\n}',
+            'entities/lamp.jsonc': '{ "id": "lamp" /* the one */ }',
+            'sources/none.json': jsonEncode({'url': 'http://x.test'}),
+          }),
+        ),
+      );
+      final pack = (await store.list()).single;
+      expect(pack.name, 'Lamp');
+      expect(pack.files, ['entities/lamp.jsonc', 'sources/none.json']);
+    });
+
+    test(
+      'JSON with a comment in a .json file is turned down, saying where',
+      () async {
+        final store = container().read(packStoreProvider);
+        final why = await refused(
+          store.install(
+            Stream.value(zipOf({'pack.json': '{\n  // no\n  "id": "x"\n}'})),
+          ),
+        );
+        expect(why.status, 400);
+        expect(why.message, startsWith('pack.json:2:'));
+      },
+    );
+
+    test('x.json beside x.jsonc is turned down', () async {
+      final store = container().read(packStoreProvider);
+      final why = await refused(
+        store.install(
+          Stream.value(
+            zipOf({
+              'pack.json': jsonEncode({'id': 'x'}),
+              'entities/a.json': '{}',
+              'entities/a.jsonc': '{}',
+            }),
+          ),
+        ),
+      );
+      expect(why.status, 400);
+      expect(
+        why.message,
+        contains('both entities/a.json and entities/a.jsonc'),
+      );
+    });
+
     test('turns down what is not a pack', () async {
       final store = container({'core': packZip('core')})
           .read(packStoreProvider);

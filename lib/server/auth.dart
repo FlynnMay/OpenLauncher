@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/server/auth_store.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:shelf/shelf.dart';
 
 final authProvider = Provider<Authenticator>(
@@ -214,7 +215,7 @@ class Authenticator {
   Future<Response> _pair(Request request) async {
     final text = await _readCapped(request, _maxPairBody);
     if (text == null) return _refuse(413, 'Too large.');
-    final body = jsonDecode(text);
+    final body = decodeJson(text, source: 'pairing request');
     if (body is! Map) throw const FormatException('Expected a JSON object');
     final ({String token, TrustedDevice device}) paired;
     try {

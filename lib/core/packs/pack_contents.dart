@@ -6,6 +6,7 @@ import 'package:openlauncher/core/packs/icon_sets.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/layout_repair.dart';
@@ -81,11 +82,7 @@ class PackContents {
     final decoded = <String, Object?>{};
     for (final MapEntry(key: path, value: text) in files.entries) {
       if (!reads(path)) continue;
-      try {
-        decoded[path] = jsonDecode(text);
-      } on FormatException {
-        throw FormatException('$path is not JSON');
-      }
+      decoded[path] = decodeJson(text, source: path);
     }
     return decoded;
   }
@@ -145,7 +142,7 @@ class _Reading {
 
   void _read(String path, Object? json) {
     final [folder, file] = path.split('/');
-    final name = file.substring(0, file.length - '.json'.length);
+    final name = withoutJsonExtension(file);
     switch (folder) {
       case 'entities':
         _readEntity(path, json);
@@ -228,7 +225,7 @@ class _Reading {
     for (final MapEntry(key: name, value: generator) in generators.entries) {
       if (!sources.containsKey(generator.from)) {
         throw FormatException(
-          'generators/$name.json reads "${generator.from}", which is not in '
+          'generators/$name reads "${generator.from}", which is not in '
           'sources/',
         );
       }

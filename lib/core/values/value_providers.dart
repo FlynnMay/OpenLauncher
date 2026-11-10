@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
 
 /// The current time. Overridden in tests.
@@ -56,7 +57,7 @@ final feedFetcherProvider = Provider<Future<Object?> Function(HttpFeed)>(
   },
 );
 
-Object? _decodeJson(String body) => jsonDecode(body);
+Object? _decodeJson(String body) => decodeJson(body, source: 'feed reply');
 
 /// Largest accepted response.
 const maxFeedBytes = 512 * 1024;

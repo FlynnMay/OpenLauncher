@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/config/launcher_config.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher_domain/config/migrations/migrations.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:openlauncher_domain/layout/layout.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -75,7 +76,7 @@ class FileConfigStore implements ConfigStore {
     final Json json;
     try {
       json = await _withPartsRead(
-        jsonDecode(await file.readAsString()) as Json,
+        decodeJson(await file.readAsString(), source: file.path) as Json,
         directory,
       );
     } on Object catch (error) {
@@ -154,7 +155,7 @@ class FileConfigStore implements ConfigStore {
   ) async {
     final file = File(p.join(directory.path, folder, _fileName(id)));
     try {
-      return jsonDecode(await file.readAsString());
+      return decodeJson(await file.readAsString(), source: file.path);
     } on Object catch (error) {
       debugPrint('$folder/${_fileName(id)} unreadable, left out: $error');
       if (await file.exists()) await _keepCorrupt(file);

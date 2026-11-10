@@ -16,6 +16,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 
 /// A node with one visual module, as the catalogue offers it.
 typedef VisualOffer = ({
@@ -133,7 +134,8 @@ class TvApi {
           if (line.startsWith('event: ')) event = line.substring(7);
           if (line.isEmpty) event = '';
           if (!line.startsWith('data: ')) continue;
-          final data = jsonDecode(line.substring(6)) as Map;
+          final data =
+              decodeJson(line.substring(6), source: 'event stream') as Map;
           if (event == 'revision') {
             knownRevision = data['revision'] as int;
             continue;
@@ -272,7 +274,9 @@ class TvApi {
   /// The error from the TV's reply body.
   static Exception _refused(int status, String body) {
     try {
-      if (jsonDecode(body) case {'error': final String error}) {
+      if (decodeJson(body, source: 'reply') case {
+        'error': final String error,
+      }) {
         return TvRefused(status, error);
       }
     } on FormatException {
@@ -292,7 +296,7 @@ class TvApi {
     );
     final text = utf8.decode(response.bodyBytes);
     if (response.statusCode != 200) throw _refused(response.statusCode, text);
-    return jsonDecode(text);
+    return decodeJson(text, source: 'reply');
   }
 
   /// The TV answers with a session cookie.
@@ -377,7 +381,7 @@ class TvApi {
     );
     _client.check(reply.status);
     if (reply.status != 200) throw _refused(reply.status, reply.body);
-    return jsonDecode(reply.body) as Map;
+    return decodeJson(reply.body, source: 'reply') as Map;
   }
 
   /// Removes a pack nothing uses.

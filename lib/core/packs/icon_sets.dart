@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/icon_set.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_store.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 
 /// Reads a file of an installed pack; null if it has none at [path].
 typedef PackReader = Future<Uint8List?> Function(Pack pack, String path);
@@ -22,8 +23,10 @@ final packReaderProvider = Provider<PackReader>(
   (ref) => ref.watch(packStoreProvider).read,
 );
 
-IconSet? _readIndex((String, Uint8List) index) =>
-    IconSet.fromJson(index.$1, jsonDecode(utf8.decode(index.$2)));
+IconSet? _readIndex((String, Uint8List) index) => IconSet.fromJson(
+  index.$1,
+  decodeJson(utf8.decode(index.$2), source: 'icons/${index.$1}.json'),
+);
 
 /// Font families already given to the engine, which keeps them for good.
 final _families = <String>{};
@@ -41,7 +44,8 @@ final iconSetProvider = FutureProvider.family<IconSet?, String>((
   );
   if (pack == null) return null;
   final read = ref.watch(packReaderProvider);
-  final index = await read(pack, 'icons/$id.json');
+  final index =
+      await read(pack, 'icons/$id.json') ?? await read(pack, 'icons/$id.jsonc');
   if (index == null) return null;
   // Thousands of icons: read off the UI thread, where there is another.
   final set = await compute(_readIndex, (id, index));

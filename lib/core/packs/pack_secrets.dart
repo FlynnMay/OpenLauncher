@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -73,7 +74,7 @@ class FileSecretStore implements SecretStore {
     final file = await _file();
     if (!await file.exists()) return const {};
     try {
-      return _byPack(jsonDecode(await file.readAsString()));
+      return _byPack(decodeJson(await file.readAsString(), source: file.path));
     } on Object catch (e) {
       debugPrint('secrets.json unreadable, starting empty: $e');
       return const {};

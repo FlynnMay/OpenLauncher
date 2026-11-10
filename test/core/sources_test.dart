@@ -557,6 +557,28 @@ void main() {
       expect(lounge.toJson()['feed'], 'time');
     });
 
+    test('a pack file may be JSONC, a .json one may not', () async {
+      final c = container(const {});
+      final store = c.read(packStoreProvider);
+      await store.install(
+        Stream.value(
+          _pack('ha', {
+            'entities/x.jsonc': '{ "id": "x", // a comment\n "name": "X", }',
+          }),
+        ),
+      );
+      expect((await store.list()).any((pack) => pack.id == 'ha'), isTrue);
+      expect(
+        (await refused(
+          store,
+          _pack('hb', {
+            'entities/x.json': '{ "id": "x", // a comment\n "name": "X" }',
+          }),
+        )).message,
+        startsWith('entities/x.json:1:'),
+      );
+    });
+
     test('a pack writes short names, given its own id as it loads', () async {
       final c = container(const {});
       final store = c.read(packStoreProvider);
@@ -595,7 +617,10 @@ void main() {
         }),
         contains('"url"'),
       );
-      expect(await why({'entities/x.json': '{'}), contains('not JSON'));
+      expect(
+        await why({'entities/x.json': '{'}),
+        startsWith('entities/x.json:1:'),
+      );
 
       await store.install(
         Stream.value(
