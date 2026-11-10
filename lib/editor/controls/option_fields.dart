@@ -8,6 +8,7 @@ import 'package:openlauncher/editor/controls/corner_settings.dart';
 import 'package:openlauncher/editor/controls/dialogs.dart';
 import 'package:openlauncher/editor/controls/fill_field.dart';
 import 'package:openlauncher/editor/controls/found_choice.dart';
+import 'package:openlauncher/editor/controls/group_fields.dart';
 import 'package:openlauncher/editor/controls/icon_field.dart';
 import 'package:openlauncher/editor/controls/labelled_row.dart';
 import 'package:openlauncher/editor/controls/multi_dropdown.dart';
@@ -28,7 +29,34 @@ List<Widget> optionFields({
   Set<String> mixed = const {},
   Set<String> marked = const {},
   void Function(String key)? onRevert,
+  Map<String, Object?>? root,
+}) => [
+  for (final entry in fieldEntries(
+    options: options,
+    values: values,
+    onChanged: onChanged,
+    corner: corner,
+    mixed: mixed,
+    marked: marked,
+    onRevert: onRevert,
+    root: root,
+  ))
+    entry.widget,
+];
+
+/// The same, each widget with the [Field] it is for. [root] is the whole
+/// form's values when [values] are those of a group in it.
+List<({Field option, Widget widget})> fieldEntries({
+  required List<Field> options,
+  required Map<String, Object?> values,
+  required void Function(Map<String, Object?> values) onChanged,
+  double corner = 10,
+  Set<String> mixed = const {},
+  Set<String> marked = const {},
+  void Function(String key)? onRevert,
+  Map<String, Object?>? root,
 }) {
+  final whole = root ?? values;
   void set(Field option, Object? value) => onChanged(
     {...values, option.key: value == option.defaultValue ? null : value}
       ..removeWhere((_, value) => value == null),
@@ -115,6 +143,22 @@ List<Widget> optionFields({
         );
       case FieldKind.choice:
         return _choiceField(option, value, (chosen) => put(chosen));
+      case FieldKind.group:
+        return GroupFields(
+          label: option.label,
+          help: option.help,
+          columns: option.columns,
+          parts: [
+            for (final entry in fieldEntries(
+              options: option.group,
+              values: value is Map ? value.cast<String, Object?>() : const {},
+              root: whole,
+              corner: corner,
+              onChanged: (next) => put(next.isEmpty ? null : next),
+            ))
+              (child: entry.widget, span: entry.option.span),
+          ],
+        );
       case FieldKind.icon:
         return IconField(
           label: option.label,
@@ -156,13 +200,20 @@ List<Widget> optionFields({
 
   return [
     for (final option in options)
-      if (option.when?.call(values) ?? true)
-        marked.contains(option.key)
-            ? Overridden(
-                onRevert: onRevert == null ? null : () => onRevert(option.key),
-                child: field(option),
-              )
-            : field(option),
+      if (option.whenRoot?.call(values, whole) ??
+          option.when?.call(values) ??
+          true)
+        (
+          option: option,
+          widget: marked.contains(option.key)
+              ? Overridden(
+                  onRevert: onRevert == null
+                      ? null
+                      : () => onRevert(option.key),
+                  child: field(option),
+                )
+              : field(option),
+        ),
   ];
 }
 

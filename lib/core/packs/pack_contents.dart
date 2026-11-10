@@ -31,6 +31,7 @@ class PackContents {
 
   static const folders = [
     'entities',
+    'fields',
     'sources',
     'generators',
     'prefabs',
@@ -156,6 +157,9 @@ class _Reading {
         _readPrefab(path, json);
       case 'screens':
         _readScreen(path, json);
+      // Premade fields are read with the pack's settings, not here.
+      case 'fields':
+        break;
     }
   }
 

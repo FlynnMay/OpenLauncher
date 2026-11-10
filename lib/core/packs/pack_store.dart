@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/icon_set.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
+import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -106,12 +108,19 @@ class PackStore with ChangeNotifier {
     return ids;
   }
 
-  Future<Pack?> _read(Directory folder, Set<String> builtIn) async {
+  Future<Pack?> _read(
+    Directory folder,
+    Set<String> builtIn,
+    FieldLibrary library,
+  ) async {
     final manifest = File(p.join(folder.path, _manifest));
     if (!await manifest.exists()) return null;
     final Pack? pack;
     try {
-      pack = Pack.fromJson(jsonDecode(await manifest.readAsString()));
+      pack = Pack.fromJson(
+        jsonDecode(await manifest.readAsString()),
+        library: library,
+      );
     } on FormatException {
       return null;
     }
@@ -140,13 +149,45 @@ class PackStore with ChangeNotifier {
   Future<List<Pack>> _installed(Set<String> builtIn) async {
     final dir = await _dir();
     if (!await dir.exists()) return const [];
-    final packs = [
+    final folders = [
       await for (final entry in dir.list())
         if (entry is Directory && !p.basename(entry.path).startsWith('.'))
-          ?await _read(entry, builtIn),
+          entry,
+    ];
+    final library = await _libraryOf(folders);
+    final packs = [
+      for (final folder in folders) ?await _read(folder, builtIn, library),
     ];
     return packs
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  /// The premade fields in the `fields/` folders of [folders], by
+  /// `<pack>:<name>`; a pack's folder is named for its id.
+  Future<FieldLibrary> _libraryOf(List<Directory> folders) async {
+    final premade = <String, Map<String, Object?>>{};
+    for (final folder in folders) {
+      premade.addAll(await _premadeIn(folder));
+    }
+    return FieldLibrary(premade);
+  }
+
+  Future<Map<String, Map<String, Object?>>> _premadeIn(Directory folder) async {
+    final fields = Directory(p.join(folder.path, 'fields'));
+    if (!await fields.exists()) return const {};
+    final premade = <String, Map<String, Object?>>{};
+    await for (final file in fields.list()) {
+      if (file is! File || !file.path.endsWith('.json')) continue;
+      try {
+        if (jsonDecode(await file.readAsString()) case final Map json) {
+          final name = p.basenameWithoutExtension(file.path);
+          premade['${p.basename(folder.path)}:$name'] = jsonStringKeyed(json);
+        }
+      } on FormatException {
+        continue;
+      }
+    }
+    return premade;
   }
 
   /// Where pack [id] keeps [path]; null if it does not.

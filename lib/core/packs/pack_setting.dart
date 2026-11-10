@@ -18,17 +18,31 @@ class PackSetting {
 
   bool accepts(Object? value) => spec.accepts(value);
 
-  static PackSetting? fromJson(String key, Object? json) {
+  /// Every field in it that holds a value, by path: `key` itself, or each
+  /// field of a group as `key.part`.
+  Iterable<FieldLeaf> get leaves => spec.leaves(key);
+
+  static PackSetting? fromJson(
+    String key,
+    Object? json, {
+    FieldLibrary library = const FieldLibrary(),
+    String pack = '',
+  }) {
     if (!_key.hasMatch(key)) return null;
-    final spec = FieldSpec.fromJson(json);
+    final spec = FieldSpec.fromJson(json, library: library, pack: pack);
     return spec == null ? null : PackSetting(key, spec);
   }
 
-  /// The settings in a `pack.json` map, by key.
-  static List<PackSetting> listFromJson(Object? json) => [
+  /// The settings in a `pack.json` map, by key. [pack] is the pack that wrote
+  /// them, and [library] has the premade fields they may name.
+  static List<PackSetting> listFromJson(
+    Object? json, {
+    FieldLibrary library = const FieldLibrary(),
+    String pack = '',
+  }) => [
     if (json is Map)
-      for (final MapEntry(:key, :value) in json.entries)
-        if (key is String) ?fromJson(key, value),
+      for (final MapEntry(:key, :value) in FieldSpec.expandNames(json).entries)
+        if (key is String) ?fromJson(key, value, library: library, pack: pack),
   ];
 
   Map<String, Object?> toJson() => spec.toJson();

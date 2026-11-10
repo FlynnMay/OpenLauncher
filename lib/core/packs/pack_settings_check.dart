@@ -1,5 +1,6 @@
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_setting.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 
 /// Throws [FormatException] unless every value in [settings] (pack id -> key
 /// -> value) is for a plain setting of one of [packs] and fits its type.
@@ -27,6 +28,16 @@ PackSetting? settingOf(List<Pack> packs, String? packId, String? key) {
     if (pack.id == packId) {
       return pack.settings.where((setting) => setting.key == key).firstOrNull;
     }
+  }
+  return null;
+}
+
+/// The field at [path], `address.street`, among the settings of the pack
+/// [packId] in [packs], if there is one.
+FieldLeaf? fieldOf(List<Pack> packs, String? packId, String? path) {
+  if (path == null) return null;
+  for (final pack in packs) {
+    if (pack.id == packId) return pack.fieldAt(path);
   }
   return null;
 }

@@ -20,7 +20,20 @@ class _Form {
   final FieldSecret? secret;
   Map<String, Object?> values;
 
-  Future<void> show() => tester.pumpWidget(
+  /// Shown with the path of each choice asked for noted in [paths].
+  Future<void> withPaths(List<String> paths) => _show(
+    findAt: (path, text) async {
+      paths.add(path);
+      return const [];
+    },
+  );
+
+  Future<void> show() =>
+      _show(findAt: find == null ? null : (_, text) => find!(text));
+
+  Future<void> _show({
+    Future<List<FieldHit>> Function(String path, String text)? findAt,
+  }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: SingleChildScrollView(
@@ -29,8 +42,11 @@ class _Form {
               children: optionFields(
                 options: [
                   for (final MapEntry(:key, :value) in specs.entries)
-                    FieldSpec.fromJson(value)!
-                        .toField(key, find: find, secretState: secret),
+                    FieldSpec.fromJson(value)!.toField(
+                      key,
+                      findAt: findAt,
+                      secretAt: secret == null ? null : (_) => secret,
+                    ),
                 ],
                 values: values,
                 onChanged: (next) => setState(() => values = next),
@@ -478,5 +494,160 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(replaced, [true]);
+  });
+
+  group('a group', () {
+    Map<String, Map<String, Object?>> address([
+      Map<String, Object?> more = const {},
+    ]) => {
+      'address': {
+        'type': 'group',
+        'label': 'Address',
+        'columns': 4,
+        'fields': {
+          'street': {'type': 'text', 'label': 'Street', 'span': 2},
+          'city': {'type': 'text', 'label': 'City'},
+          'postcode': {'type': 'text', 'label': 'Postcode'},
+          'country': {'type': 'text', 'label': 'Country', 'span': 4},
+        },
+        ...more,
+      },
+    };
+
+    double width(WidgetTester tester, String label) =>
+        tester.getSize(find.widgetWithText(TextField, label)).width;
+
+    testWidgets('lays its fields out on the grid, wrapping by span', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(900, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _Form(tester, address()).show();
+      expect(find.text('Address'), findsOneWidget);
+      // The street is as wide as the city and postcode together.
+      final street = width(tester, 'Street');
+      expect(
+        street,
+        closeTo(width(tester, 'City') + width(tester, 'Postcode'), 1),
+      );
+      // Country takes a row to itself, as wide as the whole grid.
+      expect(width(tester, 'Country'), closeTo(street * 2 + 16, 2));
+      expect(
+        tester.getTopLeft(find.widgetWithText(TextField, 'City')).dy,
+        tester.getTopLeft(find.widgetWithText(TextField, 'Street')).dy,
+      );
+      expect(
+        tester.getTopLeft(find.widgetWithText(TextField, 'Country')).dy,
+        greaterThan(
+          tester.getTopLeft(find.widgetWithText(TextField, 'City')).dy,
+        ),
+      );
+    });
+
+    testWidgets('keeps its fields in one value under its name', (tester) async {
+      final form = _Form(tester, address());
+      await form.show();
+      await tester.enterText(find.widgetWithText(TextField, 'City'), 'Perth');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(form.values, {
+        'address': {'city': 'Perth'},
+      });
+      await tester.enterText(find.widgetWithText(TextField, 'City'), '');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      // Nothing left in it, so nothing kept.
+      expect(form.values, {
+        'address': {'city': ''},
+      });
+    });
+
+    testWidgets('shows a part by the whole form as well as its neighbours', (
+      tester,
+    ) async {
+      final form = _Form(tester, {
+        'detail': {'type': 'toggle', 'label': 'Detail'},
+        'address': {
+          'type': 'group',
+          'fields': {
+            'kind': {'type': 'text', 'label': 'Kind'},
+            'floor': {
+              'type': 'text',
+              'label': 'Floor',
+              'visible': '{{root.detail && values.kind == "flat"}}',
+            },
+          },
+        },
+      });
+      await form.show();
+      expect(find.text('Floor'), findsNothing);
+      await tester.tap(find.text('Detail'));
+      await tester.pump();
+      expect(find.text('Floor'), findsNothing);
+      await tester.enterText(find.widgetWithText(TextField, 'Kind'), 'flat');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(find.text('Floor'), findsOneWidget);
+    });
+
+    testWidgets('a part is secret on its own, or all of them with the group', (
+      tester,
+    ) async {
+      final replaced = <String>[];
+      final form = _Form(
+        tester,
+        {
+          'login': {
+            'type': 'group',
+            'fields': {
+              'user': {'type': 'text', 'label': 'User'},
+              'token': {'type': 'text', 'label': 'Token', 'secret': true},
+            },
+          },
+        },
+        secret: FieldSecret(
+          isSet: false,
+          replace: (value) async => replaced.add('$value'),
+          clear: () async {},
+        ),
+      );
+      await form.show();
+      final fields = tester.widgetList<TextField>(find.byType(TextField));
+      expect([for (final field in fields) field.obscureText], [false, true]);
+      await tester.enterText(find.widgetWithText(TextField, 'Token'), 'abc');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+      expect(replaced, ['abc']);
+      expect(form.values, isEmpty);
+    });
+
+    testWidgets('a part from the web is asked for by its whole path', (
+      tester,
+    ) async {
+      final paths = <String>[];
+      final form = _Form(tester, {
+        'address': {
+          'type': 'group',
+          'fields': {
+            'city': {
+              'type': 'choice',
+              'label': 'City',
+              'from': {
+                'url': 'http://x.test/find?q={{query}}',
+                'label': '{{row.name}}',
+                'debounce': 0,
+              },
+            },
+          },
+        },
+      });
+      await form.withPaths(paths);
+      await tester.enterText(find.byType(TextField), 'P');
+      await tester.pump(const Duration(milliseconds: 10));
+      await tester.pump();
+      expect(paths, ['address.city']);
+    });
   });
 }

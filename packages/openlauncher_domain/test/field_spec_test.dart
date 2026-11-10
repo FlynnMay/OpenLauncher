@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 FieldSpec spec(Map<String, Object?> json) => FieldSpec.fromJson(json)!;
 
 void main() {
+  groupTests();
   group('text', () {
     test('keeps to its length, pattern and format', () {
       final code = spec({
@@ -219,5 +220,234 @@ void main() {
     expect(FieldSpec.storedAs(1234), '1234');
     expect(FieldSpec.storedAs(false), 'false');
     expect(FieldSpec.storedAs(['a', 'b']), '["a","b"]');
+  });
+}
+
+class _Premade {
+  static FieldLibrary library(Map<String, Map<String, Object?>> premade) =>
+      FieldLibrary(premade);
+}
+
+void groupTests() {
+  Map<String, Object?> address({Map<String, Object?> more = const {}}) => {
+    'type': 'group',
+    'label': 'Address',
+    'columns': 4,
+    'fields': {
+      'street': {'type': 'text', 'span': 2},
+      'city': {'type': 'text'},
+      'postcode': {'type': 'text', 'maxLength': 4},
+    },
+    ...more,
+  };
+
+  group('a group', () {
+    test('holds fields by name and is a map of their values', () {
+      final home = spec(address());
+      expect(home.fields.keys, ['street', 'city', 'postcode']);
+      expect(home.columns, 4);
+      expect(home.fields['street']!.span, 2);
+      expect(home.accepts({'street': 'Main St', 'postcode': '6000'}), isTrue);
+      expect(home.accepts({'suburb': 'x'}), isFalse);
+      expect(home.accepts({'postcode': '60000'}), isFalse);
+      expect(home.accepts('Main St'), isFalse);
+      expect(FieldSpec.fromJson(home.toJson()), home);
+    });
+
+    test('without fields it is not a field', () {
+      expect(FieldSpec.fromJson({'type': 'group', 'fields': {}}), isNull);
+      expect(
+        FieldSpec.fromJson({
+          'type': 'group',
+          'fields': {
+            'bad name': {'type': 'text'},
+          },
+        }),
+        isNull,
+      );
+    });
+
+    test('a column count and span stay within the grid', () {
+      expect(spec(address(more: {'columns': 99})).columns, 12);
+      expect(spec(address(more: {'columns': 0})).columns, 1);
+    });
+
+    test('reaches every field in it by path, secrets included', () {
+      final login = spec({
+        'type': 'group',
+        'fields': {
+          'user': {'type': 'text'},
+          'token': {'type': 'text', 'secret': true},
+          'more': {
+            'type': 'group',
+            'secret': true,
+            'fields': {
+              'pin': {'type': 'number'},
+            },
+          },
+        },
+      });
+      expect(
+        [for (final leaf in login.leaves('login')) (leaf.path, leaf.secret)],
+        [
+          ('login.user', false),
+          ('login.token', true),
+          ('login.more.pin', true),
+        ],
+      );
+      // A secret is kept apart, so it is never part of the value.
+      expect(login.accepts({'user': 'me'}), isTrue);
+      expect(login.accepts({'token': 'abc'}), isFalse);
+      expect(login.accepts({'more': {}}), isFalse);
+    });
+
+    test('reads a value by its path', () {
+      final values = {
+        'address': {'postcode': '6000'},
+      };
+      expect(FieldSpec.valueAt(values, 'address.postcode'), '6000');
+      expect(FieldSpec.valueAt(values, 'address.city'), isNull);
+      expect(FieldSpec.valueAt(values, 'address.postcode.x'), isNull);
+    });
+
+    test('is told about the whole form to show a part of itself', () {
+      final part = spec({
+        'type': 'text',
+        'visible': '{{values.kind == "home" && root.advanced}}',
+      });
+      expect(part.shows({'kind': 'home'}, root: {'advanced': true}), isTrue);
+      expect(part.shows({'kind': 'home'}, root: {'advanced': false}), isFalse);
+    });
+  });
+
+  group('flat names', () {
+    test('make or join the group they start with', () {
+      final settings = FieldSpec.expandNames({
+        'address.street': {'type': 'text'},
+        'address.city': {'type': 'text'},
+        'name': {'type': 'text'},
+      });
+      expect(settings.keys, ['address', 'name']);
+      final home = FieldSpec.fromJson(settings['address'])!;
+      expect(home.type, FieldType.group);
+      expect(home.fields.keys, ['street', 'city']);
+    });
+
+    test('add to a group that is written out, wherever it comes', () {
+      final settings = FieldSpec.expandNames({
+        'address.postcode': {'type': 'text'},
+        'address': {
+          'type': 'group',
+          'label': 'Home',
+          'fields': {
+            'street': {'type': 'text'},
+          },
+        },
+      });
+      final home = FieldSpec.fromJson(settings['address'])!;
+      expect(home.label, 'Home');
+      expect(home.fields.keys, ['street', 'postcode']);
+    });
+
+    test('go as deep as they are dotted', () {
+      final home = spec({
+        'type': 'group',
+        'fields': {
+          'a.b.c': {'type': 'text'},
+        },
+      });
+      expect(home.fields['a']!.fields['b']!.fields['c']!.type, FieldType.text);
+    });
+  });
+
+  group('a premade field', () {
+    final library = _Premade.library({
+      'hub:place': {
+        'extends': 'choice',
+        'label': 'Place',
+        'params': {
+          'country': {'default': 'au'},
+        },
+        'from': {
+          'url': 'http://x.test/find?q={{query}}&cc={{param.country}}',
+          'label': '{{row.name}}',
+        },
+      },
+      'hub:address': {
+        'extends': 'group',
+        'label': 'Address',
+        'columns': 4,
+        'fields': {
+          'street': {'type': 'text', 'span': 2},
+          'city': {'type': 'place'},
+          'postcode': {'type': 'text'},
+        },
+      },
+      'hub:home': {'extends': 'address', 'label': 'Home address'},
+      'other:name': {'extends': 'text', 'maxLength': 3},
+      'hub:loop': {'extends': 'loop'},
+    });
+
+    FieldSpec? read(Object? json, [String pack = 'hub']) =>
+        FieldSpec.fromJson(json, library: library, pack: pack);
+
+    test('is a primitive with its settings filled in', () {
+      final place = read({'type': 'place'})!;
+      expect(place.type, FieldType.choice);
+      expect(place.label, 'Place');
+      expect(place.from!.source.address, contains('cc=au'));
+      // What is not its own to fill is left for later.
+      expect(place.from!.source.address, contains('{{query}}'));
+    });
+
+    test('takes parameters, and is written over by its use', () {
+      final place = read({
+        'type': 'place',
+        'label': 'Where',
+        'params': {'country': 'nz'},
+      })!;
+      expect(place.label, 'Where');
+      expect(place.from!.source.address, contains('cc=nz'));
+    });
+
+    test('can be a group of other premade fields', () {
+      final home = read({'type': 'address'})!;
+      expect(home.fields.keys, ['street', 'city', 'postcode']);
+      expect(home.fields['city']!.type, FieldType.choice);
+      expect(home.fields['street']!.span, 2);
+    });
+
+    test('builds on another, and its use changes a part of it', () {
+      final home = read({
+        'type': 'home',
+        'fields': {
+          'postcode': {'maxLength': 4},
+          'country': {'type': 'text'},
+        },
+      })!;
+      expect(home.label, 'Home address');
+      expect(home.fields['postcode']!.maxLength, 4);
+      expect(home.fields.keys, ['street', 'city', 'postcode', 'country']);
+    });
+
+    test('one part of a group can stand alone', () {
+      final postcode = read({'type': 'address.postcode'})!;
+      expect(postcode.type, FieldType.text);
+      final city = read({'type': 'hub:address.city', 'label': 'Town'})!;
+      expect(city.type, FieldType.choice);
+      expect(city.label, 'Town');
+      expect(read({'type': 'address.nothing'}), isNull);
+    });
+
+    test('is found in another pack by its name, else by the bare name', () {
+      expect(read({'type': 'other:name'})!.maxLength, 3);
+      expect(read({'type': 'name'}), isNull);
+      expect(read({'type': 'name'}, 'other')!.maxLength, 3);
+      expect(read({'type': 'missing'}), isNull);
+    });
+
+    test('is refused when it only loops', () {
+      expect(read({'type': 'loop'}), isNull);
+    });
   });
 }

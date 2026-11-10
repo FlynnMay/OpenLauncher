@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/packs/pack_auth.dart';
 import 'package:openlauncher/core/packs/pack_setting.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
 /// `fonts/`, icon sets in `icons/`, pictures in `images/`, and JSON in
-/// `entities/`, `sources/`, `generators/`, `prefabs/` and `screens/`.
+/// `entities/`, `fields/`, `sources/`, `generators/`, `prefabs/` and
+/// `screens/`.
 @immutable
 class Pack {
   const Pack({
@@ -87,8 +89,36 @@ class Pack {
   /// Ids of its icon sets: the files in `icons/`.
   List<String> get iconSets => named('icons');
 
-  /// From `pack.json`, or as the editor is sent it.
-  static Pack? fromJson(Object? json) {
+  /// Every field of its settings that holds a value, by path
+  /// (`address.street`).
+  Iterable<FieldLeaf> get leaves =>
+      settings.expand((setting) => setting.leaves);
+
+  /// The field at [path] among its settings, if there is one.
+  FieldLeaf? fieldAt(String path) =>
+      leaves.where((leaf) => leaf.path == path).firstOrNull;
+
+  /// Whether any of its settings is kept secret.
+  bool get hasSecrets => leaves.any((leaf) => leaf.secret);
+
+  /// The labels of the required fields that have no value in [values] (the
+  /// plain ones, nested as saved), or, for a secret, whose path is not in
+  /// [secretsSet].
+  List<String> missing(Map<String, Object?> values, Set<String> secretsSet) => [
+    for (final leaf in leaves)
+      if (leaf.spec.required &&
+          (leaf.secret
+              ? !secretsSet.contains(leaf.path)
+              : FieldSpec.isBlank(FieldSpec.valueAt(values, leaf.path))))
+        leaf.spec.label.isEmpty ? leaf.path : leaf.spec.label,
+  ];
+
+  /// From `pack.json`, or as the editor is sent it. [library] has the
+  /// premade fields its settings may name.
+  static Pack? fromJson(
+    Object? json, {
+    FieldLibrary library = const FieldLibrary(),
+  }) {
     if (json case {'id': final String id} when validId(id)) {
       String text(String key) => switch (json[key]) {
         final String text => text,
@@ -112,7 +142,11 @@ class Pack {
             for (final MapEntry(:key, :value) in categories.entries)
               if (key is String && value is String) key: value,
         },
-        settings: PackSetting.listFromJson(json['settings']),
+        settings: PackSetting.listFromJson(
+          json['settings'],
+          library: library,
+          pack: id,
+        ),
         auth: PackAuthProfile.mapFromJson(json['auth']),
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {

@@ -16,6 +16,7 @@ import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 import 'package:openlauncher_domain/editing/docked_prefabs.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
 /// with no font loaded.
@@ -39,6 +40,13 @@ const materialPack = Pack(
 final systemPack =
     Pack.fromJson(
       jsonDecode(File('packs/system/pack.json').readAsStringSync()),
+      library: FieldLibrary({
+        for (final file in Directory('packs/system/fields').listSync())
+          if (file is File)
+            'system:${file.uri.pathSegments.last.replaceAll('.json', '')}':
+                (jsonDecode(file.readAsStringSync()) as Map)
+                    .cast<String, Object?>(),
+      }),
     )!.copyWith(
       builtIn: true,
       files: [

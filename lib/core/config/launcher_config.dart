@@ -245,8 +245,8 @@ class LauncherConfig {
     };
   }
 
-  /// One pack's setting key -> value, keeping only text, numbers, ticks, the
-  /// small maps a choice keeps and lists of these.
+  /// One pack's setting key -> value, keeping only plain ones: see
+  /// [_isPlain].
   static Map<String, Object?> _settingValues(Object? json) {
     if (json is! Map) return const {};
     return {
@@ -255,18 +255,21 @@ class LauncherConfig {
     };
   }
 
-  static bool _isPlain(Object? value) =>
-      value is String ||
-      value is num ||
-      value is bool ||
-      value is Map && value.values.every(_isPlainInMap) ||
-      value is List && value.every(_isPlainOrSmallMap);
+  /// Text, a number, a tick, or a list or map of these a few levels deep.
+  static bool _isPlain(Object? value, [int depth = 0]) => switch (value) {
+    String() || num() || bool() => true,
+    final List<Object?> list =>
+      depth < _deepest && list.every((one) => _isPlain(one, depth + 1)),
+    final Map<Object?, Object?> map =>
+      depth < _deepest &&
+          map.entries.every(
+            (entry) => entry.key is String && _isPlain(entry.value, depth + 1),
+          ),
+    _ => false,
+  };
 
-  static bool _isPlainOrSmallMap(Object? value) =>
-      _isPlainInMap(value) || value is Map && value.values.every(_isPlainInMap);
-
-  static bool _isPlainInMap(Object? value) =>
-      value is String || value is num || value is bool;
+  /// How many lists and maps a setting's value may nest.
+  static const _deepest = 4;
 
   static Map<String, String> _strings(Object? json) => {
     if (json is Map)

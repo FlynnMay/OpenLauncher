@@ -27,6 +27,10 @@ enum FieldKind {
 
   /// A repeating group of [Field.fields].
   list,
+
+  /// Fields kept together under one name, laid out in columns; the value is
+  /// a map of theirs. See [Field.group].
+  group,
 }
 
 /// How a choice is drawn. The first three pick one; the last three pick
@@ -113,6 +117,10 @@ class Field {
     this.multiple = false,
     this.remote,
     this.maxChoices,
+    this.whenRoot,
+    this.group = const [],
+    this.columns = 1,
+    this.span = 1,
   });
 
   final String key, label;
@@ -135,6 +143,15 @@ class Field {
 
   /// Whether the option applies, given the current values.
   final bool Function(Map<String, Object?> options)? when;
+
+  /// The same, given the form's whole value too; used before [when].
+  final bool Function(Map<String, Object?> values, Map<String, Object?> root)?
+  whenRoot;
+
+  /// For a group: its fields, the units its rows are wide, and for any field
+  /// the units of its group's row it takes.
+  final List<Field> group;
+  final int columns, span;
 
   /// For a list: the fields of one entry. [label] is the add button's text.
   final List<Field> Function(Map<String, Object?> one)? fields;

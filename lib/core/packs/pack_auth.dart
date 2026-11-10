@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/values/template.dart';
 
 /// How a pack signs its requests, from `auth` in its `pack.json`: headers
@@ -54,7 +55,7 @@ class PackAuthProfile {
       Template.parse(host).render(_reading(settings)).trim(),
     );
     if (origin == null || !_sameOrigin(origin, target)) return null;
-    final everything = {...settings, ...secrets};
+    final everything = _withSecrets(settings, secrets);
     final filled = <String, String>{};
     for (final MapEntry(:key, :value) in headers.entries) {
       final template = Template.parse(value);
@@ -68,13 +69,42 @@ class PackAuthProfile {
   static Object? Function(String) _reading(Map<String, Object?> settings) =>
       (root) => root == 'settings' ? settings : null;
 
-  static final _settingNamed = RegExp(r'settings\.(\w+)');
+  static final _settingNamed = RegExp(r'settings\.([\w.]*\w)');
 
-  /// Whether every `settings.x` the template names has a value.
+  /// Whether every `settings.x`, or `settings.group.x`, the template names
+  /// has a value.
   static bool _hasValues(String template, Map<String, Object?> values) =>
       _settingNamed
           .allMatches(template)
-          .every((named) => '${values[named[1]] ?? ''}'.isNotEmpty);
+          .every(
+            (named) =>
+                '${FieldSpec.valueAt(values, named[1]!) ?? ''}'.isNotEmpty,
+          );
+
+  /// [settings] with each secret put in its place, by its path: a secret of
+  /// `login.token` is in `login`, beside the plain settings of the group.
+  static Map<String, Object?> _withSecrets(
+    Map<String, Object?> settings,
+    Map<String, String> secrets,
+  ) {
+    final all = _copied(settings);
+    for (final MapEntry(:key, :value) in secrets.entries) {
+      var inside = all;
+      final parts = key.split('.');
+      for (final part in parts.take(parts.length - 1)) {
+        final next = inside[part];
+        if (next is! Map<String, Object?>) inside[part] = <String, Object?>{};
+        inside = inside[part] as Map<String, Object?>;
+      }
+      inside[parts.last] = value;
+    }
+    return all;
+  }
+
+  static Map<String, Object?> _copied(Map<String, Object?> map) => {
+    for (final MapEntry(:key, :value) in map.entries)
+      key: value is Map<String, Object?> ? _copied(value) : value,
+  };
 
   static bool _sameOrigin(Uri a, Uri b) =>
       a.scheme == b.scheme && a.host == b.host && a.port == b.port;

@@ -25,47 +25,38 @@ class PackService {
   /// Keeps [value], one the setting accepts, as the secret setting [key] of
   /// [packId]. No value (a delete) clears it; a blank one is refused, so a
   /// secret is only ever cleared on purpose.
-  Future<void> setSecret(String? packId, String? key, Object? value) async {
-    final setting = settingOf(
-      await _ref.read(packsProvider.future),
-      packId,
-      key,
-    );
-    if (setting == null || !setting.secret) {
+  Future<void> setSecret(String? packId, String? path, Object? value) async {
+    final leaf = fieldOf(await _ref.read(packsProvider.future), packId, path);
+    if (leaf == null || !leaf.secret) {
       throw const FormatException('"pack" and "key" must name a secret');
     }
     if (value != null && FieldSpec.isBlank(value)) {
       throw const FormatException('A secret cannot be blank; delete it');
     }
-    if (value != null && !setting.accepts(value)) {
-      throw FormatException('"value" does not fit ${setting.label}');
+    if (value != null && !leaf.spec.accepts(value)) {
+      throw FormatException('"value" does not fit $path');
     }
     await _ref
         .read(packSecretsProvider.notifier)
         .set(
           packId!,
-          setting.key,
+          leaf.path,
           value == null ? '' : FieldSpec.storedAs(value),
         );
   }
 
-  /// The options the setting [key] of [packId] finds for [query], each as it
-  /// is listed, and the value choosing it keeps.
+  /// The options the choice at [path] of [packId] finds for [query], each as
+  /// it is listed, and the value choosing it keeps.
   Future<List<FieldHit>> options(
     String? packId,
-    String? key,
+    String? path,
     String? query,
   ) async {
-    final setting = settingOf(
-      await _ref.read(packsProvider.future),
-      packId,
-      key,
-    );
-    final from = setting?.spec.from;
-    if (setting == null || from == null) {
+    final leaf = fieldOf(await _ref.read(packsProvider.future), packId, path);
+    final from = leaf?.spec.from;
+    if (leaf == null || from == null) {
       throw const FormatException(
-        '"pack" and "key" must name a choice from '
-        'the web',
+        '"pack" and "key" must name a choice from the web',
       );
     }
     final typed = (query ?? '').trim();
@@ -74,7 +65,10 @@ class PackService {
     }
     final feed = await requestOf(
       _ref,
-      (id: '$packId:$key', source: _asking(from.source.inPack(packId!), typed)),
+      (
+        id: '$packId:$path',
+        source: _asking(from.source.inPack(packId!), typed),
+      ),
       reactive: false,
       needsAllSettings: false,
     );

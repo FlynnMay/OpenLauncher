@@ -17,7 +17,7 @@ void main() {
   final hub = Pack.fromJson({
     'id': 'hub',
     'settings': {
-      'host': {'type': 'url'},
+      'host': {'type': 'text', 'format': 'url'},
       'token': {'type': 'text', 'secret': true},
     },
     'auth': {

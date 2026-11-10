@@ -5,7 +5,6 @@ import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
-import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
 
 /// What [pack] asks the user for. Plain values are saved in the config; a
@@ -15,23 +14,12 @@ class PackSettingsForm extends ConsumerWidget {
 
   final Pack pack;
 
-  /// The labels of the required settings of [pack] that still have no value.
+  /// The labels of the required fields of [pack] that still have no value.
   static List<String> missing(
     Pack pack,
     Map<String, Object?> values,
     Set<String> secrets,
-  ) => [
-    for (final setting in pack.settings)
-      if (setting.required &&
-          (setting.secret
-              ? !secrets.contains(setting.key)
-              : FieldSpec.isBlank(values[setting.key])))
-        setting.label,
-  ];
-
-  /// A required setting is marked.
-  static String labelOf(PackSetting setting) =>
-      setting.required ? '${setting.label} *' : setting.label;
+  ) => pack.missing(values, secrets);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,16 +37,12 @@ class PackSettingsForm extends ConsumerWidget {
             for (final setting in pack.settings)
               setting.spec.toField(
                 setting.key,
-                labelled: labelOf(setting),
-                find: (text) => api.fieldOptions(pack.id, setting.key, text),
-                secretState: setting.secret
-                    ? FieldSecret(
-                        isSet: secrets.contains(setting.key),
-                        replace: (text) =>
-                            api.setSecret(pack.id, setting.key, text),
-                        clear: () => api.clearSecret(pack.id, setting.key),
-                      )
-                    : null,
+                findAt: (path, text) => api.fieldOptions(pack.id, path, text),
+                secretAt: (path) => FieldSecret(
+                  isSet: secrets.contains(path),
+                  replace: (value) => api.setSecret(pack.id, path, value),
+                  clear: () => api.clearSecret(pack.id, path),
+                ),
               ),
           ],
           values: values,

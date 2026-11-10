@@ -12,6 +12,7 @@ export 'file_pick.dart';
 export 'fill_field.dart';
 export 'found_choice.dart';
 export 'gradient_bar.dart';
+export 'group_fields.dart';
 export 'icon_field.dart';
 export 'icon_picker.dart';
 export 'id_label.dart';

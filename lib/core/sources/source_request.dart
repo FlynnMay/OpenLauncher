@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/values/value_providers.dart';
-import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
@@ -44,7 +43,7 @@ Future<HttpFeed> requestOf(
     ),
   );
   // Secrets are a file read, so only a pack that keeps some asks for them.
-  final secrets = pack == null || !pack.settings.any((one) => one.secret)
+  final secrets = pack == null || !pack.hasSecrets
       ? const <String, String>{}
       : (await read(packSecretsProvider.future))[pack.id] ?? const {};
   if (pack != null && needsAllSettings) {
@@ -79,11 +78,12 @@ void _requireSettings(
   Map<String, Object?> settings,
   Map<String, String> secrets,
 ) {
-  for (final setting in pack.settings) {
-    final value = setting.secret ? secrets[setting.key] : settings[setting.key];
-    if (setting.required && FieldSpec.isBlank(value)) {
-      throw SourceNotReady('${pack.name} needs "${setting.label}"');
-    }
+  final missing = pack.missing(settings, {
+    for (final MapEntry(:key, :value) in secrets.entries)
+      if (value.isNotEmpty) key,
+  });
+  if (missing.isNotEmpty) {
+    throw SourceNotReady('${pack.name} needs "${missing.first}"');
   }
 }
 

@@ -1016,6 +1016,144 @@ void main() {
     );
   });
 
+  test('groups, flat names and premade fields from other packs', () async {
+    Future<void> install(
+      Map<String, Object?> manifest, [
+      Map<String, Object?> fields = const {},
+    ]) async {
+      final response = await call(
+        'POST',
+        '/api/packs',
+        body: zipOf({
+          'pack.json': jsonEncode(manifest),
+          for (final MapEntry(:key, :value) in fields.entries)
+            'fields/$key.json': jsonEncode(value),
+        }),
+      );
+      expect(response.statusCode, 200);
+    }
+
+    await install(
+      {'id': 'base'},
+      {
+        'address': {
+          'extends': 'group',
+          'columns': 4,
+          'fields': {
+            'street': {'type': 'text', 'span': 2},
+            'city': {
+              'type': 'choice',
+              'from': {
+                'url': 'http://rooms.test/x?q={{query}}',
+                'rows': 'rooms',
+                'label': '{{row.name}}',
+                'on': 'filter',
+              },
+            },
+            'postcode': {'type': 'text', 'maxLength': 4},
+          },
+        },
+      },
+    );
+    await install({
+      'id': 'hub',
+      'requires': ['base'],
+      'settings': {
+        'address': {'type': 'base:address', 'label': 'Home'},
+        'login.user': {'type': 'text'},
+        'login.token': {'type': 'text', 'secret': true},
+        'zip': {'type': 'base:address.postcode'},
+      },
+    });
+
+    // The page is sent every premade field written out.
+    final sent = (await state())['packs'].firstWhere((p) => p['id'] == 'hub');
+    expect(sent['settings'].keys, ['address', 'login', 'zip']);
+    expect(sent['settings']['address']['label'], 'Home');
+    expect(sent['settings']['address']['columns'], 4);
+    expect(sent['settings']['address']['fields'].keys, [
+      'street',
+      'city',
+      'postcode',
+    ]);
+    expect(sent['settings']['login']['fields']['token']['secret'], isTrue);
+    expect(sent['settings']['zip']['type'], 'text');
+
+    Future<int> set(Object? settings) async => (await call(
+      'PUT',
+      '/api/config',
+      body: {
+        'packSettings': {'hub': settings},
+      },
+    )).statusCode;
+    expect(
+      await set({
+        'address': {'street': 'Main St', 'city': 'Lounge'},
+        'login': {'user': 'me'},
+        'zip': '6000',
+      }),
+      200,
+    );
+    expect((await state())['config']['packSettings']['hub']['address'], {
+      'street': 'Main St',
+      'city': 'Lounge',
+    });
+    // A part that is not there, too long, a secret, a group as a text.
+    for (final bad in [
+      {
+        'address': {'suburb': 'x'},
+      },
+      {
+        'address': {'postcode': '60000'},
+      },
+      {
+        'login': {'token': 'abc'},
+      },
+      {'address': 'Main St'},
+      {
+        'zip': {'a': 1},
+      },
+    ]) {
+      expect(await set(bad), 400, reason: '$bad');
+    }
+
+    // A secret is reached by its path.
+    Future<int> put(String key, Object? value) async => (await call(
+      'PUT',
+      '/api/secret?pack=hub&key=$key',
+      body: {'value': value},
+    )).statusCode;
+    expect(await put('login.token', 's3cret'), 200);
+    expect(await put('login.user', 'me'), 400);
+    expect(await put('login', 'x'), 400);
+    expect(
+      secrets.load(),
+      completion({
+        'hub': {'login.token': 's3cret'},
+      }),
+    );
+    expect((await state())['secrets']['hub'], ['login.token']);
+
+    // A part of a group asks the web by its path.
+    final options = await call(
+      'GET',
+      '/api/field-options?pack=hub&key=address.city&q=',
+    );
+    expect(options.statusCode, 200);
+    expect((jsonDecode(await options.readAsString()) as Map)['options'], [
+      {'title': 'Lounge', 'group': '', 'value': 'Lounge'},
+      {'title': 'Study', 'group': '', 'value': 'Study'},
+      {'title': 'Hall', 'group': '', 'value': 'Hall'},
+    ]);
+    expect(
+      (await call(
+        'GET',
+        '/api/field-options?pack=hub&key=address&q=',
+      )).statusCode,
+      400,
+    );
+  });
+
   test('entities left out of the layout are removed, not put back', () async {
     final page = await state();
     final layout = page['layout'] as Map<String, dynamic>;

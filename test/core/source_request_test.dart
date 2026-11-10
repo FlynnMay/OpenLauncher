@@ -9,7 +9,12 @@ void main() {
     'id': 'hub',
     'name': 'Hub',
     'settings': {
-      'host': {'label': 'Address', 'type': 'url', 'required': true},
+      'host': {
+        'label': 'Address',
+        'type': 'text',
+        'format': 'url',
+        'required': true,
+      },
       'token': {
         'label': 'Token',
         'type': 'text',
