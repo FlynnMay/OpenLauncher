@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:meta/meta.dart';
+import 'package:openlauncher_domain/json/json_expand.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
 import 'package:openlauncher_domain/sources/source.dart';
@@ -390,7 +391,7 @@ class FieldSpec {
     Map<String, Object?> premade,
     Object? given,
   ) {
-    final declared = premade['params'];
+    final declared = premade[r'$params'];
     final values = {
       if (declared is Map)
         for (final MapEntry(:key, :value) in declared.entries)
@@ -402,28 +403,10 @@ class FieldSpec {
                 : value,
     };
     final body = {...premade}
-      ..remove('params')
+      ..remove(r'$params')
       ..remove('extends');
-    return {
-      for (final MapEntry(:key, :value) in body.entries)
-        key: _filled(value, values),
-    };
+    return jsonStringKeyed(fillParameters(body, values));
   }
-
-  static Object? _filled(Object? json, Map<String, Object?> values) =>
-      switch (json) {
-        final String text when text.contains('{{param') => Template.parse(
-          text,
-        ).fill(const {'param'}, (root) => root == 'param' ? values : null),
-        final Map<Object?, Object?> map => {
-          for (final MapEntry(:key, :value) in map.entries)
-            key: _filled(value, values),
-        },
-        final List<Object?> list => [
-          for (final one in list) _filled(one, values),
-        ],
-        _ => json,
-      };
 
   /// [base] with what [usage] says written over it: every key but `type` and
   /// `params`, and `fields` a field at a time.

@@ -365,7 +365,7 @@ void groupTests() {
       'hub:place': {
         'extends': 'choice',
         'label': 'Place',
-        'params': {
+        r'$params': {
           'country': {'default': 'au'},
         },
         'from': {

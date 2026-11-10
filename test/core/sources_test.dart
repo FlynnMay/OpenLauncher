@@ -579,6 +579,35 @@ void main() {
       );
     });
 
+    test('a pack\'s defs.jsonc is chunks every file in it can use', () async {
+      final c = container(const {});
+      final store = c.read(packStoreProvider);
+      await store.install(
+        Stream.value(
+          _pack('ha', {
+            'defs.jsonc':
+                '{ "\$defs": { "light": { "name": "{{param.n}}", '
+                '"\$params": { "n": "Lamp" } } } }',
+            'entities/x.jsonc': '{ "id": "x", "\$use": "light" }',
+          }),
+        ),
+      );
+      final contents = await c.read(packContentsProvider.future);
+      final entity = contents
+          .singleWhere((one) => one.pack.id == 'ha')
+          .entities
+          .single;
+      expect(entity.id, 'ha:x');
+      expect(entity.name, 'Lamp');
+      expect(
+        (await refused(
+          store,
+          _pack('hb', {'entities/x.json': '{ "id": "x", "\$use": "missing" }'}),
+        )).message,
+        contains('"missing" is not defined'),
+      );
+    });
+
     test('a pack writes short names, given its own id as it loads', () async {
       final c = container(const {});
       final store = c.read(packStoreProvider);

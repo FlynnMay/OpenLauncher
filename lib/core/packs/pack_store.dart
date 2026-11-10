@@ -72,7 +72,7 @@ class PackStore with ChangeNotifier {
 
   /// The only files a pack is read for; anything else in a zip is left.
   static final _kept = RegExp(
-    r'^(pack\.jsonc?|fonts/[A-Za-z0-9._-]+\.(ttf|otf)'
+    r'^(pack\.jsonc?|defs\.jsonc?|fonts/[A-Za-z0-9._-]+\.(ttf|otf)'
     '|(icons|${PackContents.folders.join('|')})'
     r'/[a-z0-9][a-z0-9_-]*\.jsonc?'
     r'|images/[a-z0-9][a-z0-9_-]*\.(svg|png|webp))$',

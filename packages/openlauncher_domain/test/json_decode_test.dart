@@ -38,7 +38,10 @@ void main() {
 
     test('line and block comments', () {
       expect(
-        decodeJson('/* head\n  more */ {"a": /* mid */ 1} // tail', mode: .jsonc),
+        decodeJson(
+          '/* head\n  more */ {"a": /* mid */ 1} // tail',
+          mode: .jsonc,
+        ),
         {'a': 1},
       );
     });
@@ -51,13 +54,10 @@ void main() {
     });
 
     test('trailing commas in objects and lists, but not inside strings', () {
-      expect(
-        decodeJson('{"a": [1, 2, ], "b": "x,}",\n}', mode: .jsonc),
-        {
-          'a': [1, 2],
-          'b': 'x,}',
-        },
-      );
+      expect(decodeJson('{"a": [1, 2, ], "b": "x,}",\n}', mode: .jsonc), {
+        'a': [1, 2],
+        'b': 'x,}',
+      });
     });
 
     test('a comment ending the text with no new line', () {

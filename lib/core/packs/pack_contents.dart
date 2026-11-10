@@ -7,6 +7,7 @@ import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/json/json_decode.dart';
+import 'package:openlauncher_domain/json/json_expand.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/layout_repair.dart';
@@ -71,7 +72,12 @@ class PackContents {
 
   /// Whether [path] is one of the files read here.
   static bool reads(String path) =>
-      folders.any((folder) => path.startsWith('$folder/'));
+      isDefsFile(path) || folders.any((folder) => path.startsWith('$folder/'));
+
+  /// The pack's own chunks, for every file in it to use: `defs.json` or
+  /// `defs.jsonc` at its root.
+  static bool isDefsFile(String path) =>
+      path == 'defs.json' || path == 'defs.jsonc';
 
   /// Reads [files], JSON text by path, giving the names in them their full
   /// ids. Throws a [FormatException] saying what is wrong.
@@ -80,9 +86,16 @@ class PackContents {
 
   static Map<String, Object?> _decoded(Map<String, String> files) {
     final decoded = <String, Object?>{};
+    final levels = [
+      for (final MapEntry(key: path, value: text) in files.entries)
+        if (isDefsFile(path)) defsLevelOf(decodeJson(text, source: path), path),
+    ];
     for (final MapEntry(key: path, value: text) in files.entries) {
-      if (!reads(path)) continue;
-      decoded[path] = decodeJson(text, source: path);
+      if (!reads(path) || isDefsFile(path)) continue;
+      final json = decodeJson(text, source: path);
+      decoded[path] = path.startsWith('fields/')
+          ? json
+          : expandJson(json, levels: levels, source: path);
     }
     return decoded;
   }

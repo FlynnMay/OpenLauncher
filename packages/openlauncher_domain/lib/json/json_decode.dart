@@ -19,13 +19,9 @@ enum JsonMode {
 
 /// Text that is not JSON, saying which [source] it came from and where.
 class JsonDecodeError extends FormatException {
-  JsonDecodeError(
-    String reason, {
-    String? source,
-    this.line,
-    this.column,
-  }) : file = source,
-       super(_message(reason, source, line, column));
+  JsonDecodeError(String reason, {String? source, this.line, this.column})
+    : file = source,
+      super(_message(reason, source, line, column));
 
   /// The file or other place the text was read from.
   final String? file;
@@ -34,7 +30,12 @@ class JsonDecodeError extends FormatException {
   final int? line;
   final int? column;
 
-  static String _message(String reason, String? source, int? line, int? column) {
+  static String _message(
+    String reason,
+    String? source,
+    int? line,
+    int? column,
+  ) {
     final where = [?source, if (line != null) '$line:$column'].join(':');
     return where.isEmpty ? reason : '$where: $reason';
   }
@@ -163,8 +164,7 @@ bool isJsonPath(String path) =>
     path.endsWith('.json') || path.endsWith('.jsonc');
 
 /// [path] without its `.json` or `.jsonc`.
-String withoutJsonExtension(String path) =>
-    path.endsWith('.jsonc')
+String withoutJsonExtension(String path) => path.endsWith('.jsonc')
     ? path.substring(0, path.length - '.jsonc'.length)
     : path.endsWith('.json')
     ? path.substring(0, path.length - '.json'.length)
