@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/icon_sets.dart';
 import 'package:openlauncher/core/packs/pack.dart';
+import 'package:openlauncher/core/packs/pack_layout.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/json/json_decode.dart';
@@ -32,15 +33,6 @@ class PackContents {
     this.start,
     this.inbox,
   });
-
-  static const folders = [
-    'entities',
-    'fields',
-    'sources',
-    'generators',
-    'prefabs',
-    'screens',
-  ];
 
   final Pack pack;
   final List<Entity> entities;
@@ -72,32 +64,49 @@ class PackContents {
     null => null,
   };
 
-  /// Whether [path] is one of the files read here.
+  /// Whether [path] is one of the files read here. Files of the old layout
+  /// are, so that [parse] can say so.
   static bool reads(String path) =>
-      isDefsFile(path) || folders.any((folder) => path.startsWith('$folder/'));
-
-  /// The pack's own chunks, for every file in it to use: `defs.json` or
-  /// `defs.jsonc` at its root.
-  static bool isDefsFile(String path) =>
-      path == 'defs.json' || path == 'defs.jsonc';
+      PackFile.isPackDefs(path) ||
+      PackFile.defsFeatureOf(path) != null ||
+      PackFile.of(path) != null ||
+      PackFile.isOld(path);
 
   /// Reads [files], JSON text by path, giving the names in them their full
   /// ids. Throws a [FormatException] saying what is wrong.
-  static PackContents parse(Pack pack, Map<String, String> files) =>
-      _Reading(pack, _decoded(files)).contents();
+  static PackContents parse(Pack pack, Map<String, String> files) {
+    final old = files.keys.where(PackFile.isOld).firstOrNull;
+    if (old != null) {
+      throw FormatException(
+        '$old is in the old pack layout: a pack has a folder for each '
+        'feature, holding files like source.jsonc or prefab.jsonc',
+      );
+    }
+    return _Reading(pack, _decoded(files)).contents();
+  }
 
   static Map<String, Object?> _decoded(Map<String, String> files) {
-    final decoded = <String, Object?>{};
-    final levels = [
-      for (final MapEntry(key: path, value: text) in files.entries)
-        if (isDefsFile(path)) defsLevelOf(decodeJson(text, source: path), path),
-    ];
+    final pack = <DefsLevel>[];
+    final features = <String, DefsLevel>{};
     for (final MapEntry(key: path, value: text) in files.entries) {
-      if (!reads(path) || isDefsFile(path)) continue;
+      if (PackFile.isPackDefs(path)) {
+        pack.add(defsLevelOf(decodeJson(text, source: path), path));
+      } else if (PackFile.defsFeatureOf(path) case final feature?) {
+        features[feature] = defsLevelOf(decodeJson(text, source: path), path);
+      }
+    }
+    final decoded = <String, Object?>{};
+    for (final MapEntry(key: path, value: text) in files.entries) {
+      final file = PackFile.of(path);
+      if (file == null) continue;
       final json = decodeJson(text, source: path);
-      decoded[path] = path.startsWith('fields/')
+      decoded[path] = file.kind == PackKind.field
           ? json
-          : expandJson(json, levels: levels, source: path);
+          : expandJson(
+              json,
+              levels: [?features[file.feature], ...pack],
+              source: path,
+            );
     }
     return decoded;
   }
@@ -105,16 +114,22 @@ class PackContents {
 
 /// A pack's files being read into its [PackContents].
 class _Reading {
-  _Reading(this.pack, this.decoded)
-    : glue = _Glue(pack, {
+  _Reading(this.pack, Map<String, Object?> decoded)
+    : items = [
         for (final MapEntry(key: path, value: json) in decoded.entries)
-          if (path.startsWith('entities/'))
-            if (json case {'id': final String id}) id,
-      });
+          for (final item in PackFile.of(path)!.items(path, json))
+            (PackFile.of(path)!.kind, item),
+      ] {
+    glue = _Glue(pack, {
+      for (final (kind, item) in items)
+        if (kind == PackKind.entity)
+          if (item.json['id'] case final String id) id,
+    });
+  }
 
   final Pack pack;
-  final Map<String, Object?> decoded;
-  final _Glue glue;
+  final List<(PackKind, PackItem)> items;
+  late final _Glue glue;
 
   final entities = <Entity>[];
   final sources = <String, Source>{};
@@ -124,8 +139,8 @@ class _Reading {
   String? start, inbox;
 
   PackContents contents() {
-    for (final MapEntry(key: path, value: json) in decoded.entries) {
-      _read(path, json);
+    for (final (kind, item) in items) {
+      _read(kind, item);
     }
     _requireNamedPacksListed();
     _requireSourcesOfFeeds();
@@ -142,63 +157,66 @@ class _Reading {
     );
   }
 
-  Source _readSource(String path, Object? json) {
+  Source _readSource(PackItem item) {
     final source =
-        Source.fromJson(json) ??
+        Source.fromJson(item.json) ??
         (throw FormatException(
-          '$path needs a "url" starting http://, https://, os:// or '
+          '${item.where} needs a "url" starting http://, https://, os:// or '
           'launcher://, and a method of GET or POST',
         ));
     if (source.auth case final profile? when !pack.auth.containsKey(profile)) {
-      throw FormatException('$path names auth "$profile", not in pack.json');
+      throw FormatException(
+        '${item.where} names auth "$profile", not in pack.json',
+      );
     }
     return source.inPack(pack.id);
   }
 
-  void _read(String path, Object? json) {
-    final [folder, file] = path.split('/');
-    final name = withoutJsonExtension(file);
-    switch (folder) {
-      case 'entities':
-        _readEntity(path, json);
-      case 'sources':
-        sources[name] = _readSource(path, json);
-      case 'generators':
-        _readGenerator(path, name, json);
-      case 'prefabs':
-        _readPrefab(path, json);
-      case 'screens':
-        _readScreen(path, json);
+  void _read(PackKind kind, PackItem item) {
+    switch (kind) {
+      case PackKind.entity:
+        _readEntity(item);
+      case PackKind.source:
+        _named(sources, item, _readSource(item));
+      case PackKind.generator:
+        _named(generators, item, _readGenerator(item));
+      case PackKind.prefab:
+        _readPrefab(item);
+      case PackKind.screen:
+        _readScreen(item);
       // Premade fields are read with the pack's settings, not here.
-      case 'fields':
+      case PackKind.field:
         break;
     }
   }
 
-  void _readEntity(String path, Object? json) {
-    final entity = Entity.fromJson(glue.defined(path, json));
-    if (entity == null) throw FormatException('$path needs an "id"');
+  void _named<T>(Map<String, T> into, PackItem item, T made) {
+    if (into.containsKey(item.name)) {
+      throw FormatException('${item.where} is a second "${item.name}"');
+    }
+    into[item.name] = made;
+  }
+
+  void _readEntity(PackItem item) {
+    final entity = Entity.fromJson(glue.defined(item.where, item.json));
+    if (entity == null) throw FormatException('${item.where} needs an "id"');
     entities.add(entity);
   }
 
-  void _readGenerator(String path, String name, Object? json) {
-    final generator = Generator.fromJson(glue.generator(path, json));
-    if (generator == null) {
-      throw FormatException('$path needs "from" and "entity"');
-    }
-    generators[name] = generator;
-  }
+  Generator _readGenerator(PackItem item) =>
+      Generator.fromJson(glue.generator(item.where, item.json)) ??
+      (throw FormatException('${item.where} needs "from" and "entity"'));
 
-  void _readPrefab(String path, Object? json) {
-    final prefab = Prefab.fromJson(glue.defined(path, json));
+  void _readPrefab(PackItem item) {
+    final prefab = Prefab.fromJson(glue.defined(item.where, item.json));
     if (prefab == null) {
-      throw FormatException('$path needs an "id" and a "root"');
+      throw FormatException('${item.where} needs an "id" and a "root"');
     }
     prefabs.add(prefab);
   }
 
-  void _readScreen(String path, Object? json) {
-    if (glue.defined(path, json)
+  void _readScreen(PackItem item) {
+    if (glue.defined(item.where, item.json)
         case {'id': final String id} && final Map<Object?, Object?> json) {
       screens[id] = Screen.fromJson(json);
       if (json['start'] == true && start == null) {
@@ -206,7 +224,7 @@ class _Reading {
         inbox = jsonOptional<String>(json, 'inbox');
       }
     } else {
-      throw FormatException('$path needs an "id"');
+      throw FormatException('${item.where} needs an "id"');
     }
   }
 
@@ -229,7 +247,8 @@ class _Reading {
           when !feed.isAddress && feed.name != null) {
         if (!sources.containsKey(feed.name)) {
           throw FormatException(
-            '"${entity.id}" is fed by "${feed.name}", which is not in sources/',
+            '"${entity.id}" is fed by "${feed.name}", which is not a source of '
+            'this pack',
           );
         }
       }
@@ -240,8 +259,8 @@ class _Reading {
     for (final MapEntry(key: name, value: generator) in generators.entries) {
       if (!sources.containsKey(generator.from)) {
         throw FormatException(
-          'generators/$name reads "${generator.from}", which is not in '
-          'sources/',
+          'The generator "$name" reads "${generator.from}", which is not a '
+          'source of this pack',
         );
       }
     }

@@ -463,10 +463,10 @@ void main() {
     }
 
     final system = _pack('sys', {
-      'sources/apps.json': {'url': 'os://apps', 'watch': true},
-      'sources/inputs.json': {'url': 'os://inputs'},
-      'generators/apps.json': _apps,
-      'generators/inputs.json': {
+      'apps/source.json': {'url': 'os://apps', 'watch': true},
+      'inputs/source.json': {'url': 'os://inputs'},
+      'apps/generator.json': _apps,
+      'inputs/generator.json': {
         'from': 'inputs',
         'entity': {
           'id': 'socket/{{row.id}}',
@@ -474,13 +474,13 @@ void main() {
           'data': {'kind': '{{row.kind}}', 'icon': 'pack:sys/images/lamp.svg'},
         },
       },
-      'entities/lamp.json': {
+      'lamp/entity.json': {
         'id': 'lamp',
         'label': 'Lamp',
         'data': {'icon': 'pack:sys/images/none.svg'},
       },
       'images/lamp.svg': _lamp,
-      'prefabs/tile.json': {
+      'tile/prefab.json': {
         'id': 'tile',
         'name': 'Tile',
         'root': {'id': 'tile'},
@@ -534,16 +534,16 @@ void main() {
         (await refused(
           store,
           _pack('ha', {
-            'entities/x.json': {'id': 'x', 'feed': 'nowhere'},
+            'x/entity.json': {'id': 'x', 'feed': 'nowhere'},
           }),
         )).message,
-        contains('not in sources/'),
+        contains('not a source'),
       );
       await store.install(
         Stream.value(
           _pack('ha', {
-            'sources/time.json': {'url': 'launcher://clock'},
-            'entities/lounge.json': {'id': 'lounge', 'feed': 'time'},
+            'time/source.json': {'url': 'launcher://clock'},
+            'lounge/entity.json': {'id': 'lounge', 'feed': 'time'},
           }),
         ),
       );
@@ -563,7 +563,7 @@ void main() {
       await store.install(
         Stream.value(
           _pack('ha', {
-            'entities/x.jsonc': '{ "id": "x", // a comment\n "name": "X", }',
+            'x/entity.jsonc': '{ "id": "x", // a comment\n "name": "X", }',
           }),
         ),
       );
@@ -572,10 +572,10 @@ void main() {
         (await refused(
           store,
           _pack('hb', {
-            'entities/x.json': '{ "id": "x", // a comment\n "name": "X" }',
+            'x/entity.json': '{ "id": "x", // a comment\n "name": "X" }',
           }),
         )).message,
-        startsWith('entities/x.json:1:'),
+        startsWith('x/entity.json:1:'),
       );
     });
 
@@ -588,7 +588,7 @@ void main() {
             'defs.jsonc':
                 '{ "\$defs": { "light": { "name": "{{param.n}}", '
                 '"\$params": { "n": "Lamp" } } } }',
-            'entities/x.jsonc': '{ "id": "x", "\$use": "light" }',
+            'x/entity.jsonc': '{ "id": "x", "\$use": "light" }',
           }),
         ),
       );
@@ -602,7 +602,7 @@ void main() {
       expect(
         (await refused(
           store,
-          _pack('hb', {'entities/x.json': '{ "id": "x", "\$use": "missing" }'}),
+          _pack('hb', {'x/entity.json': '{ "id": "x", "\$use": "missing" }'}),
         )).message,
         contains('"missing" is not defined'),
       );
@@ -617,14 +617,14 @@ void main() {
       // What it defines is its own: no other pack's name in it.
       expect(
         await why({
-          'entities/x.json': {'id': 'other:x'},
+          'x/entity.json': {'id': 'other:x'},
         }),
         contains('must be a name without ":"'),
       );
       expect(
         await why({
-          'sources/states.json': {'url': 'os://apps'},
-          'generators/x.json': {
+          'states/source.json': {'url': 'os://apps'},
+          'x/generator.json': {
             'from': 'states',
             'entity': {'id': 'other:{{row.id}}'},
           },
@@ -633,33 +633,30 @@ void main() {
       );
       expect(
         await why({
-          'generators/x.json': {
+          'x/generator.json': {
             'from': 'states',
             'entity': {'id': '{{row.id}}'},
           },
         }),
-        contains('not in sources/'),
+        contains('not a source'),
       );
       expect(
         await why({
-          'sources/x.json': {'url': 'ftp://x'},
+          'x/source.json': {'url': 'ftp://x'},
         }),
         contains('"url"'),
       );
-      expect(
-        await why({'entities/x.json': '{'}),
-        startsWith('entities/x.json:1:'),
-      );
+      expect(await why({'x/entity.json': '{'}), startsWith('x/entity.json:1:'));
 
       await store.install(
         Stream.value(
           _pack('ha', {
-            'entities/lounge.json': {
+            'lounge/entity.json': {
               'id': 'lounge',
               'label': 'Lounge',
               'prefab': 'tile',
             },
-            'prefabs/tile.json': {
+            'tile/prefab.json': {
               'id': 'tile',
               'root': {
                 'id': 'tile',
@@ -709,7 +706,7 @@ void main() {
       final c = container({'sys': system});
       final store = c.read(packStoreProvider);
       final card = {
-        'prefabs/card.json': {
+        'card/prefab.json': {
           'id': 'card',
           'root': {'id': 'card', 'prefab': 'sys:tile'},
         },

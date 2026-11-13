@@ -1027,7 +1027,7 @@ void main() {
         body: zipOf({
           'pack.json': jsonEncode(manifest),
           for (final MapEntry(:key, :value) in fields.entries)
-            'fields/$key.json': jsonEncode(value),
+            '$key/field.json': jsonEncode(value),
         }),
       );
       expect(response.statusCode, 200);

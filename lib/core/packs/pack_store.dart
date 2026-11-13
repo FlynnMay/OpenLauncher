@@ -9,9 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/icon_set.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
+import 'package:openlauncher/core/packs/pack_layout.dart';
 import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/json/json_decode.dart';
-import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -70,13 +70,16 @@ class PackStore with ChangeNotifier {
   /// Holds the hash of the bundled zip a built-in pack was unpacked from.
   static const _stamp = '.bundled';
 
-  /// The only files a pack is read for; anything else in a zip is left.
-  static final _kept = RegExp(
-    r'^(pack\.jsonc?|defs\.jsonc?|fonts/[A-Za-z0-9._-]+\.(ttf|otf)'
-    '|(icons|${PackContents.folders.join('|')})'
-    r'/[a-z0-9][a-z0-9_-]*\.jsonc?'
+  /// The files outside its features that a pack is read for.
+  static final _fixed = RegExp(
+    r'^(pack\.jsonc?|fonts/[A-Za-z0-9._-]+\.(ttf|otf)'
+    r'|icons/[a-z0-9][a-z0-9_-]*\.jsonc?'
     r'|images/[a-z0-9][a-z0-9_-]*\.(svg|png|webp))$',
   );
+
+  /// The only files a pack is read for; anything else in a zip is left.
+  static bool _keeps(String path) =>
+      _fixed.hasMatch(path) || PackContents.reads(path);
 
   final Ref _ref;
 
@@ -135,7 +138,7 @@ class PackStore with ChangeNotifier {
       final path = p.posix.joinAll(
         p.split(p.relative(entry.path, from: folder.path)),
       );
-      if (!_manifests.contains(path) && _kept.hasMatch(path)) files.add(path);
+      if (!_manifests.contains(path) && _keeps(path)) files.add(path);
     }
     return pack.copyWith(
       builtIn: builtIn.contains(pack.id),
@@ -184,7 +187,7 @@ class PackStore with ChangeNotifier {
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
-  /// The premade fields in the `fields/` folders of [folders], by
+  /// The premade fields in the `field` files of [folders], by
   /// `<pack>:<name>`; a pack's folder is named for its id.
   Future<FieldLibrary> _libraryOf(List<Directory> folders) async {
     final premade = <String, Map<String, Object?>>{};
@@ -195,16 +198,18 @@ class PackStore with ChangeNotifier {
   }
 
   Future<Map<String, Map<String, Object?>>> _premadeIn(Directory folder) async {
-    final fields = Directory(p.join(folder.path, 'fields'));
-    if (!await fields.exists()) return const {};
     final premade = <String, Map<String, Object?>>{};
-    await for (final file in fields.list()) {
-      if (file is! File || !isJsonPath(file.path)) continue;
+    if (!await folder.exists()) return premade;
+    await for (final file in folder.list(recursive: true)) {
+      final path = p.posix.joinAll(
+        p.split(p.relative(file.path, from: folder.path)),
+      );
+      final kind = PackFile.of(path);
+      if (file is! File || kind?.kind != PackKind.field) continue;
       try {
-        if (decodeJson(await file.readAsString(), source: file.path)
-            case final Map json) {
-          final name = p.basenameWithoutExtension(file.path);
-          premade['${p.basename(folder.path)}:$name'] = jsonStringKeyed(json);
+        final json = decodeJson(await file.readAsString(), source: file.path);
+        for (final item in kind!.items(path, json)) {
+          premade['${p.basename(folder.path)}:${item.name}'] = item.json;
         }
       } on FormatException {
         continue;
@@ -215,7 +220,7 @@ class PackStore with ChangeNotifier {
 
   /// Where pack [id] keeps [path]; null if it does not.
   Future<String?> pathOf(String id, String path) async {
-    if (!Pack.validId(id) || !_kept.hasMatch(path)) return null;
+    if (!Pack.validId(id) || !_keeps(path)) return null;
     final file = File(p.joinAll([(await _dir()).path, id, ...path.split('/')]));
     return await file.exists() ? file.path : null;
   }
@@ -300,7 +305,7 @@ class PackStore with ChangeNotifier {
         if (!file.isFile || file.isSymbolicLink) continue;
         if (!at(file).startsWith(root)) continue;
         final path = at(file).substring(root.length);
-        if (!_kept.hasMatch(path)) continue;
+        if (!_keeps(path)) continue;
         total += file.size;
         if (total > maxBytes) throw const PackRefused(413, 'Pack too large');
         files[path] = file.readBytes() ?? Uint8List(0);

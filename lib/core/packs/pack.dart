@@ -6,9 +6,8 @@ import 'package:openlauncher/core/packs/pack_setting.dart';
 import 'package:openlauncher_domain/fields/field_spec.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
-/// `fonts/`, icon sets in `icons/`, pictures in `images/`, and JSON in
-/// `entities/`, `fields/`, `sources/`, `generators/`, `prefabs/` and
-/// `screens/`.
+/// `fonts/`, icon sets in `icons/`, pictures in `images/`, and a folder for
+/// each feature holding its JSON, as [PackFile] describes.
 @immutable
 class Pack {
   const Pack({
@@ -18,6 +17,7 @@ class Pack {
     this.author = '',
     this.licence = '',
     this.source = '',
+    this.app = '',
     this.requires = const [],
     this.categories = const {},
     this.settings = const [],
@@ -56,6 +56,16 @@ class Pack {
 
   /// Where it is made, e.g. its repository.
   final String source;
+
+  /// The release of the launcher it was written for, `0.1.2`; empty if it
+  /// does not say. A pack outside its support is still tried, and runs until
+  /// it meets an error.
+  final String app;
+
+  /// Whether the launcher at [release] is one it was written for: not older
+  /// than [app].
+  bool supportedBy(String release) =>
+      app.isEmpty || (compareVersions(release, app) ?? 0) >= 0;
 
   /// The packs it names, which must be installed first.
   final List<String> requires;
@@ -132,6 +142,7 @@ class Pack {
         author: text('author'),
         licence: text('licence'),
         source: text('source'),
+        app: text('app'),
         requires: [
           if (json['requires'] case final List<Object?> packs)
             for (final pack in packs)
@@ -170,6 +181,7 @@ class Pack {
     'author': author,
     'licence': licence,
     'source': source,
+    if (app.isNotEmpty) 'app': app,
     'requires': requires,
     'categories': categories,
     if (settings.isNotEmpty)
@@ -188,6 +200,7 @@ class Pack {
     author: author,
     licence: licence,
     source: source,
+    app: app,
     requires: requires,
     categories: categories,
     settings: settings,
@@ -232,6 +245,7 @@ class Pack {
       other.author == author &&
       other.licence == licence &&
       other.source == source &&
+      other.app == app &&
       listEquals(other.requires, requires) &&
       mapEquals(other.categories, categories) &&
       listEquals(other.settings, settings) &&

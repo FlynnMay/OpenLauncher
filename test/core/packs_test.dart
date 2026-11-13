@@ -216,14 +216,14 @@ void main() {
           zipOf({
             'pack.jsonc':
                 '{ // the lamp pack\n  "id": "lamp", "name": "Lamp",\n}',
-            'entities/lamp.jsonc': '{ "id": "lamp" /* the one */ }',
-            'sources/none.json': jsonEncode({'url': 'http://x.test'}),
+            'lamp/entity.jsonc': '{ "id": "lamp" /* the one */ }',
+            'none/source.json': jsonEncode({'url': 'http://x.test'}),
           }),
         ),
       );
       final pack = (await store.list()).single;
       expect(pack.name, 'Lamp');
-      expect(pack.files, ['entities/lamp.jsonc', 'sources/none.json']);
+      expect(pack.files, ['lamp/entity.jsonc', 'none/source.json']);
     });
 
     test(
@@ -247,17 +247,14 @@ void main() {
           Stream.value(
             zipOf({
               'pack.json': jsonEncode({'id': 'x'}),
-              'entities/a.json': '{}',
-              'entities/a.jsonc': '{}',
+              'a/entity.json': '{}',
+              'a/entity.jsonc': '{}',
             }),
           ),
         ),
       );
       expect(why.status, 400);
-      expect(
-        why.message,
-        contains('both entities/a.json and entities/a.jsonc'),
-      );
+      expect(why.message, contains('both a/entity.json and a/entity.jsonc'));
     });
 
     test('turns down what is not a pack', () async {
