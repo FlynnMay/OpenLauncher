@@ -9,11 +9,13 @@ import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:openlauncher_domain/json/json_expand.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
+import 'package:openlauncher_domain/json/json_walk.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/layout_repair.dart';
 import 'package:openlauncher_domain/layout/screen.dart';
 import 'package:openlauncher_domain/prefabs/prefab.dart';
 import 'package:openlauncher_domain/sources/source.dart';
+import 'package:openlauncher_domain/values/template.dart';
 
 /// A pack's entities, sources, generators, prefabs and screens. A pack writes short
 /// names; each is its own unless it says another pack's, `other:name`, and
@@ -303,7 +305,7 @@ class _Glue {
 
   /// [text] with the template roots that name its entities given in full.
   /// Quoted text is left as it is.
-  String _text(String text) => !text.contains('{{')
+  String _text(String text) => !isTemplate(text)
       ? text
       : text.replaceAllMapped(
           _slot,
@@ -334,28 +336,17 @@ class _Glue {
 
   /// [json] with its prefabs (named as instances, cards, templates or in
   /// rules), entity variables, act entities and template roots in full.
-  Object? _tree(Object? json) => switch (json) {
-    final String text => _text(text),
-    final List<Object?> list => [for (final item in list) _tree(item)],
-    final Map<Object?, Object?> map => {
-      for (final MapEntry(:key, :value) in map.entries)
-        if (key is String)
-          key: switch ((key, value)) {
-            ('prefab' || 'card' || 'template', final String prefab) => _ref(
-              prefab,
-            ),
-            ('variables', final Map<Object?, Object?> vars) => _variablesInFull(
-              vars,
-            ),
-            ('entity', final String entity) => _ref(entity),
-            ('prefabRules', final Map<Object?, Object?> rules) => _rulesInFull(
-              rules,
-            ),
-            _ => _tree(value),
-          },
+  Object? _tree(Object? json) => walkJson(
+    json,
+    onText: _text,
+    onEntry: (key, value, walk) => switch ((key, value)) {
+      ('prefab' || 'card' || 'template', final String prefab) => _ref(prefab),
+      ('variables', final Map<Object?, Object?> vars) => _variablesInFull(vars),
+      ('entity', final String entity) => _ref(entity),
+      ('prefabRules', final Map<Object?, Object?> rules) => _rulesInFull(rules),
+      _ => walk(value),
     },
-    _ => json,
-  };
+  );
 
   Map<String, Object?> _rulesInFull(Map<Object?, Object?> rules) => {
     for (final MapEntry(:key, :value) in rules.entries)

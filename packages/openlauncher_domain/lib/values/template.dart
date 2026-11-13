@@ -90,6 +90,9 @@ class Template {
   }
 }
 
+/// Whether [text] has a slot to fill.
+bool isTemplate(String text) => text.contains('{{');
+
 /// Every leaf of [value] by its template path, e.g.
 /// `lounge.attributes.temperature`.
 Map<String, Object?> valuePaths(String root, Object? value) => switch (value) {

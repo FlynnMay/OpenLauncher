@@ -16,7 +16,7 @@
 library;
 
 import 'package:openlauncher_domain/json/json_read.dart';
-import 'package:openlauncher_domain/values/template.dart';
+import 'package:openlauncher_domain/values/template_fill.dart';
 
 /// A set of chunks and where they were written, for error messages.
 class DefsLevel {
@@ -56,19 +56,7 @@ Object? expandJson(
 /// [json] with `{{param.x}}` read from [values]; other slots are left as
 /// written, and a lone slot keeps its value's type.
 Object? fillParameters(Object? json, Map<String, Object?> values) =>
-    switch (json) {
-      final String text when text.contains('{{') => Template.parse(
-        text,
-      ).fill(const {'param'}, (root) => root == 'param' ? values : null),
-      final Map<Object?, Object?> map => {
-        for (final MapEntry(:key, :value) in map.entries)
-          key: fillParameters(value, values),
-      },
-      final List<Object?> list => [
-        for (final item in list) fillParameters(item, values),
-      ],
-      _ => json,
-    };
+    fillSlots(json, const {'param'}, (root) => root == 'param' ? values : null);
 
 /// [base] with [over] written on it as a JSON Merge Patch (RFC 7396).
 Object? jsonMergePatch(Object? base, Object? over) {

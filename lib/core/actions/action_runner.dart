@@ -6,6 +6,7 @@ import 'package:openlauncher/core/operations/operations.dart';
 import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/core/variables/scope.dart';
 import 'package:openlauncher_domain/actions/act.dart';
+import 'package:openlauncher_domain/values/template_fill.dart';
 
 class ImproperAct extends FormatException {
   const ImproperAct(super.message);
@@ -154,19 +155,10 @@ class ActionRunner {
   }
 
   /// [value] with every template in it filled, however deep.
-  Object? _filled(Object? value, Map<String, Object?> scope) => switch (value) {
-    final String text when text.contains('{{') => readTemplate(
-      _ref.read,
-      text,
-      scope,
-    ),
-    final Map<Object?, Object?> map => {
-      for (final MapEntry(:key, :value) in map.entries)
-        key: _filled(value, scope),
-    },
-    final List<Object?> list => [for (final item in list) _filled(item, scope)],
-    _ => value,
-  };
+  Object? _filled(Object? value, Map<String, Object?> scope) => fillTemplates(
+    value,
+    (template) => readTemplate(_ref.read, template, scope),
+  );
 
   /// Runs [operation] locally. The web editor overrides this to forward
   /// device operations to the TV, as the [act] that asked for them.

@@ -2,6 +2,7 @@ import 'package:meta/meta.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/json/shallow_equality.dart';
 import 'package:openlauncher_domain/values/template.dart';
+import 'package:openlauncher_domain/values/template_fill.dart';
 
 /// Turns a source's rows into entities, from a pack's
 /// `generators/<name>.json`: `{from, where, tables, entity}`. `entity` is
@@ -81,11 +82,11 @@ class Generator {
           when !isTruthy(Template.parse(where).evaluate(lookup))) {
         continue;
       }
-      final json = filled(entity, lookup, const {
+      final json = fillSlots(entity, const {
         'row',
         'settings',
         'tables',
-      }) as Map<String, Object?>;
+      }, lookup) as Map<String, Object?>;
       // A value with nothing to say is left out.
       if (json['data'] case final Map<String, Object?> data) {
         data.removeWhere((_, value) => value == null);
@@ -108,22 +109,3 @@ class Generator {
   @override
   int get hashCode => Object.hash(from, where);
 }
-
-/// [json] with the slots of its text that read only [roots] filled.
-Object? filled(
-  Object? json,
-  Object? Function(String root) lookup, [
-  Set<String> roots = const {'row'},
-]) => switch (json) {
-  final String text when text.contains('{{') => Template.parse(
-    text,
-  ).fill(roots, lookup),
-  final Map<Object?, Object?> map => <String, Object?>{
-    for (final MapEntry(:key, :value) in map.entries)
-      if (key is String) key: filled(value, lookup, roots),
-  },
-  final List<Object?> list => [
-    for (final item in list) filled(item, lookup, roots),
-  ],
-  _ => json,
-};
