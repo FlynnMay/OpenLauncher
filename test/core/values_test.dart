@@ -602,6 +602,46 @@ void main() {
       },
     );
 
+    test('cards that ask alike share one fetch, however they say it', () async {
+      final perth = {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86};
+      final c = container(
+        LauncherConfig(
+          packSettings: {
+            'system': {'location': perth},
+          },
+        ),
+      );
+      Future<void> ask(Map<String, Object?> args) async {
+        final provider = entityDataWithProvider((
+          id: 'system:weather',
+          args: jsonEncode(args),
+        ));
+        final held = c.listen(provider, (_, _) {});
+        addTearDown(held.close);
+        await c.read(configProvider.future);
+        await pumpEventQueue();
+        expect(c.read(provider), isNotNull);
+      }
+
+      final broome = {'name': 'Broome', 'latitude': -17.96, 'longitude': 122.2};
+      List<String?> latitudes() => [
+        for (final feed in asked)
+          if (feed.address.host == 'api.open-meteo.com')
+            feed.address.queryParameters['latitude'],
+      ];
+      // The setting's own location is fetched for the weather entity.
+      await c.read(entitiesProvider.future);
+      await pumpEventQueue();
+      expect(latitudes(), ['-31.95']);
+      await ask({'location': broome});
+      await ask({'location': broome, 'unit': 'celsius'});
+      await ask({'unit': 'celsius', 'location': broome});
+      expect(latitudes(), ['-31.95', '-17.96']);
+      // A card that picks the setting's own location is that one too.
+      await ask({'location': perth});
+      expect(latitudes(), ['-31.95', '-17.96']);
+    });
+
     test('a location chosen later brings the weather', () async {
       answerAfter = const Duration(milliseconds: 300);
       addTearDown(() => answerAfter = Duration.zero);
