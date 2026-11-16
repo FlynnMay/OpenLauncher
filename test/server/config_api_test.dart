@@ -839,6 +839,29 @@ void main() {
     },
   );
 
+  test('a pack source asked with arguments is fetched for the page', () async {
+    Future<(int, Object?)> value(String id) async {
+      final response = await call(
+        'GET',
+        '/api/feed?id=${Uri.encodeQueryComponent(id)}',
+      );
+      final said = jsonDecode(await response.readAsString()) as Map;
+      return (response.statusCode, said['value']);
+    }
+
+    const broome =
+        '{"location":{"name":"Broome","latitude":-17.96,"longitude":122.2}}';
+    final asked = await value('system:weather#$broome');
+    expect(asked.$1, 200);
+    expect((asked.$2 as Map)['asked'], contains('latitude=-17.96'));
+    // Without a location there is nothing to ask; a source that is not there,
+    // a pack that is not there and a broken id are no feeds either.
+    expect((await value('system:weather#{}')).$1, 404);
+    expect((await value('system:nowhere#$broome')).$1, 404);
+    expect((await value('nopack:weather#$broome')).$1, 404);
+    expect((await value('system:weather#{oops')).$1, 404);
+  });
+
   test('looks a location up for the System pack setting', () async {
     final response = await call(
       'GET',

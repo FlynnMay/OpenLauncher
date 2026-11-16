@@ -89,29 +89,28 @@ class Source {
 
   static const Object _same = Object();
 
-  /// What each param is: the one in [given], or when that is blank its
-  /// default read over [settings].
-  Map<String, Object?> valuesOf(
+  /// This asked with [given]: each param is the one given, or when that is
+  /// blank its default read over [settings]. `{{param...}}` slots of the
+  /// request are filled; `{{settings...}}` ones stay for the fetch. Null while
+  /// a required param has no value.
+  AskedSource? askedWith(
     Map<String, Object?> given,
     Map<String, Object?> settings,
-  ) => {
-    for (final MapEntry(:key, :value) in params.entries)
-      key: switch (given[key]) {
-        final Object? one when !_blank(one) => one,
-        _ => value.defaultOf(settings),
-      },
-  };
+  ) {
+    final values = {
+      for (final MapEntry(:key, :value) in params.entries)
+        key: switch (given[key]) {
+          final Object? one when !_blank(one) => one,
+          _ => value.defaultOf(settings),
+        },
+    };
+    final lacking = params.entries.any(
+      (param) => param.value.required && _blank(values[param.key]),
+    );
+    return lacking ? null : (params: values, request: _filled(values));
+  }
 
-  /// The first required param that has no value in [values], if any: the
-  /// source is not asked until it has.
-  String? missing(Map<String, Object?> values) => params.entries
-      .where((param) => param.value.required && _blank(values[param.key]))
-      .map((param) => param.key)
-      .firstOrNull;
-
-  /// This with its `{{param...}}` slots filled from [values], which
-  /// [valuesOf] gives. `{{settings...}}` slots stay for the fetch to fill.
-  Source filled(Map<String, Object?> values) {
+  Source _filled(Map<String, Object?> values) {
     if (params.isEmpty) return this;
     Object? fill(Object? json) => fillSlots(json, const {
       'param',
@@ -250,6 +249,10 @@ class SourceParam {
 
   Map<String, Object?> toJson() => {'type': ?type, 'default': ?defaultValue};
 }
+
+/// A source asked with arguments: the value of each of its params, and the
+/// source with them filled in.
+typedef AskedSource = ({Map<String, Object?> params, Source request});
 
 /// A source, and what its fetch is known by: `<pack>:<name>` for a pack's,
 /// so every reader shares one, else the entity it feeds.

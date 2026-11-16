@@ -18,12 +18,10 @@ void main() {
   });
 
   test('a given value fills its slot, settings slots stay', () {
-    final filled = source.filled(
-      source.valuesOf({
-        'location': {'latitude': 12.5},
-        'unit': 'fahrenheit',
-      }, const {}),
-    );
+    final filled = source.askedWith({
+      'location': {'latitude': 12.5},
+      'unit': 'fahrenheit',
+    }, const {})!.request;
     expect(
       filled.address,
       'https://x.test/f?lat=12.5&unit=fahrenheit&k={{settings.key}}',
@@ -31,19 +29,37 @@ void main() {
   });
 
   test('nothing given reads the default over the settings', () {
-    final filled = source.filled(
-      source.valuesOf(
-        {'location': '', 'unit': null},
-        {
-          'location': {'latitude': 3},
-        },
-      ),
-    );
+    final filled = source
+        .askedWith(
+          {'location': '', 'unit': null},
+          {
+            'location': {'latitude': 3},
+          },
+        )!
+        .request;
     expect(filled.address, contains('lat=3&unit=celsius'));
   });
 
   test('without params it is itself', () {
     final plain = Source.fromJson({'url': 'https://x.test/a'})!;
-    expect(identical(plain.filled(const {}), plain), isTrue);
+    expect(
+      identical(plain.askedWith(const {}, const {})!.request, plain),
+      isTrue,
+    );
+  });
+
+  test('a required param with no value means it cannot be asked', () {
+    final needs = Source.fromJson({
+      'url': 'https://x.test/{{param.place}}',
+      'params': {
+        'place': {'required': true},
+      },
+    })!;
+    expect(needs.askedWith(const {}, const {}), isNull);
+    expect(needs.askedWith({'place': ' '}, const {}), isNull);
+    expect(
+      needs.askedWith({'place': 'a'}, const {})!.request.address,
+      'https://x.test/a',
+    );
   });
 }

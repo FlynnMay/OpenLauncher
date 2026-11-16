@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entity_data.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
+import 'package:openlauncher/core/sources/asked_source_id.dart';
 import 'package:openlauncher/core/sources/pack_settings_of.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
@@ -18,30 +19,39 @@ typedef EntityWith = ({String id, String args});
 /// the entity.
 final entityDataWithProvider = Provider.autoDispose.family<Object?, EntityWith>(
   (ref, call) {
-    final packs = ref.watch(packContentsProvider).value;
+    final packs = ref.watch(packContentsProvider).value ?? const [];
     final settings = ref.watch(packSettingsOfProvider);
-    if (packs == null) return null;
+    final maker = _makerOf(packs, call.id);
+    if (maker == null) return null;
+    final (:contents, :generator) = maker;
+    final pack = contents.pack.id;
     final args = (jsonDecode(call.args) as Map).cast<String, Object?>();
-    for (final contents in packs) {
-      for (final generator in contents.generators.values) {
-        if (!generator.makes(call.id)) continue;
-        final source = contents.sources[generator.from];
-        if (source == null) return null;
-        final plain = settings[contents.pack.id] ?? const {};
-        final params = source.valuesOf(args, plain);
-        if (source.missing(params) != null) return null;
-        final rows = ref.watch(
-          sourceRowsProvider((
-            id: '${contents.pack.id}:${generator.from}#${call.args}',
-            source: source.filled(params),
-          )),
-        );
-        return _entityOf(generator, rows.value, plain, params, call.id);
-      }
-    }
-    return null;
+    final plain = settings[pack] ?? const <String, Object?>{};
+    final asked = contents.sources[generator.from]?.askedWith(args, plain);
+    if (asked == null) return null;
+    final rows = ref.watch(
+      sourceRowsProvider((
+        id: AskedSourceId(pack, generator.from, args).text,
+        source: asked.request,
+      )),
+    );
+    return _entityOf(generator, rows.value, plain, asked.params, call.id);
   },
 );
+
+/// The generator that makes entity [id], and the pack it is in.
+({PackContents contents, Generator generator})? _makerOf(
+  List<PackContents> packs,
+  String id,
+) {
+  for (final contents in packs) {
+    final generator = contents.generators.values
+        .where((one) => one.makes(id))
+        .firstOrNull;
+    if (generator != null) return (contents: contents, generator: generator);
+  }
+  return null;
+}
 
 Object? _entityOf(
   Generator generator,

@@ -36,67 +36,73 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
     if (!ref.mounted) return const [];
     final picture = ref.watch(packPictureProvider);
     final settings = ref.watch(packSettingsOfProvider);
+    final makings = [for (final contents in packs) ..._makingsOf(contents)];
+    final asked = {
+      for (final making in makings)
+        making.key: making.source.askedWith(
+          const {},
+          settings[making.pack.id] ?? const {},
+        ),
+    };
     // Every source watched before any is waited for.
     final rows = {
-      for (final PackContents(:pack, :sources, :generators) in packs)
-        for (final MapEntry(key: name, value: generator) in generators.entries)
-          '${pack.id}/$name': _rowsOf(
-            ref,
-            pack,
-            generator.from,
-            sources[generator.from]!,
-            settings[pack.id],
-          ),
+      for (final making in makings)
+        making.key: _rowsOf(ref, making, asked[making.key]),
     };
     final made = <Entity>[];
-    for (final PackContents(:pack, :entities, :sources, :generators) in packs) {
-      for (final entity in [
-        ...entities,
-        for (final MapEntry(key: name, value: generator) in generators.entries)
-          ...await _madeBy(
-            generator,
-            await rows['${pack.id}/$name']!,
-            settings[pack.id] ?? const {},
-            _defaultParams(sources[generator.from]!, settings[pack.id]),
-          ),
-      ]) {
-        // A made id is the pack's like any other.
-        if (!entity.id.startsWith('${pack.id}:')) continue;
-        made.add(await _pictured(_fed(entity, pack.id, sources), picture));
+    for (final contents in packs) {
+      final entities = [
+        ...contents.entities,
+        ...await _madeBy(contents, rows, asked, settings[contents.pack.id]),
+      ];
+      // A made id is the pack's like any other.
+      final own = entities.where(
+        (entity) => entity.id.startsWith('${contents.pack.id}:'),
+      );
+      for (final entity in own) {
+        final fed = _fed(entity, contents.pack.id, contents.sources);
+        made.add(await _pictured(fed, picture));
       }
     }
     return made;
   }
 
-  /// What [generator] makes of [rows]. The event loop turns once first, so a
-  /// frame can be drawn between one generator's work and the next.
+  /// What the generators of [contents] make of their rows. The event loop
+  /// turns once before each, so a frame can be drawn between one generator's
+  /// work and the next.
   Future<List<Entity>> _madeBy(
-    Generator generator,
-    List<Object?> rows,
-    Map<String, Object?> settings,
-    Map<String, Object?> params,
+    PackContents contents,
+    Map<String, Future<List<Object?>>> rows,
+    Map<String, AskedSource?> asked,
+    Map<String, Object?>? settings,
   ) async {
-    await Future<void>.delayed(Duration.zero);
-    return generator.entitiesFrom(rows, settings: settings, params: params);
+    final made = <Entity>[];
+    for (final making in _makingsOf(contents)) {
+      final mine = await rows[making.key]!;
+      await Future<void>.delayed(Duration.zero);
+      made.addAll(
+        making.generator.entitiesFrom(
+          mine,
+          settings: settings ?? const {},
+          params: asked[making.key]?.params ?? const {},
+        ),
+      );
+    }
+    return made;
   }
 
-  /// The rows of source [name] asked with its default params. None while a
-  /// required param has no value, or while the pack of a web source is not set
-  /// up: asking it could only fail, and a source that failed once can be left
-  /// waiting when the settings change.
-  Future<List<Object?>> _rowsOf(
-    Ref ref,
-    Pack pack,
-    String name,
-    Source source,
-    Map<String, Object?>? settings,
-  ) {
-    final params = _defaultParams(source, settings);
-    if (source.missing(params) != null) return Future.value(const []);
-    if (!source.answeredHere && _isNotSetUp(ref, pack, settings)) {
-      return Future.value(const []);
-    }
-    return _rows(ref, (id: '${pack.id}:$name', source: source.filled(params)));
+  /// The rows of what [making] reads, as it was [asked]. None when it cannot
+  /// be asked yet: a required param has no value, or the pack of a web source
+  /// is not set up. Asking could only fail, and a source that failed once can
+  /// be left waiting when the settings change.
+  Future<List<Object?>> _rowsOf(Ref ref, _Making making, AskedSource? asked) {
+    final settings = ref.watch(packSettingsOfProvider)[making.pack.id];
+    final cannotAsk =
+        asked == null ||
+        !making.source.answeredHere && _isNotSetUp(ref, making.pack, settings);
+    return cannotAsk
+        ? Future.value(const [])
+        : _rows(ref, (id: making.sourceId, source: asked.request));
   }
 
   /// Whether a setting [pack] requires has no value yet. Secrets still being
@@ -110,13 +116,30 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
         if (value.isNotEmpty) key,
     }).isNotEmpty;
   }
-
-  /// What a source's params are when nobody gives any: their defaults.
-  Map<String, Object?> _defaultParams(
-    Source source,
-    Map<String, Object?>? settings,
-  ) => source.valuesOf(const {}, settings ?? const {});
 }
+
+/// One generator of a pack and the source it reads.
+class _Making {
+  const _Making(this.contents, this.name, this.generator);
+
+  final PackContents contents;
+  final String name;
+  final Generator generator;
+
+  Pack get pack => contents.pack;
+  Source get source => contents.sources[generator.from]!;
+
+  /// What this generator is known by.
+  String get key => '${pack.id}/$name';
+
+  /// What its source's fetch is known by, shared by every reader.
+  String get sourceId => '${pack.id}:${generator.from}';
+}
+
+Iterable<_Making> _makingsOf(PackContents contents) => [
+  for (final MapEntry(:key, :value) in contents.generators.entries)
+    _Making(contents, key, value),
+];
 
 /// [entity] with the pack source its feed names found, sharing its fetch.
 Entity _fed(Entity entity, String pack, Map<String, Source> sources) {
