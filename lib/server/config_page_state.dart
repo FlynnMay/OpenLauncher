@@ -67,6 +67,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'packs': [
       for (final pack in await ref.watch(packsProvider.future)) pack.toJson(),
     ],
+    // Why packs that cannot be read cannot, by pack id.
+    'packErrors': await ref.watch(packLoadErrorsProvider.future),
     // Which secret settings have a value; the values are never sent.
     'secrets': {
       for (final MapEntry(:key, :value) in (await ref.watch(

@@ -38,6 +38,7 @@ class TvState {
     required this.visuals,
     this.packs = const [],
     this.secrets = const {},
+    this.packErrors = const {},
     this.widgetProviders = const {},
     this.access = const {},
     this.nowPlaying,
@@ -52,6 +53,9 @@ class TvState {
 
   /// The packs installed on the TV.
   final List<Pack> packs;
+
+  /// Pack id -> why the TV could not read it.
+  final Map<String, String> packErrors;
 
   /// Pack id -> the keys of its secret settings that have a value.
   final Map<String, Set<String>> secrets;
@@ -223,6 +227,11 @@ class TvApi {
         if (json['packs'] case final List<Object?> packs)
           for (final pack in packs) ?Pack.fromJson(pack),
       ],
+      packErrors: {
+        if (json['packErrors'] case final Map<Object?, Object?> errors)
+          for (final MapEntry(:key, :value) in errors.entries)
+            if (key is String && value is String) key: value,
+      },
       secrets: {
         if (json['secrets'] case final Map<Object?, Object?> secrets)
           for (final MapEntry(:key, :value) in secrets.entries)

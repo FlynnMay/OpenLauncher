@@ -272,23 +272,43 @@ final categoriesProvider = Provider<Map<String, String>>(
   (ref) => Pack.categoriesOf(ref.watch(packsProvider).value ?? const []),
 );
 
-/// What every installed pack holds; packs that cannot be read are left out.
-final packContentsProvider = FutureProvider<List<PackContents>>((ref) async {
+/// What each installed pack holds, or why it cannot be read, by pack id.
+final packReadingsProvider = FutureProvider<Map<String, PackReading>>((
+  ref,
+) async {
   final packs = await ref.watch(packsProvider.future);
   final read = ref.watch(packReaderProvider);
-  return [for (final pack in packs) ?await _contentsOf(pack, read)];
+  return {for (final pack in packs) pack.id: await _readingOf(pack, read)};
 });
 
-Future<PackContents?> _contentsOf(Pack pack, PackReader read) async {
+/// What every installed pack holds; packs that cannot be read are left out.
+final packContentsProvider = FutureProvider<List<PackContents>>((ref) async {
+  final readings = await ref.watch(packReadingsProvider.future);
+  return [for (final reading in readings.values) ?reading.contents];
+});
+
+/// Why each pack that cannot be read cannot, by pack id.
+final packLoadErrorsProvider = FutureProvider<Map<String, String>>((ref) async {
+  final readings = await ref.watch(packReadingsProvider.future);
+  return {
+    for (final MapEntry(:key, :value) in readings.entries)
+      key: ?value.error,
+  };
+});
+
+/// A pack's contents, or the reason they could not be read.
+typedef PackReading = ({PackContents? contents, String? error});
+
+Future<PackReading> _readingOf(Pack pack, PackReader read) async {
   final files = <String, String>{};
   for (final path in pack.files.where(PackContents.reads)) {
     final bytes = await read(pack, path);
     if (bytes != null) files[path] = utf8.decode(bytes, allowMalformed: true);
   }
   try {
-    return PackContents.parse(pack, files);
-  } on FormatException {
-    return null;
+    return (contents: PackContents.parse(pack, files), error: null);
+  } on FormatException catch (error) {
+    return (contents: null, error: error.message);
   }
 }
 

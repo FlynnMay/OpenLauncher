@@ -34,6 +34,9 @@ final List<Override> tvOverrides = [
   packsProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).packs,
   ),
+  packLoadErrorsProvider.overrideWith(
+    (ref) async => (await ref.watch(tvStateProvider.future)).packErrors,
+  ),
   packReaderProvider.overrideWith((ref) => ref.watch(tvApiProvider).packFile),
   actionRunnerProvider.overrideWith(
     (ref) => TvActionRunner(
