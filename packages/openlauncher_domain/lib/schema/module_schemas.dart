@@ -98,6 +98,7 @@ Schema _namedBy(Schema values, String description) => {
 // ---------------------------------------------------------------------------
 
 Schema _valueOf(Field field) => switch (field.kind) {
+  FieldKind.template when field.defaultValue is bool => orTemplate(toggle()),
   FieldKind.template || FieldKind.text || FieldKind.icon => orUse(text()),
   FieldKind.number => orTemplate(number()),
   FieldKind.toggle => orTemplate(toggle()),

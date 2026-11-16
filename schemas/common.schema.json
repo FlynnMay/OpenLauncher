@@ -947,7 +947,10 @@
         "visible": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
             },
             {
               "$ref": "common.schema.json#/$defs/use"
