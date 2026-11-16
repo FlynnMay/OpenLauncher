@@ -9,6 +9,10 @@ import 'package:openlauncher/core/sources/source_rows.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 
+// ---------------------------------------------------------------------------
+// Public
+// ---------------------------------------------------------------------------
+
 /// An entity asked for with arguments: its id, and the arguments as JSON so
 /// the same ones are the same key.
 typedef EntityWith = ({String id, String args});
@@ -22,7 +26,7 @@ final entityDataWithProvider = Provider.autoDispose.family<Object?, EntityWith>(
   (ref, call) {
     final packs = ref.watch(packContentsProvider).value ?? const [];
     final settings = ref.watch(packSettingsOfProvider);
-    final maker = _makerOf(packs, call.id);
+    final maker = _generatorMaking(packs, call.id);
     if (maker == null) return null;
     final (:contents, :generator) = maker;
     final pack = contents.pack.id;
@@ -33,7 +37,7 @@ final entityDataWithProvider = Provider.autoDispose.family<Object?, EntityWith>(
     if (source == null || asked == null) return null;
     final rows = ref.watch(
       sourceRowsProvider((
-        id: _requestId(
+        id: _fetchIdOf(
           pack,
           generator.from,
           asked,
@@ -42,27 +46,22 @@ final entityDataWithProvider = Provider.autoDispose.family<Object?, EntityWith>(
         source: asked.request,
       )),
     );
-    return _entityOf(generator, rows.value, plain, asked.params, call.id);
+    return _dataOfMadeEntity(
+      generator,
+      rows.value,
+      plain,
+      asked.params,
+      call.id,
+    );
   },
 );
 
-/// What the fetch of [asked] is known by. Named for the values it asks with,
-/// not the arguments as they were given, so the same request written another
-/// way is the same fetch; and the pack's own when it asks with the defaults,
-/// which the entity list already fetches.
-String _requestId(
-  String pack,
-  String source,
-  AskedSource asked,
-  AskedSource? byDefault,
-) =>
-    byDefault != null &&
-        jsonEncode(byDefault.params) == jsonEncode(asked.params)
-    ? '$pack:$source'
-    : AskedSourceId(pack, source, asked.params).text;
+// ---------------------------------------------------------------------------
+// Private
+// ---------------------------------------------------------------------------
 
 /// The generator that makes entity [id], and the pack it is in.
-({PackContents contents, Generator generator})? _makerOf(
+({PackContents contents, Generator generator})? _generatorMaking(
   List<PackContents> packs,
   String id,
 ) {
@@ -75,7 +74,22 @@ String _requestId(
   return null;
 }
 
-Object? _entityOf(
+/// What the fetch of [asked] is known by. Named for the values it asks with,
+/// not the arguments as they were given, so the same request written another
+/// way is the same fetch; and the pack's own when it asks with the defaults,
+/// which the entity list already fetches.
+String _fetchIdOf(
+  String pack,
+  String source,
+  AskedSource asked,
+  AskedSource? byDefault,
+) =>
+    byDefault != null &&
+        jsonEncode(byDefault.params) == jsonEncode(asked.params)
+    ? '$pack:$source'
+    : AskedSourceId(pack, source, asked.params).text;
+
+Object? _dataOfMadeEntity(
   Generator generator,
   List<Object?>? rows,
   Map<String, Object?> settings,

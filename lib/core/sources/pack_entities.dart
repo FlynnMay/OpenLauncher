@@ -11,6 +11,10 @@ import 'package:openlauncher_domain/entities/entity_action.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 
+// ---------------------------------------------------------------------------
+// Public
+// ---------------------------------------------------------------------------
+
 /// The entities of every pack: each pack's own, then what its generators
 /// make. `pack:` pictures are given as files. A poll that changes nothing
 /// gives the same list again, so nothing that reads it is rebuilt.
@@ -36,18 +40,24 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
     if (!ref.mounted) return const [];
     final picture = ref.watch(packPictureProvider);
     final settings = ref.watch(packSettingsOfProvider);
-    final makings = [for (final contents in packs) ..._makingsOf(contents)];
+    final packGenerators = [
+      for (final contents in packs) ..._generatorsOf(contents),
+    ];
     final asked = {
-      for (final making in makings)
-        making.key: making.source.askedWith(
+      for (final packGenerator in packGenerators)
+        packGenerator.key: packGenerator.source.askedWith(
           const {},
-          settings[making.pack.id] ?? const {},
+          settings[packGenerator.pack.id] ?? const {},
         ),
     };
     // Every source watched before any is waited for.
     final rows = {
-      for (final making in makings)
-        making.key: _rowsOf(ref, making, asked[making.key]),
+      for (final packGenerator in packGenerators)
+        packGenerator.key: _rowsOfGenerator(
+          ref,
+          packGenerator,
+          asked[packGenerator.key],
+        ),
     };
     final made = <Entity>[];
     for (final contents in packs) {
@@ -77,32 +87,37 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
     Map<String, Object?>? settings,
   ) async {
     final made = <Entity>[];
-    for (final making in _makingsOf(contents)) {
-      final mine = await rows[making.key]!;
+    for (final packGenerator in _generatorsOf(contents)) {
+      final generatorRows = await rows[packGenerator.key]!;
       await Future<void>.delayed(Duration.zero);
       made.addAll(
-        making.generator.entitiesFrom(
-          mine,
+        packGenerator.generator.entitiesFrom(
+          generatorRows,
           settings: settings ?? const {},
-          params: asked[making.key]?.params ?? const {},
+          params: asked[packGenerator.key]?.params ?? const {},
         ),
       );
     }
     return made;
   }
 
-  /// The rows of what [making] reads, as it was [asked]. None when it cannot
+  /// The rows of what [packGenerator] reads, as it was [asked]. None when it cannot
   /// be asked yet: a required param has no value, or the pack of a web source
   /// is not set up. Asking could only fail, and a source that failed once can
   /// be left waiting when the settings change.
-  Future<List<Object?>> _rowsOf(Ref ref, _Making making, AskedSource? asked) {
-    final settings = ref.watch(packSettingsOfProvider)[making.pack.id];
+  Future<List<Object?>> _rowsOfGenerator(
+    Ref ref,
+    _PackGenerator packGenerator,
+    AskedSource? asked,
+  ) {
+    final settings = ref.watch(packSettingsOfProvider)[packGenerator.pack.id];
     final cannotAsk =
         asked == null ||
-        !making.source.answeredHere && _isNotSetUp(ref, making.pack, settings);
+        !packGenerator.source.answeredHere &&
+            _isNotSetUp(ref, packGenerator.pack, settings);
     return cannotAsk
         ? Future.value(const [])
-        : _rows(ref, (id: making.sourceId, source: asked.request));
+        : _rows(ref, (id: packGenerator.sourceId, source: asked.request));
   }
 
   /// Whether a setting [pack] requires has no value yet. Secrets still being
@@ -118,9 +133,13 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Private
+// ---------------------------------------------------------------------------
+
 /// One generator of a pack and the source it reads.
-class _Making {
-  const _Making(this.contents, this.name, this.generator);
+class _PackGenerator {
+  const _PackGenerator(this.contents, this.name, this.generator);
 
   final PackContents contents;
   final String name;
@@ -136,10 +155,22 @@ class _Making {
   String get sourceId => '${pack.id}:${generator.from}';
 }
 
-Iterable<_Making> _makingsOf(PackContents contents) => [
+Iterable<_PackGenerator> _generatorsOf(PackContents contents) => [
   for (final MapEntry(:key, :value) in contents.generators.entries)
-    _Making(contents, key, value),
+    _PackGenerator(contents, key, value),
 ];
+
+/// How long the entity list waits for one source: a little over its fetch's.
+const _longestWait = Duration(seconds: 20);
+
+/// Nothing while a source cannot be read.
+Future<List<Object?>> _rows(Ref ref, SourceAt at) async {
+  try {
+    return await ref.watch(sourceRowsProvider(at).future).timeout(_longestWait);
+  } on Object {
+    return const [];
+  }
+}
 
 /// [entity] with the pack source its feed names found, sharing its fetch.
 Entity _fed(Entity entity, String pack, Map<String, Source> sources) {
@@ -155,18 +186,6 @@ Entity _fed(Entity entity, String pack, Map<String, Source> sources) {
       ),
     ),
   };
-}
-
-/// How long the entity list waits for one source: a little over its fetch's.
-const _longestWait = Duration(seconds: 20);
-
-/// Nothing while a source cannot be read.
-Future<List<Object?>> _rows(Ref ref, SourceAt at) async {
-  try {
-    return await ref.watch(sourceRowsProvider(at).future).timeout(_longestWait);
-  } on Object {
-    return const [];
-  }
 }
 
 Future<Entity> _pictured(
