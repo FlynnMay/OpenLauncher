@@ -121,11 +121,18 @@ class _Reading {
           for (final item in PackFile.of(path)!.items(path, json))
             (PackFile.of(path)!.kind, item),
       ] {
-    glue = _Glue(pack, {
-      for (final (kind, item) in items)
-        if (kind == PackKind.entity)
-          if (item.json['id'] case final String id) id,
-    });
+    glue = _Glue(
+      pack,
+      {
+        for (final (kind, item) in items)
+          if (kind == PackKind.entity)
+            if (item.json['id'] case final String id) id,
+      },
+      {
+        for (final (kind, item) in items)
+          if (kind == PackKind.field) item.name,
+      },
+    );
   }
 
   final Pack pack;
@@ -316,9 +323,12 @@ Future<PackReading> _readingOf(Pack pack, PackReader read) async {
 /// own; a name it refers to is its own too unless it says another pack's.
 /// Template roots are its own only where they name one of its entities.
 class _Glue {
-  _Glue(this.pack, this.entities);
+  _Glue(this.pack, this.entities, this.fields);
 
   final Pack pack;
+
+  /// Names of the premade fields it defines in `fields/`.
+  final Set<String> fields;
 
   /// Short ids of the entities it defines in `entities/`.
   final Set<String> entities;
@@ -408,8 +418,15 @@ class _Glue {
   };
 
   /// Whether a variable's `type` names a premade field and not a plain type.
-  static bool _isPremadeField(String type) =>
-      Variable.typeOf(type).$1 == VarType.field;
+  bool _isPremadeField(String type) {
+    if (fields.contains(type) && Variable.typeOf(type).$1 != VarType.field) {
+      throw FormatException(
+        '"$type" is a reserved name: write "${pack.id}:$type" '
+        'for the field of that name',
+      );
+    }
+    return Variable.typeOf(type).$1 == VarType.field;
+  }
 
   /// A generator's entity id is a template: its own text has no ":".
   Object? generator(String path, Object? json) => switch (json) {

@@ -81,6 +81,25 @@ void main() {
       expect(vars['count']!.type.name, 'number');
     });
 
+    test('a field named like a variable type is used in full only', () {
+      String prefab(String type) =>
+          '{"id": "lamp", "root": {"id": "root", "modules": {"variables": '
+          '{"accent": {"value": "", "type": "$type"}}}}}';
+      final field = {'lamp/field/colour.json': '{"kind": "text"}'};
+      final contents = PackContents.parse(
+        pack,
+        files({...field, 'lamp/prefab.json': prefab('p:colour')}),
+      );
+      expect(contents.prefabs.single.vars['accent']!.field, 'p:colour');
+      expect(
+        () => PackContents.parse(
+          pack,
+          files({...field, 'lamp/prefab.json': prefab('colour')}),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('shares chunks from the feature folder, then the pack', () {
       final contents = PackContents.parse(
         pack,
