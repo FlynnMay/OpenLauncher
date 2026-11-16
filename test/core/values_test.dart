@@ -345,6 +345,7 @@ void main() {
   group('values', () {
     late FakeLauncherPlatform platform;
     late List<HttpFeed> asked;
+    var answerAfter = Duration.zero;
 
     ProviderContainer container(LauncherConfig config) {
       platform = FakeLauncherPlatform(const [], const []);
@@ -359,6 +360,7 @@ void main() {
             asked.add(feed);
             if ('${feed.address}'.contains('broken')) throw Exception('No');
             if (feed.address.host == 'api.open-meteo.com') {
+              await Future<void>.delayed(answerAfter);
               return {
                 'current': {'temperature_2m': 17.6, 'weather_code': 2},
                 'daily': {
@@ -566,6 +568,67 @@ void main() {
         ),
       }, const {});
       expect(scope.own['source'], isNull);
+    });
+
+    test(
+      'taking the location away drops the weather and still answers',
+      () async {
+        final c = container(
+          LauncherConfig(
+            packSettings: {
+              'system': {
+                'location': {
+                  'name': 'Perth',
+                  'latitude': -31.95,
+                  'longitude': 115.86,
+                },
+              },
+            },
+          ),
+        );
+        final held = c.listen(entitiesProvider, (_, _) {});
+        addTearDown(held.close);
+        expect(await reads(c, '{{system:weather.location}}'), 'Perth');
+        await c.read(configProvider.notifier).patch({
+          'packSettings': {'system': <String, Object?>{}},
+        });
+        final entities = await c
+            .read(entitiesProvider.future)
+            .timeout(const Duration(seconds: 5));
+        expect(
+          entities.where((entity) => entity.id == 'system:weather'),
+          isEmpty,
+        );
+      },
+    );
+
+    test('a location chosen later brings the weather', () async {
+      answerAfter = const Duration(milliseconds: 300);
+      addTearDown(() => answerAfter = Duration.zero);
+      final c = container(LauncherConfig());
+      final held = c.listen(entitiesProvider, (_, _) {});
+      addTearDown(held.close);
+      final card = c.listen(entityDataProvider('system:weather'), (_, _) {});
+      addTearDown(card.close);
+      await c.read(entitiesProvider.future);
+      await c.read(configProvider.notifier).patch({
+        'packSettings': {
+          'system': {
+            'location': {
+              'name': 'Perth',
+              'latitude': -31.95,
+              'longitude': 115.86,
+            },
+          },
+        },
+      });
+      final entities = await c
+          .read(entitiesProvider.future)
+          .timeout(const Duration(seconds: 5));
+      expect(
+        entities.where((entity) => entity.id == 'system:weather'),
+        hasLength(1),
+      );
     });
 
     test('the weather waits while no location is given', () async {

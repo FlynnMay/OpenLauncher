@@ -144,6 +144,7 @@ class CommandRunner implements Commands {
       checkPackSettings(
         await _ref.read(packsProvider.future),
         changed['packSettings'],
+        saved: before.settings['packSettings'],
       );
     }
     final controller = _ref.read(configProvider.notifier);

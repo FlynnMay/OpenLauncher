@@ -52,4 +52,39 @@ void main() {
     expect(setting.accepts({'name': 'Perth'}), isFalse);
     expect(setting.accepts('Perth'), isFalse);
   });
+
+  test(
+    'a saved value of a dropped setting does not stop the others saving',
+    () {
+      final packs = [
+        Pack.fromJson({
+          'id': 'p',
+          'name': 'P',
+          'settings': {
+            'unit': {'type': 'text'},
+          },
+        })!,
+      ];
+      final saved = {
+        'p': {'old': 1, 'unit': 'a'},
+      };
+      // Sent back as it was, with one setting changed.
+      checkPackSettings(packs, {
+        'p': {'old': 1, 'unit': 'b'},
+      }, saved: saved);
+      // A new value for a setting there is not is still refused.
+      expect(
+        () => checkPackSettings(packs, {
+          'p': {'old': 2, 'unit': 'a'},
+        }, saved: saved),
+        throwsFormatException,
+      );
+      expect(
+        () => checkPackSettings(packs, {
+          'p': {'old': 1},
+        }),
+        throwsFormatException,
+      );
+    },
+  );
 }
