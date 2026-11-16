@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/entity.schema.json",
   "id": "clock",
   "category": "clock",
   "label": "Clock",

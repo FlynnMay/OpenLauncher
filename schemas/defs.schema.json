@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/defs.schema.json",
+  "title": "Reusable chunks",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "$defs": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

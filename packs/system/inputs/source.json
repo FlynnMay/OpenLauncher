@@ -1,1 +1,5 @@
-{ "url": "os://inputs", "watch": true }
+{
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/source.schema.json",
+  "url": "os://inputs",
+  "watch": true
+}

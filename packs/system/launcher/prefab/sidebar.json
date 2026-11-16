@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/prefab.schema.json",
   "id": "sidebar",
   "name": "Sidebar",
   "root": {

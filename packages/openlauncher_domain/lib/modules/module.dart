@@ -39,6 +39,7 @@ class ModuleType {
     this.label, {
     this.visual = false,
     this.fields = const [],
+    this.ownControls = const [],
     this.styleKeys = const [],
     this.instanceOwned = false,
     this.size = (1, 1),
@@ -59,6 +60,10 @@ class ModuleType {
 
   /// Its settings; the editor's form is generated from these.
   final List<Field> fields;
+
+  /// Settings the editor gives a control of their own, so the generated form
+  /// leaves them out.
+  final List<Field> ownControls;
 
   /// Style properties it draws with, beyond the box ones.
   final List<String> styleKeys;

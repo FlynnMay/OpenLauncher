@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/screen.schema.json",
+  "title": "Pack screen file",
+  "$defs": {
+    "one": {
+      "type": "object",
+      "description": "A screen of the launcher.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "id": {
+          "type": "string"
+        },
+        "start": {
+          "type": "boolean",
+          "description": "The screen the launcher starts on."
+        },
+        "inbox": {
+          "type": "string",
+          "description": "Where new things are put."
+        },
+        "root": {
+          "$ref": "common.schema.json#/$defs/node"
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "not": {
+          "required": [
+            "$use"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "id"
+        ]
+      }
+    }
+  },
+  "type": "object",
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "id"
+        ]
+      },
+      {
+        "required": [
+          "$use"
+        ]
+      }
+    ]
+  },
+  "then": {
+    "$ref": "#/$defs/one"
+  },
+  "else": {
+    "properties": {
+      "$schema": {
+        "type": "string"
+      },
+      "$comment": {
+        "type": "string"
+      },
+      "$defs": {
+        "type": "object"
+      }
+    },
+    "additionalProperties": {
+      "$ref": "#/$defs/one"
+    }
+  }
+}

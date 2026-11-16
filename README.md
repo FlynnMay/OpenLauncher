@@ -239,6 +239,8 @@ lib/
   editor/      the editor: the launcher as a web app, plus editing
 packs/         the built-in packs, as folders: material (icons) and system
                (the apps, inputs and prefabs the launcher starts with)
+schemas/       JSON Schemas for pack files, made by tool/build_schemas.dart;
+               a pack file names one in `$schema` for autocomplete and checks
 tool/          build scripts
 pigeons/       definition of the Dart <-> Kotlin bridge
 android/       Kotlin: apps, inputs, Home button service, permissions, updates,

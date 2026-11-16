@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/pack.schema.json",
+  "title": "Pack manifest",
+  "type": "object",
+  "description": "What a pack is, in its pack.json.",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Where this file is checked."
+    },
+    "$comment": {
+      "type": "string",
+      "description": "A note for readers."
+    },
+    "$defs": {
+      "type": "object",
+      "description": "Chunks the objects inside this one can reuse with $use."
+    },
+    "$use": {
+      "type": "string",
+      "description": "The name of a chunk to put here; keys beside it win."
+    },
+    "params": {
+      "type": "object",
+      "description": "What the chunk named by $use takes."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "author": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "description": "Where it is made, such as its repository."
+    },
+    "app": {
+      "type": "string",
+      "description": "The release of the launcher it was written for."
+    },
+    "requires": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$"
+      }
+    },
+    "categories": {
+      "type": "object",
+      "description": "What entity categories are called.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "settings": {
+      "type": "object",
+      "description": "What it asks the user.",
+      "additionalProperties": {
+        "$ref": "common.schema.json#/$defs/fieldSpec"
+      }
+    },
+    "auth": {
+      "type": "object",
+      "description": "How it signs requests, by profile name.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "description": "Where this file is checked."
+          },
+          "$comment": {
+            "type": "string",
+            "description": "A note for readers."
+          },
+          "$defs": {
+            "type": "object",
+            "description": "Chunks the objects inside this one can reuse with $use."
+          },
+          "$use": {
+            "type": "string",
+            "description": "The name of a chunk to put here; keys beside it win."
+          },
+          "params": {
+            "type": "object",
+            "description": "What the chunk named by $use takes."
+          },
+          "host": {
+            "type": "string"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "if": {
+          "not": {
+            "required": [
+              "$use"
+            ]
+          }
+        },
+        "then": {
+          "required": [
+            "host",
+            "headers"
+          ]
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "if": {
+    "not": {
+      "required": [
+        "$use"
+      ]
+    }
+  },
+  "then": {
+    "required": [
+      "id"
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/pack.schema.json",
   "id": "system",
   "name": "System",
   "version": "1",

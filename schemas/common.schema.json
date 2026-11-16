@@ -1,0 +1,2805 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/common.schema.json",
+  "title": "Shared pieces",
+  "$defs": {
+    "template": {
+      "type": "string",
+      "pattern": "\\{\\{",
+      "description": "Text with {{values}} filled in where it is read."
+    },
+    "use": {
+      "type": "object",
+      "properties": {
+        "$use": {
+          "type": "string",
+          "description": "The name of the chunk to put here."
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "$use"
+      ],
+      "description": "A chunk from $defs, with the keys beside it on top."
+    },
+    "spread": {
+      "type": "object",
+      "properties": {
+        "$spread": {
+          "type": "string",
+          "description": "The name of a list chunk."
+        }
+      },
+      "required": [
+        "$spread"
+      ],
+      "additionalProperties": false,
+      "description": "The items of a list chunk, put here."
+    },
+    "transform": {
+      "type": "object",
+      "description": "Where it sits in a parent without a layout.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "anchors": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "Left, top, right and bottom anchors, 0 to 1."
+        },
+        "offsets": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "Left, top, right and bottom offsets, in pixels."
+        }
+      },
+      "additionalProperties": false
+    },
+    "act": {
+      "anyOf": [
+        {
+          "type": "object",
+          "description": "Calls an address.",
+          "properties": {
+            "$schema": {
+              "type": "string",
+              "description": "Where this file is checked."
+            },
+            "$comment": {
+              "type": "string",
+              "description": "A note for readers."
+            },
+            "$defs": {
+              "type": "object",
+              "description": "Chunks the objects inside this one can reuse with $use."
+            },
+            "$use": {
+              "type": "string",
+              "description": "The name of a chunk to put here; keys beside it win."
+            },
+            "params": {
+              "type": "object",
+              "description": "What the chunk named by $use takes."
+            },
+            "run": {
+              "type": "string",
+              "description": "An address such as launcher://screen/open."
+            },
+            "with": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "if": {
+            "not": {
+              "required": [
+                "$use"
+              ]
+            }
+          },
+          "then": {
+            "required": [
+              "run"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "description": "Runs an action of an entity; the other keys are its input.",
+          "properties": {
+            "$schema": {
+              "type": "string",
+              "description": "Where this file is checked."
+            },
+            "$comment": {
+              "type": "string",
+              "description": "A note for readers."
+            },
+            "$defs": {
+              "type": "object",
+              "description": "Chunks the objects inside this one can reuse with $use."
+            },
+            "$use": {
+              "type": "string",
+              "description": "The name of a chunk to put here; keys beside it win."
+            },
+            "params": {
+              "type": "object",
+              "description": "What the chunk named by $use takes."
+            },
+            "do": {
+              "type": "string",
+              "description": "The name of an entity's action."
+            }
+          },
+          "additionalProperties": true,
+          "if": {
+            "not": {
+              "required": [
+                "$use"
+              ]
+            }
+          },
+          "then": {
+            "required": [
+              "do"
+            ]
+          }
+        }
+      ]
+    },
+    "variable": {
+      "description": "A value, or an object with a value or a condition and a type.",
+      "properties": {
+        "value": {},
+        "type": {
+          "enum": [
+            "any",
+            "text",
+            "number",
+            "bool",
+            "colour",
+            "entity",
+            "nodes"
+          ]
+        },
+        "access": {
+          "enum": [
+            "private",
+            "protected",
+            "public"
+          ]
+        },
+        "exposed": {
+          "type": "boolean"
+        },
+        "when": {
+          "type": "string",
+          "description": "The template a conditional reads."
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "One case: a comparison, and what the value is then.",
+            "properties": {
+              "$schema": {
+                "type": "string",
+                "description": "Where this file is checked."
+              },
+              "$comment": {
+                "type": "string",
+                "description": "A note for readers."
+              },
+              "$defs": {
+                "type": "object",
+                "description": "Chunks the objects inside this one can reuse with $use."
+              },
+              "$use": {
+                "type": "string",
+                "description": "The name of a chunk to put here; keys beside it win."
+              },
+              "params": {
+                "type": "object",
+                "description": "What the chunk named by $use takes."
+              },
+              "equals": {},
+              "not": {},
+              "above": {},
+              "below": {},
+              "contains": {},
+              "then": {}
+            },
+            "additionalProperties": false
+          }
+        },
+        "else": {}
+      }
+    },
+    "overrides": {
+      "type": "object",
+      "description": "Changes to nodes of a prefab, by node id.",
+      "additionalProperties": {
+        "$ref": "common.schema.json#/$defs/nodeOverride"
+      }
+    },
+    "nodeOverride": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "name": {
+          "type": "string"
+        },
+        "transform": {
+          "$ref": "common.schema.json#/$defs/transform"
+        },
+        "modules": {
+          "$ref": "common.schema.json#/$defs/modules"
+        }
+      },
+      "additionalProperties": false
+    },
+    "modules": {
+      "type": "object",
+      "description": "What the node takes on; each module is one of these.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "visibility": {
+          "$ref": "common.schema.json#/$defs/module_visibility"
+        },
+        "text": {
+          "$ref": "common.schema.json#/$defs/module_text"
+        },
+        "picture": {
+          "$ref": "common.schema.json#/$defs/module_picture"
+        },
+        "icon": {
+          "$ref": "common.schema.json#/$defs/module_icon"
+        },
+        "meter": {
+          "$ref": "common.schema.json#/$defs/module_meter"
+        },
+        "appWidget": {
+          "$ref": "common.schema.json#/$defs/module_appWidget"
+        },
+        "preview": {
+          "$ref": "common.schema.json#/$defs/module_preview"
+        },
+        "style": {
+          "$ref": "common.schema.json#/$defs/module_style"
+        },
+        "layout": {
+          "$ref": "common.schema.json#/$defs/module_layout"
+        },
+        "slot": {
+          "$ref": "common.schema.json#/$defs/module_slot"
+        },
+        "sizing": {
+          "$ref": "common.schema.json#/$defs/module_sizing"
+        },
+        "scroll": {
+          "$ref": "common.schema.json#/$defs/module_scroll"
+        },
+        "dock": {
+          "$ref": "common.schema.json#/$defs/module_dock"
+        },
+        "overlay": {
+          "$ref": "common.schema.json#/$defs/module_overlay"
+        },
+        "focus": {
+          "$ref": "common.schema.json#/$defs/module_focus"
+        },
+        "triggers": {
+          "$ref": "common.schema.json#/$defs/module_triggers"
+        },
+        "variables": {
+          "$ref": "common.schema.json#/$defs/module_variables"
+        },
+        "prefabRules": {
+          "$ref": "common.schema.json#/$defs/module_prefabRules"
+        },
+        "wallpaper": {
+          "$ref": "common.schema.json#/$defs/module_wallpaper"
+        }
+      },
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "description": "One thing on screen, with the modules that make it so.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique in its screen or prefab."
+        },
+        "name": {
+          "type": "string",
+          "description": "What the editor calls it."
+        },
+        "prefab": {
+          "type": "string",
+          "description": "The prefab this is an instance of."
+        },
+        "variant": {
+          "type": "string"
+        },
+        "transform": {
+          "$ref": "common.schema.json#/$defs/transform"
+        },
+        "modules": {
+          "$ref": "common.schema.json#/$defs/modules"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/node"
+          }
+        },
+        "overrides": {
+          "$ref": "common.schema.json#/$defs/overrides"
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "not": {
+          "required": [
+            "$use"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "entityAction": {
+      "type": "object",
+      "description": "What an entity can be told to do.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "run": {
+          "type": "string",
+          "description": "The operation to run."
+        },
+        "with": {
+          "type": "object"
+        },
+        "args": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "label": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "then": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/entityAction"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "common.schema.json#/$defs/entityAction"
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "not": {
+          "required": [
+            "$use"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "run"
+        ]
+      }
+    },
+    "source": {
+      "type": "object",
+      "description": "Where values come from.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "url": {
+          "type": "string",
+          "description": "http(s)://, os:// or launcher:// address."
+        },
+        "every": {
+          "type": "number",
+          "description": "Seconds between reads."
+        },
+        "watch": {
+          "type": "boolean",
+          "description": "Read again when the source says it changed."
+        },
+        "rows": {
+          "type": "string",
+          "description": "Path to the list in the answer."
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ]
+        },
+        "auth": {
+          "type": "string",
+          "description": "The pack's auth profile that signs the request."
+        },
+        "body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "not": {
+          "required": [
+            "$use"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "url"
+        ]
+      }
+    },
+    "entity": {
+      "type": "object",
+      "description": "Something with actions and readable values.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "id": {
+          "type": "string",
+          "description": "A name without \":\"; the pack adds its own."
+        },
+        "category": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "description": "Values read as {{id.key}}."
+        },
+        "feed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/source"
+            }
+          ]
+        },
+        "actions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "common.schema.json#/$defs/entityAction"
+          }
+        },
+        "prefab": {
+          "type": "string"
+        },
+        "placed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "not": {
+          "required": [
+            "$use"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "fieldSpec": {
+      "type": "object",
+      "description": "One field: a type and what that type takes.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "text",
+                "number",
+                "toggle",
+                "choice",
+                "group"
+              ]
+            },
+            {
+              "type": "string",
+              "description": "The name of a premade field."
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "secret": {
+          "type": "boolean"
+        },
+        "default": {},
+        "visible": {
+          "type": "string",
+          "description": "A template; the field shows when it is true."
+        },
+        "span": {
+          "type": "number"
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "multiline": {
+          "type": "boolean"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "minLength": {
+          "type": "number"
+        },
+        "maxLength": {
+          "type": "number"
+        },
+        "format": {
+          "enum": [
+            "plain",
+            "url"
+          ]
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number"
+        },
+        "decimal": {
+          "type": "boolean"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "array",
+              "items": {}
+            }
+          ]
+        },
+        "from": {
+          "type": "object",
+          "description": "Options asked of the web.",
+          "properties": {
+            "$schema": {
+              "type": "string",
+              "description": "Where this file is checked."
+            },
+            "$comment": {
+              "type": "string",
+              "description": "A note for readers."
+            },
+            "$defs": {
+              "type": "object",
+              "description": "Chunks the objects inside this one can reuse with $use."
+            },
+            "$use": {
+              "type": "string",
+              "description": "The name of a chunk to put here; keys beside it win."
+            },
+            "params": {
+              "type": "object",
+              "description": "What the chunk named by $use takes."
+            },
+            "url": {
+              "type": "string",
+              "description": "http(s)://, os:// or launcher:// address."
+            },
+            "every": {
+              "type": "number",
+              "description": "Seconds between reads."
+            },
+            "watch": {
+              "type": "boolean",
+              "description": "Read again when the source says it changed."
+            },
+            "rows": {
+              "type": "string",
+              "description": "Path to the list in the answer."
+            },
+            "method": {
+              "enum": [
+                "GET",
+                "POST"
+              ]
+            },
+            "auth": {
+              "type": "string",
+              "description": "The pack's auth profile that signs the request."
+            },
+            "body": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object"
+                }
+              ]
+            },
+            "label": {
+              "type": "string",
+              "description": "How a row is listed."
+            },
+            "value": {
+              "type": "string"
+            },
+            "group": {
+              "type": "string"
+            },
+            "where": {
+              "type": "string"
+            },
+            "keep": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "on": {
+              "enum": [
+                "filter",
+                "type",
+                "enter"
+              ]
+            },
+            "debounce": {
+              "type": "number"
+            },
+            "minChars": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "if": {
+            "not": {
+              "required": [
+                "$use"
+              ]
+            }
+          },
+          "then": {
+            "required": [
+              "url",
+              "label"
+            ]
+          }
+        },
+        "as": {
+          "enum": [
+            "dropdown",
+            "radio",
+            "segmented",
+            "checks",
+            "chips",
+            "multiDropdown"
+          ]
+        },
+        "unset": {
+          "type": "string"
+        },
+        "multiple": {
+          "type": "boolean"
+        },
+        "minChoices": {
+          "type": "number"
+        },
+        "maxChoices": {
+          "type": "number"
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "common.schema.json#/$defs/fieldSpec"
+          }
+        },
+        "columns": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_visibility": {
+      "type": "object",
+      "description": "Visibility",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Visible.",
+          "default": true
+        },
+        "keep": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Keep space when hidden."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_text": {
+      "type": "object",
+      "description": "Text",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Text."
+        },
+        "overflow": {
+          "anyOf": [
+            {
+              "enum": [
+                "fade",
+                "ellipsis",
+                "clip",
+                "wrap",
+                "scroll"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Overflow.",
+          "default": "fade"
+        },
+        "speed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Scroll speed.",
+          "default": 40
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_picture": {
+      "type": "object",
+      "description": "Picture",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Source (URL or value)."
+        },
+        "alt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Alt text."
+        },
+        "badge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Badge."
+        },
+        "pad": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Padding."
+        },
+        "fit": {
+          "anyOf": [
+            {
+              "enum": [
+                "cover",
+                "contain"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Fit.",
+          "default": "cover"
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_icon": {
+      "type": "object",
+      "description": "Icon",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Icon."
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Size."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_meter": {
+      "type": "object",
+      "description": "Meter",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Value."
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Min.",
+          "default": 0
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Max.",
+          "default": 100
+        },
+        "shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "bar",
+                "ring"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Shape.",
+          "default": "bar"
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_appWidget": {
+      "type": "object",
+      "description": "App widget",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        }
+      },
+      "additionalProperties": true
+    },
+    "module_preview": {
+      "type": "object",
+      "description": "Preview",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "node": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Node ID."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_style": {
+      "type": "object",
+      "description": "Style",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "background": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "$schema": {
+                      "type": "string",
+                      "description": "Where this file is checked."
+                    },
+                    "$comment": {
+                      "type": "string",
+                      "description": "A note for readers."
+                    },
+                    "$defs": {
+                      "type": "object",
+                      "description": "Chunks the objects inside this one can reuse with $use."
+                    },
+                    "$use": {
+                      "type": "string",
+                      "description": "The name of a chunk to put here; keys beside it win."
+                    },
+                    "params": {
+                      "type": "object",
+                      "description": "What the chunk named by $use takes."
+                    },
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                      }
+                    },
+                    "stops": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "angle": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Background."
+        },
+        "borderColor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Border colour."
+        },
+        "borderWidth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Border width.",
+          "default": 2
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                }
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Corners."
+        },
+        "padding": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Padding."
+        },
+        "clip": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Clip contents.",
+          "default": false
+        },
+        "opacity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Opacity %.",
+          "default": 100
+        },
+        "shadow": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Shadow.",
+          "default": 0
+        },
+        "color": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Colour."
+        },
+        "fontSize": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Font size."
+        },
+        "fontWeight": {
+          "anyOf": [
+            {
+              "enum": [
+                "light",
+                "medium",
+                "bold"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Font weight."
+        },
+        "textAlign": {
+          "anyOf": [
+            {
+              "enum": [
+                "left",
+                "center",
+                "right"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Text align."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_layout": {
+      "type": "object",
+      "description": "Layout",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "flow",
+                "grid",
+                "row",
+                "column"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Layout.",
+          "default": "flow"
+        },
+        "columns": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Columns.",
+          "default": 5
+        },
+        "rowHeight": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Row height."
+        },
+        "spacing": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Spacing."
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Gap.",
+          "default": 0
+        },
+        "fit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Stretch to fit."
+        },
+        "align": {
+          "anyOf": [
+            {
+              "enum": [
+                "start",
+                "center",
+                "end",
+                "stretch"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Align."
+        },
+        "itemW": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Item width (cells)."
+        },
+        "itemH": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Item height (cells)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_slot": {
+      "type": "object",
+      "description": "Slot",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "variable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Variable."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_sizing": {
+      "type": "object",
+      "description": "Sizing",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        }
+      },
+      "additionalProperties": true
+    },
+    "module_scroll": {
+      "type": "object",
+      "description": "Scroll",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "across": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Horizontal scroll."
+        },
+        "down": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Vertical scroll."
+        },
+        "bar": {
+          "anyOf": [
+            {
+              "enum": [
+                "thumb",
+                "progress"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Scroll bar."
+        },
+        "show": {
+          "anyOf": [
+            {
+              "enum": [
+                "always",
+                "auto"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Show scroll bar.",
+          "default": "always"
+        },
+        "scrollbarSide": {
+          "anyOf": [
+            {
+              "enum": [
+                "end",
+                "start"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Position.",
+          "default": "end"
+        },
+        "scrollbarSize": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Thickness.",
+          "default": 6
+        },
+        "scrollbarLength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Length %.",
+          "default": 100
+        },
+        "scrollbarMargin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Edge margin.",
+          "default": 4
+        },
+        "scrollbarEndMargin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "End margin.",
+          "default": 4
+        },
+        "scrollbarOpacity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Opacity %.",
+          "default": 100
+        },
+        "scrollbarThumb": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "$schema": {
+                      "type": "string",
+                      "description": "Where this file is checked."
+                    },
+                    "$comment": {
+                      "type": "string",
+                      "description": "A note for readers."
+                    },
+                    "$defs": {
+                      "type": "object",
+                      "description": "Chunks the objects inside this one can reuse with $use."
+                    },
+                    "$use": {
+                      "type": "string",
+                      "description": "The name of a chunk to put here; keys beside it win."
+                    },
+                    "params": {
+                      "type": "object",
+                      "description": "What the chunk named by $use takes."
+                    },
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                      }
+                    },
+                    "stops": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "angle": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Thumb."
+        },
+        "scrollbarThumbBorder": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Thumb border colour."
+        },
+        "scrollbarThumbBorderWidth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Thumb border width.",
+          "default": 1
+        },
+        "scrollbarThumbRadius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Thumb corners."
+        },
+        "scrollbarInset": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Thumb inset.",
+          "default": 0
+        },
+        "scrollbarMinLength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Thumb minimum length.",
+          "default": 24
+        },
+        "scrollbarTrack": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "$schema": {
+                      "type": "string",
+                      "description": "Where this file is checked."
+                    },
+                    "$comment": {
+                      "type": "string",
+                      "description": "A note for readers."
+                    },
+                    "$defs": {
+                      "type": "object",
+                      "description": "Chunks the objects inside this one can reuse with $use."
+                    },
+                    "$use": {
+                      "type": "string",
+                      "description": "The name of a chunk to put here; keys beside it win."
+                    },
+                    "params": {
+                      "type": "object",
+                      "description": "What the chunk named by $use takes."
+                    },
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                      }
+                    },
+                    "stops": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "angle": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Track."
+        },
+        "scrollbarTrackBorder": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Track border colour."
+        },
+        "scrollbarTrackBorderWidth": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Track border width.",
+          "default": 1
+        },
+        "scrollbarTrackRadius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Track corners."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_dock": {
+      "type": "object",
+      "description": "Dock",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "position": {
+          "anyOf": [
+            {
+              "enum": [
+                "left",
+                "right",
+                "top",
+                "bottom",
+                "center"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Position."
+        },
+        "closed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Collapsed size."
+        },
+        "closeOnPress": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Close after a press.",
+          "default": false
+        },
+        "opening": {
+          "anyOf": [
+            {
+              "enum": [
+                "expand",
+                "slide",
+                "fade",
+                "instant"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Animation.",
+          "default": "expand"
+        },
+        "reveal": {
+          "anyOf": [
+            {
+              "enum": [
+                "always",
+                "fade",
+                "late",
+                "slide"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Content animation.",
+          "default": "always"
+        },
+        "width": {
+          "description": "Width. Pixels, or \"fill\"."
+        },
+        "height": {
+          "description": "Height. Pixels, or \"fill\"."
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_overlay": {
+      "type": "object",
+      "description": "Overlay",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "dim": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Dim behind.",
+          "default": 0
+        },
+        "blur": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Blur behind.",
+          "default": 0
+        },
+        "modal": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Modal.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_focus": {
+      "type": "object",
+      "description": "Focus",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Focused size %.",
+          "default": 108
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Shows the focus."
+        },
+        "bare": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Bare frame.",
+          "default": "true"
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_triggers": {
+      "type": "object",
+      "description": "What it does when pressed, held, focused, shown or hidden.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "press": {
+          "type": "array",
+          "description": "On press",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/act"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/spread"
+              }
+            ]
+          }
+        },
+        "hold": {
+          "type": "array",
+          "description": "On hold",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/act"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/spread"
+              }
+            ]
+          }
+        },
+        "focus": {
+          "type": "array",
+          "description": "On focus",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/act"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/spread"
+              }
+            ]
+          }
+        },
+        "blur": {
+          "type": "array",
+          "description": "On blur",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/act"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/spread"
+              }
+            ]
+          }
+        },
+        "reveal": {
+          "type": "array",
+          "description": "On show",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/act"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/spread"
+              }
+            ]
+          }
+        },
+        "hide": {
+          "type": "array",
+          "description": "On hide",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/act"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/spread"
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_variables": {
+      "type": "object",
+      "description": "Named values, by name.",
+      "additionalProperties": {
+        "$ref": "common.schema.json#/$defs/variable"
+      },
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        }
+      }
+    },
+    "module_prefabRules": {
+      "type": "object",
+      "description": "Per prefab, what every instance directly inside gets.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "description": "Where this file is checked."
+          },
+          "$comment": {
+            "type": "string",
+            "description": "A note for readers."
+          },
+          "$defs": {
+            "type": "object",
+            "description": "Chunks the objects inside this one can reuse with $use."
+          },
+          "$use": {
+            "type": "string",
+            "description": "The name of a chunk to put here; keys beside it win."
+          },
+          "params": {
+            "type": "object",
+            "description": "What the chunk named by $use takes."
+          },
+          "variant": {
+            "type": "string"
+          },
+          "overrides": {
+            "$ref": "common.schema.json#/$defs/overrides"
+          }
+        },
+        "additionalProperties": false
+      },
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        }
+      }
+    },
+    "module_wallpaper": {
+      "type": "object",
+      "description": "Wallpaper",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "params": {
+          "type": "object",
+          "description": "What the chunk named by $use takes."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "every": {
+          "anyOf": [
+            {
+              "enum": [
+                "0",
+                "1",
+                "5",
+                "15",
+                "30",
+                "60",
+                "180",
+                "1440"
+              ]
+            },
+            {
+              "$ref": "common.schema.json#/$defs/template"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/use"
+            }
+          ],
+          "description": "Change.",
+          "default": "0"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
