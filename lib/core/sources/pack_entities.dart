@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
+import 'package:openlauncher/core/packs/pack_secrets.dart';
 import 'package:openlauncher/core/packs/pack_store.dart';
 import 'package:openlauncher/core/sources/pack_settings_of.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
@@ -40,7 +42,7 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
         for (final MapEntry(key: name, value: generator) in generators.entries)
           '${pack.id}/$name': _rowsOf(
             ref,
-            pack.id,
+            pack,
             generator.from,
             sources[generator.from]!,
             settings[pack.id],
@@ -78,18 +80,35 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
     return generator.entitiesFrom(rows, settings: settings, params: params);
   }
 
-  /// The rows of source [name] asked with its default params; none while a
-  /// required one has no value.
+  /// The rows of source [name] asked with its default params. None while a
+  /// required param has no value, or while the pack of a web source is not set
+  /// up: asking it could only fail, and a source that failed once can be left
+  /// waiting when the settings change.
   Future<List<Object?>> _rowsOf(
     Ref ref,
-    String pack,
+    Pack pack,
     String name,
     Source source,
     Map<String, Object?>? settings,
   ) {
     final params = _defaultParams(source, settings);
     if (source.missing(params) != null) return Future.value(const []);
-    return _rows(ref, (id: '$pack:$name', source: source.filled(params)));
+    if (!source.answeredHere && _isNotSetUp(ref, pack, settings)) {
+      return Future.value(const []);
+    }
+    return _rows(ref, (id: '${pack.id}:$name', source: source.filled(params)));
+  }
+
+  /// Whether a setting [pack] requires has no value yet. Secrets still being
+  /// read count as not given, and the build is made again when they are.
+  bool _isNotSetUp(Ref ref, Pack pack, Map<String, Object?>? settings) {
+    final Map<String, String> secrets = pack.hasSecrets
+        ? (ref.watch(packSecretsProvider).value?[pack.id] ?? const {})
+        : const {};
+    return pack.missing(settings ?? const {}, {
+      for (final MapEntry(:key, :value) in secrets.entries)
+        if (value.isNotEmpty) key,
+    }).isNotEmpty;
   }
 
   /// What a source's params are when nobody gives any: their defaults.
@@ -115,10 +134,13 @@ Entity _fed(Entity entity, String pack, Map<String, Source> sources) {
   };
 }
 
+/// How long the entity list waits for one source: a little over its fetch's.
+const _longestWait = Duration(seconds: 20);
+
 /// Nothing while a source cannot be read.
 Future<List<Object?>> _rows(Ref ref, SourceAt at) async {
   try {
-    return await ref.watch(sourceRowsProvider(at).future);
+    return await ref.watch(sourceRowsProvider(at).future).timeout(_longestWait);
   } on Object {
     return const [];
   }
