@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entity_data.dart';
+import 'package:openlauncher/core/entities/entity_data_with.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher_domain/layout/layout.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
@@ -98,9 +101,11 @@ Scope scopeOf(
     final value = switch (raw) {
       final String text
           when text.isNotEmpty && variable.type == VarType.entity =>
-        watch(entityDataProvider(text)) ??
+        _entityGiven(watch, text, variable.args, own) ??
+            watch(entityDataProvider(text)) ??
             watch(componentDataProvider(text)) ??
-            raw,
+            // One asked with arguments is not the id it was asked by.
+            (variable.args.isEmpty ? raw : null),
       _ => raw,
     };
     own[name] = value;
@@ -109,6 +114,31 @@ Scope scopeOf(
   }
   return (own: own, inner: inner, public: public);
 }
+
+/// What entity [id] reads when asked with [args], their templates read in
+/// [scope]; an argument that comes out blank is not given. Null when none
+/// is.
+Object? _entityGiven(
+  Watch watch,
+  String id,
+  Map<String, Object?> args,
+  Map<String, Object?> scope,
+) {
+  final given = <String, Object?>{
+    for (final MapEntry(:key, :value) in args.entries)
+      if (_given(value is String ? readTemplate(watch, value, scope) : value))
+        key: value is String ? readTemplate(watch, value, scope) : value,
+  };
+  if (given.isEmpty) return null;
+  // Until its answer is in it is only itself, not the entity asked without.
+  return watch(entityDataWithProvider((id: id, args: jsonEncode(given)))) ??
+      {'id': id};
+}
+
+bool _given(Object? value) =>
+    value != null &&
+    !(value is String && value.trim().isEmpty) &&
+    !(value is Map && value.isEmpty);
 
 /// [item]'s variables merged over its prefab's.
 Variables variablesOf(Node item, Map<String, Prefab> prefabs) =>

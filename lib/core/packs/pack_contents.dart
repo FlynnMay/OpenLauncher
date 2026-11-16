@@ -17,6 +17,7 @@ import 'package:openlauncher_domain/layout/screen.dart';
 import 'package:openlauncher_domain/prefabs/prefab.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
+import 'package:openlauncher_domain/variables/variable.dart';
 
 /// A pack's entities, sources, generators, prefabs and screens. A pack writes short
 /// names; each is its own unless it says another pack's, `other:name`, and
@@ -291,8 +292,7 @@ final packContentsProvider = FutureProvider<List<PackContents>>((ref) async {
 final packLoadErrorsProvider = FutureProvider<Map<String, String>>((ref) async {
   final readings = await ref.watch(packReadingsProvider.future);
   return {
-    for (final MapEntry(:key, :value) in readings.entries)
-      key: ?value.error,
+    for (final MapEntry(:key, :value) in readings.entries) key: ?value.error,
   };
 });
 
@@ -365,7 +365,7 @@ class _Glue {
 
   /// What a generator's slots read besides entities: an entity of the same
   /// name is still reached as `pack:name`.
-  static const _readByGenerators = {'row', 'settings', 'tables'};
+  static const _readByGenerators = {'row', 'settings', 'param', 'tables'};
 
   static final _unquoted = RegExp('(\'[^\']*\'|"[^"]*")|[^\'"]+');
 
@@ -399,9 +399,17 @@ class _Glue {
           ..._tree(variable) as Map<String, Object?>,
           'value': _ref(id),
         },
+        {'type': final String type} when _isPremadeField(type) => {
+          ..._tree(variable) as Map<String, Object?>,
+          'type': _ref(type),
+        },
         _ => _tree(variable),
       },
   };
+
+  /// Whether a variable's `type` names a premade field and not a plain type.
+  static bool _isPremadeField(String type) =>
+      Variable.typeOf(type).$1 == VarType.field;
 
   /// A generator's entity id is a template: its own text has no ":".
   Object? generator(String path, Object? json) => switch (json) {

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/field.schema.json",
+  "extends": "choice",
+  "label": "Temperature",
+  "help": "Empty uses the unit in the System pack settings.",
+  "as": "segmented",
+  "options": {
+    "celsius": "Celsius",
+    "fahrenheit": "Fahrenheit"
+  }
+}

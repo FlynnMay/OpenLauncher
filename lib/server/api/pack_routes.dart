@@ -59,9 +59,10 @@ class PackRoutes implements ApiRoutes {
   Future<Response> _fieldOptions(Request request) async {
     final query = request.url.queryParameters;
     try {
-      final hits = await _ref
-          .read(packServiceProvider)
-          .options(query['pack'], query['key'], query['q']);
+      final service = _ref.read(packServiceProvider);
+      final hits = query['field'] != null
+          ? await service.optionsOfField(query['field'], query['q'])
+          : await service.options(query['pack'], query['key'], query['q']);
       return jsonResponse({
         'options': [
           for (final hit in hits)

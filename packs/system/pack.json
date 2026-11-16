@@ -12,19 +12,13 @@
     "launcher": "Launcher"
   },
   "settings": {
-    "place": {
-      "type": "place",
-      "label": "Weather place",
-      "required": true
+    "location": {
+      "type": "location",
+      "label": "Weather location"
     },
     "unit": {
-      "label": "Temperature",
-      "type": "choice",
-      "as": "segmented",
-      "options": {
-        "celsius": "Celsius",
-        "fahrenheit": "Fahrenheit"
-      }
+      "type": "unit",
+      "label": "Temperature"
     }
   }
 }

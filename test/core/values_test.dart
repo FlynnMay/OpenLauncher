@@ -428,7 +428,7 @@ void main() {
       );
     });
 
-    test('the weather, once the System pack has a place', () async {
+    test('the weather, once the System pack has a location', () async {
       var c = container(LauncherConfig());
       expect(await reads(c, '[{{system:weather}}]'), '[]');
       expect(
@@ -439,7 +439,7 @@ void main() {
         LauncherConfig(
           packSettings: {
             'system': {
-              'place': {
+              'location': {
                 'name': 'Perth',
                 'latitude': -31.95,
                 'longitude': 115.86,
@@ -454,7 +454,7 @@ void main() {
           c,
           '{{system:weather}} {{system:weather.description}} '
           '{{system:weather.high|round}} {{system:weather.sky}} '
-          '{{system:weather.place}}',
+          '{{system:weather.location}}',
         ),
         '18° Partly cloudy 22 partlyCloudy Perth',
       );
@@ -466,6 +466,119 @@ void main() {
         forecast.address.queryParameters['temperature_unit'],
         'fahrenheit',
       );
+    });
+
+    test('a card asks the weather for a location of its own', () async {
+      final c = container(
+        LauncherConfig(
+          packSettings: {
+            'system': {
+              'location': {
+                'name': 'Perth',
+                'latitude': -31.95,
+                'longitude': 115.86,
+              },
+            },
+          },
+        ),
+      );
+      Future<Object?> askedWith(Map<String, Object?> args) async {
+        final provider = entityDataWithProvider((
+          id: 'system:weather',
+          args: jsonEncode(args),
+        ));
+        final held = c.listen(provider, (_, _) {});
+        addTearDown(held.close);
+        await c.read(configProvider.future);
+        await pumpEventQueue();
+        return c.read(provider);
+      }
+
+      final broome = {'name': 'Broome', 'latitude': -17.96, 'longitude': 122.2};
+      final there = await askedWith({'location': broome}) as Map;
+      expect(there['location'], 'Broome');
+      expect(
+        asked.map((feed) => feed.address.queryParameters['latitude']),
+        contains('-17.96'),
+      );
+      // The same location again is the same fetch.
+      final before = asked.length;
+      await askedWith({'location': broome});
+      expect(asked.length, before);
+      // Nothing given is the setting.
+      expect(await reads(c, '{{system:weather.location}}'), 'Perth');
+    });
+
+    test('a card gives its entity the arguments its variables hold', () async {
+      final c = container(
+        LauncherConfig(
+          packSettings: {
+            'system': {
+              'location': {
+                'name': 'Perth',
+                'latitude': -31.95,
+                'longitude': 115.86,
+              },
+            },
+          },
+        ),
+      );
+      final broome = {'name': 'Broome', 'latitude': -17.96, 'longitude': 122.2};
+      Map<String, Variable> card(Object? location) => {
+        'location': Variable(
+          location,
+          type: VarType.field,
+          field: 'system:location',
+        ),
+        'source': const Variable(
+          'system:weather',
+          type: VarType.entity,
+          args: {'location': '{{location}}'},
+        ),
+      };
+      // What the card asks for is kept while it is read.
+      for (final provider in [
+        entityDataWithProvider((
+          id: 'system:weather',
+          args: jsonEncode({'location': broome}),
+        )),
+      ]) {
+        final held = c.listen(provider, (_, _) {});
+        addTearDown(held.close);
+      }
+      await reads(c, '{{system:weather.location}}');
+      await pumpEventQueue();
+      Object? sourceOf(Object? location) =>
+          (scopeOf(c.read, 'card', card(location), const {}).own['source']
+              as Map)['location'];
+      expect(sourceOf(broome), 'Broome');
+      // Nothing chosen on the card is the System setting's.
+      expect(sourceOf(''), 'Perth');
+    });
+
+    test('a card with no weather to show is not its entity id', () {
+      final c = container(LauncherConfig());
+      final scope = scopeOf(c.read, 'card', const {
+        'source': Variable(
+          'system:weather',
+          type: VarType.entity,
+          args: {'location': '{{location}}'},
+        ),
+      }, const {});
+      expect(scope.own['source'], isNull);
+    });
+
+    test('the weather waits while no location is given', () async {
+      final c = container(LauncherConfig());
+      final provider = entityDataWithProvider((
+        id: 'system:weather',
+        args: jsonEncode({'unit': 'fahrenheit'}),
+      ));
+      final held = c.listen(provider, (_, _) {});
+      addTearDown(held.close);
+      await c.read(configProvider.future);
+      await pumpEventQueue();
+      expect(c.read(provider), isNull);
     });
 
     test("the user's own, fixed or asked for", () async {

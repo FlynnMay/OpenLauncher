@@ -53,11 +53,31 @@ class PackService {
     String? query,
   ) async {
     final leaf = fieldOf(await _ref.read(packsProvider.future), packId, path);
-    final from = leaf?.spec.from;
-    if (leaf == null || from == null) {
-      throw const FormatException(
-        '"pack" and "key" must name a choice from the web',
-      );
+    return _search(leaf?.spec, packId, '$packId:$path', query);
+  }
+
+  /// The same for the premade field [fieldId], `system:location`, which a
+  /// variable of a card may be.
+  Future<List<FieldHit>> optionsOfField(String? fieldId, String? query) async {
+    final packId = fieldId?.split(':').first;
+    final name = fieldId?.split(':').last;
+    final packs = await _ref.read(packsProvider.future);
+    final spec = packs
+        .where((pack) => pack.id == packId)
+        .firstOrNull
+        ?.fields[name];
+    return _search(spec, packId, '$fieldId', query);
+  }
+
+  Future<List<FieldHit>> _search(
+    FieldSpec? spec,
+    String? packId,
+    String id,
+    String? query,
+  ) async {
+    final from = spec?.from;
+    if (from == null) {
+      throw const FormatException('The field must be a choice from the web');
     }
     final typed = (query ?? '').trim();
     if (typed.length < from.leastTyped) {
@@ -65,10 +85,7 @@ class PackService {
     }
     final feed = await requestOf(
       _ref,
-      (
-        id: '$packId:$path',
-        source: _asking(from.source.inPack(packId!), typed),
-      ),
+      (id: id, source: _asking(from.source.inPack(packId!), typed)),
       reactive: false,
       needsAllSettings: false,
     );

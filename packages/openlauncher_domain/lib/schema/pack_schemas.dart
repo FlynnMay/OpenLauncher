@@ -295,7 +295,18 @@ Schema _variable() => {
       'A value, or an object with a value or a condition and a type.',
   'properties': {
     'value': <String, Object?>{},
-    'type': oneOfText(VarType.values.map((type) => type.name)),
+    'type': {
+      'description':
+          'A type, or the premade field a value is: "location" or '
+          '"system:location".',
+      'type': 'string',
+    },
+    'with': {
+      'type': 'object',
+      'description':
+          'For an entity: what it is asked with, as templates. Blank ones '
+          'are not given.',
+    },
     'access': oneOfText(VarAccess.values.map((access) => access.name)),
     'exposed': toggle(),
     'when': text(description: 'The template a conditional reads.'),
@@ -348,6 +359,14 @@ Map<String, Schema> _sourceProperties() => {
       {'type': 'object'},
     ],
   },
+  'params': mapOf(
+    objectOf({
+      'type': text(description: 'The premade field that asks for it.'),
+      'default': text(description: 'A template over settings.'),
+      'required': toggle(description: 'Not asked while it has no value.'),
+    }),
+    description: 'What a caller may give; read as {{param.name}}.',
+  ),
 };
 
 Schema _source() => objectOf(

@@ -141,11 +141,23 @@ class PackStore with ChangeNotifier {
       if (!_manifests.contains(path) && _keeps(path)) files.add(path);
     }
     return pack.copyWith(
+      fields: _premadeOf(pack.id, library),
       builtIn: builtIn.contains(pack.id),
       bytes: bytes,
       files: files..sort(),
     );
   }
+
+  /// Pack [id]'s premade fields, read through to plain ones.
+  static Map<String, FieldSpec> _premadeOf(String id, FieldLibrary library) => {
+    for (final reference in library.premade.keys)
+      if (reference.startsWith('$id:'))
+        reference.substring(id.length + 1): ?FieldSpec.fromJson(
+          {'type': reference},
+          library: library,
+          pack: id,
+        ),
+  };
 
   Future<File?> _manifestIn(Directory folder) async {
     for (final name in _manifests) {

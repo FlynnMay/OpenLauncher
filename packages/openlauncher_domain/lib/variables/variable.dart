@@ -78,7 +78,11 @@ enum VarType {
   entity('Entity'),
 
   /// Nodes an instance puts in a slot of its prefab; never read as a value.
-  nodes('Nodes');
+  nodes('Nodes'),
+
+  /// A premade field of a pack, named by [Variable.field]; its value is what
+  /// that field holds.
+  field('Field');
 
   const VarType(this.label);
 
@@ -99,6 +103,8 @@ class Variable {
     this.when,
     this.cases = const [],
     this.otherwise,
+    this.field,
+    this.args = const {},
   });
 
   /// The value, when not conditional.
@@ -106,23 +112,56 @@ class Variable {
   final VarType type;
   final VarAccess access;
 
+  /// The premade field a [VarType.field] variable is, `system:location`.
+  final String? field;
+
+  /// What an entity-typed one gives the entity it names, as templates; an
+  /// argument that comes out blank is not given. See `Source.params`.
+  final Map<String, Object?> args;
+
   /// On a prefab's root: whether an instance shows it as a field.
   final bool exposed;
 
   /// This variable with the type and access of [under], its prefab's
-  /// declaration, when it sets neither.
-  Variable over(Variable? under) =>
-      under == null || type != VarType.any || access != VarAccess.protected
-      ? this
-      : Variable(
-          value,
-          type: under.type,
-          access: under.access,
-          exposed: under.exposed,
-          when: when,
-          cases: cases,
-          otherwise: otherwise,
-        );
+  /// declaration, when it sets neither. One of the same type that is asked
+  /// with no arguments of its own is asked with the prefab's.
+  Variable over(Variable? under) {
+    if (under == null) return this;
+    if (type != VarType.any || access != VarAccess.protected) {
+      return args.isEmpty && under.args.isNotEmpty && type == under.type
+          ? _with(args: under.args)
+          : this;
+    }
+    return _with(
+      type: under.type,
+      access: under.access,
+      exposed: under.exposed,
+      field: under.field,
+      args: args.isEmpty ? under.args : args,
+    );
+  }
+
+  Variable _with({
+    VarType? type,
+    VarAccess? access,
+    bool? exposed,
+    String? field,
+    Map<String, Object?>? args,
+  }) => Variable(
+    value,
+    type: type ?? this.type,
+    access: access ?? this.access,
+    exposed: exposed ?? this.exposed,
+    when: when,
+    cases: cases,
+    otherwise: otherwise,
+    field: field ?? this.field,
+    args: args ?? this.args,
+  );
+
+  /// This type and access, holding [value] instead: an instance's value.
+  Variable withValue(Object? value) =>
+      Variable(value, type: type, access: access, field: field, args: args);
 
   /// The template a conditional evaluates.
   final String? when;
@@ -136,9 +175,18 @@ class Variable {
         !(json.containsKey('value') || json.containsKey('when'))) {
       return Variable(json);
     }
+    final (type, field) = typeOf(json['type']);
     return Variable(
       json['value'],
-      type: VarType.values.asNameMap()[json['type']] ?? VarType.any,
+      type: type,
+      field: field,
+      args: switch (json['with']) {
+        final Map<Object?, Object?> args => {
+          for (final MapEntry(:key, :value) in args.entries)
+            if (key is String) key: value,
+        },
+        _ => const {},
+      },
       access:
           VarAccess.values.asNameMap()[json['access']] ?? VarAccess.protected,
       exposed: json['exposed'] != false,
@@ -154,10 +202,21 @@ class Variable {
     );
   }
 
+  /// A type is a [VarType] name, else a premade field's id.
+  static (VarType, String?) typeOf(Object? written) => switch (written) {
+    final String name when VarType.values.asNameMap()[name] != null => (
+      VarType.values.asNameMap()[name]!,
+      null,
+    ),
+    final String id when id.trim().isNotEmpty => (VarType.field, id.trim()),
+    _ => (VarType.any, null),
+  };
+
   Object? toJson() =>
       !isConditional &&
           access == VarAccess.protected &&
           type == VarType.any &&
+          args.isEmpty &&
           exposed
       ? value
       : {
@@ -167,7 +226,11 @@ class Variable {
             'else': otherwise,
           } else
             'value': value,
-          if (type != VarType.any) 'type': type.name,
+          if (type == VarType.field && field != null)
+            'type': field
+          else if (type != VarType.any)
+            'type': type.name,
+          if (args.isNotEmpty) 'with': args,
           if (access != VarAccess.protected) 'access': access.name,
           if (!exposed) 'exposed': false,
         };
@@ -191,6 +254,12 @@ typedef Variables = Map<String, Variable>;
 
 bool _conditional(Map<String, Object?> one) => one['conditional'] == true;
 
+/// Whether the form row [one] is typed as a premade field.
+bool isFieldTyped(Map<String, Object?> one) =>
+    Variable.typeOf(one['type']).$1 == VarType.field;
+
+bool _isEntity(Map<String, Object?> one) => one['type'] == VarType.entity.name;
+
 /// Types with a control of their own; `expression` in a row swaps it for a
 /// template.
 const _fixed = {VarType.number, VarType.bool, VarType.colour, VarType.entity};
@@ -210,6 +279,7 @@ bool Function(Map<String, Object?> one) _valueOf(VarType type) =>
 /// the tick a prefab's own variables have.
 Field variableOptions({
   Map<String, String> entities = const {},
+  Map<String, String> premade = const {},
   bool exposable = false,
 }) => Field(
   'vars',
@@ -224,7 +294,11 @@ Field variableOptions({
       'Type',
       FieldKind.choice,
       defaultValue: VarType.any.name,
-      choices: {for (final type in VarType.values) type.name: type.label},
+      choices: {
+        for (final type in VarType.values)
+          if (type != VarType.field) type.name: type.label,
+        ...premade,
+      },
     ),
     Field(
       'access',
@@ -250,6 +324,7 @@ Field variableOptions({
       FieldKind.template,
       when: (one) =>
           !_conditional(one) &&
+          !isFieldTyped(one) &&
           (!hasTypedValue(one) || one['expression'] == true),
     ),
     Field(
@@ -275,6 +350,16 @@ Field variableOptions({
         ...entities,
       },
       when: _valueOf(VarType.entity),
+    ),
+    Field(
+      'with',
+      'Add argument',
+      FieldKind.list,
+      heading: 'name',
+      asks: 'Argument name',
+      blank: const {'name': 'name'},
+      fields: (_) => const [Field('value', 'Value', FieldKind.template)],
+      when: (one) => !_conditional(one) && _isEntity(one),
     ),
     const Field('when', 'Based on', FieldKind.template, when: _conditional),
     Field(
@@ -303,8 +388,15 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
   for (final MapEntry(key: name, value: variable) in variables.entries)
     {
       'name': name,
-      'type': variable.type.name,
+      'type': variable.type == VarType.field
+          ? variable.field ?? VarType.any.name
+          : variable.type.name,
       'access': variable.access.name,
+      if (variable.args.isNotEmpty)
+        'with': [
+          for (final MapEntry(:key, :value) in variable.args.entries)
+            {'name': key, 'value': '$value'},
+        ],
       if (!variable.exposed) 'exposed': false,
       if (variable.isConditional) ...{
         'conditional': true,
@@ -320,6 +412,7 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
         'value': switch (variable.type) {
           VarType.number when value is num => value,
           VarType.bool when value is bool => value,
+          VarType.field when value is Map => value,
           _ => '$value',
         },
       },
@@ -336,9 +429,21 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
       continue;
     }
     final conditional = _conditional(one);
+    final (type, field) = Variable.typeOf(one['type']);
     variables[name] = Variable(
-      conditional ? null : typedValue('${one['value'] ?? ''}'),
-      type: VarType.values.asNameMap()[one['type']] ?? VarType.any,
+      conditional
+          ? null
+          : one['value'] is Map
+          ? one['value']
+          : typedValue('${one['value'] ?? ''}'),
+      type: type,
+      field: field,
+      args: {
+        if (one['with'] case final List<Object?> args when !conditional)
+          for (final arg in args)
+            if (arg is Map && '${arg['name'] ?? ''}'.isNotEmpty)
+              '${arg['name']}': arg['value'] ?? '',
+      },
       access:
           VarAccess.values.asNameMap()[one['access']] ?? VarAccess.protected,
       exposed: one['exposed'] != false,

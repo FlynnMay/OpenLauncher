@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/entities/entities.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
+import 'package:openlauncher/editor/tv/tv.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
 import 'package:openlauncher_domain/variables/variable.dart';
 
@@ -59,6 +62,7 @@ class _VariablesSettingsState extends ConsumerState<VariablesSettings> {
   @override
   Widget build(BuildContext context) {
     final entities = ref.watch(entitiesProvider).value ?? const <Entity>[];
+    final premade = ref.watch(premadeFieldsProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -70,6 +74,10 @@ class _VariablesSettingsState extends ConsumerState<VariablesSettings> {
         ListField(
           option: variableOptions(
             entities: {for (final entity in entities) entity.id: entity.label},
+            premade: {
+              for (final MapEntry(:key, :value) in premade.entries)
+                key: value.label.isEmpty ? key : value.label,
+            },
             exposable: widget.exposable,
           ),
           records: [
@@ -113,8 +121,21 @@ class InstanceVariables extends ConsumerWidget {
         name,
   };
 
-  Field _option(String name, Variable variable, Map<String, String> entities) {
+  Field _option(
+    String name,
+    Variable variable,
+    Map<String, String> entities,
+    Map<String, FieldSpec> premade,
+    TvApi api,
+  ) {
     final value = variable.value;
+    final field = premade[variable.field];
+    if (variable.type == VarType.field && field != null) {
+      return field.toField(
+        name,
+        findAt: (_, text) => api.premadeFieldOptions(variable.field!, text),
+      );
+    }
     return switch (variable.type) {
       VarType.number => Field(
         name,
@@ -168,10 +189,13 @@ class InstanceVariables extends ConsumerWidget {
           in ref.watch(entitiesProvider).value ?? const <Entity>[])
         entity.id: entity.label,
     };
+    final premade = ref.watch(premadeFieldsProvider);
+    final api = ref.read(tvApiProvider);
     Variables without(String name) => {...own}..remove(name);
     final fields = optionFields(
       options: [
-        for (final name in names) _option(name, declared[name]!, entities),
+        for (final name in names)
+          _option(name, declared[name]!, entities, premade, api),
       ],
       values: {for (final name in names) name: ?own[name]?.value},
       // A value put back to the prefab's is not stored.
@@ -181,11 +205,7 @@ class InstanceVariables extends ConsumerWidget {
         for (final name in names)
           if (next[name] case final value?)
             // Typed as declared, so an entity it holds is known as one.
-            name: Variable(
-              value,
-              type: declared[name]!.type,
-              access: declared[name]!.access,
-            ),
+            name: declared[name]!.withValue(value),
       }),
     );
     return Column(

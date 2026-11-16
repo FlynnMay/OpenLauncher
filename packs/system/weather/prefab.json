@@ -11,9 +11,21 @@
         "gap": 14
       },
       "variables": {
+        "location": {
+          "value": "",
+          "type": "system:location"
+        },
+        "unit": {
+          "value": "",
+          "type": "system:unit"
+        },
         "source": {
           "value": "weather",
-          "type": "entity"
+          "type": "entity",
+          "with": {
+            "location": "{{location}}",
+            "unit": "{{unit}}"
+          }
         },
         "icon": {
           "when": "{{source.sky}}",
@@ -86,7 +98,7 @@
             "id": "temperature",
             "modules": {
               "text": {
-                "text": "{{source | default:Choose a place in the System pack settings}}"
+                "text": "{{source | default:Choose a location}}"
               },
               "style": {
                 "fontSize": 38
@@ -109,7 +121,7 @@
             "id": "place",
             "modules": {
               "text": {
-                "text": "{{source.place}}"
+                "text": "{{source.location}}"
               },
               "style": {
                 "fontSize": 14,

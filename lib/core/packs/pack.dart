@@ -21,6 +21,7 @@ class Pack {
     this.requires = const [],
     this.categories = const {},
     this.settings = const [],
+    this.fields = const {},
     this.auth = const {},
     this.builtIn = false,
     this.bytes = 0,
@@ -76,6 +77,10 @@ class Pack {
   /// What it asks the user for; the values are `packSettings` in the config,
   /// and a secret's is kept apart.
   final List<PackSetting> settings;
+
+  /// Its premade fields, by name, each read through to a plain field. A
+  /// variable of a card may be typed as one, `<pack>:<name>`.
+  final Map<String, FieldSpec> fields;
 
   /// How it signs requests, by profile name.
   final Map<String, PackAuthProfile> auth;
@@ -158,6 +163,11 @@ class Pack {
           library: library,
           pack: id,
         ),
+        fields: {
+          if (json['fields'] case final Map<Object?, Object?> fields)
+            for (final MapEntry(:key, :value) in fields.entries)
+              if (key is String) key: ?FieldSpec.fromJson(value),
+        },
         auth: PackAuthProfile.mapFromJson(json['auth']),
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {
@@ -186,6 +196,11 @@ class Pack {
     'categories': categories,
     if (settings.isNotEmpty)
       'settings': {for (final s in settings) s.key: s.toJson()},
+    if (fields.isNotEmpty)
+      'fields': {
+        for (final MapEntry(:key, :value) in fields.entries)
+          key: value.toJson(),
+      },
     if (auth.isNotEmpty)
       'auth': {for (final p in auth.values) p.name: p.toJson()},
     'builtIn': builtIn,
@@ -193,7 +208,12 @@ class Pack {
     'files': files,
   };
 
-  Pack copyWith({bool? builtIn, int? bytes, List<String>? files}) => Pack(
+  Pack copyWith({
+    bool? builtIn,
+    int? bytes,
+    List<String>? files,
+    Map<String, FieldSpec>? fields,
+  }) => Pack(
     id: id,
     name: name,
     version: version,
@@ -204,6 +224,7 @@ class Pack {
     requires: requires,
     categories: categories,
     settings: settings,
+    fields: fields ?? this.fields,
     auth: auth,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,

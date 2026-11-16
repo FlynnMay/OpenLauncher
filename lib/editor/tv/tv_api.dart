@@ -438,17 +438,22 @@ class TvApi {
   }
 
   /// The options the choice [key] of pack [packId] finds for [text].
-  Future<List<FieldHit>> fieldOptions(
-    String packId,
-    String key,
-    String text,
-  ) async {
-    final reply = await _ask(
-      'GET',
-      '/api/field-options?pack=${Uri.encodeQueryComponent(packId)}'
-          '&key=${Uri.encodeQueryComponent(key)}'
-          '&q=${Uri.encodeQueryComponent(text)}',
-    ) as Map;
+  Future<List<FieldHit>> fieldOptions(String packId, String key, String text) =>
+      _hitsAt(
+        '/api/field-options?pack=${Uri.encodeQueryComponent(packId)}'
+        '&key=${Uri.encodeQueryComponent(key)}'
+        '&q=${Uri.encodeQueryComponent(text)}',
+      );
+
+  /// The options the premade field [fieldId] finds for [text].
+  Future<List<FieldHit>> premadeFieldOptions(String fieldId, String text) =>
+      _hitsAt(
+        '/api/field-options?field=${Uri.encodeQueryComponent(fieldId)}'
+        '&q=${Uri.encodeQueryComponent(text)}',
+      );
+
+  Future<List<FieldHit>> _hitsAt(String path) async {
+    final reply = await _ask('GET', path) as Map;
     return [
       for (final Map option in reply['options'] as List)
         (

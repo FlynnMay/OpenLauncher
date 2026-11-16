@@ -1,10 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
 import 'package:openlauncher/core/packs/pack_store.dart';
+import 'package:openlauncher/core/sources/pack_settings_of.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/entities/entity_action.dart';
@@ -35,15 +33,18 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
     }
     if (!ref.mounted) return const [];
     final picture = ref.watch(packPictureProvider);
-    final settings = _settingsOfPacks();
+    final settings = ref.watch(packSettingsOfProvider);
     // Every source watched before any is waited for.
     final rows = {
       for (final PackContents(:pack, :sources, :generators) in packs)
         for (final MapEntry(key: name, value: generator) in generators.entries)
-          '${pack.id}/$name': _rows(ref, (
-            id: '${pack.id}:${generator.from}',
-            source: sources[generator.from]!,
-          )),
+          '${pack.id}/$name': _rowsOf(
+            ref,
+            pack.id,
+            generator.from,
+            sources[generator.from]!,
+            settings[pack.id],
+          ),
     };
     final made = <Entity>[];
     for (final PackContents(:pack, :entities, :sources, :generators) in packs) {
@@ -54,6 +55,7 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
             generator,
             await rows['${pack.id}/$name']!,
             settings[pack.id] ?? const {},
+            _defaultParams(sources[generator.from]!, settings[pack.id]),
           ),
       ]) {
         // A made id is the pack's like any other.
@@ -70,23 +72,31 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
     Generator generator,
     List<Object?> rows,
     Map<String, Object?> settings,
+    Map<String, Object?> params,
   ) async {
     await Future<void>.delayed(Duration.zero);
-    return generator.entitiesFrom(rows, settings: settings);
+    return generator.entitiesFrom(rows, settings: settings, params: params);
   }
 
-  /// What the user gave each pack's settings; made again when it changes.
-  Map<String, Map<String, Object?>> _settingsOfPacks() {
-    final saved = ref.watch(
-      configProvider.select((config) => jsonEncode(config.value?.packSettings)),
-    );
-    final decoded = jsonDecode(saved);
-    return {
-      if (decoded is Map)
-        for (final MapEntry(:key, :value) in decoded.entries)
-          if (value is Map) '$key': {...value.cast<String, Object?>()},
-    };
+  /// The rows of source [name] asked with its default params; none while a
+  /// required one has no value.
+  Future<List<Object?>> _rowsOf(
+    Ref ref,
+    String pack,
+    String name,
+    Source source,
+    Map<String, Object?>? settings,
+  ) {
+    final params = _defaultParams(source, settings);
+    if (source.missing(params) != null) return Future.value(const []);
+    return _rows(ref, (id: '$pack:$name', source: source.filled(params)));
   }
+
+  /// What a source's params are when nobody gives any: their defaults.
+  Map<String, Object?> _defaultParams(
+    Source source,
+    Map<String, Object?>? settings,
+  ) => source.valuesOf(const {}, settings ?? const {});
 }
 
 /// [entity] with the pack source its feed names found, sharing its fetch.

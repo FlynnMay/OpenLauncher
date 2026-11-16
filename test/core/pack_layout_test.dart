@@ -64,6 +64,23 @@ void main() {
       expect(contents.entities.single.id, 'p:lamp');
     });
 
+    test('gives a card variable typed as a premade field its pack', () {
+      final contents = PackContents.parse(
+        const Pack(id: 'p', name: 'P', requires: ['other']),
+        files({
+          'lamp/prefab.json':
+              '{"id": "lamp", "root": {"id": "root", "modules": {"variables": '
+              '{"where": {"value": "", "type": "location"}, '
+              '"unit": {"value": "", "type": "other:unit"}, '
+              '"count": {"value": 1, "type": "number"}}}}}',
+        }),
+      );
+      final vars = contents.prefabs.single.vars;
+      expect(vars['where']!.field, 'p:location');
+      expect(vars['unit']!.field, 'other:unit');
+      expect(vars['count']!.type.name, 'number');
+    });
+
     test('shares chunks from the feature folder, then the pack', () {
       final contents = PackContents.parse(
         pack,

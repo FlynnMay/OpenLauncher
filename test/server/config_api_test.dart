@@ -839,10 +839,10 @@ void main() {
     },
   );
 
-  test('looks a place up for the System pack setting', () async {
+  test('looks a location up for the System pack setting', () async {
     final response = await call(
       'GET',
-      '/api/field-options?pack=system&key=place&q=Perth',
+      '/api/field-options?pack=system&key=location&q=Perth',
     );
     expect(response.statusCode, 200);
     expect(jsonDecode(await response.readAsString()), {
@@ -862,7 +862,7 @@ void main() {
     expect(
       (await call(
         'GET',
-        '/api/field-options?pack=system&key=place&q=',
+        '/api/field-options?pack=system&key=location&q=',
       )).statusCode,
       400,
     );

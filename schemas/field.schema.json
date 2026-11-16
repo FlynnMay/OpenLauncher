@@ -141,7 +141,45 @@
             },
             "params": {
               "type": "object",
-              "description": "What the chunk named by $use takes."
+              "description": "What a caller may give; read as {{param.name}}.",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "$schema": {
+                    "type": "string",
+                    "description": "Where this file is checked."
+                  },
+                  "$comment": {
+                    "type": "string",
+                    "description": "A note for readers."
+                  },
+                  "$defs": {
+                    "type": "object",
+                    "description": "Chunks the objects inside this one can reuse with $use."
+                  },
+                  "$use": {
+                    "type": "string",
+                    "description": "The name of a chunk to put here; keys beside it win."
+                  },
+                  "params": {
+                    "type": "object",
+                    "description": "What the chunk named by $use takes."
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "The premade field that asks for it."
+                  },
+                  "default": {
+                    "type": "string",
+                    "description": "A template over settings."
+                  },
+                  "required": {
+                    "type": "boolean",
+                    "description": "Not asked while it has no value."
+                  }
+                },
+                "additionalProperties": false
+              }
             },
             "url": {
               "type": "string",
