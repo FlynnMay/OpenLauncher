@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:meta/meta.dart';
-import 'package:openlauncher_domain/json/json_expand.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
 import 'package:openlauncher_domain/sources/source.dart';
@@ -344,8 +343,7 @@ class FieldSpec {
         if (key is String) key: ?_expand(value, library, pack, depth + 1),
   };
 
-  /// The premade field [reference] names, filled in with the parameters in
-  /// [usage] and written over by the rest of it.
+  /// The premade field [reference] names, written over by [usage].
   static Map<String, Object?>? _premade(
     Map<String, Object?> usage,
     String reference,
@@ -361,7 +359,7 @@ class FieldSpec {
       return null;
     }
     final base = _expand(
-      {..._withParameters(file, usage['params']), 'type': file['extends']},
+      {...file, 'type': file['extends']},
       library,
       named.pack,
       depth + 1,
@@ -385,31 +383,8 @@ class FieldSpec {
     return found;
   }
 
-  /// [premade] as a file wrote it, minus what only a premade field has, its
-  /// `{{param.x}}` filled from what [given] says and what it declares.
-  static Map<String, Object?> _withParameters(
-    Map<String, Object?> premade,
-    Object? given,
-  ) {
-    final declared = premade[r'$params'];
-    final values = {
-      if (declared is Map)
-        for (final MapEntry(:key, :value) in declared.entries)
-          if (key is String)
-            key: given is Map && given.containsKey(key)
-                ? given[key]
-                : value is Map
-                ? value['default']
-                : value,
-    };
-    final body = {...premade}
-      ..remove(r'$params')
-      ..remove('extends');
-    return jsonStringKeyed(fillParameters(body, values));
-  }
-
-  /// [base] with what [usage] says written over it: every key but `type` and
-  /// `params`, and `fields` a field at a time.
+  /// [base] with what [usage] says written over it: every key but `type`, and
+  /// `fields` a field at a time.
   static Map<String, Object?> _overlaid(
     Map<String, Object?> base,
     Map<String, Object?> usage,
@@ -417,9 +392,7 @@ class FieldSpec {
     String pack,
     int depth,
   ) {
-    final over = {...usage}
-      ..remove('type')
-      ..remove('params');
+    final over = {...usage}..remove('type');
     final result = {...base, ...over};
     if (base['fields'] is Map && over['fields'] is Map) {
       result['fields'] = _fieldsOverlaid(

@@ -375,7 +375,7 @@ class _Glue {
 
   /// What a generator's slots read besides entities: an entity of the same
   /// name is still reached as `pack:name`.
-  static const _readByGenerators = {'row', 'settings', 'param', 'tables'};
+  static const _readByGenerators = {'row', 'settings', 'ask', 'tables'};
 
   static final _unquoted = RegExp('(\'[^\']*\'|"[^"]*")|[^\'"]+');
 

@@ -11,6 +11,6 @@
       "default": "{{settings.unit??'celsius'}}"
     }
   },
-  "url": "https://api.open-meteo.com/v1/forecast?latitude={{param.location.latitude}}&longitude={{param.location.longitude}}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto&temperature_unit={{param.unit}}",
+  "url": "https://api.open-meteo.com/v1/forecast?latitude={{ask.location.latitude}}&longitude={{ask.location.longitude}}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto&temperature_unit={{ask.unit}}",
   "every": 1800
 }

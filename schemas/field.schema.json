@@ -31,10 +31,6 @@
           "type": "string",
           "description": "The primitive or premade field it builds on."
         },
-        "$params": {
-          "type": "object",
-          "description": "What a use of it can set, each with its default."
-        },
         "type": {
           "anyOf": [
             {
@@ -141,7 +137,7 @@
             },
             "params": {
               "type": "object",
-              "description": "What a caller may give; read as {{param.name}}.",
+              "description": "What a caller may give; read as {{ask.name}}.",
               "additionalProperties": {
                 "type": "object",
                 "properties": {

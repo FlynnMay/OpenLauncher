@@ -50,47 +50,24 @@ void main() {
       );
     });
 
-    test(r'takes parameters, declared with $params', () {
+    test('params beside it is an ordinary key written over the chunk', () {
       final levels = [
         const DefsLevel('t', {
-          'button': {
-            r'$params': {'label': 'Toggle', 'count': 1},
-            'text': '{{param.label}}',
-            'count': '{{param.count}}',
-            'with': {'entity': '{{row.id}}'},
+          'source': {
+            'params': {'location': 'here', 'unit': 'c'},
+            'url': 'f?lat={{ask.lat}}',
           },
         }),
       ];
       expect(
         expanded(
-          r'[{"$use": "button"}, {"$use": "button", "params": {"label": "On", "count": 5}}]',
+          r'{"$use": "source", "params": {"unit": null, "extra": 1}}',
           levels: levels,
         ),
-        [
-          {
-            'text': 'Toggle',
-            'count': 1,
-            'with': {'entity': '{{row.id}}'},
-          },
-          {
-            'text': 'On',
-            'count': 5,
-            'with': {'entity': '{{row.id}}'},
-          },
-        ],
-      );
-    });
-
-    test('a parameter nobody declared is refused', () {
-      expect(
-        () => expanded(r'{"$use": "box", "params": {"x": 1}}', levels: [pack]),
-        throwsA(
-          isA<JsonExpandError>().having(
-            (e) => e.message,
-            'message',
-            contains('has no parameter "x"'),
-          ),
-        ),
+        {
+          'params': {'location': 'here', 'extra': 1},
+          'url': 'f?lat={{ask.lat}}',
+        },
       );
     });
 
@@ -234,16 +211,6 @@ void main() {
         'a': '{{row.x}}',
         'b': {'v': 1},
       },
-    );
-  });
-
-  test('a lone parameter slot keeps its type', () {
-    expect(
-      fillParameters(
-        {'a': '{{param.n}}', 'b': 'x{{param.n}}y', 'c': '{{row.n}}'},
-        {'n': 3},
-      ),
-      {'a': 3, 'b': 'x3y', 'c': '{{row.n}}'},
     );
   });
 

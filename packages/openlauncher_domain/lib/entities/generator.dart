@@ -68,7 +68,7 @@ class Generator {
 
   /// One entity per row it holds for, up to [maxEntities]; the first with an
   /// id is the one. `{{settings...}}` reads [settings], the pack's plain
-  /// values, `{{param...}}` the [params] its source was given, so a pack can have the user's prefix in its ids or labels.
+  /// values, `{{ask...}}` the [params] its source was given, so a pack can have the user's prefix in its ids or labels.
   List<Entity> entitiesFrom(
     List<Object?> rows, {
     Map<String, Object?> settings = const {},
@@ -80,7 +80,7 @@ class Generator {
       Object? lookup(String root) => switch (root) {
         'row' => row,
         'settings' => settings,
-        'param' => params,
+        'ask' => params,
         'tables' => tables,
         _ => null,
       };
@@ -91,7 +91,7 @@ class Generator {
       final json = fillSlots(entity, const {
         'row',
         'settings',
-        'param',
+        'ask',
         'tables',
       }, lookup) as Map<String, Object?>;
       // A value with nothing to say is left out.

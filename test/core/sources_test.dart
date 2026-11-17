@@ -585,9 +585,7 @@ void main() {
       await store.install(
         Stream.value(
           _pack('ha', {
-            'defs.jsonc':
-                '{ "\$defs": { "light": { "name": "{{param.n}}", '
-                '"\$params": { "n": "Lamp" } } } }',
+            'defs.jsonc': '{ "\$defs": { "light": { "name": "Lamp" } } }',
             'x/entity.jsonc': '{ "id": "x", "\$use": "light" }',
           }),
         ),

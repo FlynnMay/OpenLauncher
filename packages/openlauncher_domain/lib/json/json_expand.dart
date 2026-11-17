@@ -3,20 +3,17 @@
 ///
 /// - `"$defs": { "name": chunk }` on any object defines chunks for everything
 ///   inside that object.
-/// - `{ "$use": "name", "params": {...}, ...other keys }` is the chunk, with
-///   its `{{param.x}}` filled and the other keys written over it as a JSON
-///   Merge Patch: objects merge, `null` removes a key, anything else replaces.
-/// - A chunk that takes parameters declares them, with their defaults, as
-///   `"$params": {...}` in its body.
+/// - `{ "$use": "name", ...other keys }` is the chunk with the other keys
+///   written over it as a JSON Merge Patch: objects merge, `null` removes a
+///   key, anything else replaces.
 /// - `{ "$spread": "name" }` in a list puts the items of a list chunk there.
 /// - `$schema` and `$comment` are dropped.
 ///
-/// Only `{{param...}}` is filled here; every other slot is left for the
-/// place that reads it.
+/// No slot is filled here; every `{{...}}` is left for the place that reads
+/// it.
 library;
 
 import 'package:openlauncher_domain/json/json_read.dart';
-import 'package:openlauncher_domain/values/template_fill.dart';
 
 /// A set of chunks and where they were written, for error messages.
 class DefsLevel {
@@ -53,11 +50,6 @@ Object? expandJson(
   String? source,
 }) => _Expander(source).expand(json, levels);
 
-/// [json] with `{{param.x}}` read from [values]; other slots are left as
-/// written, and a lone slot keeps its value's type.
-Object? fillParameters(Object? json, Map<String, Object?> values) =>
-    fillSlots(json, const {'param'}, (root) => root == 'param' ? values : null);
-
 /// [base] with [over] written on it as a JSON Merge Patch (RFC 7396).
 Object? jsonMergePatch(Object? base, Object? over) {
   if (over is! Map<Object?, Object?>) return over;
@@ -75,7 +67,6 @@ Object? jsonMergePatch(Object? base, Object? over) {
 const _use = r'$use';
 const _spread = r'$spread';
 const _defs = r'$defs';
-const _params = r'$params';
 const _dropped = {r'$schema', r'$comment'};
 
 /// Past this many values a file is refused: chunks that use chunks can grow
@@ -130,17 +121,11 @@ class _Expander {
     if (map.containsKey(_spread)) {
       throw _fail(r'$spread belongs on its own as an item of a list');
     }
-    if (map.containsKey(_params)) {
-      throw _fail(r'$params belongs in the body of an entry of $defs');
-    }
     final here = _withOwnDefs(map, levels);
     final using = map.containsKey(_use);
     final over = <String, Object?>{
       for (final MapEntry(:key, :value) in map.entries)
-        if (!_dropped.contains(key) &&
-            key != _defs &&
-            key != _use &&
-            !(using && key == 'params'))
+        if (!_dropped.contains(key) && key != _defs && key != _use)
           key: _child(key, value, here),
     };
     return using ? jsonMergePatch(_chunk(map, here), over) : over;
@@ -175,38 +160,7 @@ class _Expander {
         '{"\$spread": "${found.name}"}',
       );
     }
-    final body = jsonStringKeyed(def);
-    final declared = body.remove(_params);
-    final values = _parameters(found.name, declared, map['params'], levels);
-    return _inside(
-      def,
-      () => expand(fillParameters(body, values), found.inside),
-    );
-  }
-
-  Map<String, Object?> _parameters(
-    String name,
-    Object? declared,
-    Object? given,
-    List<DefsLevel> levels,
-  ) {
-    final defaults = switch (declared) {
-      null => const <String, Object?>{},
-      final Map<Object?, Object?> map => jsonStringKeyed(map),
-      _ => throw _fail('"$name" has $_params that is not an object'),
-    };
-    final written = switch (given) {
-      null => const <String, Object?>{},
-      final Map<Object?, Object?> map => jsonStringKeyed(
-        _child('params', map, levels) as Map,
-      ),
-      _ => throw _fail('"params" must be an object'),
-    };
-    final unknown = written.keys.where((key) => !defaults.containsKey(key));
-    if (unknown.isNotEmpty) {
-      throw _fail('"$name" has no parameter "${unknown.first}"');
-    }
-    return {...defaults, ...written};
+    return _inside(def, () => expand(jsonStringKeyed(def), found.inside));
   }
 
   /// The items a `$spread` stands for.

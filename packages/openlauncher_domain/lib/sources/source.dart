@@ -54,7 +54,7 @@ class Source {
   /// the launcher says whose a source is, as it reads the pack's files.
   final String? pack;
 
-  /// What a caller may give it, by name: `{{param.location}}` in its address
+  /// What a caller may give it, by name: `{{ask.location}}` in its address
   /// or body reads the value given, or the param's default.
   final Map<String, SourceParam> params;
 
@@ -90,7 +90,7 @@ class Source {
   static const Object _same = Object();
 
   /// This asked with [given]: each param is the one given, or when that is
-  /// blank its default read over [settings]. `{{param...}}` slots of the
+  /// blank its default read over [settings]. `{{ask...}}` slots of the
   /// request are filled; `{{settings...}}` ones stay for the fetch. Null while
   /// a required param has no value.
   AskedSource? askedWith(
@@ -112,9 +112,8 @@ class Source {
 
   Source _filled(Map<String, Object?> values) {
     if (params.isEmpty) return this;
-    Object? fill(Object? json) => fillSlots(json, const {
-      'param',
-    }, (root) => root == 'param' ? values : null);
+    Object? fill(Object? json) =>
+        fillSlots(json, const {'ask'}, (root) => root == 'ask' ? values : null);
     return _copy(address: '${fill(address)}', body: fill(body));
   }
 

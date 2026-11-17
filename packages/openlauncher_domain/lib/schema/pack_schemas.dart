@@ -141,10 +141,6 @@ Schema _oneOf(PackKind kind) => switch (kind) {
 
 Schema _premadeField() => objectOf({
   'extends': text(description: 'The primitive or premade field it builds on.'),
-  r'$params': {
-    'type': 'object',
-    'description': 'What a use of it can set, each with its default.',
-  },
   ..._fieldProperties(),
 }, description: 'A field other fields can be made from.');
 
@@ -365,7 +361,7 @@ Map<String, Schema> _sourceProperties() => {
       'default': text(description: 'A template over settings.'),
       'required': toggle(description: 'Not asked while it has no value.'),
     }),
-    description: 'What a caller may give; read as {{param.name}}.',
+    description: 'What a caller may give; read as {{ask.name}}.',
   ),
 };
 

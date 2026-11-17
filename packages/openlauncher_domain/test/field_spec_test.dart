@@ -365,11 +365,8 @@ void groupTests() {
       'hub:place': {
         'extends': 'choice',
         'label': 'Place',
-        r'$params': {
-          'country': {'default': 'au'},
-        },
         'from': {
-          'url': 'http://x.test/find?q={{query}}&cc={{param.country}}',
+          'url': 'http://x.test/find?q={{query}}&cc=au',
           'label': '{{row.name}}',
         },
       },
@@ -400,14 +397,10 @@ void groupTests() {
       expect(place.from!.source.address, contains('{{query}}'));
     });
 
-    test('takes parameters, and is written over by its use', () {
-      final place = read({
-        'type': 'place',
-        'label': 'Where',
-        'params': {'country': 'nz'},
-      })!;
+    test('is written over by its use', () {
+      final place = read({'type': 'place', 'label': 'Where'})!;
       expect(place.label, 'Where');
-      expect(place.from!.source.address, contains('cc=nz'));
+      expect(place.from!.source.address, contains('cc=au'));
     });
 
     test('can be a group of other premade fields', () {

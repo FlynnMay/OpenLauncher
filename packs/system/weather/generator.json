@@ -75,7 +75,7 @@
       "low": "{{row.daily.temperature_2m_min[0]}}",
       "description": "{{get(tables.description, row.current.weather_code)}}",
       "sky": "{{get(tables.sky, row.current.weather_code) ?? 'rain'}}",
-      "location": "{{param.location.name}}"
+      "location": "{{ask.location.name}}"
     }
   }
 }

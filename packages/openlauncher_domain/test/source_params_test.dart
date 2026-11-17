@@ -4,8 +4,8 @@ import 'package:test/test.dart';
 void main() {
   final source = Source.fromJson({
     'url':
-        'https://x.test/f?lat={{param.location.latitude}}'
-        '&unit={{param.unit}}&k={{settings.key}}',
+        'https://x.test/f?lat={{ask.location.latitude}}'
+        '&unit={{ask.unit}}&k={{settings.key}}',
     'params': {
       'location': {'type': 'location', 'default': '{{settings.location}}'},
       'unit': {'default': "{{settings.unit??'celsius'}}"},
@@ -50,7 +50,7 @@ void main() {
 
   test('a required param with no value means it cannot be asked', () {
     final needs = Source.fromJson({
-      'url': 'https://x.test/{{param.place}}',
+      'url': 'https://x.test/{{ask.place}}',
       'params': {
         'place': {'required': true},
       },
