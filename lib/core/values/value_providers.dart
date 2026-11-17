@@ -8,16 +8,18 @@ import 'package:http/http.dart' as http;
 import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
 
-/// The current time. Overridden in tests.
+// ---------------------------------------------------------------------------
+// Public
+// ---------------------------------------------------------------------------
+
 final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
-/// The time, updated each second (true) or each minute.
 final tickProvider = Provider.autoDispose.family<DateTime, bool>((
   ref,
-  seconds,
+  everySecond,
 ) {
   final now = ref.watch(nowProvider)();
-  final left = seconds
+  final left = everySecond
       ? 1000 - now.millisecond
       : 60000 - now.second * 1000 - now.millisecond;
   final next = Timer(Duration(milliseconds: left), ref.invalidateSelf);
@@ -25,51 +27,67 @@ final tickProvider = Provider.autoDispose.family<DateTime, bool>((
   return now;
 });
 
-/// Fetches a feed's address as JSON, or text if it is not JSON. In a browser
-/// the TV fetches it.
 final feedFetcherProvider = Provider<Future<Object?> Function(HttpFeed)>(
-  (ref) => (feed) async {
-    final address = feed.address;
-    final request = http.Request(feed.method, address)
-      ..headers.addAll({
-        'accept': 'application/json',
-        if (feed.body != null) 'content-type': 'application/json',
-        ...feed.headers,
-      });
-    if (feed.body case final body?) request.body = body;
-    final response = await http.Response.fromStream(
-      await request.send().timeout(const Duration(seconds: 15)),
-    );
-    if (response.statusCode != 200) {
-      throw http.ClientException('Status ${response.statusCode}', address);
-    }
-    if (response.bodyBytes.length > maxFeedBytes) {
-      throw http.ClientException('Too much to take in', address);
-    }
-    final body = utf8.decode(response.bodyBytes, allowMalformed: true);
-    try {
-      // A big answer (Home Assistant's is hundreds of KB) is decoded off the
-      // main isolate, so frames keep coming.
-      return await compute(_decodeJson, body);
-    } on FormatException {
-      return body.trim();
-    }
-  },
+  (ref) =>
+      (feed) => _fetchFromWeb(feed).timeout(_longestFetch),
 );
+
+const maxFeedBytes = 512 * 1024;
+
+const retryAfterFailure = Duration(seconds: 30);
+
+final feedValueProvider = FutureProvider.autoDispose.family<Object?, HttpFeed>((
+  ref,
+  feed,
+) async {
+  final interval = Duration(seconds: feed.every);
+  try {
+    final value = await ref.watch(feedFetcherProvider)(feed);
+    _fetchAgainAfter(ref, interval);
+    return value;
+  } on Object {
+    _fetchAgainAfter(
+      ref,
+      interval < retryAfterFailure ? interval : retryAfterFailure,
+    );
+    rethrow;
+  }
+}, retry: (_, _) => null);
+
+// ---------------------------------------------------------------------------
+// Private
+// ---------------------------------------------------------------------------
+
+const _longestFetch = Duration(seconds: 15);
+
+Future<Object?> _fetchFromWeb(HttpFeed feed) async {
+  final address = feed.address;
+  final request = http.Request(feed.method, address)
+    ..headers.addAll({
+      'accept': 'application/json',
+      if (feed.body != null) 'content-type': 'application/json',
+      ...feed.headers,
+    });
+  if (feed.body case final body?) request.body = body;
+  final response = await http.Response.fromStream(await request.send());
+  if (response.statusCode != 200) {
+    throw http.ClientException('Status ${response.statusCode}', address);
+  }
+  if (response.bodyBytes.length > maxFeedBytes) {
+    throw http.ClientException('Too much to take in', address);
+  }
+  final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+  try {
+    return await compute(_decodeJson, body);
+  } on FormatException {
+    return body.trim();
+  }
+}
 
 Object? _decodeJson(String body) => decodeJson(body, source: 'feed reply');
 
-/// Largest accepted response.
-const maxFeedBytes = 512 * 1024;
-
-/// A feed's latest value, re-fetched on its interval while watched.
-final feedValueProvider = FutureProvider.autoDispose.family<Object?, HttpFeed>(
-  (ref, feed) async {
-    // Also retries after a failure.
-    final again = Timer(Duration(seconds: feed.every), ref.invalidateSelf);
-    ref.onDispose(again.cancel);
-    return ref.watch(feedFetcherProvider)(feed);
-  },
-  // No extra retries.
-  retry: (_, _) => null,
-);
+void _fetchAgainAfter(Ref ref, Duration delay) {
+  if (!ref.mounted) return;
+  final again = Timer(delay, ref.invalidateSelf);
+  ref.onDispose(again.cancel);
+}
