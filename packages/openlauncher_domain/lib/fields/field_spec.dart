@@ -729,11 +729,13 @@ class FieldSpec {
 
   /// The editor's field for this one under [key], inside the group at path
   /// [above]. [findAt] answers a choice from the web and [secretAt] says
-  /// about a secret, each given the field's whole path.
+  /// about a secret, each given the field's whole path. [markRequired] marks
+  /// it with the asterisk of a required one though it is not itself.
   Field toField(
     String key, {
     String above = '',
     bool secretAbove = false,
+    bool markRequired = false,
     Future<List<FieldHit>> Function(String path, String text)? findAt,
     FieldSecret? Function(String path)? secretAt,
   }) {
@@ -741,7 +743,7 @@ class FieldSpec {
     final hidden = secretAbove || secret;
     return Field(
       key,
-      '${label.isEmpty ? key : label}${required ? ' *' : ''}',
+      '${label.isEmpty ? key : label}${required || markRequired ? ' *' : ''}',
       switch (type) {
         FieldType.text => FieldKind.text,
         FieldType.number => FieldKind.number,

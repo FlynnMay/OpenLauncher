@@ -16,6 +16,19 @@ void main() {
     expect(location.toJson(), {'value': '', 'type': 'system:location'});
   });
 
+  test('a variable can be required, and says so when saved', () {
+    final needed = Variable.fromJson({'value': '', 'required': true});
+    expect(needed.required, isTrue);
+    expect(needed.toJson(), {'value': '', 'required': true});
+    expect(Variable.fromJson(needed.toJson()).required, isTrue);
+    expect(needed.withValue('a').required, isTrue);
+    expect(Variable.fromJson({'value': ''}).required, isFalse);
+    expect(
+      variablesFromForm(variablesToForm({'a': needed}))['a']!.required,
+      isTrue,
+    );
+  });
+
   test('an entity says what it is asked with', () {
     expect(weather.type, VarType.entity);
     expect(weather.args, {'location': '{{location}}', 'unit': '{{unit}}'});

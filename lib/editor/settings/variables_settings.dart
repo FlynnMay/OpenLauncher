@@ -133,13 +133,15 @@ class InstanceVariables extends ConsumerWidget {
     if (variable.type == VarType.field && field != null) {
       return field.toField(
         name,
+        markRequired: variable.required,
         findAt: (_, text) => api.premadeFieldOptions(variable.field!, text),
       );
     }
+    final label = variable.required ? '$name *' : name;
     return switch (variable.type) {
       VarType.number => Field(
         name,
-        name,
+        label,
         FieldKind.number,
         min: -1000000,
         max: 1000000,
@@ -148,19 +150,19 @@ class InstanceVariables extends ConsumerWidget {
       ),
       VarType.bool => Field(
         name,
-        name,
+        label,
         FieldKind.toggle,
         defaultValue: value == true,
       ),
       VarType.colour => Field(
         name,
-        name,
+        label,
         FieldKind.colour,
         defaultValue: value,
       ),
       VarType.entity => Field(
         name,
-        name,
+        label,
         FieldKind.choice,
         unset: 'None',
         defaultValue: value,
@@ -173,7 +175,7 @@ class InstanceVariables extends ConsumerWidget {
       ),
       _ => Field(
         name,
-        name,
+        label,
         FieldKind.template,
         defaultValue: value?.toString(),
       ),

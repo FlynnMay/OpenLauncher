@@ -21,10 +21,6 @@
       "type": "string",
       "description": "The name of a chunk to put here; keys beside it win."
     },
-    "params": {
-      "type": "object",
-      "description": "What the chunk named by $use takes."
-    },
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$"
@@ -94,10 +90,6 @@
           "$use": {
             "type": "string",
             "description": "The name of a chunk to put here; keys beside it win."
-          },
-          "params": {
-            "type": "object",
-            "description": "What the chunk named by $use takes."
           },
           "host": {
             "type": "string"

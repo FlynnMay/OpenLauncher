@@ -23,10 +23,6 @@
           "type": "string",
           "description": "The name of a chunk to put here; keys beside it win."
         },
-        "params": {
-          "type": "object",
-          "description": "What the chunk named by $use takes."
-        },
         "id": {
           "type": "string",
           "description": "A name without \":\"; the pack adds its own."
@@ -61,10 +57,6 @@
               "$use": {
                 "type": "string",
                 "description": "The name of a chunk to put here; keys beside it win."
-              },
-              "params": {
-                "type": "object",
-                "description": "What the chunk named by $use takes."
               },
               "label": {
                 "type": "string"

@@ -4,17 +4,17 @@ import 'package:test/test.dart';
 void main() {
   final source = Source.fromJson({
     'url':
-        'https://x.test/f?lat={{ask.location.latitude}}'
-        '&unit={{ask.unit}}&k={{settings.key}}',
-    'params': {
-      'location': {'type': 'location', 'default': '{{settings.location}}'},
-      'unit': {'default': "{{settings.unit??'celsius'}}"},
+        'https://x.test/f?lat={{location.latitude}}'
+        '&unit={{unit}}&k={{settings.key}}',
+    'variables': {
+      'location': {'type': 'location', 'value': '{{settings.location}}'},
+      'unit': {'value': "{{settings.unit??'celsius'}}"},
     },
   })!;
 
-  test('params round trip', () {
+  test('variables round trip', () {
     expect(Source.fromJson(source.toJson()), source);
-    expect(source.params.keys, ['location', 'unit']);
+    expect(source.variables.keys, ['location', 'unit']);
   });
 
   test('a given value fills its slot, settings slots stay', () {
@@ -40,7 +40,7 @@ void main() {
     expect(filled.address, contains('lat=3&unit=celsius'));
   });
 
-  test('without params it is itself', () {
+  test('without variables it is itself', () {
     final plain = Source.fromJson({'url': 'https://x.test/a'})!;
     expect(
       identical(plain.askedWith(const {}, const {})!.request, plain),
@@ -48,11 +48,11 @@ void main() {
     );
   });
 
-  test('a required param with no value means it cannot be asked', () {
+  test('a required variable with no value means it cannot be asked', () {
     final needs = Source.fromJson({
-      'url': 'https://x.test/{{ask.place}}',
-      'params': {
-        'place': {'required': true},
+      'url': 'https://x.test/{{place}}',
+      'variables': {
+        'place': {'value': '', 'required': true},
       },
     })!;
     expect(needs.askedWith(const {}, const {}), isNull);

@@ -167,11 +167,20 @@ class _Reading {
 
   Source _readSource(PackItem item) {
     final source =
-        Source.fromJson(item.json) ??
+        Source.fromJson(glue.source(item.json)) ??
         (throw FormatException(
           '${item.where} needs a "url" starting http://, https://, os:// or '
           'launcher://, and a method of GET or POST',
         ));
+    final reserved = source.variables.keys.where(
+      Source.reservedVariables.contains,
+    );
+    if (reserved.isNotEmpty) {
+      throw FormatException(
+        '${item.where} has a variable "${reserved.first}", a name the '
+        'launcher reads itself',
+      );
+    }
     if (source.auth case final profile? when !pack.auth.containsKey(profile)) {
       throw FormatException(
         '${item.where} names auth "$profile", not in pack.json',
@@ -212,8 +221,22 @@ class _Reading {
   }
 
   Generator _readGenerator(PackItem item) =>
-      Generator.fromJson(glue.generator(item.where, item.json)) ??
+      Generator.fromJson(
+        glue.generator(
+          item.where,
+          item.json,
+          variables: _variablesOfSource(item.json['from']),
+        ),
+      ) ??
       (throw FormatException('${item.where} needs "from" and "entity"'));
+
+  /// The names the source called [name] takes, which its generator reads.
+  Set<String> _variablesOfSource(Object? name) => {
+    for (final (kind, item) in items)
+      if (kind == PackKind.source && item.name == name)
+        if (item.json['variables'] case final Map<Object?, Object?> variables)
+          for (final key in variables.keys) '$key',
+  };
 
   void _readPrefab(PackItem item) {
     final prefab = Prefab.fromJson(glue.defined(item.where, item.json));
@@ -368,14 +391,20 @@ class _Glue {
 
   String _withRootsInFull(String text) => text.replaceAllMapped(_root, (root) {
     final name = root[2]!;
-    return entities.contains(name) && !_readByGenerators.contains(name)
+    return entities.contains(name) &&
+            !_readByGenerators.contains(name) &&
+            !_variablesOfGenerator.contains(name)
         ? '${root[1]}${pack.id}:$name'
         : root[0]!;
   });
 
   /// What a generator's slots read besides entities: an entity of the same
   /// name is still reached as `pack:name`.
-  static const _readByGenerators = {'row', 'settings', 'ask', 'tables'};
+  static const _readByGenerators = {'row', 'settings', 'tables'};
+
+  /// The variables of the source the generator being read reads, whose names
+  /// are not entities either.
+  Set<String> _variablesOfGenerator = const {};
 
   static final _unquoted = RegExp('(\'[^\']*\'|"[^"]*")|[^\'"]+');
 
@@ -428,8 +457,31 @@ class _Glue {
     return Variable.typeOf(type).$1 == VarType.field;
   }
 
-  /// A generator's entity id is a template: its own text has no ":".
-  Object? generator(String path, Object? json) => switch (json) {
+  /// A source: [json] with the premade fields its variables are given in
+  /// full.
+  Object? source(Object? json) => switch (json) {
+    {'variables': final Map<Object?, Object?> variables} &&
+        final Map<Object?, Object?> json =>
+      {...json, 'variables': _variablesInFull(variables)},
+    _ => json,
+  };
+
+  /// A generator's entity id is a template: its own text has no ":". Its
+  /// source's [variables] are read as they are.
+  Object? generator(
+    String path,
+    Object? json, {
+    Set<String> variables = const {},
+  }) {
+    _variablesOfGenerator = variables;
+    try {
+      return _generator(path, json);
+    } finally {
+      _variablesOfGenerator = const {};
+    }
+  }
+
+  Object? _generator(String path, Object? json) => switch (json) {
     {'entity': {'id': final String id} && final Map<Object?, Object?> entity} &&
         final Map<Object?, Object?> json =>
       {

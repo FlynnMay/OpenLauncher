@@ -105,6 +105,7 @@ class Variable {
     this.otherwise,
     this.field,
     this.args = const {},
+    this.required = false,
   });
 
   /// The value, when not conditional.
@@ -116,11 +117,15 @@ class Variable {
   final String? field;
 
   /// What an entity-typed one gives the entity it names, as templates; an
-  /// argument that comes out blank is not given. See `Source.params`.
+  /// argument that comes out blank is not given. See `Source.variables`.
   final Map<String, Object?> args;
 
   /// On a prefab's root: whether an instance shows it as a field.
   final bool exposed;
+
+  /// Whatever reads it cannot go on while it has no value: a source is not
+  /// fetched.
+  final bool required;
 
   /// This variable with the type and access of [under], its prefab's
   /// declaration, when it sets neither. One of the same type that is asked
@@ -138,6 +143,7 @@ class Variable {
       exposed: under.exposed,
       field: under.field,
       args: args.isEmpty ? under.args : args,
+      required: under.required,
     );
   }
 
@@ -147,11 +153,13 @@ class Variable {
     bool? exposed,
     String? field,
     Map<String, Object?>? args,
+    bool? required,
   }) => Variable(
     value,
     type: type ?? this.type,
     access: access ?? this.access,
     exposed: exposed ?? this.exposed,
+    required: required ?? this.required,
     when: when,
     cases: cases,
     otherwise: otherwise,
@@ -160,8 +168,14 @@ class Variable {
   );
 
   /// This type and access, holding [value] instead: an instance's value.
-  Variable withValue(Object? value) =>
-      Variable(value, type: type, access: access, field: field, args: args);
+  Variable withValue(Object? value) => Variable(
+    value,
+    type: type,
+    access: access,
+    field: field,
+    args: args,
+    required: required,
+  );
 
   /// The template a conditional evaluates.
   final String? when;
@@ -190,6 +204,7 @@ class Variable {
       access:
           VarAccess.values.asNameMap()[json['access']] ?? VarAccess.protected,
       exposed: json['exposed'] != false,
+      required: json['required'] == true,
       when: switch (json['when']) {
         final String looked => looked,
         _ => null,
@@ -217,7 +232,8 @@ class Variable {
           access == VarAccess.protected &&
           type == VarType.any &&
           args.isEmpty &&
-          exposed
+          exposed &&
+          !required
       ? value
       : {
           if (isConditional) ...{
@@ -233,6 +249,7 @@ class Variable {
           if (args.isNotEmpty) 'with': args,
           if (access != VarAccess.protected) 'access': access.name,
           if (!exposed) 'exposed': false,
+          if (required) 'required': true,
         };
 
   /// Its current value; [read] evaluates a template.
@@ -398,6 +415,7 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
             {'name': key, 'value': '$value'},
         ],
       if (!variable.exposed) 'exposed': false,
+      if (variable.required) 'required': true,
       if (variable.isConditional) ...{
         'conditional': true,
         'when': variable.when,
@@ -447,6 +465,7 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
       access:
           VarAccess.values.asNameMap()[one['access']] ?? VarAccess.protected,
       exposed: one['exposed'] != false,
+      required: one['required'] == true,
       when: conditional ? '${one['when'] ?? ''}' : null,
       cases: [
         if (one['cases'] case final List<Object?> cases when conditional)

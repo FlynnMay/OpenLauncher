@@ -579,6 +579,53 @@ void main() {
       );
     });
 
+    test('a source variable is typed and read as its own name', () async {
+      final c = container(const {});
+      final store = c.read(packStoreProvider);
+      await store.install(
+        Stream.value(
+          _pack('ha', {
+            'place/entity.json': {'id': 'place'},
+            'x/field/place.json': {'extends': 'text'},
+            'x/source.json': {
+              'url': 'https://x.test/{{place}}',
+              'variables': {
+                'place': {'type': 'place', 'value': 'A', 'required': true},
+              },
+            },
+            'x/generator.json': {
+              'from': 'x',
+              'entity': {'id': 'made', 'label': '{{place}}'},
+            },
+          }),
+        ),
+      );
+      final contents = (await c.read(packContentsProvider.future))
+          .singleWhere((one) => one.pack.id == 'ha');
+      final place = contents.sources['x']!.variables['place']!;
+      expect((place.field, place.required), ('ha:place', true));
+      // An entity of the same name does not take the slot from it.
+      expect(contents.generators['x']!.entity['label'], '{{place}}');
+    });
+
+    test('a source variable cannot take a name the launcher reads', () async {
+      final store = container(const {}).read(packStoreProvider);
+      expect(
+        (await refused(
+          store,
+          _pack('ha', {
+            'x/source.json': {
+              'url': 'https://x.test/a',
+              'variables': {
+                'settings': {'value': 1},
+              },
+            },
+          }),
+        )).message,
+        contains('a name the launcher reads itself'),
+      );
+    });
+
     test('a pack\'s defs.jsonc is chunks every file in it can use', () async {
       final c = container(const {});
       final store = c.read(packStoreProvider);

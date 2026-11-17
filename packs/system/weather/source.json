@@ -1,16 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/source.schema.json",
-  "params": {
+  "variables": {
     "location": {
       "type": "location",
-      "default": "{{settings.location}}",
+      "value": "{{settings.location}}",
       "required": true
     },
     "unit": {
       "type": "unit",
-      "default": "{{settings.unit??'celsius'}}"
+      "value": "{{settings.unit??'celsius'}}"
     }
   },
-  "url": "https://api.open-meteo.com/v1/forecast?latitude={{ask.location.latitude}}&longitude={{ask.location.longitude}}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto&temperature_unit={{ask.unit}}",
+  "url": "https://api.open-meteo.com/v1/forecast?latitude={{location.latitude}}&longitude={{location.longitude}}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto&temperature_unit={{unit}}",
   "every": 1800
 }

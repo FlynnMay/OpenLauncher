@@ -29,10 +29,6 @@ Map<String, Schema> reservedProperties() => {
     'type': 'string',
     'description': 'The name of a chunk to put here; keys beside it win.',
   },
-  'params': {
-    'type': 'object',
-    'description': 'What the chunk named by \$use takes.',
-  },
 };
 
 /// An object with [properties]. A `required` key may come from a chunk, so

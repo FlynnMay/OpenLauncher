@@ -62,7 +62,6 @@ Schema _commonSchema() => _document(commonFile, 'Shared pieces', {
       'type': 'object',
       'properties': {
         r'$use': text(description: 'The name of the chunk to put here.'),
-        'params': {'type': 'object'},
       },
       'required': [r'$use'],
       'description': 'A chunk from \$defs, with the keys beside it on top.',
@@ -305,6 +304,10 @@ Schema _variable() => {
     },
     'access': oneOfText(VarAccess.values.map((access) => access.name)),
     'exposed': toggle(),
+    'required': toggle(
+      description:
+          'Whatever reads it, such as a source, waits while it is blank.',
+    ),
     'when': text(description: 'The template a conditional reads.'),
     'cases': {
       'type': 'array',
@@ -355,13 +358,11 @@ Map<String, Schema> _sourceProperties() => {
       {'type': 'object'},
     ],
   },
-  'params': mapOf(
-    objectOf({
-      'type': text(description: 'The premade field that asks for it.'),
-      'default': text(description: 'A template over settings.'),
-      'required': toggle(description: 'Not asked while it has no value.'),
-    }),
-    description: 'What a caller may give; read as {{ask.name}}.',
+  'variables': mapOf(
+    common('variable'),
+    description:
+        'What a caller may give it, by name, read as {{name}}; the value is '
+        'what it is when the caller gives nothing.',
   ),
 };
 

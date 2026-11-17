@@ -5,6 +5,7 @@ import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/sources/http_feed.dart';
 import 'package:openlauncher_domain/values/template.dart';
 import 'package:openlauncher_domain/values/template_fill.dart';
+import 'package:openlauncher_domain/variables/variable.dart';
 
 /// Where values come from, from a pack's `sources/<name>.json` or written in
 /// place as an entity's feed: `{url, every, watch, rows, method, auth, body}`.
@@ -22,10 +23,14 @@ class Source {
     this.auth,
     this.body,
     this.pack,
-    this.params = const {},
+    this.variables = const {},
   });
 
   static const methods = ['GET', 'POST'];
+
+  /// Names a source's variables cannot take: what its fetch and its
+  /// generator read their own slots by.
+  static const reservedVariables = {'settings', 'row', 'tables'};
 
   /// The text of the address; a template when it holds `{{`.
   final String address;
@@ -54,9 +59,9 @@ class Source {
   /// the launcher says whose a source is, as it reads the pack's files.
   final String? pack;
 
-  /// What a caller may give it, by name: `{{ask.location}}` in its address
-  /// or body reads the value given, or the param's default.
-  final Map<String, SourceParam> params;
+  /// What a caller may give it, by name: `{{location}}` in its address or
+  /// body reads the value given, or the variable's own value.
+  final Variables variables;
 
   /// Whether the launcher answers it rather than the web.
   bool get answeredHere =>
@@ -84,36 +89,39 @@ class Source {
     auth: auth,
     body: identical(body, _same) ? this.body : body,
     pack: pack ?? this.pack,
-    params: params,
+    variables: variables,
   );
 
   static const Object _same = Object();
 
-  /// This asked with [given]: each param is the one given, or when that is
-  /// blank its default read over [settings]. `{{ask...}}` slots of the
-  /// request are filled; `{{settings...}}` ones stay for the fetch. Null while
-  /// a required param has no value.
+  /// This asked with [given]: each variable is the one given, or when that
+  /// is blank its own value read over [settings]. The variables' slots of
+  /// the request are filled; `{{settings...}}` ones stay for the fetch. Null
+  /// while a required variable has no value.
   AskedSource? askedWith(
     Map<String, Object?> given,
     Map<String, Object?> settings,
   ) {
+    Object? read(String template) =>
+        Template.parse(template)
+            .evaluate((root) => root == 'settings' ? settings : null);
     final values = {
-      for (final MapEntry(:key, :value) in params.entries)
+      for (final MapEntry(:key, :value) in variables.entries)
         key: switch (given[key]) {
           final Object? one when !_blank(one) => one,
-          _ => value.defaultOf(settings),
+          _ => value.result(read),
         },
     };
-    final lacking = params.entries.any(
-      (param) => param.value.required && _blank(values[param.key]),
+    final lacking = variables.entries.any(
+      (variable) => variable.value.required && _blank(values[variable.key]),
     );
     return lacking ? null : (params: values, request: _filled(values));
   }
 
   Source _filled(Map<String, Object?> values) {
-    if (params.isEmpty) return this;
+    if (variables.isEmpty) return this;
     Object? fill(Object? json) =>
-        fillSlots(json, const {'ask'}, (root) => root == 'ask' ? values : null);
+        fillSlots(json, values.keys.toSet(), (root) => values[root]);
     return _copy(address: '${fill(address)}', body: fill(body));
   }
 
@@ -160,7 +168,7 @@ class Source {
           final Map<Object?, Object?> body => jsonStringKeyed(body),
           _ => null,
         },
-        params: SourceParam.mapFromJson(json['params']),
+        variables: variablesFromJson(json['variables']),
       );
     }
     return null;
@@ -174,9 +182,9 @@ class Source {
     if (method != 'GET') 'method': method,
     'auth': ?auth,
     'body': ?body,
-    if (params.isNotEmpty)
-      'params': {
-        for (final MapEntry(:key, :value) in params.entries)
+    if (variables.isNotEmpty)
+      'variables': {
+        for (final MapEntry(:key, :value) in variables.entries)
           key: value.toJson(),
       },
   };
@@ -203,7 +211,8 @@ class Source {
       other.method == method &&
       other.auth == auth &&
       other.pack == pack &&
-      jsonEncode(other.params) == jsonEncode(params) &&
+      jsonEncode(other.variables.map((k, v) => MapEntry(k, v.toJson()))) ==
+          jsonEncode(variables.map((k, v) => MapEntry(k, v.toJson()))) &&
       jsonEncode(other.body) == jsonEncode(body);
 
   @override
@@ -211,45 +220,7 @@ class Source {
       Object.hash(address, every, watch, rows, method, auth, pack);
 }
 
-/// One thing a caller may give a source: a [type] (a field type, for an
-/// editor to ask with) and a [defaultValue] template read over the pack's
-/// settings, used when the caller gives nothing.
-@immutable
-class SourceParam {
-  const SourceParam({this.type, this.defaultValue, this.required = false});
-
-  final String? type;
-  final String? defaultValue;
-
-  /// Whether the source cannot be asked while it has no value.
-  final bool required;
-
-  static Map<String, SourceParam> mapFromJson(Object? json) => {
-    if (json is Map)
-      for (final MapEntry(:key, :value) in json.entries)
-        if (key is String && value is Map)
-          key: SourceParam(
-            required: value['required'] == true,
-            type: value['type'] as String?,
-            defaultValue: switch (value['default']) {
-              final String text => text,
-              _ => null,
-            },
-          ),
-  };
-
-  /// What it is when nothing is given: its default, read over [settings].
-  Object? defaultOf(Map<String, Object?> settings) => switch (defaultValue) {
-    null => null,
-    final String text => Template.parse(
-      text,
-    ).evaluate((root) => root == 'settings' ? settings : null),
-  };
-
-  Map<String, Object?> toJson() => {'type': ?type, 'default': ?defaultValue};
-}
-
-/// A source asked with arguments: the value of each of its params, and the
+/// A source asked with arguments: the value of each of its variables, and the
 /// source with them filled in.
 typedef AskedSource = ({Map<String, Object?> params, Source request});
 

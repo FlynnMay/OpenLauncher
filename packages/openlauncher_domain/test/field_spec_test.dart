@@ -360,6 +360,12 @@ void groupTests() {
     });
   });
 
+  test('a field a variable requires is marked, though it is not itself', () {
+    final spec = FieldSpec.fromJson({'type': 'text', 'label': 'Token'})!;
+    expect(spec.toField('t').label, 'Token');
+    expect(spec.toField('t', markRequired: true).label, 'Token *');
+  });
+
   group('a premade field', () {
     final library = _Premade.library({
       'hub:place': {
