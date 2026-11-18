@@ -4,6 +4,7 @@ import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/layout/layout_enums.dart';
 import 'package:openlauncher_domain/layout/layout_ids.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/node_access.dart';
 import 'package:openlauncher_domain/nodes/transform.dart';
 import 'package:openlauncher_domain/style/style.dart';
 import 'package:openlauncher_domain/variables/variable.dart';
@@ -116,6 +117,8 @@ class Node {
     this.modules = const {},
     this.children = const [],
     this.overrides = const {},
+    this.access = NodeAccess.protected,
+    this.moduleAccess = const {},
   });
 
   /// A node that holds others: laid out as [mode] ([LayoutMode.free] for no
@@ -233,6 +236,16 @@ class Node {
   /// An instance's differences from its prefab's nodes.
   final Overrides overrides;
 
+  /// Who can reach it as a child of another node.
+  final NodeAccess access;
+
+  /// Who can reach each module by name; the ones not named are private.
+  final Map<String, NodeAccess> moduleAccess;
+
+  /// Who can reach [module].
+  NodeAccess accessOfModule(String module) =>
+      moduleAccess[module] ?? NodeAccess.private;
+
   bool get isInstance => prefab != null;
 
   /// The values of [module], if it has it switched on.
@@ -333,6 +346,8 @@ class Node {
     Modules? modules,
     List<Node>? children,
     Overrides? overrides,
+    NodeAccess? access,
+    Map<String, NodeAccess>? moduleAccess,
   }) => Node(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -342,6 +357,8 @@ class Node {
     modules: modules ?? this.modules,
     children: children ?? this.children,
     overrides: overrides ?? this.overrides,
+    access: access ?? this.access,
+    moduleAccess: moduleAccess ?? this.moduleAccess,
   );
 
   /// Sets or clears the variant (copyWith cannot clear).
@@ -354,6 +371,8 @@ class Node {
     modules: modules,
     children: children,
     overrides: overrides,
+    access: access,
+    moduleAccess: moduleAccess,
   );
 
   /// Throws [FormatException] on malformed JSON. An instance's nodes
@@ -374,7 +393,20 @@ class Node {
       modules: _withoutHeldVariables(modules, holders),
       children: [...jsonList(json, 'children', Node.fromJson), ...holders],
       overrides: overridesFromJson(json['overrides']),
+      access: NodeAccess.named(json['access'], NodeAccess.protected),
+      moduleAccess: _moduleAccessFromJson(json['moduleAccess']),
     );
+  }
+
+  static Map<String, NodeAccess> _moduleAccessFromJson(Object? json) {
+    final levels = <String, NodeAccess>{};
+    if (json is Map<Object?, Object?>) {
+      for (final MapEntry(:key, :value) in json.entries) {
+        final level = NodeAccess.named(value, NodeAccess.private);
+        if (key is String && level != NodeAccess.private) levels[key] = level;
+      }
+    }
+    return levels;
   }
 
   /// One node per slot variable that holds nodes.
@@ -459,6 +491,12 @@ class Node {
       if (!transform.isFill) 'transform': transform.toJson(),
       if (_kept(saved).isNotEmpty) 'modules': _kept(saved),
       if (overrides.isNotEmpty) 'overrides': overrides,
+      if (access != NodeAccess.protected) 'access': access.name,
+      if (moduleAccess.isNotEmpty)
+        'moduleAccess': {
+          for (final MapEntry(:key, :value) in moduleAccess.entries)
+            key: value.name,
+        },
       if (own.isNotEmpty)
         'children': own.map((child) => child.toJson()).toList(),
     };

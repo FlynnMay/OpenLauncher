@@ -131,7 +131,7 @@ void main() {
       'count': const Variable(5),
       'shown': const Variable(
         '{{system:media.title}}',
-        access: VarAccess.public,
+        access: NodeAccess.public,
       ),
       'icon': const Variable(
         null,

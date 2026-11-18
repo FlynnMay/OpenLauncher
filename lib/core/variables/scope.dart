@@ -109,8 +109,8 @@ Scope scopeOf(
       _ => raw,
     };
     own[name] = value;
-    if (variable.access != VarAccess.private) inner[name] = value;
-    if (variable.access == VarAccess.public) public[name] = value;
+    if (variable.access != NodeAccess.private) inner[name] = value;
+    if (variable.access == NodeAccess.public) public[name] = value;
   }
   return (own: own, inner: inner, public: public);
 }
@@ -166,7 +166,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   final found = dockedForm(saved, prefabs) ?? saved;
   if (!found.isContainer) {
     final variables = variablesOf(found, prefabs);
-    if (!variables.values.any((v) => v.access == VarAccess.public)) {
+    if (!variables.values.any((v) => v.access == NodeAccess.public)) {
       return null;
     }
     // From outside it has no inherited scope.

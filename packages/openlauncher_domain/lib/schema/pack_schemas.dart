@@ -1,6 +1,7 @@
 import 'package:openlauncher_domain/fields/field_spec.dart';
 import 'package:openlauncher_domain/modules/module_registry.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
+import 'package:openlauncher_domain/nodes/node_access.dart';
 import 'package:openlauncher_domain/packs/pack_kind.dart';
 import 'package:openlauncher_domain/schema/module_schemas.dart';
 import 'package:openlauncher_domain/schema/schema_parts.dart';
@@ -257,6 +258,14 @@ Schema _node() => objectOf(
     'modules': common('modules'),
     'children': {'type': 'array', 'items': common('node')},
     'overrides': common('overrides'),
+    'access': oneOfText(
+      NodeAccess.values.map((access) => access.name),
+      description: 'Who can reach it as a child. Protected unless said.',
+    ),
+    'moduleAccess': mapOf(
+      oneOfText(NodeAccess.values.map((access) => access.name)),
+      description: 'Who can reach each module. Private unless said.',
+    ),
   },
   required: ['id'],
   description: 'One thing on screen, with the modules that make it so.',
@@ -302,7 +311,7 @@ Schema _variable() => {
           'For an entity: what it is asked with, as templates. Blank ones '
           'are not given.',
     },
-    'access': oneOfText(VarAccess.values.map((access) => access.name)),
+    'access': oneOfText(NodeAccess.values.map((access) => access.name)),
     'exposed': toggle(),
     'required': toggle(
       description:
@@ -334,6 +343,10 @@ Schema _entityAction() => objectOf(
     }),
     'label': text(),
     'icon': text(),
+    'access': oneOfText(
+      NodeAccess.values.map((access) => access.name),
+      description: 'Who can tell it to run. Public unless said.',
+    ),
     'then': {
       'anyOf': [
         common('entityAction'),

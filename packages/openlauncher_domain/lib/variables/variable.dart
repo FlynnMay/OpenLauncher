@@ -1,17 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:openlauncher_domain/modules/module.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
-
-/// Who can read a variable.
-enum VarAccess {
-  private('Private'),
-  protected('Protected'),
-  public('Public');
-
-  const VarAccess(this.label);
-
-  final String label;
-}
+import 'package:openlauncher_domain/nodes/node_access.dart';
 
 /// The comparison a conditional case makes.
 enum VarTest {
@@ -98,7 +88,7 @@ class Variable {
   const Variable(
     this.value, {
     this.type = VarType.any,
-    this.access = VarAccess.protected,
+    this.access = NodeAccess.protected,
     this.exposed = true,
     this.when,
     this.cases = const [],
@@ -111,7 +101,7 @@ class Variable {
   /// The value, when not conditional.
   final Object? value;
   final VarType type;
-  final VarAccess access;
+  final NodeAccess access;
 
   /// The premade field a [VarType.field] variable is, `system:location`.
   final String? field;
@@ -132,7 +122,7 @@ class Variable {
   /// with no arguments of its own is asked with the prefab's.
   Variable over(Variable? under) {
     if (under == null) return this;
-    if (type != VarType.any || access != VarAccess.protected) {
+    if (type != VarType.any || access != NodeAccess.protected) {
       return args.isEmpty && under.args.isNotEmpty && type == under.type
           ? _with(args: under.args)
           : this;
@@ -149,7 +139,7 @@ class Variable {
 
   Variable _with({
     VarType? type,
-    VarAccess? access,
+    NodeAccess? access,
     bool? exposed,
     String? field,
     Map<String, Object?>? args,
@@ -201,7 +191,7 @@ class Variable {
         _ => const {},
       },
       access:
-          VarAccess.values.asNameMap()[json['access']] ?? VarAccess.protected,
+          NodeAccess.values.asNameMap()[json['access']] ?? NodeAccess.protected,
       exposed: json['exposed'] != false,
       required: json['required'] == true,
       when: switch (json['when']) {
@@ -253,7 +243,7 @@ class Variable {
 
   Object? toJson() =>
       !isConditional &&
-          access == VarAccess.protected &&
+          access == NodeAccess.protected &&
           type == VarType.any &&
           args.isEmpty &&
           exposed &&
@@ -271,7 +261,7 @@ class Variable {
           else if (type != VarType.any)
             'type': type.name,
           if (args.isNotEmpty) 'with': args,
-          if (access != VarAccess.protected) 'access': access.name,
+          if (access != NodeAccess.protected) 'access': access.name,
           if (!exposed) 'exposed': false,
           if (required) 'required': true,
         };
@@ -345,9 +335,9 @@ Field variableOptions({
       'access',
       'Access',
       FieldKind.choice,
-      defaultValue: VarAccess.protected.name,
+      defaultValue: NodeAccess.protected.name,
       choices: {
-        for (final access in VarAccess.values) access.name: access.label,
+        for (final access in NodeAccess.values) access.name: access.label,
       },
     ),
     if (exposable)
@@ -487,7 +477,7 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
               '${arg['name']}': arg['value'] ?? '',
       },
       access:
-          VarAccess.values.asNameMap()[one['access']] ?? VarAccess.protected,
+          NodeAccess.values.asNameMap()[one['access']] ?? NodeAccess.protected,
       exposed: one['exposed'] != false,
       required: one['required'] == true,
       when: conditional ? '${one['when'] ?? ''}' : null,

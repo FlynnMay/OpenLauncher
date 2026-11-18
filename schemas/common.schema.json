@@ -393,6 +393,25 @@
         },
         "overrides": {
           "$ref": "common.schema.json#/$defs/overrides"
+        },
+        "access": {
+          "enum": [
+            "private",
+            "protected",
+            "public"
+          ],
+          "description": "Who can reach it as a child. Protected unless said."
+        },
+        "moduleAccess": {
+          "type": "object",
+          "description": "Who can reach each module. Private unless said.",
+          "additionalProperties": {
+            "enum": [
+              "private",
+              "protected",
+              "public"
+            ]
+          }
         }
       },
       "additionalProperties": false,
@@ -450,6 +469,14 @@
         },
         "icon": {
           "type": "string"
+        },
+        "access": {
+          "enum": [
+            "private",
+            "protected",
+            "public"
+          ],
+          "description": "Who can tell it to run. Public unless said."
         },
         "then": {
           "anyOf": [

@@ -95,14 +95,14 @@ void main() {
 
     test('is written short where there is nothing more to say', () {
       expect(const Variable('system:app/a').toJson(), 'system:app/a');
-      expect(const Variable(3, access: VarAccess.public).toJson(), {
+      expect(const Variable(3, access: NodeAccess.public).toJson(), {
         'value': 3,
         'access': 'public',
       });
       expect(Variable.fromJson('x').value, 'x');
       expect(
         Variable.fromJson({'value': 1, 'access': 'private'}).access,
-        VarAccess.private,
+        NodeAccess.private,
       );
     });
   });
@@ -141,13 +141,13 @@ void main() {
         'box',
         textModule.name,
         vars: const {
-          'secret': Variable('s', access: VarAccess.private),
+          'secret': Variable('s', access: NodeAccess.private),
           'handed': Variable('h'),
-          'open': Variable('o', access: VarAccess.public),
+          'open': Variable('o', access: NodeAccess.public),
           'app': Variable(
             'system:app/a',
             type: VarType.entity,
-            access: VarAccess.public,
+            access: NodeAccess.public,
           ),
           // Text that happens to be an id is only text.
           'said': Variable('system:app/a'),
@@ -198,7 +198,7 @@ void main() {
       final item = drawn(
         'lamp',
         textModule.name,
-        vars: const {'on': Variable(false, access: VarAccess.public)},
+        vars: const {'on': Variable(false, access: NodeAccess.public)},
       );
       final c = container(layout([item]));
       await c.read(entitiesProvider.future);
@@ -577,7 +577,7 @@ void main() {
                 id: 'main',
                 name: 'Apps',
                 vars: const {
-                  'tint': Variable('red', access: VarAccess.public),
+                  'tint': Variable('red', access: NodeAccess.public),
                   'kept': Variable('x'),
                 },
                 children: [
