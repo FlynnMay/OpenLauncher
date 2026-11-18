@@ -19,20 +19,29 @@ On the TV:
 
 - Lists installed apps with their TV banners, and the TV's inputs (HDMI
   ports, tuner) as cards beside them.
-- Layouts hold cards and other layouts. You set each one's place and size,
-  how things are arranged inside, and whether it scrolls. A section is a
-  layout with a heading.
+- Everything on screen is a node, and nodes hold other nodes. A node gets its
+  behaviour from modules you switch on: a layout (flow, grid, row, column or
+  free), scrolling, a place and size, styling, focus, triggers, variables and
+  docking. A section is a node with a layout and a heading.
+- Visual nodes: text, pictures, icons and meters, plus a clock, the weather
+  (from Open-Meteo), now playing, and widgets from installed apps.
+- Screens: you can make several and choose which one the launcher starts on,
+  or have it start on the last one you used.
 - Folders and sidebars dock: they open over the home screen.
-- Components: text, pictures, icons, meters and buttons, plus a clock, the
-  weather (from Open-Meteo), now playing, and widgets from installed apps.
-- Prefabs: a component you saved to reuse, with variables that each use can
-  set. The app card, the clock and the others are prefabs you can edit.
+- Prefabs: a node you saved to reuse, with variables that each use can set.
+  The app card, the clock and the others are prefabs you can edit, and you
+  can go back to the original.
+- Templates: text, pictures and many settings can read values, such as
+  `{{source.label}}`, and a node can be shown or hidden by an expression.
 - Actions on a press, a hold or on focus: open an app, switch input, control
-  playback, show or hide a folder or sidebar, set a variable.
+  playback, show or hide a folder or sidebar, set a variable, or call a web
+  address.
 - A menu on holding OK, with Open, App info, Uninstall and Remove, which you
   can change.
 - Styling for anything: fills and gradients, borders, corners, padding, text.
-- Icon packs. The Material Symbols set is built in.
+- Packs: folders of apps, inputs, prefabs, screens, fonts and icons that add
+  to the launcher (see [Packs](#packs)). The Material Symbols icons and the
+  launcher's own apps, inputs and prefabs are packs.
 - Wallpaper as pictures or looping video, one or several in turn.
 - Other apps' notifications, shown in a corner of the screen.
 - Takes over the remote's Home button.
@@ -41,9 +50,14 @@ On the TV:
 From a phone or computer:
 
 - The editor is the launcher itself running in the browser, showing what the
-  TV shows, with editing on top. It also has undo and redo, a tree of
-  everything on screen, and managers for uploaded files and packs.
-- It can be used like the TV: pressing a card opens that app on the TV.
+  TV shows, with editing on top. It also has undo and redo (kept across a
+  restart of the TV), a tree of everything on screen, and managers for
+  uploaded files and packs.
+- Three modes: **Edit** changes the layout, **Test** works like the TV with the
+  keyboard as the remote, and **Remote** is a remote for the TV: pressing a
+  card opens that app on the TV.
+- The editor never changes anything itself. Each change is sent to the TV as
+  a command, which applies it, saves it and tells every open editor.
 
 ## Requirements
 
@@ -134,23 +148,57 @@ layout.
 
 Open **Settings** on the home screen and choose **Customise from your
 phone**. Scan the QR code, or type the address it shows, on a device
-connected to the same network.
+connected to the same network. The page asks for the **pairing code** the TV
+is showing; enter it once and that browser stays paired.
 
 The page shows your TV screen as it is and follows changes made on either
-side. A switch at the top chooses between **Edit** and **Use**.
+side. A switch at the top chooses between **Edit**, **Test** and **Remote**.
 
 In Edit, drag things from the list onto the screen, drag them to move them,
 and select one to change its settings. With nothing selected, the panel holds
-the launcher's own settings: wallpapers, the screen, values, prefabs, the
-hold-OK menu, notifications and updates.
+the launcher's own settings: wallpapers, screens and the startup screen,
+values, prefabs, packs, the hold-OK menu, notifications and updates.
 
-In Use, the page behaves like the TV: tap, or use the arrow keys and Enter.
+In Test, the page behaves like the TV: click, or use the arrow keys and
+Enter. In Remote, it drives the TV.
+
+## Packs
+
+A pack is a folder, or a `.zip` of one, that adds things to the launcher
+without changing the app. It can hold:
+
+- nodes for apps, inputs and values (the clock, the weather),
+- prefabs and screens,
+- sources, which fetch data from the TV or from a web address, and generators,
+  which turn a source into one node per item,
+- settings the user fills in, including secrets such as a token, and the
+  sign in a source uses,
+- fonts, icon sets and pictures.
+
+The launcher's own apps, inputs, clock, weather and menu prefabs are in the
+built in **System** pack, and the Material Symbols icons are in the
+**Material** pack. They differ from a pack you add only in that they cannot
+be deleted; edits you make are kept apart and can be reverted.
+
+Packs are managed in the editor under **Packs**: install a `.zip`, fill in a
+pack's settings, see why a pack failed to load, and remove one. The weather
+card picks its own place, and falls back to the System pack's setting when
+left empty.
+
+Pack files are JSON (comments are allowed) and each names a schema in
+`schemas/` in its `$schema` line, for autocomplete and checking in an editor.
 
 ## Security
 
-**The editor has no login.** Anyone on your network can open it, change your
-layout, and open or uninstall apps on the TV through it. Use it
-on a network you trust.
+The editor needs a pairing code. The code exists only while **Customise from
+your phone** is open on the TV, changes each time, and pairing locks for a
+growing time after five wrong tries. A paired browser keeps a cookie (for up
+to 400 days), and the TV's API needs it; paired browsers are listed in the
+editor under **Devices**, where one can be removed. Requests whose `Host` is
+not the TV's own address are refused.
+
+The connection is plain HTTP, so anyone who can watch your network traffic
+could read it or take the cookie. Use it on a network you trust.
 
 The page is only reachable while OpenLauncher is on screen.
 
@@ -229,15 +277,21 @@ flutter test
 
 ```
 lib/
-  core/        the model, with no UI: components, prefabs, entities, actions,
-               operations, variables, style, layout, config, packs, sources,
-               updates
+  core/        the app's logic, with no UI: actions, operations and their
+               services, variables, layout, screens, overlays, commands, config,
+               packs, sources, access, updates
   platform/    interface to the device, with a fake for tests
-  features/    what the TV draws: home, components, notifications, settings,
-               wallpaper
-  server/      the web API, uploads, and serving the editor
+  features/    what the TV draws: home, modules, notifications, settings,
+               wallpaper, remote
+  server/      the web API, pairing and sessions, uploads, and serving the
+               editor
   editor/      the editor: the launcher as a web app, plus editing
-packs/         the built-in packs, as folders: material (icons) and system
+packages/
+  openlauncher_domain/
+               pure Dart shared by the TV and the editor: nodes and modules,
+               fields, variables and templates, styles, pack file reading, the
+               layout rules, and the editing commands (slices) both sides run
+packs/         the built in packs, as folders: material (icons) and system
                (the apps, inputs and prefabs the launcher starts with)
 schemas/       JSON Schemas for pack files, made by tool/build_schemas.dart;
                a pack file names one in `$schema` for autocomplete and checks
@@ -250,7 +304,10 @@ test/          unit and widget tests
 
 The editor is a second entry point, `lib/editor/main.dart`. It runs the same
 home screen as the TV with the device swapped for the TV's web API, so
-anything under `features/` has to work in a browser as well.
+anything under `features/` has to work in a browser as well. It talks to the
+TV only through that API: an edit is a command made of an address and
+operations, and the TV and the editor run the same code from
+`openlauncher_domain` to apply it. A test holds that boundary.
 
 Imports of the project's own files are written `package:openlauncher/...`.
 The areas of `core/` each have a barrel file; code outside the folder imports
