@@ -28,8 +28,11 @@ final List<Override> tvOverrides = [
     // A new store per state, so the config is re-read.
     (ref) => TvConfigStore(ref.watch(tvStateProvider.future)),
   ),
-  entitiesProvider.overrideWith(
-    (ref) async => (await ref.watch(tvStateProvider.future)).entities,
+  nodesProvider.overrideWith(
+    (ref) async => [
+      for (final entity in (await ref.watch(tvStateProvider.future)).entities)
+        nodeOfEntity(entity),
+    ],
   ),
   packsProvider.overrideWith(
     (ref) async => (await ref.watch(tvStateProvider.future)).packs,

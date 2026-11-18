@@ -5,6 +5,7 @@ import 'package:openlauncher/core/entities/entity_generators.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/entities/entity_node.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/node.dart';
 
 /// The registry: every node a pack, a generator or the user makes, with the
@@ -126,5 +127,26 @@ class EntityShapes extends AsyncNotifier<List<Entity>> {
     ];
     final before = state.value;
     return before != null && listEquals(before, shapes) ? before : shapes;
+  }
+}
+
+/// The nodes without their values, for what only needs what they can do.
+/// The same list while only values change.
+final nodeShapesProvider = AsyncNotifierProvider<NodeShapes, List<Node>>(
+  NodeShapes.new,
+);
+
+class NodeShapes extends AsyncNotifier<List<Node>> {
+  @override
+  Future<List<Node>> build() async {
+    final shapes = [
+      for (final node in await ref.watch(nodesProvider.future))
+        node.withVars({
+          for (final MapEntry(:key, :value) in node.vars.entries)
+            if (key == deviceNameKey) key: value,
+        }),
+    ];
+    final before = state.value;
+    return before != null && sameNodes(before, shapes) ? before : shapes;
   }
 }

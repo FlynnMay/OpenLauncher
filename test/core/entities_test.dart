@@ -239,7 +239,7 @@ void main() {
             for (final item in offeredFor(
               view.container('quick-actions')!,
               container.read,
-              await container.read(entitiesProvider.future),
+              await container.read(nodesProvider.future),
             ))
               item.vars['label']!.value! as String,
           ];
@@ -499,7 +499,8 @@ void main() {
           actions: {'toggle': lamp},
         ),
       ]);
-      final all = await c.read(entitiesProvider.future);
+      final all = await c.read(nodesProvider.future);
+      final entities = await c.read(entitiesProvider.future);
       const dim = Act('dim', {'entity': 'desk', 'value': 40, 'var': 'other'});
       expect(isProper(dim, all), isTrue);
       expect(
@@ -508,12 +509,20 @@ void main() {
       );
       // The editor offers an entity's own actions; every one there is for
       // a target only known as it runs.
-      expect(actionsOf('desk', all).keys, ['toggle', 'dim']);
-      expect(actionsOf('hall', all).keys, ['toggle']);
-      expect(actionsOf(sourceEntity, all).keys, containsAll(['dim', 'open']));
+      expect(actionsOf('desk', entities).keys, ['toggle', 'dim']);
+      expect(actionsOf('hall', entities).keys, ['toggle']);
+      expect(
+        actionsOf(sourceEntity, entities).keys,
+        containsAll(['dim', 'open']),
+      );
       // Aimed elsewhere, an act keeps only what the new action lets it add.
       expect(
-        retargeted(dim, 'hall', 'toggle', actionsOf('hall', all)['toggle']),
+        retargeted(
+          dim,
+          'hall',
+          'toggle',
+          actionsOf('hall', entities)['toggle'],
+        ),
         const Act('toggle', {'entity': 'hall'}),
       );
       // An act adds only what the action lets it: `var` stays as bound.
