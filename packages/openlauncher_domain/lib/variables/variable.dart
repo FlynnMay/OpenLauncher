@@ -216,11 +216,14 @@ class Variable {
     );
   }
 
-  /// A map is a declaration when it carries any of these keys, with or
-  /// without a `value`; any other map is plain data.
+  /// A map with a `value` is always a declaration, whatever else it holds.
+  /// Without one it is a declaration only when every key is one of these;
+  /// any other map is plain data.
   static const _declarationKeys = {
     'value',
     'when',
+    'cases',
+    'else',
     'type',
     'with',
     'access',
@@ -229,7 +232,8 @@ class Variable {
   };
 
   static bool _declares(Map<Object?, Object?> json) =>
-      json.keys.any(_declarationKeys.contains);
+      json.containsKey('value') ||
+      (json.isNotEmpty && json.keys.every(_declarationKeys.contains));
 
   /// A type is a [VarType] name, else a premade field's id.
   static (VarType, String?) typeOf(Object? written) => switch (written) {
@@ -241,6 +245,12 @@ class Variable {
     _ => (VarType.any, null),
   };
 
+  /// A map value that would read back as a declaration is wrapped.
+  Object? get plainValueJson => switch (value) {
+    final Map<Object?, Object?> map when _declares(map) => {'value': map},
+    _ => value,
+  };
+
   Object? toJson() =>
       !isConditional &&
           access == VarAccess.protected &&
@@ -248,7 +258,7 @@ class Variable {
           args.isEmpty &&
           exposed &&
           !required
-      ? value
+      ? plainValueJson
       : {
           if (isConditional) ...{
             'when': when,

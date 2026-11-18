@@ -24,6 +24,21 @@ void main() {
     expect(Variable.fromJson({'city': 'Perth'}).value, {'city': 'Perth'});
   });
 
+  test('a map with other keys is data, a value always declares', () {
+    final data = {'type': 'line', 'colour': 'red'};
+    expect(Variable.fromJson(data).value, data);
+    final odd = Variable.fromJson({'value': 3, 'type': 'string'});
+    expect(odd.value, 3);
+    expect(Variable.fromJson(odd.toJson()).value, 3);
+  });
+
+  test('a map value that looks like a declaration survives a save', () {
+    final map = {'type': 'line'};
+    final back = Variable.fromJson(Variable(map).toJson());
+    expect(back.value, map);
+    expect(back.type, VarType.any);
+  });
+
   test('a variable can be required, and says so when saved', () {
     final needed = Variable.fromJson({'value': '', 'required': true});
     expect(needed.required, isTrue);
