@@ -16,6 +16,14 @@ void main() {
     expect(location.toJson(), {'value': '', 'type': 'system:location'});
   });
 
+  test('a declaration with no value is still a variable', () {
+    final bare = Variable.fromJson({'type': 'text', 'required': true});
+    expect(bare.value, isNull);
+    expect(bare.type, VarType.text);
+    expect(bare.required, isTrue);
+    expect(Variable.fromJson({'city': 'Perth'}).value, {'city': 'Perth'});
+  });
+
   test('a variable can be required, and says so when saved', () {
     final needed = Variable.fromJson({'value': '', 'required': true});
     expect(needed.required, isTrue);

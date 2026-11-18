@@ -185,8 +185,7 @@ class Variable {
   bool get isConditional => when != null;
 
   factory Variable.fromJson(Object? json) {
-    if (json is! Map<Object?, Object?> ||
-        !(json.containsKey('value') || json.containsKey('when'))) {
+    if (json is! Map<Object?, Object?> || !_declares(json)) {
       return Variable(json);
     }
     final (type, field) = typeOf(json['type']);
@@ -216,6 +215,21 @@ class Variable {
       otherwise: json['else'],
     );
   }
+
+  /// A map is a declaration when it carries any of these keys, with or
+  /// without a `value`; any other map is plain data.
+  static const _declarationKeys = {
+    'value',
+    'when',
+    'type',
+    'with',
+    'access',
+    'exposed',
+    'required',
+  };
+
+  static bool _declares(Map<Object?, Object?> json) =>
+      json.keys.any(_declarationKeys.contains);
 
   /// A type is a [VarType] name, else a premade field's id.
   static (VarType, String?) typeOf(Object? written) => switch (written) {
