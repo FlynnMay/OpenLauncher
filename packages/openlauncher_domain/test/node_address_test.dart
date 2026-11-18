@@ -58,6 +58,64 @@ void main() {
     });
   });
 
+  group('a quoted segment', () {
+    test('keeps its dots and slashes', () {
+      expect(rootsOf("{{system:'app/com.example.tv'.label}}"), {
+        "system:'app/com.example.tv'",
+      });
+      expect(rootsOf("{{system:'app/com.example.tv'/icon#style.padding}}"), {
+        "system:'app/com.example.tv'/icon#style",
+      });
+      expect(rootsOf('{{"a.b"/c}}'), {'"a.b"/c'});
+    });
+
+    test('is looked up as written, then reached into by the path', () {
+      final values = {
+        "system:'app/com.example.tv'": {'label': 'TV'},
+      };
+      expect(render("{{system:'app/com.example.tv'.label}}", values), 'TV');
+    });
+
+    test('is a quoted key after the root too', () {
+      final values = {
+        'card': {'odd.key': 7},
+      };
+      expect(render("{{card.'odd.key'}}", values), '7');
+    });
+
+    test('is still text when nothing follows it', () {
+      expect(render("{{'a.b' + 'c'}}", {}), 'a.bc');
+      expect(render("{{x ? 'a' : 'b'}}", {'x': true}), 'a');
+      expect(rootsOf("{{'a'}}"), isEmpty);
+    });
+
+    test('is not closed', () {
+      expect(Template.parse("{{system:'app.x}}").problem, isNotNull);
+    });
+  });
+
+  group('writing an address', () {
+    test('quotes what is not a plain name', () {
+      expect(addressSegment('light-kitchen'), 'light-kitchen');
+      expect(addressSegment('app/com.example.tv'), "'app/com.example.tv'");
+      expect(addressSegment("it's"), '"it\'s"');
+      expect(addressSegment('a\'b"c'), isNull);
+      expect(addressForId('system:clock'), 'system:clock');
+      expect(
+        addressForId('system:app/com.example.tv'),
+        "system:'app/com.example.tv'",
+      );
+      expect(addressForId('plain'), 'plain');
+    });
+
+    test('is read back as the same root', () {
+      for (final id in ['system:app/com.example.tv', 'x:y z', 'a-b']) {
+        final root = Template.parse('{{${addressForId(id)}.v}}').roots.single;
+        expect(root, addressForId(id), reason: id);
+      }
+    });
+  });
+
   group('names', () {
     test('an id is letters, digits, underscores and hyphens', () {
       for (final id in ['light-kitchen', 'a', 'App_2', '0x']) {
