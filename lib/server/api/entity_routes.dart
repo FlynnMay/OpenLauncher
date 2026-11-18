@@ -7,6 +7,8 @@ import 'package:openlauncher/core/sources/asked_source_id.dart';
 import 'package:openlauncher/core/sources/pack_settings_of.dart';
 import 'package:openlauncher/core/sources/sources.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/node.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -80,9 +82,9 @@ class EntityRoutes implements ApiRoutes {
   }
 
   Future<SourceAt?> _entitiesFeed(String id) async {
-    final entities = await _ref.read(entitiesProvider.future);
-    final entity = entities.byId(id);
-    return entity?.feed?.at(entity.id);
+    final nodes = await _ref.read(nodesProvider.future);
+    final node = nodes.byId(id);
+    return node?.feed?.at(node.id);
   }
 
   /// The pack source asked as [asked] says. Only what the source declares is
@@ -118,9 +120,9 @@ class EntityRoutes implements ApiRoutes {
     }
   }
 
-  Future<Entity?> _existingEntity(Request request) async {
+  Future<Node?> _existingEntity(Request request) async {
     final id = request.url.queryParameters['id'];
-    final entities = await _ref.read(entitiesProvider.future);
-    return id == null ? null : entities.byId(id);
+    final nodes = await _ref.read(nodesProvider.future);
+    return id == null ? null : nodes.byId(id);
   }
 }

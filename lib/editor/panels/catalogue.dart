@@ -119,19 +119,24 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         prefab.card != null || prefab.root.edge != null
         ? dockedOffer(prefab)
         : prefabOffer(prefab);
-    _Offer? entity(Entity entity) =>
-        switch (instanceFor(entity, layout, prefabs)) {
-          final item? => _Offer(
-            Dragged(
-              item: item,
-              label: entity.label,
-              picture: EntityArt(entity: entity, padding: 4),
-            ),
-            backed: !EntityArt.isBare(entity),
-            count: counts[entity.id] ?? 0,
-          ),
-          null => null,
-        };
+    _Offer? entity(Entity entity) => switch (instanceFor(
+      entity.id,
+      entity.category,
+      entity.name,
+      layout,
+      prefabs,
+    )) {
+      final item? => _Offer(
+        Dragged(
+          item: item,
+          label: entity.label,
+          picture: EntityArt(entity: entity, padding: 4),
+        ),
+        backed: !EntityArt.isBare(entity),
+        count: counts[entity.id] ?? 0,
+      ),
+      null => null,
+    };
     List<_Offer> entities(Iterable<Entity> which) {
       final offers = [for (final one in which) ?entity(one)];
       // Unplaced first.

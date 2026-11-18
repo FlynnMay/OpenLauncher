@@ -48,6 +48,10 @@ extension NodeData on Node {
   };
 }
 
+extension NodesById on Iterable<Node> {
+  Node? byId(String? id) => where((node) => node.id == id).firstOrNull;
+}
+
 /// Whether [a] and [b] are the same nodes, in the same order.
 bool sameNodes(List<Node> a, List<Node> b) =>
     a.length == b.length &&

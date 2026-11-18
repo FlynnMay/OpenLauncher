@@ -564,7 +564,7 @@ void main() {
       // As the launcher draws it, with what docks resolved.
       final view = layoutWith(
         withDockedInstances(config.layout, systemPrefabMap),
-        entities,
+        [for (final entity in entities) nodeOfEntity(entity)],
         systemPrefabMap,
       );
       final [folder, clock, container, games] = view.start.root.children;
@@ -605,11 +605,9 @@ void main() {
           ],
         ).normalised(),
       );
-      final entries = layoutWith(
-        config.layout,
-        entities,
-        systemPrefabMap,
-      ).start.root.children.where((e) => e.isInstance);
+      final entries = layoutWith(config.layout, [
+        for (final entity in entities) nodeOfEntity(entity),
+      ], systemPrefabMap).start.root.children.where((e) => e.isInstance);
       expect(entries.map((e) => e.handed.firstOrNull), [
         'system:app/a',
         'system:app/a',
@@ -802,7 +800,11 @@ void main() {
             ),
           ],
         ),
-        const [Entity(id: 'system:app/a', category: appCategory, label: 'A')],
+        [
+          nodeOfEntity(
+            const Entity(id: 'system:app/a', category: appCategory, label: 'A'),
+          ),
+        ],
         systemPrefabMap,
       );
       expect(view.start.root.shown.first.variant, 'row');
