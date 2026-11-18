@@ -24,6 +24,9 @@ Entity _entity(String name, {String? icon}) => Entity(
   },
 );
 
+Node _node(String name, {String? icon}) =>
+    nodeOfEntity(_entity(name, icon: icon));
+
 /// Operations that record what they were told.
 class _Manager extends OperationsManager {
   _Manager(List<String> verbs, [List<Object?>? said]) {
@@ -49,35 +52,32 @@ class _Manager extends OperationsManager {
 }
 
 void main() {
-  group('arrangeEntities', () {
+  group('arrangeNodes', () {
     test('sorts inputs first, then apps, each alphabetically', () {
       const hdmi = Entity(
         id: 'system:input/x/HW1',
         category: inputCategory,
         label: 'HDMI 1',
       );
-      final entities = arrangeEntities(
-        [_entity('Plex'), _entity('alpha'), hdmi, _entity('Zed')],
+      final entities = arrangeNodes(
+        [_node('Plex'), _node('alpha'), nodeOfEntity(hdmi), _node('Zed')],
         LauncherConfig(),
         order: systemPack.categories.keys,
       );
-      expect(entities.map((c) => c.label), ['HDMI 1', 'alpha', 'Plex', 'Zed']);
+      expect(entities.map((c) => c.name), ['HDMI 1', 'alpha', 'Plex', 'Zed']);
     });
 
     test('icon override replaces the automatic icon', () {
-      final entities = arrangeEntities([
-        _entity('Plex', icon: '/auto.png'),
+      final entities = arrangeNodes([
+        _node('Plex', icon: '/auto.png'),
       ], LauncherConfig(iconOverrides: {'system:app/Plex': '/custom.png'}));
       expect(entities.single.data[Entity.icon], '/custom.png');
       expect(entities.single.data[Entity.shape], Entity.banner);
     });
 
     test('an entity can show the picture of another', () {
-      final entities = arrangeEntities(
-        [
-          _entity('Plex', icon: '/plex.png'),
-          _entity('Shim', icon: '/shim.png'),
-        ],
+      final entities = arrangeNodes(
+        [_node('Plex', icon: '/plex.png'), _node('Shim', icon: '/shim.png')],
         LauncherConfig(
           iconOverrides: {'system:app/Plex': '/custom.png'},
           // Plex borrowing back is not followed, and a missing entity is
@@ -91,27 +91,27 @@ void main() {
       final shim = entities.firstWhere((c) => c.id == 'system:app/Shim');
       expect(shim.data[Entity.icon], '/custom.png');
       expect(shim.data[Entity.shape], Entity.banner);
-      expect(shim.label, 'Shim');
+      expect(shim.name, 'Shim');
       expect(
         entities.firstWhere((c) => c.id == 'system:app/Plex').data[Entity.icon],
         '/shim.png',
       );
 
-      final alone = arrangeEntities([
-        _entity('Shim', icon: '/shim.png'),
+      final alone = arrangeNodes([
+        _node('Shim', icon: '/shim.png'),
       ], LauncherConfig(iconSources: {'system:app/Shim': 'system:app/Gone'}));
       expect(alone.single.data[Entity.icon], '/shim.png');
     });
 
     test('a custom name replaces the label and decides the order', () {
-      final entities = arrangeEntities([
-        _entity('Plex'),
-        _entity('alpha'),
+      final entities = arrangeNodes([
+        _node('Plex'),
+        _node('alpha'),
       ], LauncherConfig(names: {'system:app/alpha': 'Zebra'}));
-      expect(entities.map((c) => c.label), ['Plex', 'Zebra']);
+      expect(entities.map((c) => c.name), ['Plex', 'Zebra']);
       expect(entities.last.id, 'system:app/alpha');
       // What the device calls it is kept, for ids in the layout.
-      expect(entities.map((c) => c.name), ['Plex', 'alpha']);
+      expect(entities.map((c) => c.deviceName), ['Plex', 'alpha']);
     });
   });
 

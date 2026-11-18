@@ -43,15 +43,15 @@ void main() {
   test('a poll that changes nothing gives the same list', () async {
     final container = containerWith(const {'prefix': 'My '});
     container.read(rows.notifier).state = [light('Lamp')];
-    final first = await container.read(packEntitiesProvider.future);
-    expect(first.single.label, 'My Lamp');
+    final first = await container.read(packNodesProvider.future);
+    expect(first.single.name, 'My Lamp');
 
     container.read(rows.notifier).state = [light('Lamp')];
-    final second = await container.read(packEntitiesProvider.future);
+    final second = await container.read(packNodesProvider.future);
     expect(identical(second, first), isTrue);
 
     container.read(rows.notifier).state = [light('Desk')];
-    final third = await container.read(packEntitiesProvider.future);
-    expect(third.single.label, 'My Desk');
+    final third = await container.read(packNodesProvider.future);
+    expect(third.single.name, 'My Desk');
   });
 }

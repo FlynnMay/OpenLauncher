@@ -6,6 +6,7 @@ import 'package:openlauncher/core/packs/pack_contents.dart';
 import 'package:openlauncher/core/sources/asked_source_id.dart';
 import 'package:openlauncher/core/sources/pack_settings_of.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
+import 'package:openlauncher_domain/entities/entity_node.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 
@@ -97,7 +98,7 @@ Object? _dataOfMadeEntity(
   String id,
 ) {
   if (rows == null) return null;
-  final made = generator.entitiesFrom(rows, settings: settings, params: params);
-  final entity = made.where((one) => one.id == id).firstOrNull;
-  return entity == null ? null : entityDataFrom(entity, null);
+  final made = generator.nodesFrom(rows, settings: settings, params: params);
+  final node = made.where((one) => one.id == id).firstOrNull;
+  return node == null ? null : entityDataFrom(entityOfNode(node), null);
 }

@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
-import 'package:openlauncher_domain/entities/entity.dart';
+import 'package:openlauncher_domain/entities/entity_node.dart';
 import 'package:openlauncher_domain/json/shallow_equality.dart';
+import 'package:openlauncher_domain/nodes/node.dart';
 import 'package:openlauncher_domain/values/template.dart';
 import 'package:openlauncher_domain/values/template_fill.dart';
 
@@ -66,16 +67,16 @@ class Generator {
   /// slot, so it makes just that one.
   bool makes(String id) => entity['id'] == id;
 
-  /// One entity per row it holds for, up to [maxEntities]; the first with an
+  /// One node per row it holds for, up to [maxEntities]; the first with an
   /// id is the one. `{{settings...}}` reads [settings], the pack's plain
   /// values, and each name in [params] the value its source was asked with,
   /// so a pack can have the user's prefix in its ids or labels.
-  List<Entity> entitiesFrom(
+  List<Node> nodesFrom(
     List<Object?> rows, {
     Map<String, Object?> settings = const {},
     Map<String, Object?> params = const {},
   }) {
-    final made = <String, Entity>{};
+    final made = <String, Node>{};
     for (final row in rows) {
       if (made.length == maxEntities) break;
       Object? lookup(String root) => switch (root) {
@@ -98,8 +99,8 @@ class Generator {
       if (json['data'] case final Map<String, Object?> data) {
         data.removeWhere((_, value) => value == null);
       }
-      if (Entity.fromJson(json) case final entity?) {
-        made.putIfAbsent(entity.id, () => entity);
+      if (nodeFromEntityJson(json) case final node?) {
+        made.putIfAbsent(node.id, () => node);
       }
     }
     return [...made.values];

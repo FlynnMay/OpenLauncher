@@ -4,98 +4,109 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entity_generators.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
+import 'package:openlauncher_domain/entities/entity_node.dart';
+import 'package:openlauncher_domain/nodes/node.dart';
 
-/// The entity registry: every entity there is, with the user's names and
-/// pictures applied, sorted by category then label.
-final entitiesProvider = FutureProvider<List<Entity>>((ref) async {
+/// The registry: every node a pack, a generator or the user makes, with the
+/// user's names and pictures applied, sorted by category then name.
+final nodesProvider = FutureProvider<List<Node>>((ref) async {
   // Every watch before any wait: none may follow a rebuild.
   final config = ref.watch(configProvider.future);
   final packs = ref.watch(packsProvider.future);
   final generated = Future.wait([
     for (final generate in entityGenerators) generate(ref),
   ]);
-  return arrangeEntities(
+  return arrangeNodes(
     _firstWithEachId(await generated),
     await config,
     order: Pack.categoriesOf(await packs).keys,
   );
 });
 
-List<Entity> _firstWithEachId(List<List<Entity>> generated) {
+// The registry as entities, for what has not yet moved to nodes. This goes
+// with `Entity`, in the last step of the node merge.
+final entitiesProvider = FutureProvider<List<Entity>>(
+  (ref) async => [
+    for (final node in await ref.watch(nodesProvider.future))
+      entityOfNode(node),
+  ],
+);
+
+List<Node> _firstWithEachId(List<List<Node>> generated) {
   final known = <String>{};
   return [
-    for (final entity in generated.expand((entities) => entities))
-      if (known.add(entity.id)) entity,
+    for (final node in generated.expand((nodes) => nodes))
+      if (known.add(node.id)) node,
   ];
 }
 
 /// Applies the user's pictures and names, then sorts: by category, those in
-/// [order] first, then by label.
-List<Entity> arrangeEntities(
-  List<Entity> available,
+/// [order] first, then by name.
+List<Node> arrangeNodes(
+  List<Node> available,
   LauncherConfig config, {
   Iterable<String> order = const [],
 }) {
   final pictured = _withCustomPictures(available, config);
-  final entities = [
-    for (final entity in pictured.values)
-      _withBorrowedPicture(_withName(entity, config), pictured, config),
+  final nodes = [
+    for (final node in pictured.values)
+      _withBorrowedPicture(_withName(node, config), pictured, config),
   ];
-  _sortByCategoryThenLabel(entities, available, order);
-  return entities;
+  _sortByCategoryThenName(nodes, available, order);
+  return nodes;
 }
 
-Map<String, Entity> _withCustomPictures(
-  List<Entity> available,
+Map<String, Node> _withCustomPictures(
+  List<Node> available,
   LauncherConfig config,
 ) => {
-  for (final entity in available)
-    entity.id: switch (config.iconOverrides[entity.id]) {
-      null => entity,
+  for (final node in available)
+    node.id: switch (config.iconOverrides[node.id]) {
+      null => node,
       // Custom art is treated as full-frame.
-      final path => entity.withData({
+      final path => node.withData({
         Entity.icon: path,
         Entity.shape: Entity.banner,
       }),
     },
 };
 
-Entity _withName(Entity entity, LauncherConfig config) =>
-    switch (config.names[entity.id]) {
-      final name? => entity.withLabel(name),
-      null => entity,
+Node _withName(Node node, LauncherConfig config) =>
+    switch (config.names[node.id]) {
+      final name? => node.withLabel(name),
+      null => node,
     };
 
 /// Borrowing is one level deep, so no chains or loops.
-Entity _withBorrowedPicture(
-  Entity entity,
-  Map<String, Entity> pictured,
+Node _withBorrowedPicture(
+  Node node,
+  Map<String, Node> pictured,
   LauncherConfig config,
-) => switch (pictured[config.iconSources[entity.id]]) {
-  final source? => entity.withData({
+) => switch (pictured[config.iconSources[node.id]]) {
+  final source? => node.withData({
     Entity.icon: source.data[Entity.icon],
     Entity.shape: source.data[Entity.shape],
   }),
-  null => entity,
+  null => node,
 };
 
 /// Categories in [order], then as they first come.
-void _sortByCategoryThenLabel(
-  List<Entity> entities,
-  List<Entity> available,
+void _sortByCategoryThenName(
+  List<Node> nodes,
+  List<Node> available,
   Iterable<String> order,
 ) {
   final categories = {
     ...order,
-    for (final entity in available) entity.category,
+    for (final node in available) node.category,
   }.toList();
-  entities.sort((a, b) {
+  nodes.sort((a, b) {
     if (a.category != b.category) {
       return categories
           .indexOf(a.category)
           .compareTo(categories.indexOf(b.category));
     }
-    return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
   });
 }
 

@@ -378,17 +378,17 @@ void main() {
           'label': '{{settings.prefix}} {{row.name}}',
         },
       })!;
-      final made = prefixed.entitiesFrom(
+      final made = prefixed.nodesFrom(
         [
           {'id': 'a', 'name': 'Lamp'},
         ],
         settings: {'prefix': 'Lounge'},
       );
-      expect((made.single.id, made.single.label), ('Lounge/a', 'Lounge Lamp'));
+      expect((made.single.id, made.single.name), ('Lounge/a', 'Lounge Lamp'));
     });
 
     test('makes an entity of each row it holds for', () {
-      final made = generator.entitiesFrom([
+      final made = generator.nodesFrom([
         {'package': 'a.b', 'label': 'AB', 'icon': '/a.png', 'banner': true},
         {'package': 'c.d', 'label': 'CD', 'banner': false},
         {'package': 'skip.me', 'label': 'Skip'},
@@ -396,8 +396,8 @@ void main() {
       ]);
       expect(made.map((entity) => entity.id), ['app/a.b', 'app/c.d']);
       final ab = made.first;
-      expect(ab.label, 'AB');
-      expect(ab.placed, isTrue);
+      expect(ab.name, 'AB');
+      expect(ab.inbox, isTrue);
       expect(ab.data, {'package': 'a.b', 'icon': '/a.png', 'shape': 'banner'});
       // No icon: none in its data.
       expect(made.last.data.containsKey('icon'), isFalse);
@@ -409,7 +409,7 @@ void main() {
     });
 
     test('makes no more than its limit', () {
-      final made = generator.entitiesFrom([
+      final made = generator.nodesFrom([
         for (var i = 0; i < Generator.maxEntities + 5; i++) {'package': '$i'},
       ]);
       expect(made, hasLength(Generator.maxEntities));
@@ -639,10 +639,10 @@ void main() {
       final contents = await c.read(packContentsProvider.future);
       final entity = contents
           .singleWhere((one) => one.pack.id == 'ha')
-          .entities
+          .nodes
           .single;
       expect(entity.id, 'ha:x');
-      expect(entity.name, 'Lamp');
+      expect(entity.deviceName, 'Lamp');
       expect(
         (await refused(
           store,

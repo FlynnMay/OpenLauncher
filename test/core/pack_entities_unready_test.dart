@@ -63,9 +63,9 @@ void main() {
   Future<List<String>> labels(ProviderContainer c) async => [
     for (final entity
         in await c
-            .read(packEntitiesProvider.future)
+            .read(packNodesProvider.future)
             .timeout(const Duration(seconds: 5)))
-      entity.label,
+      entity.name,
   ];
 
   Future<void> set(ProviderContainer c, Map<String, Object?> settings) =>
@@ -77,7 +77,7 @@ void main() {
     'a pack that is not set up gives nothing, and does not hold up the rest',
     () async {
       final c = container(const {});
-      final held = c.listen(packEntitiesProvider, (_, _) {});
+      final held = c.listen(packNodesProvider, (_, _) {});
       addTearDown(held.close);
       await c.read(configProvider.future);
       expect(await labels(c), isEmpty);
@@ -86,7 +86,7 @@ void main() {
 
   test('setting a pack up and taking its address away both answer', () async {
     final c = container(const {});
-    final held = c.listen(packEntitiesProvider, (_, _) {});
+    final held = c.listen(packNodesProvider, (_, _) {});
     addTearDown(held.close);
     await c.read(configProvider.future);
     expect(await labels(c), isEmpty);

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/icon_sets.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_layout.dart';
-import 'package:openlauncher_domain/entities/entity.dart';
+import 'package:openlauncher_domain/entities/entity_node.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
 import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:openlauncher_domain/json/json_expand.dart';
@@ -14,6 +14,8 @@ import 'package:openlauncher_domain/json/json_walk.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/layout_repair.dart';
 import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/node.dart';
 import 'package:openlauncher_domain/nodes/node_names.dart';
 import 'package:openlauncher_domain/prefabs/prefab.dart';
 import 'package:openlauncher_domain/sources/source.dart';
@@ -27,7 +29,7 @@ import 'package:openlauncher_domain/variables/variable.dart';
 class PackContents {
   const PackContents(
     this.pack, {
-    this.entities = const [],
+    this.nodes = const [],
     this.sources = const {},
     this.generators = const {},
     this.prefabs = const [],
@@ -37,7 +39,7 @@ class PackContents {
   });
 
   final Pack pack;
-  final List<Entity> entities;
+  final List<Node> nodes;
 
   /// By file name.
   final Map<String, Source> sources;
@@ -140,7 +142,7 @@ class _Reading {
   final List<(PackKind, PackItem)> items;
   late final _Glue glue;
 
-  final entities = <Entity>[];
+  final nodes = <Node>[];
   final sources = <String, Source>{};
   final generators = <String, Generator>{};
   final prefabs = <Prefab>[];
@@ -156,7 +158,7 @@ class _Reading {
     _requireSourcesOfGenerators();
     return PackContents(
       pack,
-      entities: entities,
+      nodes: nodes,
       sources: sources,
       generators: generators,
       prefabs: prefabs,
@@ -216,9 +218,9 @@ class _Reading {
   }
 
   void _readEntity(PackItem item) {
-    final entity = Entity.fromJson(glue.defined(item.where, item.json));
-    if (entity == null) throw FormatException('${item.where} needs an "id"');
-    entities.add(entity);
+    final node = nodeFromEntityJson(glue.defined(item.where, item.json));
+    if (node == null) throw FormatException('${item.where} needs an "id"');
+    nodes.add(node);
   }
 
   Generator _readGenerator(PackItem item) =>
@@ -272,14 +274,14 @@ class _Reading {
 
   void _requireSourcesOfFeeds() {
     final generated = generators.values.map(
-      (generator) => Entity.fromJson(generator.entity),
+      (generator) => nodeFromEntityJson(generator.entity),
     );
-    for (final entity in [...entities, ...generated.nonNulls]) {
-      if (entity.feed case final feed?
+    for (final node in [...nodes, ...generated.nonNulls]) {
+      if (node.feed case final feed?
           when !feed.isAddress && feed.name != null) {
         if (!sources.containsKey(feed.name)) {
           throw FormatException(
-            '"${entity.id}" is fed by "${feed.name}", which is not a source of '
+            '"${node.id}" is fed by "${feed.name}", which is not a source of '
             'this pack',
           );
         }

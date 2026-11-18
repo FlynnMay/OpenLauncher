@@ -61,7 +61,7 @@ void main() {
       );
       expect(contents.sources.keys, ['lamp']);
       expect(contents.generators.keys, ['lamp']);
-      expect(contents.entities.single.id, 'p:lamp');
+      expect(contents.nodes.single.id, 'p:lamp');
     });
 
     test('gives a card variable typed as a premade field its pack', () {
@@ -150,7 +150,7 @@ void main() {
           'other/entity.json': '{"id": "c", "\$use": "local"}',
         }),
       );
-      final labels = {for (final e in contents.entities) e.id: e.label};
+      final labels = {for (final e in contents.nodes) e.id: e.name};
       expect(labels, {'p:a': 'Feature', 'p:b': 'Pack', 'p:c': 'Pack'});
     });
 

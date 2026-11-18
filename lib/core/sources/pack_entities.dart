@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
@@ -6,31 +5,33 @@ import 'package:openlauncher/core/packs/pack_secrets.dart';
 import 'package:openlauncher/core/packs/pack_store.dart';
 import 'package:openlauncher/core/sources/pack_settings_of.dart';
 import 'package:openlauncher/core/sources/source_rows.dart';
-import 'package:openlauncher_domain/entities/entity.dart';
 import 'package:openlauncher_domain/entities/entity_action.dart';
+import 'package:openlauncher_domain/entities/entity_node.dart';
 import 'package:openlauncher_domain/entities/generator.dart';
+import 'package:openlauncher_domain/modules/modules.dart';
+import 'package:openlauncher_domain/nodes/node.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 
 // ---------------------------------------------------------------------------
 // Public
 // ---------------------------------------------------------------------------
 
-/// The entities of every pack: each pack's own, then what its generators
-/// make. `pack:` pictures are given as files. A poll that changes nothing
-/// gives the same list again, so nothing that reads it is rebuilt.
-final packEntitiesProvider = AsyncNotifierProvider<PackEntities, List<Entity>>(
-  PackEntities.new,
+/// The nodes of every pack: each pack's own, then what its generators make.
+/// `pack:` pictures are given as files. A poll that changes nothing gives the
+/// same list again, so nothing that reads it is rebuilt.
+final packNodesProvider = AsyncNotifierProvider<PackNodes, List<Node>>(
+  PackNodes.new,
 );
 
-class PackEntities extends AsyncNotifier<List<Entity>> {
+class PackNodes extends AsyncNotifier<List<Node>> {
   @override
-  Future<List<Entity>> build() async {
+  Future<List<Node>> build() async {
     final made = await _made();
     final before = state.value;
-    return before != null && listEquals(before, made) ? before : made;
+    return before != null && sameNodes(before, made) ? before : made;
   }
 
-  Future<List<Entity>> _made() async {
+  Future<List<Node>> _made() async {
     final List<PackContents> packs;
     try {
       packs = await ref.watch(packContentsProvider.future);
@@ -59,18 +60,18 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
           asked[packGenerator.key],
         ),
     };
-    final made = <Entity>[];
+    final made = <Node>[];
     for (final contents in packs) {
-      final entities = [
-        ...contents.entities,
+      final nodes = [
+        ...contents.nodes,
         ...await _madeBy(contents, rows, asked, settings[contents.pack.id]),
       ];
       // A made id is the pack's like any other.
-      final own = entities.where(
-        (entity) => entity.id.startsWith('${contents.pack.id}:'),
+      final own = nodes.where(
+        (node) => node.id.startsWith('${contents.pack.id}:'),
       );
-      for (final entity in own) {
-        final fed = _fed(entity, contents.pack.id, contents.sources);
+      for (final node in own) {
+        final fed = _fed(node, contents.pack.id, contents.sources);
         made.add(await _pictured(fed, picture));
       }
     }
@@ -80,18 +81,18 @@ class PackEntities extends AsyncNotifier<List<Entity>> {
   /// What the generators of [contents] make of their rows. The event loop
   /// turns once before each, so a frame can be drawn between one generator's
   /// work and the next.
-  Future<List<Entity>> _madeBy(
+  Future<List<Node>> _madeBy(
     PackContents contents,
     Map<String, Future<List<Object?>>> rows,
     Map<String, AskedSource?> asked,
     Map<String, Object?>? settings,
   ) async {
-    final made = <Entity>[];
+    final made = <Node>[];
     for (final packGenerator in _generatorsOf(contents)) {
       final generatorRows = await rows[packGenerator.key]!;
       await Future<void>.delayed(Duration.zero);
       made.addAll(
-        packGenerator.generator.entitiesFrom(
+        packGenerator.generator.nodesFrom(
           generatorRows,
           settings: settings ?? const {},
           params: asked[packGenerator.key]?.params ?? const {},
@@ -172,31 +173,29 @@ Future<List<Object?>> _rows(Ref ref, SourceAt at) async {
   }
 }
 
-/// [entity] with the pack source its feed names found, sharing its fetch.
-Entity _fed(Entity entity, String pack, Map<String, Source> sources) {
-  final feed = entity.feed;
-  if (feed == null || feed.isAddress || feed.name == null) return entity;
+/// [node] with the pack source its feed names found, sharing its fetch.
+Node _fed(Node node, String pack, Map<String, Source> sources) {
+  final feed = node.feed;
+  if (feed == null || feed.isAddress || feed.name == null) return node;
   return switch (sources[feed.name]) {
-    null => entity,
-    final source => entity.copyWith(
-      feed: Feed(
-        feed.name!,
-        inline: source.toJson(),
-        shared: '$pack:${feed.name}',
-      ),
+    null => node,
+    final source => node.withFeed(
+      Feed(feed.name!, inline: source.toJson(), shared: '$pack:${feed.name}'),
     ),
   };
 }
 
-Future<Entity> _pictured(
-  Entity entity,
+Future<Node> _pictured(
+  Node node,
   Future<String?> Function(String) picture,
 ) async {
-  if (!entity.data.values.any(isPackPicture)) return entity;
-  return entity.copyWith(
-    data: {
-      for (final MapEntry(:key, :value) in entity.data.entries)
-        key: isPackPicture(value) ? await picture(value as String) : value,
-    }..removeWhere((_, value) => value == null),
-  );
+  final data = node.data;
+  if (!data.values.any(isPackPicture)) return node;
+  return node.withVars({
+    for (final MapEntry(:key, value: variable) in node.vars.entries)
+      if (!isPackPicture(variable.value))
+        key: variable
+      else if (await picture(variable.value as String) case final found?)
+        key: variable.withValue(found),
+  });
 }

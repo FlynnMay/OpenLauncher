@@ -3,5 +3,6 @@ library;
 
 export 'entity.dart';
 export 'entity_action.dart';
+export 'entity_node.dart';
 export 'generator.dart';
 export 'user_entities.dart';
