@@ -664,7 +664,7 @@ void main() {
         await why({
           'x/entity.json': {'id': 'other:x'},
         }),
-        contains('must be a name without ":"'),
+        contains('must be letters, digits, "_" and "-"'),
       );
       expect(
         await why({

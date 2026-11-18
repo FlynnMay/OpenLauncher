@@ -100,6 +100,45 @@ void main() {
       );
     });
 
+    test('writes the node part of an address in full and leaves the rest', () {
+      final contents = PackContents.parse(
+        pack,
+        files({
+          'lamp/entity.json': '{"id": "lamp"}',
+          'lamp/prefab.json':
+              '{"id": "card", "root": {"id": "root", "modules": {"variables": '
+              '{"look": {"value": "{{lamp/icon#style.padding}}"}, '
+              '"on": {"value": "{{lamp.on}}"}, '
+              '"half": {"value": "{{lamp / 2}}"}}}}}',
+        }),
+      );
+      final vars = contents.prefabs.single.vars;
+      expect(vars['look']!.value, '{{p:lamp/icon#style.padding}}');
+      expect(vars['on']!.value, '{{p:lamp.on}}');
+      expect(vars['half']!.value, '{{p:lamp / 2}}');
+    });
+
+    test('refuses an id that is not a plain name, and a reserved variable', () {
+      expect(
+        () => PackContents.parse(
+          pack,
+          files({'lamp/entity.json': '{"id": "light.kitchen"}'}),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => PackContents.parse(
+          pack,
+          files({
+            'lamp/prefab.json':
+                '{"id": "card", "root": {"id": "root", "modules": '
+                '{"variables": {"parent": {"value": ""}}}}}',
+          }),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('shares chunks from the feature folder, then the pack', () {
       final contents = PackContents.parse(
         pack,

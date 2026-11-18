@@ -6,8 +6,13 @@ import 'package:openlauncher_domain/values/date_format.dart';
 /// - A value is a path from a root, through `.name` and `[0]`
 ///   (`lounge.attributes.readings[1]`), a number, `'text'` or `"text"`,
 ///   `true`, `false` or `null`.
-/// - Math: `+ - * / %` and brackets. `-` needs a space either side, since a
-///   name may hold one (`a-b`). Text can be joined with `+`.
+/// - A root is a node's address: `pack:node`, its children after `/`
+///   (`card/lines/title`), and a module of it after `#` (`card#style`), which
+///   the path then reaches into (`card#style.padding`). `self`, `parent` and
+///   `root` start an address too.
+/// - Math: `+ - * / %` and brackets. `-` and `/` need a space either side,
+///   since a name may hold one (`a-b`) and an address the other (`a/b`).
+///   Text can be joined with `+`.
 /// - Comparing: `== != < > <= >=`; logic: `&& || !`. `&&` and `||` give the
 ///   operand that decided them, so `a || 'none'` is a fallback.
 /// - `a ?? b` is `b` where `a` is nothing or empty.
@@ -408,14 +413,14 @@ class _Parser {
   ];
 
   static final _wordStartPattern = RegExp(r'[A-Za-z_]');
-  static final _wordPartPattern = RegExp(r'[A-Za-z0-9_.:\[\]\-]');
+  static final _wordPartPattern = RegExp(r'[A-Za-z0-9_.:/#\[\]\-]');
   static final _digitPattern = RegExp(r'[0-9]');
   static final _numberPattern = RegExp(r'\d+(\.\d+)?');
   static final _pathSplit = RegExp(r'[.\[\]]+');
 
   static bool _wordStart(String char) => _wordStartPattern.hasMatch(char);
 
-  // A name may hold `.`, `:`, `-`, `[` and `]` after its first letter.
+  // A name may hold `.`, `:`, `/`, `#`, `-`, `[` and `]` after its first letter.
   static bool _wordPart(String char) => _wordPartPattern.hasMatch(char);
 
   static List<_Token> _tokenize(String source) {
@@ -439,8 +444,8 @@ class _Parser {
         while (end < source.length && _wordPart(source[end])) {
           end++;
         }
-        // A trailing `:` or `.` belongs to what follows.
-        while (end > i + 1 && ':.-'.contains(source[end - 1])) {
+        // A trailing `:`, `.`, `/` or `-` belongs to what follows.
+        while (end > i + 1 && ':.-/'.contains(source[end - 1])) {
           end--;
         }
         tokens.add((kind: 'word', text: source.substring(i, end)));

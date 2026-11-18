@@ -14,6 +14,7 @@ import 'package:openlauncher_domain/json/json_walk.dart';
 import 'package:openlauncher_domain/layout/layout_model.dart';
 import 'package:openlauncher_domain/layout/layout_repair.dart';
 import 'package:openlauncher_domain/layout/screen.dart';
+import 'package:openlauncher_domain/nodes/node_names.dart';
 import 'package:openlauncher_domain/prefabs/prefab.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 import 'package:openlauncher_domain/values/template.dart';
@@ -362,9 +363,10 @@ class _Glue {
   static final _slot = RegExp(r'\{\{(.*?)\}\}');
 
   String _id(String path, Object? short) => switch (short) {
-    final String short when short.isNotEmpty && !short.contains(':') =>
-      '${pack.id}:$short',
-    _ => throw FormatException('$path: "$short" must be a name without ":"'),
+    final String short when isNodeId(short) => '${pack.id}:$short',
+    _ => throw FormatException(
+      '$path: "$short" must be letters, digits, "_" and "-"',
+    ),
   };
 
   String _ref(String name) {
@@ -410,7 +412,9 @@ class _Glue {
 
   /// A name where a value's path starts: at the start, or after a space,
   /// bracket or comparison, and before a step, space, pipe or the end.
-  static final _root = RegExp(r'(^|[\s(!=<>?:])([A-Za-z][\w-]*)(?=[.\s|\[]|$)');
+  static final _root = RegExp(
+    r'(^|[\s(!=<>?:])([A-Za-z][\w-]*)(?=[.\s|\[/#]|$)',
+  );
 
   /// [json] with its prefabs (named as instances, cards, templates or in
   /// rules), entity variables, act entities and template roots in full.
@@ -433,7 +437,7 @@ class _Glue {
 
   Map<String, Object?> _variablesInFull(Map<Object?, Object?> variables) => {
     for (final MapEntry(key: name, value: variable) in variables.entries)
-      '$name': switch (variable) {
+      _freeName('$name'): switch (variable) {
         {'type': 'entity', 'value': final String id} => {
           ..._tree(variable) as Map<String, Object?>,
           'value': _ref(id),
@@ -445,6 +449,10 @@ class _Glue {
         _ => _tree(variable),
       },
   };
+
+  String _freeName(String name) => isFreeName(name)
+      ? name
+      : throw FormatException('"$name" is a word that starts an address');
 
   /// Whether a variable's `type` names a premade field and not a plain type.
   bool _isPremadeField(String type) {

@@ -4,3 +4,4 @@ library;
 export 'field.dart';
 export 'geometry.dart';
 export 'node.dart';
+export 'node_names.dart';
