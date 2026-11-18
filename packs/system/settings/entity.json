@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/entity.schema.json",
+  "id": "settings",
+  "category": "launcher",
+  "label": "Settings",
+  "data": {
+    "icon": "pack:system/images/settings.svg",
+    "shape": "line"
+  },
+  "actions": {
+    "open": {
+      "run": "launcher://settings/open",
+      "label": "Open",
+      "icon": "material:play_arrow"
+    }
+  },
+  "placed": true
+}

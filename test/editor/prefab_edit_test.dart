@@ -374,7 +374,13 @@ void main() {
     final weather = prefabs['system:weather']!.root.vars;
     expect(
       {for (final entry in weather.entries) entry.key: entry.value.exposed},
-      {'source': true, 'icon': false, 'summary': false},
+      {
+        'location': true,
+        'unit': true,
+        'source': true,
+        'icon': false,
+        'summary': false,
+      },
     );
   });
 }

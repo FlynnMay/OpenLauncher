@@ -17,8 +17,8 @@ void main() {
   final hub = Pack.fromJson({
     'id': 'hub',
     'settings': {
-      'host': {'type': 'url'},
-      'token': {'type': 'secret'},
+      'host': {'type': 'text', 'format': 'url'},
+      'token': {'type': 'text', 'secret': true},
     },
     'auth': {
       'ha': {
@@ -95,7 +95,7 @@ void main() {
           sent.add(http.Request(feed.method, feed.address));
           return const <String, Object?>{};
         }),
-        entitiesProvider.overrideWith((ref) async => [toggle]),
+        nodesProvider.overrideWith((ref) async => [nodeOfEntity(toggle)]),
       ],
     );
     addTearDown(container.dispose);

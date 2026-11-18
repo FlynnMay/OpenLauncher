@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/services/services.dart';
 import 'package:openlauncher/server/api/api_responses.dart';
@@ -19,6 +22,7 @@ class PackRoutes implements ApiRoutes {
       ..post('/api/packs', _installPack)
       ..delete('/api/packs', _deletePack)
       // A secret setting is only ever sent this way, and never read back.
+      ..get('/api/field-options', _fieldOptions)
       ..put('/api/secret', _setSecret)
       ..delete('/api/secret', _clearSecret);
   }
@@ -48,6 +52,28 @@ class PackRoutes implements ApiRoutes {
     if (id == null) throw const FormatException('"id" must name a pack');
     await _ref.read(packServiceProvider).delete(id);
     return emptyJsonResponse();
+  }
+
+  /// The options a choice from the web finds, proxied so the page only
+  /// talks to the TV.
+  Future<Response> _fieldOptions(Request request) async {
+    final query = request.url.queryParameters;
+    try {
+      final service = _ref.read(packServiceProvider);
+      final hits = query['field'] != null
+          ? await service.optionsOfField(query['field'], query['q'])
+          : await service.options(query['pack'], query['key'], query['q']);
+      return jsonResponse({
+        'options': [
+          for (final hit in hits)
+            {'title': hit.title, 'group': hit.group, 'value': hit.value},
+        ],
+      });
+    } on http.ClientException catch (error) {
+      return errorResponse(502, 'The TV could not look that up: $error');
+    } on TimeoutException {
+      return errorResponse(502, 'The TV could not look that up in time');
+    }
   }
 
   Future<Response> _setSecret(Request request) async {

@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/field.schema.json",
+  "title": "Pack field file",
+  "$defs": {
+    "one": {
+      "type": "object",
+      "description": "A field other fields can be made from.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "extends": {
+          "type": "string",
+          "description": "The primitive or premade field it builds on."
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "text",
+                "number",
+                "toggle",
+                "choice",
+                "group"
+              ]
+            },
+            {
+              "type": "string",
+              "description": "The name of a premade field."
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "secret": {
+          "type": "boolean"
+        },
+        "default": {},
+        "visible": {
+          "type": "string",
+          "description": "A template; the field shows when it is true."
+        },
+        "span": {
+          "type": "number"
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "multiline": {
+          "type": "boolean"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "minLength": {
+          "type": "number"
+        },
+        "maxLength": {
+          "type": "number"
+        },
+        "format": {
+          "enum": [
+            "plain",
+            "url"
+          ]
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number"
+        },
+        "decimal": {
+          "type": "boolean"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "array",
+              "items": {}
+            }
+          ]
+        },
+        "from": {
+          "type": "object",
+          "description": "Options asked of the web.",
+          "properties": {
+            "$schema": {
+              "type": "string",
+              "description": "Where this file is checked."
+            },
+            "$comment": {
+              "type": "string",
+              "description": "A note for readers."
+            },
+            "$defs": {
+              "type": "object",
+              "description": "Chunks the objects inside this one can reuse with $use."
+            },
+            "$use": {
+              "type": "string",
+              "description": "The name of a chunk to put here; keys beside it win."
+            },
+            "url": {
+              "type": "string",
+              "description": "http(s)://, os:// or launcher:// address."
+            },
+            "every": {
+              "type": "number",
+              "description": "Seconds between reads."
+            },
+            "watch": {
+              "type": "boolean",
+              "description": "Read again when the source says it changed."
+            },
+            "rows": {
+              "type": "string",
+              "description": "Path to the list in the answer."
+            },
+            "method": {
+              "enum": [
+                "GET",
+                "POST"
+              ]
+            },
+            "auth": {
+              "type": "string",
+              "description": "The pack's auth profile that signs the request."
+            },
+            "body": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object"
+                }
+              ]
+            },
+            "variables": {
+              "type": "object",
+              "description": "What a caller may give it, by name, read as {{name}}; the value is what it is when the caller gives nothing.",
+              "additionalProperties": {
+                "$ref": "common.schema.json#/$defs/variable"
+              }
+            },
+            "label": {
+              "type": "string",
+              "description": "How a row is listed."
+            },
+            "value": {
+              "type": "string"
+            },
+            "group": {
+              "type": "string"
+            },
+            "where": {
+              "type": "string"
+            },
+            "keep": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "on": {
+              "enum": [
+                "filter",
+                "type",
+                "enter"
+              ]
+            },
+            "debounce": {
+              "type": "number"
+            },
+            "minChars": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "if": {
+            "not": {
+              "required": [
+                "$use"
+              ]
+            }
+          },
+          "then": {
+            "required": [
+              "url",
+              "label"
+            ]
+          }
+        },
+        "as": {
+          "enum": [
+            "dropdown",
+            "radio",
+            "segmented",
+            "checks",
+            "chips",
+            "multiDropdown"
+          ]
+        },
+        "unset": {
+          "type": "string"
+        },
+        "multiple": {
+          "type": "boolean"
+        },
+        "minChoices": {
+          "type": "number"
+        },
+        "maxChoices": {
+          "type": "number"
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "common.schema.json#/$defs/fieldSpec"
+          }
+        },
+        "columns": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "extends"
+        ]
+      },
+      {
+        "required": [
+          "type"
+        ]
+      },
+      {
+        "required": [
+          "label"
+        ]
+      },
+      {
+        "required": [
+          "$use"
+        ]
+      }
+    ]
+  },
+  "then": {
+    "$ref": "#/$defs/one"
+  },
+  "else": {
+    "properties": {
+      "$schema": {
+        "type": "string"
+      },
+      "$comment": {
+        "type": "string"
+      },
+      "$defs": {
+        "type": "object"
+      }
+    },
+    "additionalProperties": {
+      "$ref": "#/$defs/one"
+    }
+  }
+}

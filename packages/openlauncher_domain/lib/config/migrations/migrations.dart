@@ -9,6 +9,7 @@ import 'package:openlauncher_domain/config/migrations/v2_to_v3_panes.dart';
 import 'package:openlauncher_domain/config/migrations/v2_to_v3_slots.dart';
 import 'package:openlauncher_domain/config/migrations/v2_to_v3_visibility.dart';
 import 'package:openlauncher_domain/config/migrations/v3_to_v4.dart';
+import 'package:openlauncher_domain/config/migrations/v3_to_v4_weather.dart';
 
 export 'package:openlauncher_domain/config/migrations/save_json.dart'
     show Device, Json;
@@ -88,8 +89,10 @@ const migrations = <Migration>[
     from: 3,
     to: 4,
     since: '0.3.0',
-    what: 'Closing a popup is closing an overlay',
-    rules: [popupCloseAsOverlayClose],
+    what:
+        'Closing a popup is closing an overlay; the weather place is a pack '
+        'setting and a copy of the old weather prefab is dropped',
+    rules: [popupCloseAsOverlayClose, weatherAsPackData],
   ),
 ];
 

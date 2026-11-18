@@ -21,8 +21,15 @@ class SourceNotReady implements Exception {
 
 /// The fetch a web source in [at] asks for: its address and body filled from
 /// its pack's settings, and signed by its auth profile. Throws
-/// [SourceNotReady] while a required setting of the pack has no value.
-Future<HttpFeed> requestOf(Ref ref, SourceAt at, {bool reactive = true}) async {
+/// [SourceNotReady] while a required setting of the pack has no value,
+/// unless [needsAllSettings] is false (a field's own options are asked for
+/// before it has its value).
+Future<HttpFeed> requestOf(
+  Ref ref,
+  SourceAt at, {
+  bool reactive = true,
+  bool needsAllSettings = true,
+}) async {
   final T Function<T>(ProviderListenable<T>) read = reactive
       ? ref.watch
       : ref.read;
@@ -35,10 +42,13 @@ Future<HttpFeed> requestOf(Ref ref, SourceAt at, {bool reactive = true}) async {
       (config) => config.value?.packSettings[source.pack] ?? const {},
     ),
   );
-  final secrets = pack == null
+  // Secrets are a file read, so only a pack that keeps some asks for them.
+  final secrets = pack == null || !pack.hasSecrets
       ? const <String, String>{}
       : (await read(packSecretsProvider.future))[pack.id] ?? const {};
-  if (pack != null) _requireSettings(pack, settings, secrets);
+  if (pack != null && needsAllSettings) {
+    _requireSettings(pack, settings, secrets);
+  }
   final address = HttpFeed.addressOf(_fill(source.address, settings));
   if (address == null) {
     throw SourceNotReady('"${source.address}" is not a web address yet');
@@ -68,11 +78,12 @@ void _requireSettings(
   Map<String, Object?> settings,
   Map<String, String> secrets,
 ) {
-  for (final setting in pack.settings) {
-    final value = setting.secret ? secrets[setting.key] : settings[setting.key];
-    if (setting.required && '${value ?? ''}'.isEmpty) {
-      throw SourceNotReady('${pack.name} needs "${setting.label}"');
-    }
+  final missing = pack.missing(settings, {
+    for (final MapEntry(:key, :value) in secrets.entries)
+      if (value.isNotEmpty) key,
+  });
+  if (missing.isNotEmpty) {
+    throw SourceNotReady('${pack.name} needs "${missing.first}"');
   }
 }
 

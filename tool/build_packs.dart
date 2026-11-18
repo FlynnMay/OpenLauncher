@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 
 const _from = 'packs';
 const _to = 'assets/packs';
@@ -20,8 +21,14 @@ void main() {
   final packs = Directory(_from).listSync().whereType<Directory>().toList()
     ..sort((a, b) => a.path.compareTo(b.path));
   for (final pack in packs) {
-    final manifest = File('${pack.path}/pack.json');
-    final id = (jsonDecode(manifest.readAsStringSync()) as Map)['id'] as String;
+    final manifest = [
+      File('${pack.path}/pack.json'),
+      File('${pack.path}/pack.jsonc'),
+    ].firstWhere((file) => file.existsSync());
+    final id =
+        (decodeJson(manifest.readAsStringSync(), source: manifest.path)
+                as Map)['id']
+            as String;
     final files = pack.listSync(recursive: true).whereType<File>().toList()
       ..sort((a, b) => a.path.compareTo(b.path));
     final archive = Archive();

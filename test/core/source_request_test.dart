@@ -9,8 +9,18 @@ void main() {
     'id': 'hub',
     'name': 'Hub',
     'settings': {
-      'host': {'label': 'Address', 'type': 'url', 'required': true},
-      'token': {'label': 'Token', 'type': 'secret', 'required': true},
+      'host': {
+        'label': 'Address',
+        'type': 'text',
+        'format': 'url',
+        'required': true,
+      },
+      'token': {
+        'label': 'Token',
+        'type': 'text',
+        'secret': true,
+        'required': true,
+      },
     },
     'auth': {
       'ha': {

@@ -282,10 +282,31 @@ class _PackRow extends ConsumerWidget {
       config?.packSettings[pack.id] ?? const {},
       ref.watch(tvStateProvider).value?.secrets[pack.id] ?? {},
     );
+    final error = ref.watch(packLoadErrorsProvider).value?[pack.id];
+    final outdated = !pack.supportedBy(appVersion);
+    final problem = switch ((error, outdated)) {
+      (final error?, _) => 'Could not be read: $error',
+      (_, true) =>
+        'Written for launcher ${pack.app}; this is $appVersion. '
+            'It may not work.',
+      _ => null,
+    };
     final tile = ListTile(
+      leading: problem == null
+          ? null
+          : Tooltip(
+              message: problem,
+              child: Icon(
+                error != null ? Icons.error_outline : Icons.warning_amber,
+                color: error != null
+                    ? Theme.of(context).colorScheme.error
+                    : Colors.amber,
+              ),
+            ),
       title: Text(pack.name),
       subtitle: Text(
         [
+          ?problem,
           if (pack.version.isNotEmpty) 'Version ${pack.version}',
           if (pack.author.isNotEmpty) pack.author,
           if (pack.licence.isNotEmpty) pack.licence,
@@ -306,6 +327,7 @@ class _PackRow extends ConsumerWidget {
     );
     if (pack.settings.isEmpty) return tile;
     return ExpansionTile(
+      leading: tile.leading,
       title: Text(pack.name),
       subtitle: tile.subtitle,
       trailing: tile.trailing,

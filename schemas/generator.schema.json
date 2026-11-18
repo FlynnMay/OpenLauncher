@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/generator.schema.json",
+  "title": "Pack generator file",
+  "$defs": {
+    "one": {
+      "type": "object",
+      "description": "An entity for each row a source answers.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "from": {
+          "type": "string",
+          "description": "The name of the source it reads."
+        },
+        "where": {
+          "type": "string",
+          "description": "A row makes an entity only when this is true."
+        },
+        "entity": {
+          "$ref": "common.schema.json#/$defs/entity"
+        },
+        "tables": {
+          "type": "object",
+          "description": "Lookup data, read as tables."
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "not": {
+          "required": [
+            "$use"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "from",
+          "entity"
+        ]
+      }
+    }
+  },
+  "type": "object",
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "from"
+        ]
+      },
+      {
+        "required": [
+          "$use"
+        ]
+      }
+    ]
+  },
+  "then": {
+    "$ref": "#/$defs/one"
+  },
+  "else": {
+    "properties": {
+      "$schema": {
+        "type": "string"
+      },
+      "$comment": {
+        "type": "string"
+      },
+      "$defs": {
+        "type": "object"
+      }
+    },
+    "additionalProperties": {
+      "$ref": "#/$defs/one"
+    }
+  }
+}

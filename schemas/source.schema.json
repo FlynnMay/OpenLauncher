@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/source.schema.json",
+  "title": "Pack source file",
+  "$defs": {
+    "one": {
+      "$ref": "common.schema.json#/$defs/source"
+    }
+  },
+  "type": "object",
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "url"
+        ]
+      },
+      {
+        "required": [
+          "$use"
+        ]
+      }
+    ]
+  },
+  "then": {
+    "$ref": "#/$defs/one"
+  },
+  "else": {
+    "properties": {
+      "$schema": {
+        "type": "string"
+      },
+      "$comment": {
+        "type": "string"
+      },
+      "$defs": {
+        "type": "object"
+      }
+    },
+    "additionalProperties": {
+      "$ref": "#/$defs/one"
+    }
+  }
+}

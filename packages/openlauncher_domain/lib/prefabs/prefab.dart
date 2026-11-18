@@ -62,6 +62,13 @@ class Prefab {
       .firstOrNull
       ?.key;
 
+  /// Whether it is a card for entities of [category]: its entity variable
+  /// lists it.
+  bool takes(String category) => switch (entityVar) {
+    final name? => vars[name]?.takes(category) ?? false,
+    null => false,
+  };
+
   /// An instance handed [entityId], at its size; null if it takes no
   /// entity.
   Node? instance(String entityId, {required String id}) => switch (entityVar) {
@@ -287,4 +294,13 @@ Node resolved(Node instance, Map<String, Prefab> prefabs, [int depth = 0]) {
     ),
     [for (final child in root.children) part(child)],
   );
+}
+
+/// The prefab that is the card of entities of [category]: the first by id
+/// that takes it.
+Prefab? cardFor(Map<String, Prefab> prefabs, String category) {
+  for (final id in prefabs.keys.toList()..sort()) {
+    if (prefabs[id]!.takes(category)) return prefabs[id];
+  }
+  return null;
 }

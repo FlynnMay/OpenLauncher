@@ -18,7 +18,7 @@ Act actIn(Act act, Watch watch, Map<String, Object?> scope) => Act(act.name, {
 
 /// [container] without the nodes in it whose press cannot be done as its
 /// variables stand.
-Node offeredIn(Node container, Watch watch, Iterable<Entity> entities) {
+Node offeredIn(Node container, Watch watch, Iterable<Node> entities) {
   final scope = scopeOf(watch, container.id, container.vars, const {}).inner;
   bool proper(Node node) => (node.on[Trigger.press] ?? const []).every(
     (act) => isProper(actIn(act, watch, scope), entities),
@@ -33,11 +33,10 @@ Node offeredIn(Node container, Watch watch, Iterable<Entity> entities) {
 }
 
 /// What can be pressed in [container], of what [offeredIn] leaves.
-List<Node> offeredFor(Node container, Watch watch, Iterable<Entity> entities) =>
-    [
-      for (final node in offeredIn(container, watch, entities).all.skip(1))
-        if (node.on[Trigger.press]?.isNotEmpty ?? false) node,
-    ];
+List<Node> offeredFor(Node container, Watch watch, Iterable<Node> entities) => [
+  for (final node in offeredIn(container, watch, entities).all.skip(1))
+    if (node.on[Trigger.press]?.isNotEmpty ?? false) node,
+];
 
 /// Runs a container's chain [acts] in order; a declined one is reported.
 Future<void> runChain(

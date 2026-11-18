@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entity_data.dart';
+import 'package:openlauncher/core/entities/entity_data_with.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/node_reading.dart';
 import 'package:openlauncher_domain/layout/layout.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
@@ -34,16 +38,22 @@ class RuntimeVars extends Notifier<Map<String, Map<String, Object?>>> {
   }
 }
 
+/// Scope key holding the id of the node whose values the scope is.
+const readerKey = '#node';
+
 /// Evaluates [template], looking names up in [scope] first, then as entity or
 /// component ids.
 Object? readTemplate(Watch watch, String template, Map<String, Object?> scope) {
   final parsed = Template.parse(template);
+  final reader = switch (scope[readerKey]) {
+    final String id => id,
+    _ => null,
+  };
   final values = {
     for (final root in parsed.roots)
       root: scope.containsKey(root)
           ? scope[root]
-          : watch(entityDataProvider(root)) ??
-                watch(componentDataProvider(root)),
+          : watch(nodeValueProvider((root: root, reader: reader))),
   };
   return parsed.evaluate((root) => values[root]);
 }
@@ -89,7 +99,9 @@ Scope scopeOf(
   final runtime = watch(
     runtimeVarsProvider.select((all) => all[id] ?? const <String, Object?>{}),
   );
-  final own = {...outer}, inner = {...outer}, public = <String, Object?>{};
+  final own = {...outer, readerKey: id};
+  final inner = {...outer, readerKey: id};
+  final public = <String, Object?>{};
   for (final MapEntry(key: name, value: variable) in variables.entries) {
     if (variable.type == VarType.nodes) continue;
     final raw = runtime.containsKey(name)
@@ -98,17 +110,44 @@ Scope scopeOf(
     final value = switch (raw) {
       final String text
           when text.isNotEmpty && variable.type == VarType.entity =>
-        watch(entityDataProvider(text)) ??
+        _entityGiven(watch, text, variable.args, own) ??
+            watch(entityDataProvider(text)) ??
             watch(componentDataProvider(text)) ??
-            raw,
+            // One asked with arguments is not the id it was asked by.
+            (variable.args.isEmpty ? raw : null),
       _ => raw,
     };
     own[name] = value;
-    if (variable.access != VarAccess.private) inner[name] = value;
-    if (variable.access == VarAccess.public) public[name] = value;
+    if (variable.access != NodeAccess.private) inner[name] = value;
+    if (variable.access == NodeAccess.public) public[name] = value;
   }
   return (own: own, inner: inner, public: public);
 }
+
+/// What entity [id] reads when asked with [args], their templates read in
+/// [scope]; an argument that comes out blank is not given. Null when none
+/// is.
+Object? _entityGiven(
+  Watch watch,
+  String id,
+  Map<String, Object?> args,
+  Map<String, Object?> scope,
+) {
+  final given = <String, Object?>{
+    for (final MapEntry(:key, :value) in args.entries)
+      if (_given(value is String ? readTemplate(watch, value, scope) : value))
+        key: value is String ? readTemplate(watch, value, scope) : value,
+  };
+  if (given.isEmpty) return null;
+  // Until its answer is in it is only itself, not the entity asked without.
+  return watch(entityDataWithProvider((id: id, args: jsonEncode(given)))) ??
+      {'id': id};
+}
+
+bool _given(Object? value) =>
+    value != null &&
+    !(value is String && value.trim().isEmpty) &&
+    !(value is Map && value.isEmpty);
 
 /// [item]'s variables merged over its prefab's.
 Variables variablesOf(Node item, Map<String, Prefab> prefabs) =>
@@ -136,7 +175,7 @@ final componentDataProvider = Provider.autoDispose.family<Object?, String>((
   final found = dockedForm(saved, prefabs) ?? saved;
   if (!found.isContainer) {
     final variables = variablesOf(found, prefabs);
-    if (!variables.values.any((v) => v.access == VarAccess.public)) {
+    if (!variables.values.any((v) => v.access == NodeAccess.public)) {
       return null;
     }
     // From outside it has no inherited scope.

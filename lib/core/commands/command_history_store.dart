@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -37,7 +38,7 @@ class FileCommandHistoryStore implements CommandHistoryStore {
     try {
       final file = await _file();
       if (!await file.exists()) return null;
-      return jsonDecode(await file.readAsString());
+      return decodeJson(await file.readAsString(), source: file.path);
     } on Object catch (error) {
       debugPrint('command_history.json unreadable, starting empty: $error');
       return null;

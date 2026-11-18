@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:openlauncher/core/components/weather.dart';
 import 'package:openlauncher_domain/config/app_version.dart';
 import 'package:openlauncher_domain/config/migrations/migrations.dart';
 import 'package:openlauncher_domain/entities/entity.dart';
@@ -84,7 +83,6 @@ class LauncherConfig {
     this.wallpaperEvery = 0,
     this.toasts = const ToastOptions(),
     this.entities = const [],
-    this.place,
     this.prefabs = const [],
     this.updates = const UpdateOptions(),
     this.packSettings = const {},
@@ -117,7 +115,6 @@ class LauncherConfig {
 
   final ToastOptions toasts;
   final List<Entity> entities;
-  final Place? place;
   final List<Prefab> prefabs;
   final UpdateOptions updates;
 
@@ -130,7 +127,6 @@ class LauncherConfig {
     'toasts',
     'updates',
     'entities',
-    'place',
     'prefabs',
     'names',
     'iconSources',
@@ -178,7 +174,6 @@ class LauncherConfig {
     int? wallpaperEvery,
     ToastOptions? toasts,
     List<Entity>? entities,
-    Place? Function()? place,
     List<Prefab>? prefabs,
     UpdateOptions? updates,
     Map<String, Map<String, Object?>>? packSettings,
@@ -192,7 +187,6 @@ class LauncherConfig {
     wallpaperEvery: wallpaperEvery ?? this.wallpaperEvery,
     toasts: toasts ?? this.toasts,
     entities: entities ?? this.entities,
-    place: place == null ? this.place : place(),
     prefabs: prefabs ?? this.prefabs,
     updates: updates ?? this.updates,
     packSettings: packSettings ?? this.packSettings,
@@ -233,7 +227,6 @@ class LauncherConfig {
       _ => const ToastOptions(),
     },
     entities: userEntitiesFromJson(json['entities']),
-    place: placeFromJson(json['place']),
     prefabs: Prefab.listFromJson(json['prefabs']),
     updates: switch (json['updates']) {
       final Map<Object?, Object?> updates => UpdateOptions.fromJson(updates),
@@ -241,28 +234,6 @@ class LauncherConfig {
     },
     packSettings: _packSettings(json['packSettings']),
   );
-
-  static Place? placeFromJson(Object? json) => switch (json) {
-    {
-      'name': final String name,
-      'latitude': final num latitude,
-      'longitude': final num longitude,
-    } =>
-      (
-        name: name,
-        latitude: latitude.toDouble(),
-        longitude: longitude.toDouble(),
-      ),
-    _ => null,
-  };
-
-  static Map<String, Object?>? placeToJson(Place? place) => place == null
-      ? null
-      : {
-          'name': place.name,
-          'latitude': place.latitude,
-          'longitude': place.longitude,
-        };
 
   /// Pack id -> its saved settings; anything that is not a map of plain
   /// values is left out.
@@ -274,7 +245,8 @@ class LauncherConfig {
     };
   }
 
-  /// One pack's setting key -> value, keeping only text, numbers and ticks.
+  /// One pack's setting key -> value, keeping only plain ones: see
+  /// [_isPlain].
   static Map<String, Object?> _settingValues(Object? json) {
     if (json is! Map) return const {};
     return {
@@ -283,8 +255,21 @@ class LauncherConfig {
     };
   }
 
-  static bool _isPlain(Object? value) =>
-      value is String || value is num || value is bool;
+  /// Text, a number, a tick, or a list or map of these a few levels deep.
+  static bool _isPlain(Object? value, [int depth = 0]) => switch (value) {
+    String() || num() || bool() => true,
+    final List<Object?> list =>
+      depth < _deepest && list.every((one) => _isPlain(one, depth + 1)),
+    final Map<Object?, Object?> map =>
+      depth < _deepest &&
+          map.entries.every(
+            (entry) => entry.key is String && _isPlain(entry.value, depth + 1),
+          ),
+    _ => false,
+  };
+
+  /// How many lists and maps a setting's value may nest.
+  static const _deepest = 4;
 
   static Map<String, String> _strings(Object? json) => {
     if (json is Map)
@@ -317,7 +302,6 @@ class LauncherConfig {
     'wallpaperEvery': wallpaperEvery,
     'toasts': toasts.toJson(),
     'entities': [for (final entity in entities) entity.toJson()],
-    'place': ?placeToJson(place),
     'prefabs': [for (final prefab in prefabs) prefab.toJson()],
     'updates': updates.toJson(),
     if (packSettings.isNotEmpty) 'packSettings': packSettings,

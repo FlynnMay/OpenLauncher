@@ -49,11 +49,11 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     final visuals = ref.watch(tvStateProvider).value?.visuals ?? const [];
     final prefabs = ref.watch(prefabsProvider);
     final counts = placedCounts(config.layout);
-    // Only an entity with a prefab can be placed.
+    // Only an entity some prefab is the card of can be placed.
     final all = [
       for (final entity
           in ref.watch(entitiesProvider).value ?? const <Entity>[])
-        if (entity.prefab != null) entity,
+        if (cardFor(prefabs, entity.category) != null) entity,
     ];
     final own = {for (final entity in config.entities) entity.id};
     // A pack's ids start with its own; the user's have none.
@@ -119,19 +119,24 @@ class _CatalogueState extends ConsumerState<Catalogue> {
         prefab.card != null || prefab.root.edge != null
         ? dockedOffer(prefab)
         : prefabOffer(prefab);
-    _Offer? entity(Entity entity) =>
-        switch (instanceFor(entity, layout, prefabs)) {
-          final item? => _Offer(
-            Dragged(
-              item: item,
-              label: entity.label,
-              picture: EntityArt(entity: entity, padding: 4),
-            ),
-            backed: !EntityArt.isBare(entity),
-            count: counts[entity.id] ?? 0,
-          ),
-          null => null,
-        };
+    _Offer? entity(Entity entity) => switch (instanceFor(
+      entity.id,
+      entity.category,
+      entity.name,
+      layout,
+      prefabs,
+    )) {
+      final item? => _Offer(
+        Dragged(
+          item: item,
+          label: entity.label,
+          picture: EntityArt(entity: entity, padding: 4),
+        ),
+        backed: !EntityArt.isBare(entity),
+        count: counts[entity.id] ?? 0,
+      ),
+      null => null,
+    };
     List<_Offer> entities(Iterable<Entity> which) {
       final offers = [for (final one in which) ?entity(one)];
       // Unplaced first.

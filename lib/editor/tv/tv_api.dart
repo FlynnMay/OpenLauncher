@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/commands/commands.dart';
-import 'package:openlauncher/core/components/components.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
@@ -17,6 +16,7 @@ import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/tv/auth.dart';
 import 'package:openlauncher/platform/launcher_platform.dart';
 import 'package:openlauncher_domain/commands/commands.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 
 /// A node with one visual module, as the catalogue offers it.
 typedef VisualOffer = ({
@@ -38,6 +38,7 @@ class TvState {
     required this.visuals,
     this.packs = const [],
     this.secrets = const {},
+    this.packErrors = const {},
     this.widgetProviders = const {},
     this.access = const {},
     this.nowPlaying,
@@ -52,6 +53,9 @@ class TvState {
 
   /// The packs installed on the TV.
   final List<Pack> packs;
+
+  /// Pack id -> why the TV could not read it.
+  final Map<String, String> packErrors;
 
   /// Pack id -> the keys of its secret settings that have a value.
   final Map<String, Set<String>> secrets;
@@ -134,7 +138,8 @@ class TvApi {
           if (line.startsWith('event: ')) event = line.substring(7);
           if (line.isEmpty) event = '';
           if (!line.startsWith('data: ')) continue;
-          final data = jsonDecode(line.substring(6)) as Map;
+          final data =
+              decodeJson(line.substring(6), source: 'event stream') as Map;
           if (event == 'revision') {
             knownRevision = data['revision'] as int;
             continue;
@@ -222,6 +227,11 @@ class TvApi {
         if (json['packs'] case final List<Object?> packs)
           for (final pack in packs) ?Pack.fromJson(pack),
       ],
+      packErrors: {
+        if (json['packErrors'] case final Map<Object?, Object?> errors)
+          for (final MapEntry(:key, :value) in errors.entries)
+            if (key is String && value is String) key: value,
+      },
       secrets: {
         if (json['secrets'] case final Map<Object?, Object?> secrets)
           for (final MapEntry(:key, :value) in secrets.entries)
@@ -273,7 +283,9 @@ class TvApi {
   /// The error from the TV's reply body.
   static Exception _refused(int status, String body) {
     try {
-      if (jsonDecode(body) case {'error': final String error}) {
+      if (decodeJson(body, source: 'reply') case {
+        'error': final String error,
+      }) {
         return TvRefused(status, error);
       }
     } on FormatException {
@@ -293,7 +305,7 @@ class TvApi {
     );
     final text = utf8.decode(response.bodyBytes);
     if (response.statusCode != 200) throw _refused(response.statusCode, text);
-    return jsonDecode(text);
+    return decodeJson(text, source: 'reply');
   }
 
   /// The TV answers with a session cookie.
@@ -378,14 +390,14 @@ class TvApi {
     );
     _client.check(reply.status);
     if (reply.status != 200) throw _refused(reply.status, reply.body);
-    return jsonDecode(reply.body) as Map;
+    return decodeJson(reply.body, source: 'reply') as Map;
   }
 
   /// Removes a pack nothing uses.
   Future<void> removePack(String id) => _ask('DELETE', '/api/packs${_id(id)}');
 
   /// Keeps [value] as pack [pack]'s secret setting [key]; blank clears it.
-  Future<void> setSecret(String pack, String key, String value) => _ask(
+  Future<void> setSecret(String pack, String key, Object value) => _ask(
     'PUT',
     '/api/secret?pack=${Uri.encodeQueryComponent(pack)}'
         '&key=${Uri.encodeQueryComponent(key)}',
@@ -425,17 +437,29 @@ class TvApi {
     }
   }
 
-  Future<List<Place>> findPlaces(String name) async {
-    final reply = await _ask(
-      'GET',
-      '/api/geocode?q=${Uri.encodeQueryComponent(name)}',
-    ) as Map;
+  /// The options the choice [key] of pack [packId] finds for [text].
+  Future<List<FieldHit>> fieldOptions(String packId, String key, String text) =>
+      _hitsAt(
+        '/api/field-options?pack=${Uri.encodeQueryComponent(packId)}'
+        '&key=${Uri.encodeQueryComponent(key)}'
+        '&q=${Uri.encodeQueryComponent(text)}',
+      );
+
+  /// The options the premade field [fieldId] finds for [text].
+  Future<List<FieldHit>> premadeFieldOptions(String fieldId, String text) =>
+      _hitsAt(
+        '/api/field-options?field=${Uri.encodeQueryComponent(fieldId)}'
+        '&q=${Uri.encodeQueryComponent(text)}',
+      );
+
+  Future<List<FieldHit>> _hitsAt(String path) async {
+    final reply = await _ask('GET', path) as Map;
     return [
-      for (final Map place in reply['places'] as List)
+      for (final Map option in reply['options'] as List)
         (
-          name: place['name'] as String,
-          latitude: (place['latitude'] as num).toDouble(),
-          longitude: (place['longitude'] as num).toDouble(),
+          title: option['title'] as String,
+          group: option['group'] as String,
+          value: option['value'],
         ),
     ];
   }

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/entity.schema.json",
+  "title": "Pack entity file",
+  "$defs": {
+    "one": {
+      "$ref": "common.schema.json#/$defs/entity"
+    }
+  },
+  "type": "object",
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "id"
+        ]
+      },
+      {
+        "required": [
+          "$use"
+        ]
+      }
+    ]
+  },
+  "then": {
+    "$ref": "#/$defs/one"
+  },
+  "else": {
+    "properties": {
+      "$schema": {
+        "type": "string"
+      },
+      "$comment": {
+        "type": "string"
+      },
+      "$defs": {
+        "type": "object"
+      }
+    },
+    "additionalProperties": {
+      "$ref": "#/$defs/one"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/source.schema.json",
+  "url": "os://apps",
+  "watch": true
+}

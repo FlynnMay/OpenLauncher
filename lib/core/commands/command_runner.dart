@@ -144,6 +144,7 @@ class CommandRunner implements Commands {
       checkPackSettings(
         await _ref.read(packsProvider.future),
         changed['packSettings'],
+        saved: before.settings['packSettings'],
       );
     }
     final controller = _ref.read(configProvider.notifier);
@@ -168,8 +169,8 @@ class CommandRunner implements Commands {
   /// placed yet in the inbox. A command's ids can name those, so it is run on
   /// this, and saving the result places them, as saving from the editor does.
   Future<Layout> _layoutAsEdited(LauncherConfig config) async {
-    final entities = await _ref.read(entitiesProvider.future);
-    return layoutWith(config.layout, entities, _ref.read(prefabsProvider));
+    final nodes = await _ref.read(nodesProvider.future);
+    return layoutWith(config.layout, nodes, _ref.read(prefabsProvider));
   }
 
   /// Two commands at once would both read the layout before either saved.

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
@@ -13,6 +14,7 @@ import 'package:openlauncher/editor/panels/panels.dart';
 import 'package:openlauncher/editor/settings/settings.dart';
 import 'package:openlauncher/editor/stage/stage.dart';
 import 'package:openlauncher/editor/tv/tv.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 
 import '../support/fake_tv.dart';
 import '../support/packs.dart';
@@ -21,7 +23,6 @@ const _alpha = Entity(
   id: 'system:app/a',
   category: appCategory,
   label: 'Alpha',
-  prefab: cardPrefabId,
   placed: true,
 );
 
@@ -462,5 +463,44 @@ void main() {
     await tester.tap(find.byTooltip('Revert to prefab'));
     await tester.pumpAndSettle();
     expect(own, isEmpty);
+  });
+
+  testWidgets('a card variable typed as a premade field shows that field', (
+    tester,
+  ) async {
+    var own = const <String, Variable>{};
+    final location = FieldSpec.fromJson({
+      'type': 'choice',
+      'label': 'Location',
+      'help': 'Empty uses the System setting.',
+      'from': {'url': 'https://x.test/?q={{query}}', 'label': '{{row.name}}'},
+    })!;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          entitiesProvider.overrideWith((ref) async => const []),
+          premadeFieldsProvider.overrideWithValue({
+            'system:location': location,
+          }),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: InstanceVariables(
+              declared: const {
+                'place': Variable(
+                  '',
+                  type: VarType.field,
+                  field: 'system:location',
+                ),
+              },
+              own: own,
+              onChanged: (next) => own = next,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Location'), findsOneWidget);
+    expect(find.text('Empty uses the System setting.'), findsOneWidget);
   });
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -94,7 +95,7 @@ class FileAuthStore implements AuthStore {
     final file = await _file();
     if (!await file.exists()) return const [];
     try {
-      final json = jsonDecode(await file.readAsString());
+      final json = decodeJson(await file.readAsString(), source: file.path);
       return [
         if (json case {'devices': final List<Object?> devices})
           for (final device in devices) ?TrustedDevice.fromJson(device),

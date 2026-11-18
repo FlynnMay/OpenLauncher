@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:openlauncher_domain/json/json_read.dart';
 import 'package:openlauncher_domain/json/shallow_equality.dart';
+import 'package:openlauncher_domain/nodes/node_access.dart';
 import 'package:openlauncher_domain/sources/source.dart';
 
 /// An action an entity defines: the operation it runs and the arguments it
@@ -14,6 +15,7 @@ class EntityAction {
     this.label = '',
     this.icon = '',
     this.then = const [],
+    this.access = NodeAccess.public,
   });
 
   /// The `OperationsRegistry` name.
@@ -37,6 +39,9 @@ class EntityAction {
   /// and its `with`, filled like this one's. Not run if this fails.
   final List<EntityAction> then;
 
+  /// Who can tell it to run.
+  final NodeAccess access;
+
   static EntityAction? fromJson(Object? json) => switch (json) {
     {'run': final String run} => EntityAction(
       run: run,
@@ -50,6 +55,7 @@ class EntityAction {
         final String icon => icon,
         _ => '',
       },
+      access: NodeAccess.named(json['access'], NodeAccess.public),
       then: switch (json['then']) {
         final List<Object?> several => [
           for (final one in several) ?EntityAction.fromJson(one),
@@ -76,6 +82,7 @@ class EntityAction {
     if (args.isNotEmpty) 'args': args,
     if (label.isNotEmpty) 'label': label,
     if (icon.isNotEmpty) 'icon': icon,
+    if (access != NodeAccess.public) 'access': access.name,
     if (then.length == 1) 'then': then.single.toJson(),
     if (then.length > 1) 'then': [for (final one in then) one.toJson()],
   };
@@ -86,6 +93,7 @@ class EntityAction {
       other.run == run &&
       other.label == label &&
       other.icon == icon &&
+      other.access == access &&
       listsEqual(other.then, then) &&
       mapsEqual(other.bound, bound) &&
       other.args.length == args.length &&

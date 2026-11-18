@@ -76,6 +76,15 @@ class DockModule extends ModuleType {
             when: _docked,
           ),
         ],
+        ownControls: const [
+          Field('width', 'Width', FieldKind.value, help: 'Pixels, or "fill".'),
+          Field(
+            'height',
+            'Height',
+            FieldKind.value,
+            help: 'Pixels, or "fill".',
+          ),
+        ],
       );
 
   /// A docked size that fills the screen.

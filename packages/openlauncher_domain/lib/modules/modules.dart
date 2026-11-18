@@ -13,6 +13,8 @@ export 'layout/layout_module.dart';
 export 'layout/scroll_module.dart';
 export 'layout/sizing_module.dart';
 export 'layout/slot_module.dart';
+export 'logic/actions_module.dart';
+export 'logic/feed_module.dart';
 export 'logic/prefab_rules_module.dart';
 export 'logic/triggers_module.dart';
 export 'logic/variables_module.dart';

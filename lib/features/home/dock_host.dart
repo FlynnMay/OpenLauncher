@@ -61,8 +61,9 @@ class _DockHostState extends ConsumerState<DockHost> {
       if (open) {
         final entities =
             ref.read(entityShapesProvider).value ?? const <Entity>[];
+        final shapes = ref.read(nodeShapesProvider).value ?? const <Node>[];
         if (_subject(container, all[id], entities) != null &&
-            offeredFor(container, ref.read, entities).isEmpty) {
+            offeredFor(container, ref.read, shapes).isEmpty) {
           Future.microtask(() => vars.set(id, openVar, false));
           continue;
         }

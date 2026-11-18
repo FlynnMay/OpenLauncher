@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/field.schema.json",
+  "extends": "choice",
+  "label": "Location",
+  "help": "Empty uses the location in the System pack settings.",
+  "from": {
+    "url": "https://geocoding-api.open-meteo.com/v1/search?name={{query}}&count=6&format=json",
+    "rows": "results",
+    "label": "{{row.name}}{{row.admin1 ? ', ' + row.admin1 : ''}}{{row.country ? ', ' + row.country : ''}}",
+    "keep": {
+      "latitude": "{{row.latitude}}",
+      "longitude": "{{row.longitude}}"
+    },
+    "on": "type",
+    "minChars": 2
+  }
+}

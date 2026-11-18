@@ -24,6 +24,9 @@ Entity _entity(String name, {String? icon}) => Entity(
   },
 );
 
+Node _node(String name, {String? icon}) =>
+    nodeOfEntity(_entity(name, icon: icon));
+
 /// Operations that record what they were told.
 class _Manager extends OperationsManager {
   _Manager(List<String> verbs, [List<Object?>? said]) {
@@ -49,35 +52,32 @@ class _Manager extends OperationsManager {
 }
 
 void main() {
-  group('arrangeEntities', () {
+  group('arrangeNodes', () {
     test('sorts inputs first, then apps, each alphabetically', () {
       const hdmi = Entity(
         id: 'system:input/x/HW1',
         category: inputCategory,
         label: 'HDMI 1',
       );
-      final entities = arrangeEntities(
-        [_entity('Plex'), _entity('alpha'), hdmi, _entity('Zed')],
+      final entities = arrangeNodes(
+        [_node('Plex'), _node('alpha'), nodeOfEntity(hdmi), _node('Zed')],
         LauncherConfig(),
         order: systemPack.categories.keys,
       );
-      expect(entities.map((c) => c.label), ['HDMI 1', 'alpha', 'Plex', 'Zed']);
+      expect(entities.map((c) => c.name), ['HDMI 1', 'alpha', 'Plex', 'Zed']);
     });
 
     test('icon override replaces the automatic icon', () {
-      final entities = arrangeEntities([
-        _entity('Plex', icon: '/auto.png'),
+      final entities = arrangeNodes([
+        _node('Plex', icon: '/auto.png'),
       ], LauncherConfig(iconOverrides: {'system:app/Plex': '/custom.png'}));
       expect(entities.single.data[Entity.icon], '/custom.png');
       expect(entities.single.data[Entity.shape], Entity.banner);
     });
 
     test('an entity can show the picture of another', () {
-      final entities = arrangeEntities(
-        [
-          _entity('Plex', icon: '/plex.png'),
-          _entity('Shim', icon: '/shim.png'),
-        ],
+      final entities = arrangeNodes(
+        [_node('Plex', icon: '/plex.png'), _node('Shim', icon: '/shim.png')],
         LauncherConfig(
           iconOverrides: {'system:app/Plex': '/custom.png'},
           // Plex borrowing back is not followed, and a missing entity is
@@ -91,27 +91,27 @@ void main() {
       final shim = entities.firstWhere((c) => c.id == 'system:app/Shim');
       expect(shim.data[Entity.icon], '/custom.png');
       expect(shim.data[Entity.shape], Entity.banner);
-      expect(shim.label, 'Shim');
+      expect(shim.name, 'Shim');
       expect(
         entities.firstWhere((c) => c.id == 'system:app/Plex').data[Entity.icon],
         '/shim.png',
       );
 
-      final alone = arrangeEntities([
-        _entity('Shim', icon: '/shim.png'),
+      final alone = arrangeNodes([
+        _node('Shim', icon: '/shim.png'),
       ], LauncherConfig(iconSources: {'system:app/Shim': 'system:app/Gone'}));
       expect(alone.single.data[Entity.icon], '/shim.png');
     });
 
     test('a custom name replaces the label and decides the order', () {
-      final entities = arrangeEntities([
-        _entity('Plex'),
-        _entity('alpha'),
+      final entities = arrangeNodes([
+        _node('Plex'),
+        _node('alpha'),
       ], LauncherConfig(names: {'system:app/alpha': 'Zebra'}));
-      expect(entities.map((c) => c.label), ['Plex', 'Zebra']);
+      expect(entities.map((c) => c.name), ['Plex', 'Zebra']);
       expect(entities.last.id, 'system:app/alpha');
       // What the device calls it is kept, for ids in the layout.
-      expect(entities.map((c) => c.name), ['Plex', 'alpha']);
+      expect(entities.map((c) => c.deviceName), ['Plex', 'alpha']);
     });
   });
 
@@ -239,7 +239,7 @@ void main() {
             for (final item in offeredFor(
               view.container('quick-actions')!,
               container.read,
-              await container.read(entitiesProvider.future),
+              await container.read(nodesProvider.future),
             ))
               item.vars['label']!.value! as String,
           ];
@@ -499,7 +499,8 @@ void main() {
           actions: {'toggle': lamp},
         ),
       ]);
-      final all = await c.read(entitiesProvider.future);
+      final all = await c.read(nodesProvider.future);
+      final entities = await c.read(entitiesProvider.future);
       const dim = Act('dim', {'entity': 'desk', 'value': 40, 'var': 'other'});
       expect(isProper(dim, all), isTrue);
       expect(
@@ -508,12 +509,20 @@ void main() {
       );
       // The editor offers an entity's own actions; every one there is for
       // a target only known as it runs.
-      expect(actionsOf('desk', all).keys, ['toggle', 'dim']);
-      expect(actionsOf('hall', all).keys, ['toggle']);
-      expect(actionsOf(sourceEntity, all).keys, containsAll(['dim', 'open']));
+      expect(actionsOf('desk', entities).keys, ['toggle', 'dim']);
+      expect(actionsOf('hall', entities).keys, ['toggle']);
+      expect(
+        actionsOf(sourceEntity, entities).keys,
+        containsAll(['dim', 'open']),
+      );
       // Aimed elsewhere, an act keeps only what the new action lets it add.
       expect(
-        retargeted(dim, 'hall', 'toggle', actionsOf('hall', all)['toggle']),
+        retargeted(
+          dim,
+          'hall',
+          'toggle',
+          actionsOf('hall', entities)['toggle'],
+        ),
         const Act('toggle', {'entity': 'hall'}),
       );
       // An act adds only what the action lets it: `var` stays as bound.
@@ -583,7 +592,6 @@ void main() {
         name: 'Desk lamp',
         data: {'room': 'study'},
         feed: Feed.inline({'url': 'http://ha/desk', 'every': 30}),
-        prefab: cardPrefabId,
         placed: true,
         actions: {
           'dim': EntityAction(
@@ -644,13 +652,28 @@ void main() {
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
+                prefabs: [
+                  Prefab(
+                    id: 'lamp-card',
+                    name: 'Lamp',
+                    root: Node.layout(
+                      id: 'root',
+                      vars: const {
+                        'source': Variable(
+                          null,
+                          type: VarType.entity,
+                          accepts: ['lamp'],
+                        ),
+                      },
+                    ),
+                  ),
+                ],
                 entities: const [
                   Entity(
                     id: 'desk',
                     category: 'lamp',
                     label: 'Desk',
                     data: {'room': 'study', 'on': true, 'brightness': 40},
-                    prefab: cardPrefabId,
                     placed: true,
                     actions: {
                       'toggle': EntityAction(
@@ -738,10 +761,8 @@ void main() {
         'system:settings',
         'system:clock',
         'system:device',
-        'system:location',
         'system:media',
         'system:updates',
-        'system:weather',
       ]);
       // Only what is placed of itself lands in the inbox.
       final view = await c.read(layoutViewProvider.future);

@@ -20,8 +20,8 @@ class LayoutService {
     required String what,
     String? to,
   }) async {
-    final entities = await _ref.read(entitiesProvider.future);
-    final entity = entities.byId(what);
+    final nodes = await _ref.read(nodesProvider.future);
+    final entity = nodes.byId(what);
     final layout = await _layoutAsEdited();
     final target = layout.screen(screen);
     if (entity == null || target == null) return null;
@@ -29,18 +29,24 @@ class LayoutService {
     if (!_holds(target, container)) {
       return 'There is no layout "$container" there.';
     }
-    final item = instanceFor(entity, layout, _ref.read(prefabsProvider));
-    if (item == null) return '${entity.label} has no card to show it.';
+    final item = instanceFor(
+      entity.id,
+      entity.category,
+      entity.deviceName,
+      layout,
+      _ref.read(prefabsProvider),
+    );
+    if (item == null) return '${entity.name} has no card to show it.';
     await _run([
       SliceEdit(LayoutAddress(container), [Insert(Where.into, NodeClip(item))]),
     ]);
-    return '${entity.label} was added.';
+    return '${entity.name} was added.';
   }
 
   /// Takes every instance of [what] (an entity id) off [screen], or off every
   /// screen if it is null.
   Future<String?> remove({required String what, String? screen}) async {
-    final entities = await _ref.read(entitiesProvider.future);
+    final nodes = await _ref.read(nodesProvider.future);
     final layout = await _layoutAsEdited();
     final screens = [
       for (final one in layout.screens)
@@ -55,7 +61,7 @@ class LayoutService {
         SetRemoved({...layout.removed, what}),
       ]),
     ]);
-    final label = entities.byId(what)?.label ?? what;
+    final label = nodes.byId(what)?.name ?? what;
     return '$label was removed. Add it again from the web page.';
   }
 
@@ -63,7 +69,7 @@ class LayoutService {
   /// yet in the inbox.
   Future<Layout> _layoutAsEdited() async => layoutWith(
     (await _ref.read(configProvider.future)).layout,
-    await _ref.read(entitiesProvider.future),
+    await _ref.read(nodesProvider.future),
     _ref.read(prefabsProvider),
   );
 

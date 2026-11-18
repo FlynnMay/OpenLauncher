@@ -1,5 +1,4 @@
 import 'package:openlauncher/core/components/device_endpoints.dart';
-import 'package:openlauncher/core/config/place_endpoints.dart';
 import 'package:openlauncher/core/endpoints/source_endpoint.dart';
 import 'package:openlauncher/core/overlays/overlay_endpoints.dart';
 import 'package:openlauncher/core/updates/update_endpoints.dart';
@@ -11,7 +10,6 @@ import 'package:openlauncher/core/values/clock_endpoint.dart';
 final Map<String, SourceEndpoint> sourceEndpointRegistry = {
   ...deviceEndpoints,
   ...clockEndpoints,
-  ...placeEndpoints,
   ...updateEndpoints,
   ...overlayEndpoints,
 };

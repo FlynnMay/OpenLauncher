@@ -19,7 +19,7 @@ String _iconUrl(String id, String source) =>
 final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   ref,
 ) async {
-  final entities = await ref.watch(entitiesProvider.future);
+  final nodes = await ref.watch(nodesProvider.future);
   final config = await ref.watch(configProvider.future);
   final prefabs = ref.watch(prefabsProvider);
   final providers = await ref.watch(widgetProvidersProvider.future);
@@ -27,22 +27,22 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
   final playing = ref.watch(nowPlayingProvider).value;
   return {
     'entities': [
-      for (final entity in entities)
+      for (final node in nodes)
         {
-          // As it is: its actions, feed and prefab with it.
-          ...entity.toJson(),
-          'name': entity.name,
+          // As it is: its actions and feed with it.
+          ...entityJsonOf(node),
+          'name': node.deviceName,
           // The icon is sent as a URL.
           'data': {
-            ...entity.data,
-            if (entity.data[Entity.icon] case final String source)
-              Entity.icon: _iconUrl(entity.id, source),
+            ...node.data,
+            if (node.data[Entity.icon] case final String source)
+              Entity.icon: _iconUrl(node.id, source),
           },
         },
     ],
     // As the TV draws it: unplaced entities in the inbox, missing ones
     // dropped.
-    'layout': layoutWith(config.layout, entities, prefabs).toJson(),
+    'layout': layoutWith(config.layout, nodes, prefabs).toJson(),
     // False while it is a pack's starting layout.
     'ownLayout': config.ownLayout,
     'visuals': [
@@ -67,6 +67,8 @@ final configPageStateProvider = FutureProvider<Map<String, Object?>>((
     'packs': [
       for (final pack in await ref.watch(packsProvider.future)) pack.toJson(),
     ],
+    // Why packs that cannot be read cannot, by pack id.
+    'packErrors': await ref.watch(packLoadErrorsProvider.future),
     // Which secret settings have a value; the values are never sent.
     'secrets': {
       for (final MapEntry(:key, :value) in (await ref.watch(

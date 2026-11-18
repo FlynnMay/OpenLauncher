@@ -1,12 +1,24 @@
 {
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/pack.schema.json",
   "id": "system",
   "name": "System",
   "version": "1",
   "author": "OpenLauncher",
   "source": "https://github.com/FlynnMay/OpenLauncher",
+  "app": "0.2.0",
   "categories": {
     "input": "Inputs",
     "app": "Apps",
     "launcher": "Launcher"
+  },
+  "settings": {
+    "location": {
+      "type": "location",
+      "label": "Weather location"
+    },
+    "unit": {
+      "type": "unit",
+      "label": "Temperature"
+    }
   }
 }

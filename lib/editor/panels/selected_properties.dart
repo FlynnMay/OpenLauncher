@@ -4,7 +4,6 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entities.dart';
 import 'package:openlauncher/core/layout/layout.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
-import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/editor/controls/controls.dart';
 import 'package:openlauncher/editor/editing/editing.dart';
 import 'package:openlauncher/editor/modules/modules.dart';
@@ -150,7 +149,7 @@ class SelectedProperties extends ConsumerWidget {
             if (single != null)
               for (final container in [?found.single.dock, found.single.parent])
                 for (final MapEntry(:key, :value) in container.vars.entries)
-                  if (value.access != VarAccess.private) key: value,
+                  if (value.access != NodeAccess.private) key: value,
           },
         ),
         if (!isRoot)

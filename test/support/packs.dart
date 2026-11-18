@@ -10,12 +10,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openlauncher/core/actions/actions.dart';
 import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/layout/layout.dart';
+import 'package:openlauncher/core/packs/pack_layout.dart';
 import 'package:openlauncher/core/packs/packs.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
 import 'package:openlauncher/core/screens/screens.dart';
 import 'package:openlauncher/core/variables/variables.dart';
 import 'package:openlauncher/features/components/pack_icon.dart';
 import 'package:openlauncher_domain/editing/docked_prefabs.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 
 /// The launcher's own Material set as `tool/material_pack.dart` wrote it,
 /// with no font loaded.
@@ -39,6 +41,17 @@ const materialPack = Pack(
 final systemPack =
     Pack.fromJson(
       jsonDecode(File('packs/system/pack.json').readAsStringSync()),
+      library: FieldLibrary({
+        for (final file in Directory('packs/system').listSync(recursive: true))
+          if (file is File)
+            if (PackFile.of(file.path.substring('packs/system/'.length))
+                case final PackFile found when found.kind == PackKind.field)
+              for (final item in found.items(
+                file.path,
+                jsonDecode(file.readAsStringSync()),
+              ))
+                'system:${item.name}': item.json,
+      }),
     )!.copyWith(
       builtIn: true,
       files: [

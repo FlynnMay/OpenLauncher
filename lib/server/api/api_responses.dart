@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:openlauncher/server/auth.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
@@ -27,7 +28,10 @@ Response errorResponse(int status, String message) => Response(
 );
 
 Future<Map<String, Object?>> readJsonObject(Request request) async {
-  final decoded = jsonDecode(await request.readAsString());
+  final decoded = decodeJson(
+    await request.readAsString(),
+    source: 'request body',
+  );
   if (decoded is Map<String, Object?>) return decoded;
   throw const FormatException('Expected a JSON object');
 }

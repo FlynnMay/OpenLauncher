@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:openlauncher/core/packs/pack_auth.dart';
 import 'package:openlauncher/core/packs/pack_setting.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
 
 /// Content installed as one unit: a `.zip` holding `pack.json`, fonts in
-/// `fonts/`, icon sets in `icons/`, pictures in `images/`, and JSON in
-/// `entities/`, `sources/`, `generators/`, `prefabs/` and `screens/`.
+/// `fonts/`, icon sets in `icons/`, pictures in `images/`, and a folder for
+/// each feature holding its JSON, as [PackFile] describes.
 @immutable
 class Pack {
   const Pack({
@@ -16,9 +17,11 @@ class Pack {
     this.author = '',
     this.licence = '',
     this.source = '',
+    this.app = '',
     this.requires = const [],
     this.categories = const {},
     this.settings = const [],
+    this.fields = const {},
     this.auth = const {},
     this.builtIn = false,
     this.bytes = 0,
@@ -55,6 +58,16 @@ class Pack {
   /// Where it is made, e.g. its repository.
   final String source;
 
+  /// The release of the launcher it was written for, `0.1.2`; empty if it
+  /// does not say. A pack outside its support is still tried, and runs until
+  /// it meets an error.
+  final String app;
+
+  /// Whether the launcher at [release] is one it was written for: not older
+  /// than [app].
+  bool supportedBy(String release) =>
+      app.isEmpty || (compareVersions(release, app) ?? 0) >= 0;
+
   /// The packs it names, which must be installed first.
   final List<String> requires;
 
@@ -64,6 +77,10 @@ class Pack {
   /// What it asks the user for; the values are `packSettings` in the config,
   /// and a secret's is kept apart.
   final List<PackSetting> settings;
+
+  /// Its premade fields, by name, each read through to a plain field. A
+  /// variable of a card may be typed as one, `<pack>:<name>`.
+  final Map<String, FieldSpec> fields;
 
   /// How it signs requests, by profile name.
   final Map<String, PackAuthProfile> auth;
@@ -87,8 +104,36 @@ class Pack {
   /// Ids of its icon sets: the files in `icons/`.
   List<String> get iconSets => named('icons');
 
-  /// From `pack.json`, or as the editor is sent it.
-  static Pack? fromJson(Object? json) {
+  /// Every field of its settings that holds a value, by path
+  /// (`address.street`).
+  Iterable<FieldLeaf> get leaves =>
+      settings.expand((setting) => setting.leaves);
+
+  /// The field at [path] among its settings, if there is one.
+  FieldLeaf? fieldAt(String path) =>
+      leaves.where((leaf) => leaf.path == path).firstOrNull;
+
+  /// Whether any of its settings is kept secret.
+  bool get hasSecrets => leaves.any((leaf) => leaf.secret);
+
+  /// The labels of the required fields that have no value in [values] (the
+  /// plain ones, nested as saved), or, for a secret, whose path is not in
+  /// [secretsSet].
+  List<String> missing(Map<String, Object?> values, Set<String> secretsSet) => [
+    for (final leaf in leaves)
+      if (leaf.spec.required &&
+          (leaf.secret
+              ? !secretsSet.contains(leaf.path)
+              : FieldSpec.isBlank(FieldSpec.valueAt(values, leaf.path))))
+        leaf.spec.label.isEmpty ? leaf.path : leaf.spec.label,
+  ];
+
+  /// From `pack.json`, or as the editor is sent it. [library] has the
+  /// premade fields its settings may name.
+  static Pack? fromJson(
+    Object? json, {
+    FieldLibrary library = const FieldLibrary(),
+  }) {
     if (json case {'id': final String id} when validId(id)) {
       String text(String key) => switch (json[key]) {
         final String text => text,
@@ -102,6 +147,7 @@ class Pack {
         author: text('author'),
         licence: text('licence'),
         source: text('source'),
+        app: text('app'),
         requires: [
           if (json['requires'] case final List<Object?> packs)
             for (final pack in packs)
@@ -112,7 +158,16 @@ class Pack {
             for (final MapEntry(:key, :value) in categories.entries)
               if (key is String && value is String) key: value,
         },
-        settings: PackSetting.listFromJson(json['settings']),
+        settings: PackSetting.listFromJson(
+          json['settings'],
+          library: library,
+          pack: id,
+        ),
+        fields: {
+          if (json['fields'] case final Map<Object?, Object?> fields)
+            for (final MapEntry(:key, :value) in fields.entries)
+              if (key is String) key: ?FieldSpec.fromJson(value),
+        },
         auth: PackAuthProfile.mapFromJson(json['auth']),
         builtIn: json['builtIn'] == true,
         bytes: switch (json['bytes']) {
@@ -136,10 +191,16 @@ class Pack {
     'author': author,
     'licence': licence,
     'source': source,
+    if (app.isNotEmpty) 'app': app,
     'requires': requires,
     'categories': categories,
     if (settings.isNotEmpty)
       'settings': {for (final s in settings) s.key: s.toJson()},
+    if (fields.isNotEmpty)
+      'fields': {
+        for (final MapEntry(:key, :value) in fields.entries)
+          key: value.toJson(),
+      },
     if (auth.isNotEmpty)
       'auth': {for (final p in auth.values) p.name: p.toJson()},
     'builtIn': builtIn,
@@ -147,16 +208,23 @@ class Pack {
     'files': files,
   };
 
-  Pack copyWith({bool? builtIn, int? bytes, List<String>? files}) => Pack(
+  Pack copyWith({
+    bool? builtIn,
+    int? bytes,
+    List<String>? files,
+    Map<String, FieldSpec>? fields,
+  }) => Pack(
     id: id,
     name: name,
     version: version,
     author: author,
     licence: licence,
     source: source,
+    app: app,
     requires: requires,
     categories: categories,
     settings: settings,
+    fields: fields ?? this.fields,
     auth: auth,
     builtIn: builtIn ?? this.builtIn,
     bytes: bytes ?? this.bytes,
@@ -198,6 +266,7 @@ class Pack {
       other.author == author &&
       other.licence == licence &&
       other.source == source &&
+      other.app == app &&
       listEquals(other.requires, requires) &&
       mapEquals(other.categories, categories) &&
       listEquals(other.settings, settings) &&

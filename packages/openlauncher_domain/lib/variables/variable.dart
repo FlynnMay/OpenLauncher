@@ -1,17 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:openlauncher_domain/modules/module.dart';
 import 'package:openlauncher_domain/nodes/field.dart';
-
-/// Who can read a variable.
-enum VarAccess {
-  private('Private'),
-  protected('Protected'),
-  public('Public');
-
-  const VarAccess(this.label);
-
-  final String label;
-}
+import 'package:openlauncher_domain/nodes/node_access.dart';
 
 /// The comparison a conditional case makes.
 enum VarTest {
@@ -78,7 +68,11 @@ enum VarType {
   entity('Entity'),
 
   /// Nodes an instance puts in a slot of its prefab; never read as a value.
-  nodes('Nodes');
+  nodes('Nodes'),
+
+  /// A premade field of a pack, named by [Variable.field]; its value is what
+  /// that field holds.
+  field('Field');
 
   const VarType(this.label);
 
@@ -94,35 +88,97 @@ class Variable {
   const Variable(
     this.value, {
     this.type = VarType.any,
-    this.access = VarAccess.protected,
+    this.access = NodeAccess.protected,
     this.exposed = true,
     this.when,
     this.cases = const [],
     this.otherwise,
+    this.field,
+    this.args = const {},
+    this.required = false,
+    this.accepts = const [],
   });
 
   /// The value, when not conditional.
   final Object? value;
   final VarType type;
-  final VarAccess access;
+  final NodeAccess access;
+
+  /// The premade field a [VarType.field] variable is, `system:location`.
+  final String? field;
+
+  /// What an entity-typed one gives the entity it names, as templates; an
+  /// argument that comes out blank is not given. See `Source.variables`.
+  final Map<String, Object?> args;
+
+  /// What an entity typed one holds: the categories of entity it takes. Empty
+  /// takes any, but offers nothing; a prefab is the card of the categories
+  /// its entity variable lists.
+  final List<String> accepts;
+
+  /// Whether it names [category] as one it takes.
+  bool takes(String category) => accepts.contains(category);
 
   /// On a prefab's root: whether an instance shows it as a field.
   final bool exposed;
 
+  /// Whatever reads it cannot go on while it has no value: a source is not
+  /// fetched.
+  final bool required;
+
   /// This variable with the type and access of [under], its prefab's
-  /// declaration, when it sets neither.
-  Variable over(Variable? under) =>
-      under == null || type != VarType.any || access != VarAccess.protected
-      ? this
-      : Variable(
-          value,
-          type: under.type,
-          access: under.access,
-          exposed: under.exposed,
-          when: when,
-          cases: cases,
-          otherwise: otherwise,
-        );
+  /// declaration, when it sets neither. One of the same type that is asked
+  /// with no arguments of its own is asked with the prefab's.
+  Variable over(Variable? under) {
+    if (under == null) return this;
+    if (type != VarType.any || access != NodeAccess.protected) {
+      return args.isEmpty && under.args.isNotEmpty && type == under.type
+          ? _with(args: under.args)
+          : this;
+    }
+    return _with(
+      type: under.type,
+      access: under.access,
+      exposed: under.exposed,
+      field: under.field,
+      args: args.isEmpty ? under.args : args,
+      required: under.required,
+      accepts: accepts.isEmpty ? under.accepts : accepts,
+    );
+  }
+
+  Variable _with({
+    VarType? type,
+    NodeAccess? access,
+    bool? exposed,
+    String? field,
+    Map<String, Object?>? args,
+    bool? required,
+    List<String>? accepts,
+  }) => Variable(
+    value,
+    type: type ?? this.type,
+    access: access ?? this.access,
+    exposed: exposed ?? this.exposed,
+    required: required ?? this.required,
+    when: when,
+    cases: cases,
+    otherwise: otherwise,
+    field: field ?? this.field,
+    args: args ?? this.args,
+    accepts: accepts ?? this.accepts,
+  );
+
+  /// This type and access, holding [value] instead: an instance's value.
+  Variable withValue(Object? value) => Variable(
+    value,
+    type: type,
+    access: access,
+    field: field,
+    args: args,
+    required: required,
+    accepts: accepts,
+  );
 
   /// The template a conditional evaluates.
   final String? when;
@@ -132,16 +188,30 @@ class Variable {
   bool get isConditional => when != null;
 
   factory Variable.fromJson(Object? json) {
-    if (json is! Map<Object?, Object?> ||
-        !(json.containsKey('value') || json.containsKey('when'))) {
+    if (json is! Map<Object?, Object?> || !_declares(json)) {
       return Variable(json);
     }
+    final (type, field) = typeOf(json['type']);
     return Variable(
       json['value'],
-      type: VarType.values.asNameMap()[json['type']] ?? VarType.any,
+      type: type,
+      field: field,
+      args: switch (json['with']) {
+        final Map<Object?, Object?> args => {
+          for (final MapEntry(:key, :value) in args.entries)
+            if (key is String) key: value,
+        },
+        _ => const {},
+      },
       access:
-          VarAccess.values.asNameMap()[json['access']] ?? VarAccess.protected,
+          NodeAccess.values.asNameMap()[json['access']] ?? NodeAccess.protected,
       exposed: json['exposed'] != false,
+      required: json['required'] == true,
+      accepts: [
+        if (json['accepts'] case final List<Object?> several)
+          for (final one in several)
+            if (one is String && one.isNotEmpty) one,
+      ],
       when: switch (json['when']) {
         final String looked => looked,
         _ => null,
@@ -154,12 +224,51 @@ class Variable {
     );
   }
 
+  /// A map with a `value` is always a declaration, whatever else it holds.
+  /// Without one it is a declaration only when every key is one of these;
+  /// any other map is plain data.
+  static const _declarationKeys = {
+    'value',
+    'when',
+    'cases',
+    'else',
+    'type',
+    'with',
+    'access',
+    'exposed',
+    'required',
+    'accepts',
+  };
+
+  static bool _declares(Map<Object?, Object?> json) =>
+      json.containsKey('value') ||
+      (json.isNotEmpty && json.keys.every(_declarationKeys.contains));
+
+  /// A type is a [VarType] name, else a premade field's id.
+  static (VarType, String?) typeOf(Object? written) => switch (written) {
+    final String name when VarType.values.asNameMap()[name] != null => (
+      VarType.values.asNameMap()[name]!,
+      null,
+    ),
+    final String id when id.trim().isNotEmpty => (VarType.field, id.trim()),
+    _ => (VarType.any, null),
+  };
+
+  /// A map value that would read back as a declaration is wrapped.
+  Object? get plainValueJson => switch (value) {
+    final Map<Object?, Object?> map when _declares(map) => {'value': map},
+    _ => value,
+  };
+
   Object? toJson() =>
       !isConditional &&
-          access == VarAccess.protected &&
+          access == NodeAccess.protected &&
           type == VarType.any &&
-          exposed
-      ? value
+          args.isEmpty &&
+          accepts.isEmpty &&
+          exposed &&
+          !required
+      ? plainValueJson
       : {
           if (isConditional) ...{
             'when': when,
@@ -167,9 +276,15 @@ class Variable {
             'else': otherwise,
           } else
             'value': value,
-          if (type != VarType.any) 'type': type.name,
-          if (access != VarAccess.protected) 'access': access.name,
+          if (type == VarType.field && field != null)
+            'type': field
+          else if (type != VarType.any)
+            'type': type.name,
+          if (args.isNotEmpty) 'with': args,
+          if (accepts.isNotEmpty) 'accepts': accepts,
+          if (access != NodeAccess.protected) 'access': access.name,
           if (!exposed) 'exposed': false,
+          if (required) 'required': true,
         };
 
   /// Its current value; [read] evaluates a template.
@@ -191,6 +306,12 @@ typedef Variables = Map<String, Variable>;
 
 bool _conditional(Map<String, Object?> one) => one['conditional'] == true;
 
+/// Whether the form row [one] is typed as a premade field.
+bool isFieldTyped(Map<String, Object?> one) =>
+    Variable.typeOf(one['type']).$1 == VarType.field;
+
+bool _isEntity(Map<String, Object?> one) => one['type'] == VarType.entity.name;
+
 /// Types with a control of their own; `expression` in a row swaps it for a
 /// template.
 const _fixed = {VarType.number, VarType.bool, VarType.colour, VarType.entity};
@@ -210,6 +331,7 @@ bool Function(Map<String, Object?> one) _valueOf(VarType type) =>
 /// the tick a prefab's own variables have.
 Field variableOptions({
   Map<String, String> entities = const {},
+  Map<String, String> premade = const {},
   bool exposable = false,
 }) => Field(
   'vars',
@@ -224,15 +346,19 @@ Field variableOptions({
       'Type',
       FieldKind.choice,
       defaultValue: VarType.any.name,
-      choices: {for (final type in VarType.values) type.name: type.label},
+      choices: {
+        for (final type in VarType.values)
+          if (type != VarType.field) type.name: type.label,
+        ...premade,
+      },
     ),
     Field(
       'access',
       'Access',
       FieldKind.choice,
-      defaultValue: VarAccess.protected.name,
+      defaultValue: NodeAccess.protected.name,
       choices: {
-        for (final access in VarAccess.values) access.name: access.label,
+        for (final access in NodeAccess.values) access.name: access.label,
       },
     ),
     if (exposable)
@@ -250,6 +376,7 @@ Field variableOptions({
       FieldKind.template,
       when: (one) =>
           !_conditional(one) &&
+          !isFieldTyped(one) &&
           (!hasTypedValue(one) || one['expression'] == true),
     ),
     Field(
@@ -275,6 +402,16 @@ Field variableOptions({
         ...entities,
       },
       when: _valueOf(VarType.entity),
+    ),
+    Field(
+      'with',
+      'Add argument',
+      FieldKind.list,
+      heading: 'name',
+      asks: 'Argument name',
+      blank: const {'name': 'name'},
+      fields: (_) => const [Field('value', 'Value', FieldKind.template)],
+      when: (one) => !_conditional(one) && _isEntity(one),
     ),
     const Field('when', 'Based on', FieldKind.template, when: _conditional),
     Field(
@@ -303,9 +440,18 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
   for (final MapEntry(key: name, value: variable) in variables.entries)
     {
       'name': name,
-      'type': variable.type.name,
+      'type': variable.type == VarType.field
+          ? variable.field ?? VarType.any.name
+          : variable.type.name,
       'access': variable.access.name,
+      if (variable.args.isNotEmpty)
+        'with': [
+          for (final MapEntry(:key, :value) in variable.args.entries)
+            {'name': key, 'value': '$value'},
+        ],
       if (!variable.exposed) 'exposed': false,
+      if (variable.required) 'required': true,
+      if (variable.accepts.isNotEmpty) 'accepts': variable.accepts,
       if (variable.isConditional) ...{
         'conditional': true,
         'when': variable.when,
@@ -320,6 +466,7 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
         'value': switch (variable.type) {
           VarType.number when value is num => value,
           VarType.bool when value is bool => value,
+          VarType.field when value is Map => value,
           _ => '$value',
         },
       },
@@ -336,12 +483,29 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
       continue;
     }
     final conditional = _conditional(one);
+    final (type, field) = Variable.typeOf(one['type']);
     variables[name] = Variable(
-      conditional ? null : typedValue('${one['value'] ?? ''}'),
-      type: VarType.values.asNameMap()[one['type']] ?? VarType.any,
+      conditional
+          ? null
+          : one['value'] is Map
+          ? one['value']
+          : typedValue('${one['value'] ?? ''}'),
+      type: type,
+      field: field,
+      args: {
+        if (one['with'] case final List<Object?> args when !conditional)
+          for (final arg in args)
+            if (arg is Map && '${arg['name'] ?? ''}'.isNotEmpty)
+              '${arg['name']}': arg['value'] ?? '',
+      },
       access:
-          VarAccess.values.asNameMap()[one['access']] ?? VarAccess.protected,
+          NodeAccess.values.asNameMap()[one['access']] ?? NodeAccess.protected,
       exposed: one['exposed'] != false,
+      required: one['required'] == true,
+      accepts: [
+        if (one['accepts'] case final List<Object?> several)
+          for (final category in several) '$category',
+      ],
       when: conditional ? '${one['when'] ?? ''}' : null,
       cases: [
         if (one['cases'] case final List<Object?> cases when conditional)

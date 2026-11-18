@@ -25,9 +25,7 @@ void main() {
               child: StatefulBuilder(
                 builder: (context, setState) => ValuesSettings(
                   entities: entities,
-                  place: null,
                   onEntities: (next) => setState(() => entities = next),
-                  onPlace: (_) {},
                 ),
               ),
             ),

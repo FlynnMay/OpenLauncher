@@ -9,6 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:openlauncher/core/packs/icon_set.dart';
 import 'package:openlauncher/core/packs/pack.dart';
 import 'package:openlauncher/core/packs/pack_contents.dart';
+import 'package:openlauncher/core/packs/pack_layout.dart';
+import 'package:openlauncher_domain/fields/field_spec.dart';
+import 'package:openlauncher_domain/json/json_decode.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -62,18 +65,21 @@ class PackStore with ChangeNotifier {
   static const maxBytes = 64 * 1024 * 1024;
 
   static const _assets = 'assets/packs/';
-  static const _manifest = 'pack.json';
+  static const _manifests = ['pack.json', 'pack.jsonc'];
 
   /// Holds the hash of the bundled zip a built-in pack was unpacked from.
   static const _stamp = '.bundled';
 
-  /// The only files a pack is read for; anything else in a zip is left.
-  static final _kept = RegExp(
-    r'^(pack\.json|fonts/[A-Za-z0-9._-]+\.(ttf|otf)'
-    '|(icons|${PackContents.folders.join('|')})'
-    r'/[a-z0-9][a-z0-9_-]*\.json'
+  /// The files outside its features that a pack is read for.
+  static final _fixed = RegExp(
+    r'^(pack\.jsonc?|fonts/[A-Za-z0-9._-]+\.(ttf|otf)'
+    r'|icons/[a-z0-9][a-z0-9_-]*\.jsonc?'
     r'|images/[a-z0-9][a-z0-9_-]*\.(svg|png|webp))$',
   );
+
+  /// The only files a pack is read for; anything else in a zip is left.
+  static bool _keeps(String path) =>
+      _fixed.hasMatch(path) || PackContents.reads(path);
 
   final Ref _ref;
 
@@ -87,8 +93,9 @@ class PackStore with ChangeNotifier {
     final bundle = _ref.read(bundledPacksProvider);
     final Map<Object?, Object?> index;
     try {
-      index = jsonDecode(
+      index = decodeJson(
         await bundle.loadString('${_assets}index.json', cache: false),
+        source: 'index.json',
       ) as Map;
     } on FlutterError {
       return const {};
@@ -106,12 +113,19 @@ class PackStore with ChangeNotifier {
     return ids;
   }
 
-  Future<Pack?> _read(Directory folder, Set<String> builtIn) async {
-    final manifest = File(p.join(folder.path, _manifest));
-    if (!await manifest.exists()) return null;
+  Future<Pack?> _read(
+    Directory folder,
+    Set<String> builtIn,
+    FieldLibrary library,
+  ) async {
+    final manifest = await _manifestIn(folder);
+    if (manifest == null) return null;
     final Pack? pack;
     try {
-      pack = Pack.fromJson(jsonDecode(await manifest.readAsString()));
+      pack = Pack.fromJson(
+        decodeJson(await manifest.readAsString(), source: manifest.path),
+        library: library,
+      );
     } on FormatException {
       return null;
     }
@@ -124,13 +138,45 @@ class PackStore with ChangeNotifier {
       final path = p.posix.joinAll(
         p.split(p.relative(entry.path, from: folder.path)),
       );
-      if (path != _manifest && _kept.hasMatch(path)) files.add(path);
+      if (!_manifests.contains(path) && _keeps(path)) files.add(path);
     }
     return pack.copyWith(
+      fields: _premadeOf(pack.id, library),
       builtIn: builtIn.contains(pack.id),
       bytes: bytes,
       files: files..sort(),
     );
+  }
+
+  /// Pack [id]'s premade fields, read through to plain ones.
+  static Map<String, FieldSpec> _premadeOf(String id, FieldLibrary library) => {
+    for (final reference in library.premade.keys)
+      if (reference.startsWith('$id:'))
+        reference.substring(id.length + 1): ?FieldSpec.fromJson(
+          {'type': reference},
+          library: library,
+          pack: id,
+        ),
+  };
+
+  Future<File?> _manifestIn(Directory folder) async {
+    for (final name in _manifests) {
+      final file = File(p.join(folder.path, name));
+      if (await file.exists()) return file;
+    }
+    return null;
+  }
+
+  /// Refuses a pack with both `x.json` and `x.jsonc`: they would be one file.
+  static void _refuseTwins(Iterable<String> paths) {
+    final seen = <String, String>{};
+    for (final path in paths.where(isJsonPath)) {
+      final twin = seen[withoutJsonExtension(path)];
+      if (twin != null) {
+        throw PackRefused(400, 'It has both $twin and $path');
+      }
+      seen[withoutJsonExtension(path)] = path;
+    }
   }
 
   /// By name.
@@ -140,18 +186,53 @@ class PackStore with ChangeNotifier {
   Future<List<Pack>> _installed(Set<String> builtIn) async {
     final dir = await _dir();
     if (!await dir.exists()) return const [];
-    final packs = [
+    final folders = [
       await for (final entry in dir.list())
         if (entry is Directory && !p.basename(entry.path).startsWith('.'))
-          ?await _read(entry, builtIn),
+          entry,
+    ];
+    final library = await _libraryOf(folders);
+    final packs = [
+      for (final folder in folders) ?await _read(folder, builtIn, library),
     ];
     return packs
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
+  /// The premade fields in the `field` files of [folders], by
+  /// `<pack>:<name>`; a pack's folder is named for its id.
+  Future<FieldLibrary> _libraryOf(List<Directory> folders) async {
+    final premade = <String, Map<String, Object?>>{};
+    for (final folder in folders) {
+      premade.addAll(await _premadeIn(folder));
+    }
+    return FieldLibrary(premade);
+  }
+
+  Future<Map<String, Map<String, Object?>>> _premadeIn(Directory folder) async {
+    final premade = <String, Map<String, Object?>>{};
+    if (!await folder.exists()) return premade;
+    await for (final file in folder.list(recursive: true)) {
+      final path = p.posix.joinAll(
+        p.split(p.relative(file.path, from: folder.path)),
+      );
+      final kind = PackFile.of(path);
+      if (file is! File || kind?.kind != PackKind.field) continue;
+      try {
+        final json = decodeJson(await file.readAsString(), source: file.path);
+        for (final item in kind!.items(path, json)) {
+          premade['${p.basename(folder.path)}:${item.name}'] = item.json;
+        }
+      } on FormatException {
+        continue;
+      }
+    }
+    return premade;
+  }
+
   /// Where pack [id] keeps [path]; null if it does not.
   Future<String?> pathOf(String id, String path) async {
-    if (!Pack.validId(id) || !_kept.hasMatch(path)) return null;
+    if (!Pack.validId(id) || !_keeps(path)) return null;
     final file = File(p.joinAll([(await _dir()).path, id, ...path.split('/')]));
     return await file.exists() ? file.path : null;
   }
@@ -221,21 +302,22 @@ class PackStore with ChangeNotifier {
       // A zip of the pack's folder has everything one level down.
       final manifests = [
         for (final file in archive)
-          if (file.isFile && p.posix.basename(at(file)) == _manifest) at(file),
+          if (file.isFile && _manifests.contains(p.posix.basename(at(file))))
+            at(file),
       ]..sort((a, b) => '/'.allMatches(a).length - '/'.allMatches(b).length);
       if (manifests.isEmpty) {
-        throw const PackRefused(400, 'Not a pack: it has no $_manifest');
+        throw const PackRefused(400, 'Not a pack: it has no pack.json');
       }
       final root = manifests.first.substring(
         0,
-        manifests.first.length - _manifest.length,
+        manifests.first.length - p.posix.basename(manifests.first).length,
       );
       var total = 0;
       for (final file in archive) {
         if (!file.isFile || file.isSymbolicLink) continue;
         if (!at(file).startsWith(root)) continue;
         final path = at(file).substring(root.length);
-        if (!_kept.hasMatch(path)) continue;
+        if (!_keeps(path)) continue;
         total += file.size;
         if (total > maxBytes) throw const PackRefused(413, 'Pack too large');
         files[path] = file.readBytes() ?? Uint8List(0);
@@ -251,16 +333,20 @@ class PackStore with ChangeNotifier {
       throw const PackRefused(415, 'Not a zip file');
     }
 
+    _refuseTwins(files.keys);
+    final manifest = _manifests.firstWhere(files.containsKey);
     final Pack? pack;
     try {
-      pack = Pack.fromJson(jsonDecode(utf8.decode(files[_manifest]!)));
-    } on FormatException {
-      throw const PackRefused(400, '$_manifest is not JSON');
+      pack = Pack.fromJson(
+        decodeJson(utf8.decode(files[manifest]!), source: manifest),
+      );
+    } on FormatException catch (error) {
+      throw PackRefused(400, error.message);
     }
     if (pack == null) {
-      throw const PackRefused(
+      throw PackRefused(
         400,
-        '$_manifest needs an "id" of lower-case letters, digits, - or _',
+        '$manifest needs an "id" of lower-case letters, digits, - or _',
       );
     }
     if (stamp == null && builtIn.contains(pack.id)) {
@@ -286,9 +372,12 @@ class PackStore with ChangeNotifier {
       final id = p.posix.basenameWithoutExtension(path);
       final IconSet? set;
       try {
-        set = IconSet.fromJson(id, jsonDecode(utf8.decode(content)));
-      } on FormatException {
-        throw PackRefused(400, '$path is not JSON');
+        set = IconSet.fromJson(
+          id,
+          decodeJson(utf8.decode(content), source: path),
+        );
+      } on FormatException catch (error) {
+        throw PackRefused(400, error.message);
       }
       if (set == null) {
         throw PackRefused(400, '$path needs a "font" and its "icons"');

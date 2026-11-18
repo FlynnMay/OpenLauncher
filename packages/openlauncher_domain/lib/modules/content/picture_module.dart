@@ -12,6 +12,7 @@ const pictureModule = ModuleType(
     Field('source', 'Source (URL or value)', FieldKind.template),
     Field('alt', 'Alt text', FieldKind.template),
     Field('badge', 'Badge', FieldKind.template),
+    Field('pad', 'Padding', FieldKind.template),
     Field(
       'fit',
       'Fit',

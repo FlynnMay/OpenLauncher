@@ -17,23 +17,26 @@ final entityDataProvider = Provider.autoDispose.family<Object?, String>((
     null => null,
     final at => ref.watch(sourceValueProvider(at)).value,
   };
-  return switch (own) {
-    null => {
-      'text': entity.label,
-      'id': entity.id,
-      'label': entity.label,
-      'category': entity.category,
-      ...entity.data,
-    },
-    final Map<Object?, Object?> parts => {
-      'text': entity.label,
-      'id': entity.id,
-      'label': entity.label,
-      'category': entity.category,
-      ...entity.data,
-      ...parts,
-    },
-    // A user value can be any JSON.
-    _ => own,
-  };
+  return entityDataFrom(entity, own);
 });
+
+/// What `{{<id>...}}` reads for [entity] whose feed answered [own].
+Object? entityDataFrom(Entity entity, Object? own) => switch (own) {
+  null => {
+    'text': entity.label,
+    'id': entity.id,
+    'label': entity.label,
+    'category': entity.category,
+    ...entity.data,
+  },
+  final Map<Object?, Object?> parts => {
+    'text': entity.label,
+    'id': entity.id,
+    'label': entity.label,
+    'category': entity.category,
+    ...entity.data,
+    ...parts,
+  },
+  // A user value can be any JSON.
+  _ => own,
+};

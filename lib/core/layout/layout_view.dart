@@ -10,34 +10,37 @@ import 'package:openlauncher_domain/nodes/node.dart';
 /// the inbox, as instances of their prefabs.
 Layout layoutWith(
   Layout layout,
-  List<Entity> entities,
+  List<Node> nodes,
   Map<String, Prefab> prefabs,
 ) {
-  final byId = {for (final entity in entities) entity.id: entity};
+  final byId = {for (final node in nodes) node.id: node};
   return layout.withEntities(
     [
-      for (final entity in entities)
-        if (entity.placed) entity.id,
+      for (final node in nodes)
+        if (node.inbox) node.id,
     ],
-    instance: (entityId, id) => switch (byId[entityId]?.prefab) {
-      final prefab? => prefabs[prefab]?.instance(entityId, id: id),
+    instance: (nodeId, id) => switch (byId[nodeId]) {
+      final node? => cardFor(prefabs, node.category)?.instance(nodeId, id: id),
       null => null,
     },
     known: byId.keys.toSet(),
-    names: {for (final entity in entities) entity.id: entity.name},
+    names: {for (final node in nodes) node.id: node.deviceName},
   );
 }
 
-/// [entity] as an instance of its prefab, at that prefab's size, with an id
-/// free in [layout]; null if it has no prefab that takes it.
-Node? instanceFor(Entity entity, Layout layout, Map<String, Prefab> prefabs) =>
-    switch (entity.prefab) {
-      final prefab? => prefabs[prefab]?.instance(
-        entity.id,
-        id: layout.itemIdFor(Node.autoId(entity.id, entity.name)),
-      ),
-      null => null,
-    };
+/// The thing called [id] of [category], by its device [name], as an instance
+/// of the prefab that is its card, at that prefab's size, with an id free in
+/// [layout]; null if no prefab takes its category.
+Node? instanceFor(
+  String id,
+  String category,
+  String name,
+  Layout layout,
+  Map<String, Prefab> prefabs,
+) => cardFor(
+  prefabs,
+  category,
+)?.instance(id, id: layout.itemIdFor(Node.autoId(id, name)));
 
 /// [instance] with the nodes holding its slots taking how their slots lay
 /// out what is in them. For editing; it is not saved.
@@ -72,11 +75,11 @@ Layout withSlotLayoutsIn(Layout layout, Map<String, Prefab> prefabs) =>
 /// The layout as drawn, kept current with the device and config.
 final layoutViewProvider = FutureProvider<Layout>((ref) async {
   final prefabs = ref.watch(prefabsProvider);
-  final entities = await ref.watch(entityShapesProvider.future);
+  final nodes = await ref.watch(nodeShapesProvider.future);
   final config = await ref.watch(configProvider.future);
   return layoutWith(
     withDockedInstances(config.layout, prefabs),
-    entities,
+    nodes,
     prefabs,
   );
 });

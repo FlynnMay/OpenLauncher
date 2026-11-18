@@ -133,7 +133,6 @@ void main() {
       final app = entities.byId(appId('a.b'))!;
       expect(app.category, appCategory);
       expect(app.label, 'AB');
-      expect(app.prefab, cardPrefabId);
       expect(app.placed, isTrue);
       expect(app.data, {
         'package': 'a.b',
@@ -379,17 +378,17 @@ void main() {
           'label': '{{settings.prefix}} {{row.name}}',
         },
       })!;
-      final made = prefixed.entitiesFrom(
+      final made = prefixed.nodesFrom(
         [
           {'id': 'a', 'name': 'Lamp'},
         ],
         settings: {'prefix': 'Lounge'},
       );
-      expect((made.single.id, made.single.label), ('Lounge/a', 'Lounge Lamp'));
+      expect((made.single.id, made.single.name), ('Lounge/a', 'Lounge Lamp'));
     });
 
     test('makes an entity of each row it holds for', () {
-      final made = generator.entitiesFrom([
+      final made = generator.nodesFrom([
         {'package': 'a.b', 'label': 'AB', 'icon': '/a.png', 'banner': true},
         {'package': 'c.d', 'label': 'CD', 'banner': false},
         {'package': 'skip.me', 'label': 'Skip'},
@@ -397,8 +396,8 @@ void main() {
       ]);
       expect(made.map((entity) => entity.id), ['app/a.b', 'app/c.d']);
       final ab = made.first;
-      expect(ab.label, 'AB');
-      expect(ab.placed, isTrue);
+      expect(ab.name, 'AB');
+      expect(ab.inbox, isTrue);
       expect(ab.data, {'package': 'a.b', 'icon': '/a.png', 'shape': 'banner'});
       // No icon: none in its data.
       expect(made.last.data.containsKey('icon'), isFalse);
@@ -410,7 +409,7 @@ void main() {
     });
 
     test('makes no more than its limit', () {
-      final made = generator.entitiesFrom([
+      final made = generator.nodesFrom([
         for (var i = 0; i < Generator.maxEntities + 5; i++) {'package': '$i'},
       ]);
       expect(made, hasLength(Generator.maxEntities));
@@ -463,10 +462,10 @@ void main() {
     }
 
     final system = _pack('sys', {
-      'sources/apps.json': {'url': 'os://apps', 'watch': true},
-      'sources/inputs.json': {'url': 'os://inputs'},
-      'generators/apps.json': _apps,
-      'generators/inputs.json': {
+      'apps/source.json': {'url': 'os://apps', 'watch': true},
+      'inputs/source.json': {'url': 'os://inputs'},
+      'apps/generator.json': _apps,
+      'inputs/generator.json': {
         'from': 'inputs',
         'entity': {
           'id': 'socket/{{row.id}}',
@@ -474,13 +473,13 @@ void main() {
           'data': {'kind': '{{row.kind}}', 'icon': 'pack:sys/images/lamp.svg'},
         },
       },
-      'entities/lamp.json': {
+      'lamp/entity.json': {
         'id': 'lamp',
         'label': 'Lamp',
         'data': {'icon': 'pack:sys/images/none.svg'},
       },
       'images/lamp.svg': _lamp,
-      'prefabs/tile.json': {
+      'tile/prefab.json': {
         'id': 'tile',
         'name': 'Tile',
         'root': {'id': 'tile'},
@@ -534,16 +533,16 @@ void main() {
         (await refused(
           store,
           _pack('ha', {
-            'entities/x.json': {'id': 'x', 'feed': 'nowhere'},
+            'x/entity.json': {'id': 'x', 'feed': 'nowhere'},
           }),
         )).message,
-        contains('not in sources/'),
+        contains('not a source'),
       );
       await store.install(
         Stream.value(
           _pack('ha', {
-            'sources/time.json': {'url': 'launcher://clock'},
-            'entities/lounge.json': {'id': 'lounge', 'feed': 'time'},
+            'time/source.json': {'url': 'launcher://clock'},
+            'lounge/entity.json': {'id': 'lounge', 'feed': 'time'},
           }),
         ),
       );
@@ -557,6 +556,102 @@ void main() {
       expect(lounge.toJson()['feed'], 'time');
     });
 
+    test('a pack file may be JSONC, a .json one may not', () async {
+      final c = container(const {});
+      final store = c.read(packStoreProvider);
+      await store.install(
+        Stream.value(
+          _pack('ha', {
+            'x/entity.jsonc': '{ "id": "x", // a comment\n "name": "X", }',
+          }),
+        ),
+      );
+      expect((await store.list()).any((pack) => pack.id == 'ha'), isTrue);
+      expect(
+        (await refused(
+          store,
+          _pack('hb', {
+            'x/entity.json': '{ "id": "x", // a comment\n "name": "X" }',
+          }),
+        )).message,
+        startsWith('x/entity.json:1:'),
+      );
+    });
+
+    test('a source variable is typed and read as its own name', () async {
+      final c = container(const {});
+      final store = c.read(packStoreProvider);
+      await store.install(
+        Stream.value(
+          _pack('ha', {
+            'place/entity.json': {'id': 'place'},
+            'x/field/place.json': {'extends': 'text'},
+            'x/source.json': {
+              'url': 'https://x.test/{{place}}',
+              'variables': {
+                'place': {'type': 'place', 'value': 'A', 'required': true},
+              },
+            },
+            'x/generator.json': {
+              'from': 'x',
+              'entity': {'id': 'made', 'label': '{{place}}'},
+            },
+          }),
+        ),
+      );
+      final contents = (await c.read(packContentsProvider.future))
+          .singleWhere((one) => one.pack.id == 'ha');
+      final place = contents.sources['x']!.variables['place']!;
+      expect((place.field, place.required), ('ha:place', true));
+      // An entity of the same name does not take the slot from it.
+      expect(contents.generators['x']!.entity['label'], '{{place}}');
+    });
+
+    test('a source variable cannot take a name the launcher reads', () async {
+      final store = container(const {}).read(packStoreProvider);
+      expect(
+        (await refused(
+          store,
+          _pack('ha', {
+            'x/source.json': {
+              'url': 'https://x.test/a',
+              'variables': {
+                'settings': {'value': 1},
+              },
+            },
+          }),
+        )).message,
+        contains('a name the launcher reads itself'),
+      );
+    });
+
+    test('a pack\'s defs.jsonc is chunks every file in it can use', () async {
+      final c = container(const {});
+      final store = c.read(packStoreProvider);
+      await store.install(
+        Stream.value(
+          _pack('ha', {
+            'defs.jsonc': '{ "\$defs": { "light": { "name": "Lamp" } } }',
+            'x/entity.jsonc': '{ "id": "x", "\$use": "light" }',
+          }),
+        ),
+      );
+      final contents = await c.read(packContentsProvider.future);
+      final entity = contents
+          .singleWhere((one) => one.pack.id == 'ha')
+          .nodes
+          .single;
+      expect(entity.id, 'ha:x');
+      expect(entity.deviceName, 'Lamp');
+      expect(
+        (await refused(
+          store,
+          _pack('hb', {'x/entity.json': '{ "id": "x", "\$use": "missing" }'}),
+        )).message,
+        contains('"missing" is not defined'),
+      );
+    });
+
     test('a pack writes short names, given its own id as it loads', () async {
       final c = container(const {});
       final store = c.read(packStoreProvider);
@@ -566,14 +661,14 @@ void main() {
       // What it defines is its own: no other pack's name in it.
       expect(
         await why({
-          'entities/x.json': {'id': 'other:x'},
+          'x/entity.json': {'id': 'other:x'},
         }),
-        contains('must be a name without ":"'),
+        contains('must be letters, digits, "_" and "-"'),
       );
       expect(
         await why({
-          'sources/states.json': {'url': 'os://apps'},
-          'generators/x.json': {
+          'states/source.json': {'url': 'os://apps'},
+          'x/generator.json': {
             'from': 'states',
             'entity': {'id': 'other:{{row.id}}'},
           },
@@ -582,36 +677,40 @@ void main() {
       );
       expect(
         await why({
-          'generators/x.json': {
+          'x/generator.json': {
             'from': 'states',
             'entity': {'id': '{{row.id}}'},
           },
         }),
-        contains('not in sources/'),
+        contains('not a source'),
       );
       expect(
         await why({
-          'sources/x.json': {'url': 'ftp://x'},
+          'x/source.json': {'url': 'ftp://x'},
         }),
         contains('"url"'),
       );
-      expect(await why({'entities/x.json': '{'}), contains('not JSON'));
+      expect(await why({'x/entity.json': '{'}), startsWith('x/entity.json:1:'));
 
       await store.install(
         Stream.value(
           _pack('ha', {
-            'entities/lounge.json': {
+            'lounge/entity.json': {
               'id': 'lounge',
               'label': 'Lounge',
-              'prefab': 'tile',
+              'category': 'light',
             },
-            'prefabs/tile.json': {
+            'tile/prefab.json': {
               'id': 'tile',
               'root': {
                 'id': 'tile',
                 'modules': {
                   'variables': {
-                    'source': {'value': 'lounge', 'type': 'entity'},
+                    'source': {
+                      'value': 'lounge',
+                      'type': 'entity',
+                      'accepts': ['light'],
+                    },
                   },
                   'triggers': {
                     'press': [
@@ -637,8 +736,10 @@ void main() {
         ),
       );
       final lounge = (await c.read(entitiesProvider.future)).byId('ha:lounge')!;
-      expect((lounge.label, lounge.prefab), ('Lounge', 'ha:tile'));
-      final tile = c.read(prefabsProvider)['ha:tile']!.root;
+      expect(lounge.label, 'Lounge');
+      final prefabs = c.read(prefabsProvider);
+      expect(cardFor(prefabs, lounge.category)?.id, 'ha:tile');
+      final tile = prefabs['ha:tile']!.root;
       expect(tile.vars['source']?.value, 'ha:lounge');
       expect(tile.on[Trigger.press], [
         const Act('toggle', {'entity': 'ha:lounge'}),
@@ -655,7 +756,7 @@ void main() {
       final c = container({'sys': system});
       final store = c.read(packStoreProvider);
       final card = {
-        'prefabs/card.json': {
+        'card/prefab.json': {
           'id': 'card',
           'root': {'id': 'card', 'prefab': 'sys:tile'},
         },

@@ -7,10 +7,24 @@ class CommitField extends StatefulWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.hint = '',
+    this.help = '',
+    this.multiline = false,
+    this.fits,
   });
 
   final String label, value;
   final void Function(String value) onChanged;
+
+  /// Shown while empty, and under the field.
+  final String hint, help;
+
+  /// Whether it takes several lines; Enter is then a new line and only
+  /// leaving the field commits.
+  final bool multiline;
+
+  /// Whether a text is acceptable; one that is not is marked and not kept.
+  final bool Function(String text)? fits;
 
   @override
   State<CommitField> createState() => _CommitFieldState();
@@ -25,8 +39,10 @@ class _CommitFieldState extends State<CommitField> {
 
   void _take() {
     final value = _text.text.trim();
-    if (value != widget.value) widget.onChanged(value);
+    if (value != widget.value && _fine(value)) widget.onChanged(value);
   }
+
+  bool _fine(String text) => widget.fits?.call(text) ?? true;
 
   @override
   void didUpdateWidget(CommitField old) {
@@ -52,10 +68,16 @@ class _CommitFieldState extends State<CommitField> {
       focusNode: _focus,
       decoration: InputDecoration(
         labelText: widget.label,
+        hintText: widget.hint.isEmpty ? null : widget.hint,
+        helperText: widget.help.isEmpty ? null : widget.help,
+        errorText: _fine(_text.text.trim()) ? null : 'Not a valid value',
         isDense: true,
         border: const OutlineInputBorder(),
       ),
-      onSubmitted: (_) => _take(),
+      minLines: widget.multiline ? 3 : 1,
+      maxLines: widget.multiline ? 8 : 1,
+      onChanged: widget.fits == null ? null : (_) => setState(() {}),
+      onSubmitted: widget.multiline ? null : (_) => _take(),
     ),
   );
 }

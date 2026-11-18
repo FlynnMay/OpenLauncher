@@ -1,0 +1,133 @@
+{
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/prefab.schema.json",
+  "id": "app-card",
+  "name": "App card",
+  "root": {
+    "id": "root",
+    "modules": {
+      "layout": {
+        "mode": "column",
+        "gap": 6
+      },
+      "variables": {
+        "source": {
+          "value": null,
+          "type": "entity",
+          "accepts": ["app", "input", "launcher"]
+        }
+      },
+      "triggers": {
+        "press": [
+          {
+            "do": "open",
+            "entity": "{{source.id}}"
+          }
+        ],
+        "hold": [
+          {
+            "run": "launcher://variables/set",
+            "with": {
+              "of": "quick-actions",
+              "var": "source",
+              "value": "{{source.id}}"
+            }
+          },
+          {
+            "run": "launcher://variables/set",
+            "with": {
+              "of": "quick-actions",
+              "var": "open",
+              "value": true
+            }
+          }
+        ]
+      },
+      "focus": {
+        "target": "picture",
+        "bare": "{{source.shape == 'line'}}",
+        "scale": 108
+      }
+    },
+    "children": [
+      {
+        "id": "picture",
+        "modules": {
+          "picture": {
+            "source": "{{source.icon}}",
+            "fit": "{{source.shape == 'banner' ? 'cover' : 'contain'}}",
+            "pad": "{{source.shape == 'icon' ? 14 : 0}}",
+            "alt": "{{source.label}}",
+            "badge": "{{source.number}}"
+          },
+          "style": {
+            "radius": 0
+          },
+          "sizing": {
+            "flex": 1
+          }
+        }
+      },
+      {
+        "id": "name",
+        "modules": {
+          "text": {
+            "text": "{{source.label}}",
+            "overflow": "ellipsis"
+          },
+          "style": {
+            "fontSize": 12,
+            "fontWeight": "medium"
+          },
+          "visibility": {
+            "keep": true
+          }
+        }
+      }
+    ]
+  },
+  "variants": {
+    "stacked": {
+      "label": "Name under the picture"
+    },
+    "row": {
+      "label": "Name beside the picture",
+      "overrides": {
+        "root": {
+          "modules": {
+            "layout": {
+              "mode": "row",
+              "gap": 12
+            },
+            "focus": {
+              "scale": 104
+            }
+          }
+        },
+        "picture": {
+          "modules": {
+            "picture": {
+              "pad": "{{source.shape == 'icon' ? 4 : 0}}"
+            },
+            "sizing": {
+              "flex": 0,
+              "aspect": 1.7777777777777777
+            }
+          }
+        },
+        "name": {
+          "modules": {
+            "style": {
+              "textAlign": "left"
+            },
+            "sizing": {
+              "flex": 1
+            },
+            "visibility": {
+              "keep": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

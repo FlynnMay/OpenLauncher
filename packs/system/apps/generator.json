@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/FlynnMay/OpenLauncher/main/schemas/generator.schema.json",
+  "from": "apps",
+  "entity": {
+    "id": "app/{{row.package}}",
+    "category": "app",
+    "label": "{{row.label}}",
+    "placed": true,
+    "data": {
+      "package": "{{row.package}}",
+      "icon": "{{row.icon}}",
+      "shape": "{{row.banner ? 'banner' : 'icon'}}"
+    },
+    "actions": {
+      "open": {
+        "run": "os://apps/launch",
+        "with": { "package": "{{self.package}}" },
+        "label": "Open",
+        "icon": "material:play_arrow"
+      },
+      "info": {
+        "run": "os://apps/info",
+        "with": { "package": "{{self.package}}" },
+        "label": "App info",
+        "icon": "material:info"
+      },
+      "uninstall": {
+        "run": "os://apps/uninstall",
+        "with": { "package": "{{self.package}}" },
+        "label": "Uninstall",
+        "icon": "material:delete"
+      }
+    }
+  }
+}

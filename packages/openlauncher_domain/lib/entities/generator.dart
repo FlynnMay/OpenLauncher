@@ -1,15 +1,23 @@
 import 'package:meta/meta.dart';
-import 'package:openlauncher_domain/entities/entity.dart';
+import 'package:openlauncher_domain/entities/entity_node.dart';
 import 'package:openlauncher_domain/json/shallow_equality.dart';
+import 'package:openlauncher_domain/nodes/node.dart';
 import 'package:openlauncher_domain/values/template.dart';
+import 'package:openlauncher_domain/values/template_fill.dart';
 
 /// Turns a source's rows into entities, from a pack's
-/// `generators/<name>.json`: `{from, where, entity}`. `entity` is Entity JSON
-/// whose `{{row...}}` slots are filled from each row; other slots (`self`,
-/// args) are left for when an action runs.
+/// `generators/<name>.json`: `{from, where, tables, entity}`. `entity` is
+/// Entity JSON whose `{{row...}}` slots are filled from each row; other slots
+/// (`self`, args) are left for when an action runs. `tables` are lookups the
+/// slots read as `{{get(tables.sky, row.code)}}`.
 @immutable
 class Generator {
-  const Generator({required this.from, required this.entity, this.where});
+  const Generator({
+    required this.from,
+    required this.entity,
+    this.where,
+    this.tables = const {},
+  });
 
   static const maxEntities = 500;
 
@@ -20,6 +28,9 @@ class Generator {
   final String? where;
 
   final Map<String, Object?> entity;
+
+  /// Table name -> key -> value.
+  final Map<String, Object?> tables;
 
   static Generator? fromJson(Object? json) => switch (json) {
     {'from': final String from, 'entity': final Map<Object?, Object?> entity}
@@ -34,6 +45,13 @@ class Generator {
           for (final MapEntry(:key, :value) in entity.entries)
             if (key is String) key: value,
         },
+        tables: switch (json['tables']) {
+          final Map<Object?, Object?> tables => {
+            for (final MapEntry(:key, :value) in tables.entries)
+              if (key is String) key: value,
+          },
+          _ => const {},
+        },
       ),
     _ => null,
   };
@@ -41,38 +59,48 @@ class Generator {
   Map<String, Object?> toJson() => {
     'from': from,
     'where': ?where,
+    if (tables.isNotEmpty) 'tables': tables,
     'entity': entity,
   };
 
-  /// One entity per row it holds for, up to [maxEntities]; the first with an
+  /// Whether the entities it makes are called [id]: its entity's id has no
+  /// slot, so it makes just that one.
+  bool makes(String id) => entity['id'] == id;
+
+  /// One node per row it holds for, up to [maxEntities]; the first with an
   /// id is the one. `{{settings...}}` reads [settings], the pack's plain
-  /// values, so a pack can have the user's prefix in its ids or labels.
-  List<Entity> entitiesFrom(
+  /// values, and each name in [params] the value its source was asked with,
+  /// so a pack can have the user's prefix in its ids or labels.
+  List<Node> nodesFrom(
     List<Object?> rows, {
     Map<String, Object?> settings = const {},
+    Map<String, Object?> params = const {},
   }) {
-    final made = <String, Entity>{};
+    final made = <String, Node>{};
     for (final row in rows) {
       if (made.length == maxEntities) break;
       Object? lookup(String root) => switch (root) {
         'row' => row,
         'settings' => settings,
-        _ => null,
+        'tables' => tables,
+        _ => params[root],
       };
       if (where case final where?
           when !isTruthy(Template.parse(where).evaluate(lookup))) {
         continue;
       }
-      final json = filled(entity, lookup, const {
+      final json = fillSlots(entity, {
         'row',
         'settings',
-      }) as Map<String, Object?>;
+        'tables',
+        ...params.keys,
+      }, lookup) as Map<String, Object?>;
       // A value with nothing to say is left out.
       if (json['data'] case final Map<String, Object?> data) {
         data.removeWhere((_, value) => value == null);
       }
-      if (Entity.fromJson(json) case final entity?) {
-        made.putIfAbsent(entity.id, () => entity);
+      if (nodeFromEntityJson(json) case final node?) {
+        made.putIfAbsent(node.id, () => node);
       }
     }
     return [...made.values];
@@ -83,27 +111,9 @@ class Generator {
       other is Generator &&
       other.from == from &&
       other.where == where &&
-      mapsEqual(other.entity, entity);
+      mapsEqual(other.entity, entity) &&
+      mapsEqual(other.tables, tables);
 
   @override
   int get hashCode => Object.hash(from, where);
 }
-
-/// [json] with the slots of its text that read only [roots] filled.
-Object? filled(
-  Object? json,
-  Object? Function(String root) lookup, [
-  Set<String> roots = const {'row'},
-]) => switch (json) {
-  final String text when text.contains('{{') => Template.parse(
-    text,
-  ).fill(roots, lookup),
-  final Map<Object?, Object?> map => <String, Object?>{
-    for (final MapEntry(:key, :value) in map.entries)
-      if (key is String) key: filled(value, lookup, roots),
-  },
-  final List<Object?> list => [
-    for (final item in list) filled(item, lookup, roots),
-  ],
-  _ => json,
-};

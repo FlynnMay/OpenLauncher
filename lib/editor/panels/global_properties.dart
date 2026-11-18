@@ -35,16 +35,10 @@ class GlobalProperties extends ConsumerWidget {
         ),
         ValuesSettings(
           entities: config.entities,
-          place: config.place,
           onEntities: (entities) => changeSettings(
             context,
             ref,
             (c) => c.copyWith(entities: entities),
-          ),
-          onPlace: (place) => changeSettings(
-            context,
-            ref,
-            (c) => c.copyWith(place: () => place),
           ),
         ),
         const PrefabList(),
