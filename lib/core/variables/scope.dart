@@ -6,6 +6,7 @@ import 'package:openlauncher/core/config/config.dart';
 import 'package:openlauncher/core/entities/entity_data.dart';
 import 'package:openlauncher/core/entities/entity_data_with.dart';
 import 'package:openlauncher/core/prefabs/prefabs.dart';
+import 'package:openlauncher/core/variables/node_reading.dart';
 import 'package:openlauncher_domain/layout/layout.dart';
 import 'package:openlauncher_domain/modules/modules.dart';
 import 'package:openlauncher_domain/nodes/nodes.dart';
@@ -37,16 +38,22 @@ class RuntimeVars extends Notifier<Map<String, Map<String, Object?>>> {
   }
 }
 
+/// Scope key holding the id of the node whose values the scope is.
+const readerKey = '#node';
+
 /// Evaluates [template], looking names up in [scope] first, then as entity or
 /// component ids.
 Object? readTemplate(Watch watch, String template, Map<String, Object?> scope) {
   final parsed = Template.parse(template);
+  final reader = switch (scope[readerKey]) {
+    final String id => id,
+    _ => null,
+  };
   final values = {
     for (final root in parsed.roots)
       root: scope.containsKey(root)
           ? scope[root]
-          : watch(entityDataProvider(root)) ??
-                watch(componentDataProvider(root)),
+          : watch(nodeValueProvider((root: root, reader: reader))),
   };
   return parsed.evaluate((root) => values[root]);
 }
@@ -92,7 +99,9 @@ Scope scopeOf(
   final runtime = watch(
     runtimeVarsProvider.select((all) => all[id] ?? const <String, Object?>{}),
   );
-  final own = {...outer}, inner = {...outer}, public = <String, Object?>{};
+  final own = {...outer, readerKey: id};
+  final inner = {...outer, readerKey: id};
+  final public = <String, Object?>{};
   for (final MapEntry(key: name, value: variable) in variables.entries) {
     if (variable.type == VarType.nodes) continue;
     final raw = runtime.containsKey(name)

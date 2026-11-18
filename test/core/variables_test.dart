@@ -159,6 +159,7 @@ void main() {
       addTearDown(held.close);
       final scope = scopeOf(c.read, 'box', item.vars, const {'outer': 1});
       expect(scope.own.keys, {
+        readerKey,
         'outer',
         'secret',
         'handed',
@@ -166,7 +167,14 @@ void main() {
         'app',
         'said',
       });
-      expect(scope.inner.keys, {'outer', 'handed', 'open', 'app', 'said'});
+      expect(scope.inner.keys, {
+        readerKey,
+        'outer',
+        'handed',
+        'open',
+        'app',
+        'said',
+      });
       expect(scope.public.keys, {'open', 'app'});
       // One that holds an entity stands for it; it is the variable that
       // says so, not what it happens to be set to.

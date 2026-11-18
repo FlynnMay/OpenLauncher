@@ -1,4 +1,5 @@
 import 'package:openlauncher_domain/nodes/node_names.dart';
+import 'package:openlauncher_domain/nodes/node_path.dart';
 import 'package:openlauncher_domain/values/template.dart';
 import 'package:test/test.dart';
 
@@ -139,6 +140,30 @@ void main() {
         expect(isFreeName(word), isFalse);
       }
       expect(isFreeName('location'), isTrue);
+    });
+  });
+
+  group('a root read as a path', () {
+    test('is segments and a module', () {
+      final path = NodePath.parse('homeassistant:kitchen/icon#style');
+      expect(path.segments, ['homeassistant:kitchen', 'icon']);
+      expect(path.module, 'style');
+      expect(path.isWholeId, isFalse);
+    });
+
+    test('takes quotes off a segment and keeps what is inside', () {
+      final path = NodePath.parse("system:'app/com.example.tv'/icon");
+      expect(path.segments, ['system:app/com.example.tv', 'icon']);
+      expect(NodePath.parse('"a#b"').segments, ['a#b']);
+      expect(NodePath.parse('"a#b"').module, isNull);
+    });
+
+    test('knows the words for a place in the tree', () {
+      expect(NodePath.parse('parent/label').keyword, 'parent');
+      expect(NodePath.parse('self#style').keyword, 'self');
+      expect(NodePath.parse('card/root').keyword, isNull);
+      expect(NodePath.parse('card').isWholeId, isTrue);
+      expect(NodePath.parse('card/icon').idOf(1), 'card');
     });
   });
 }
