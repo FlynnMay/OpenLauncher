@@ -1399,6 +1399,40 @@ void main() {
     });
   });
 
+  test('3 to 4: the weather place is a pack setting, the old prefab goes', () {
+    Map<String, Object?> weather(String name, String source) => {
+      'id': 'system:weather',
+      'name': name,
+      'root': {
+        'id': 'root',
+        'modules': {
+          'variables': {
+            'source': {'value': source, 'type': 'entity'},
+          },
+        },
+      },
+    };
+    final place = {'name': 'Perth', 'latitude': -31.95, 'longitude': 115.86};
+    final next = migrate({
+      'v': 3,
+      'place': place,
+      'prefabs': [
+        weather('Weather', 'system:weather'),
+        weather('Other', 'system:clock'),
+        {'id': 'mine', 'name': 'Mine'},
+      ],
+      'layout': {'v': 3},
+    });
+    expect(next.containsKey('place'), isFalse);
+    expect(next['packSettings'], {
+      'system': {'location': place},
+    });
+    expect((next['prefabs']! as List).map((prefab) => prefab['name']), [
+      'Other',
+      'Mine',
+    ]);
+  });
+
   test('3 to 4: closing a popup is closing an overlay', () {
     final next = migrate({
       'v': 3,
