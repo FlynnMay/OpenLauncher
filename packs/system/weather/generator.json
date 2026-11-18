@@ -67,7 +67,6 @@
     "id": "weather",
     "category": "weather",
     "label": "Weather",
-    "prefab": "weather",
     "data": {
       "text": "{{round(row.current.temperature_2m)}}°",
       "temperature": "{{row.current.temperature_2m}}",

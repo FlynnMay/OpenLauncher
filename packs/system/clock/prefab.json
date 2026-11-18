@@ -13,7 +13,8 @@
       "variables": {
         "source": {
           "value": "clock",
-          "type": "entity"
+          "type": "entity",
+          "accepts": ["clock"]
         }
       },
       "sizing": {

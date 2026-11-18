@@ -26,7 +26,6 @@ Entity _entity(String name) => Entity(
   id: 'system:app/$name',
   category: appCategory,
   label: name,
-  prefab: cardPrefabId,
   placed: true,
 );
 

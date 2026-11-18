@@ -25,6 +25,9 @@ enum ModuleUse {
   /// On the screen, outside any prefab.
   onScreen,
 
+  /// On a node a pack defines or generates; the editor never offers it.
+  generated,
+
   /// On a screen's root.
   screenRoot,
 }

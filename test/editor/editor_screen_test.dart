@@ -252,36 +252,16 @@ void main() {
   });
 
   testWidgets('what can be added is under headings that close', (tester) async {
-    const mine = Entity(
-      id: 'mine',
-      category: 'mine',
-      label: 'Mine',
-      prefab: cardPrefabId,
-    );
+    const mine = Entity(id: 'mine', category: 'launcher', label: 'Mine');
     await pump(
       tester,
       const Size(1600, 1400),
       state: TvState(
         packs: [systemPack],
         entities: const [
-          Entity(
-            id: 'system:app/a',
-            category: appCategory,
-            label: 'Alpha',
-            prefab: cardPrefabId,
-          ),
-          Entity(
-            id: 'system:app/b',
-            category: appCategory,
-            label: 'Beta',
-            prefab: cardPrefabId,
-          ),
-          Entity(
-            id: 'system:clock',
-            category: 'clock',
-            label: 'Clock',
-            prefab: 'system:clock',
-          ),
+          Entity(id: 'system:app/a', category: appCategory, label: 'Alpha'),
+          Entity(id: 'system:app/b', category: appCategory, label: 'Beta'),
+          Entity(id: 'system:clock', category: 'clock', label: 'Clock'),
           mine,
         ],
         config: LauncherConfig(
@@ -299,7 +279,13 @@ void main() {
               name: 'Edited clock',
               root: Node.layout(
                 id: 'root',
-                vars: const {'clock': Variable(null, type: VarType.entity)},
+                vars: const {
+                  'clock': Variable(
+                    null,
+                    type: VarType.entity,
+                    accepts: ['clock'],
+                  ),
+                },
               ),
             ),
           ],

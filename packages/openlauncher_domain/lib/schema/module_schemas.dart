@@ -1,4 +1,6 @@
 import 'package:openlauncher_domain/actions/act.dart';
+import 'package:openlauncher_domain/modules/logic/actions_module.dart';
+import 'package:openlauncher_domain/modules/logic/feed_module.dart';
 import 'package:openlauncher_domain/modules/logic/prefab_rules_module.dart';
 import 'package:openlauncher_domain/modules/logic/triggers_module.dart';
 import 'package:openlauncher_domain/modules/logic/variables_module.dart';
@@ -72,6 +74,8 @@ final _shapedModules = <String, Schema Function()>{
   triggersModule.name: _triggers,
   variablesModule.name: _variables,
   prefabRulesModule.name: _prefabRules,
+  feedModule.name: _feed,
+  actionsModule.name: _actions,
 };
 
 Schema _triggers() => objectOf({
@@ -142,3 +146,15 @@ final _gradient = objectOf({
 });
 
 bool _isJson(Object? value) => value is String || value is num || value is bool;
+
+Schema _feed() => objectOf({
+  enabledKey: _switch,
+  'source': text(description: 'An address, or a source of the same pack.'),
+  'inline': {'type': 'object'},
+}, description: 'Where its live values come from.');
+
+Schema _actions() => objectOf(
+  {enabledKey: _switch},
+  additional: common('entityAction'),
+  description: 'What it can be told to do, by name.',
+);

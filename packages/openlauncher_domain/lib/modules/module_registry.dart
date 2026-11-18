@@ -10,6 +10,8 @@ import 'package:openlauncher_domain/modules/layout/layout_module.dart';
 import 'package:openlauncher_domain/modules/layout/scroll_module.dart';
 import 'package:openlauncher_domain/modules/layout/sizing_module.dart';
 import 'package:openlauncher_domain/modules/layout/slot_module.dart';
+import 'package:openlauncher_domain/modules/logic/actions_module.dart';
+import 'package:openlauncher_domain/modules/logic/feed_module.dart';
 import 'package:openlauncher_domain/modules/logic/prefab_rules_module.dart';
 import 'package:openlauncher_domain/modules/logic/triggers_module.dart';
 import 'package:openlauncher_domain/modules/logic/variables_module.dart';
@@ -40,6 +42,8 @@ const moduleTypes = <ModuleType>[
   triggersModule,
   variablesModule,
   prefabRulesModule,
+  feedModule,
+  actionsModule,
   wallpaperModule,
 ];
 

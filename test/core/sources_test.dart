@@ -133,7 +133,6 @@ void main() {
       final app = entities.byId(appId('a.b'))!;
       expect(app.category, appCategory);
       expect(app.label, 'AB');
-      expect(app.prefab, cardPrefabId);
       expect(app.placed, isTrue);
       expect(app.data, {
         'package': 'a.b',
@@ -699,7 +698,7 @@ void main() {
             'lounge/entity.json': {
               'id': 'lounge',
               'label': 'Lounge',
-              'prefab': 'tile',
+              'category': 'light',
             },
             'tile/prefab.json': {
               'id': 'tile',
@@ -707,7 +706,11 @@ void main() {
                 'id': 'tile',
                 'modules': {
                   'variables': {
-                    'source': {'value': 'lounge', 'type': 'entity'},
+                    'source': {
+                      'value': 'lounge',
+                      'type': 'entity',
+                      'accepts': ['light'],
+                    },
                   },
                   'triggers': {
                     'press': [
@@ -733,8 +736,10 @@ void main() {
         ),
       );
       final lounge = (await c.read(entitiesProvider.future)).byId('ha:lounge')!;
-      expect((lounge.label, lounge.prefab), ('Lounge', 'ha:tile'));
-      final tile = c.read(prefabsProvider)['ha:tile']!.root;
+      expect(lounge.label, 'Lounge');
+      final prefabs = c.read(prefabsProvider);
+      expect(cardFor(prefabs, lounge.category)?.id, 'ha:tile');
+      final tile = prefabs['ha:tile']!.root;
       expect(tile.vars['source']?.value, 'ha:lounge');
       expect(tile.on[Trigger.press], [
         const Act('toggle', {'entity': 'ha:lounge'}),

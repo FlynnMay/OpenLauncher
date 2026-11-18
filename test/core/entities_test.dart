@@ -583,7 +583,6 @@ void main() {
         name: 'Desk lamp',
         data: {'room': 'study'},
         feed: Feed.inline({'url': 'http://ha/desk', 'every': 30}),
-        prefab: cardPrefabId,
         placed: true,
         actions: {
           'dim': EntityAction(
@@ -644,13 +643,28 @@ void main() {
           configStoreProvider.overrideWithValue(
             MemoryConfigStore(
               LauncherConfig(
+                prefabs: [
+                  Prefab(
+                    id: 'lamp-card',
+                    name: 'Lamp',
+                    root: Node.layout(
+                      id: 'root',
+                      vars: const {
+                        'source': Variable(
+                          null,
+                          type: VarType.entity,
+                          accepts: ['lamp'],
+                        ),
+                      },
+                    ),
+                  ),
+                ],
                 entities: const [
                   Entity(
                     id: 'desk',
                     category: 'lamp',
                     label: 'Desk',
                     data: {'room': 'study', 'on': true, 'brightness': 40},
-                    prefab: cardPrefabId,
                     placed: true,
                     actions: {
                       'toggle': EntityAction(

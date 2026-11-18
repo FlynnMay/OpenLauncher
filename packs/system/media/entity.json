@@ -29,6 +29,5 @@
       "label": "Previous",
       "icon": "material:skip_previous"
     }
-  },
-  "prefab": "now-playing"
+  }
 }

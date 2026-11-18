@@ -23,7 +23,6 @@ const _alpha = Entity(
   id: 'system:app/a',
   category: appCategory,
   label: 'Alpha',
-  prefab: cardPrefabId,
   placed: true,
 );
 

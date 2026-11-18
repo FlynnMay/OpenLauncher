@@ -22,6 +22,7 @@
         "source": {
           "value": "weather",
           "type": "entity",
+          "accepts": ["weather"],
           "with": {
             "location": "{{location}}",
             "unit": "{{unit}}"

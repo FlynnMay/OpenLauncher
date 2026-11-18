@@ -262,6 +262,10 @@ Schema _node() => objectOf(
       NodeAccess.values.map((access) => access.name),
       description: 'Who can reach it as a child. Protected unless said.',
     ),
+    'category': text(description: 'What the editor groups it with.'),
+    'inbox': toggle(
+      description: 'Goes to the inbox as a card while it is nowhere on screen.',
+    ),
     'moduleAccess': mapOf(
       oneOfText(NodeAccess.values.map((access) => access.name)),
       description: 'Who can reach each module. Private unless said.',
@@ -312,6 +316,13 @@ Schema _variable() => {
           'are not given.',
     },
     'access': oneOfText(NodeAccess.values.map((access) => access.name)),
+    'accepts': {
+      'type': 'array',
+      'items': {'type': 'string'},
+      'description':
+          'For an entity: the categories it takes, and so the entities this '
+          'prefab is the card of.',
+    },
     'exposed': toggle(),
     'required': toggle(
       description:

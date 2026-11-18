@@ -218,7 +218,6 @@ void main() {
           'icon': 'material:play_arrow',
         },
       },
-      'prefab': 'system:app-card',
       'placed': true,
       'label': 'HDMI 1',
       'name': 'HDMI 1',

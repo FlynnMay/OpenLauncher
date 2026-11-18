@@ -157,7 +157,6 @@ Entity userEntityFromForm(
       _ => was?.feed,
     },
     actions: _actionsFromForm(one['actions'], operations),
-    prefab: was?.prefab,
     placed: was?.placed ?? false,
   );
 }

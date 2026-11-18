@@ -14,6 +14,5 @@
       "icon": "material:play_arrow"
     }
   },
-  "prefab": "app-card",
   "placed": true
 }

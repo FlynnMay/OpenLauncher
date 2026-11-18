@@ -98,7 +98,10 @@ void openPrefab(WidgetRef ref, String prefabId, {Node? from}) {
   // A card that opens instances of a prefab is shown with one of them.
   final opensOthers = prefabs.values.any((opened) => opened.card == prefabId);
   final sample =
-      entities.where((entity) => entity.prefab == prefabId).firstOrNull?.id ??
+      entities
+          .where((entity) => prefabs[prefabId]?.takes(entity.category) ?? false)
+          .firstOrNull
+          ?.id ??
       (opensOthers
           ? placed
                 .where(

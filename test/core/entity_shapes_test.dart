@@ -11,7 +11,6 @@ void main() {
     category: 'light',
     label: label,
     data: {'state': state},
-    prefab: 'hub:tile',
   );
 
   test('the shapes stay put while only values change', () async {
@@ -22,7 +21,6 @@ void main() {
     container.read(all.notifier).state = [light('Lamp', 'on')];
     final first = await container.read(entityShapesProvider.future);
     expect(first.single.data, isEmpty);
-    expect(first.single.prefab, 'hub:tile');
 
     container.read(all.notifier).state = [light('Lamp', 'off')];
     expect(await container.read(entityShapesProvider.future), same(first));

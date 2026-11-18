@@ -119,6 +119,8 @@ class Node {
     this.overrides = const {},
     this.access = NodeAccess.protected,
     this.moduleAccess = const {},
+    this.category = '',
+    this.inbox = false,
   });
 
   /// A node that holds others: laid out as [mode] ([LayoutMode.free] for no
@@ -242,6 +244,12 @@ class Node {
   /// Who can reach each module by name; the ones not named are private.
   final Map<String, NodeAccess> moduleAccess;
 
+  /// What the editor groups and sorts it with, e.g. `app`.
+  final String category;
+
+  /// Whether it goes to the inbox as a card while it is nowhere on screen.
+  final bool inbox;
+
   /// Who can reach [module].
   NodeAccess accessOfModule(String module) =>
       moduleAccess[module] ?? NodeAccess.private;
@@ -348,6 +356,8 @@ class Node {
     Overrides? overrides,
     NodeAccess? access,
     Map<String, NodeAccess>? moduleAccess,
+    String? category,
+    bool? inbox,
   }) => Node(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -359,6 +369,8 @@ class Node {
     overrides: overrides ?? this.overrides,
     access: access ?? this.access,
     moduleAccess: moduleAccess ?? this.moduleAccess,
+    category: category ?? this.category,
+    inbox: inbox ?? this.inbox,
   );
 
   /// Sets or clears the variant (copyWith cannot clear).
@@ -373,6 +385,8 @@ class Node {
     overrides: overrides,
     access: access,
     moduleAccess: moduleAccess,
+    category: category,
+    inbox: inbox,
   );
 
   /// Throws [FormatException] on malformed JSON. An instance's nodes
@@ -395,6 +409,8 @@ class Node {
       overrides: overridesFromJson(json['overrides']),
       access: NodeAccess.named(json['access'], NodeAccess.protected),
       moduleAccess: _moduleAccessFromJson(json['moduleAccess']),
+      category: jsonOptional<String>(json, 'category') ?? '',
+      inbox: json['inbox'] == true,
     );
   }
 
@@ -497,6 +513,8 @@ class Node {
           for (final MapEntry(:key, :value) in moduleAccess.entries)
             key: value.name,
         },
+      if (category.isNotEmpty) 'category': category,
+      if (inbox) 'inbox': true,
       if (own.isNotEmpty)
         'children': own.map((child) => child.toJson()).toList(),
     };

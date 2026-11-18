@@ -15,7 +15,6 @@ class Entity {
     this.data = const {},
     this.feed,
     this.actions = const {},
-    this.prefab,
     this.placed = false,
   }) : name = name ?? label;
 
@@ -39,9 +38,6 @@ class Entity {
 
   /// What it can be told to do, by the name an `Act` uses.
   final Map<String, EntityAction> actions;
-
-  /// The prefab the editor offers it as, if any.
-  final String? prefab;
 
   /// Whether it goes to the inbox while it is nowhere on the screen (apps,
   /// inputs).
@@ -77,7 +73,6 @@ class Entity {
     data: data ?? this.data,
     feed: feed ?? this.feed,
     actions: actions ?? this.actions,
-    prefab: prefab,
     placed: placed,
   );
 
@@ -121,10 +116,6 @@ class Entity {
           },
           _ => const {},
         },
-        prefab: switch (json['prefab']) {
-          final String prefab when prefab.isNotEmpty => prefab,
-          _ => null,
-        },
         placed: json['placed'] == true,
       );
     }
@@ -143,7 +134,6 @@ class Entity {
         for (final MapEntry(key: name, value: action) in actions.entries)
           name: action.toJson(),
       },
-    'prefab': ?prefab,
     if (placed) 'placed': true,
   };
 
@@ -155,7 +145,6 @@ class Entity {
       other.label == label &&
       other.name == name &&
       other.feed == feed &&
-      other.prefab == prefab &&
       other.placed == placed &&
       mapsEqual(other.data, data) &&
       mapsEqual(other.actions, actions);

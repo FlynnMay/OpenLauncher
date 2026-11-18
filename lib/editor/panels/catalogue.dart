@@ -49,11 +49,11 @@ class _CatalogueState extends ConsumerState<Catalogue> {
     final visuals = ref.watch(tvStateProvider).value?.visuals ?? const [];
     final prefabs = ref.watch(prefabsProvider);
     final counts = placedCounts(config.layout);
-    // Only an entity with a prefab can be placed.
+    // Only an entity some prefab is the card of can be placed.
     final all = [
       for (final entity
           in ref.watch(entitiesProvider).value ?? const <Entity>[])
-        if (entity.prefab != null) entity,
+        if (cardFor(prefabs, entity.category) != null) entity,
     ];
     final own = {for (final entity in config.entities) entity.id};
     // A pack's ids start with its own; the user's have none.

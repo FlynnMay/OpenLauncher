@@ -19,8 +19,11 @@ Layout layoutWith(
       for (final entity in entities)
         if (entity.placed) entity.id,
     ],
-    instance: (entityId, id) => switch (byId[entityId]?.prefab) {
-      final prefab? => prefabs[prefab]?.instance(entityId, id: id),
+    instance: (entityId, id) => switch (byId[entityId]) {
+      final entity? => cardFor(
+        prefabs,
+        entity.category,
+      )?.instance(entityId, id: id),
       null => null,
     },
     known: byId.keys.toSet(),
@@ -29,15 +32,12 @@ Layout layoutWith(
 }
 
 /// [entity] as an instance of its prefab, at that prefab's size, with an id
-/// free in [layout]; null if it has no prefab that takes it.
+/// free in [layout]; null if no prefab takes its category.
 Node? instanceFor(Entity entity, Layout layout, Map<String, Prefab> prefabs) =>
-    switch (entity.prefab) {
-      final prefab? => prefabs[prefab]?.instance(
-        entity.id,
-        id: layout.itemIdFor(Node.autoId(entity.id, entity.name)),
-      ),
-      null => null,
-    };
+    cardFor(prefabs, entity.category)?.instance(
+      entity.id,
+      id: layout.itemIdFor(Node.autoId(entity.id, entity.name)),
+    );
 
 /// [instance] with the nodes holding its slots taking how their slots lay
 /// out what is in them. For editing; it is not saved.

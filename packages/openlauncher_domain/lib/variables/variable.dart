@@ -96,6 +96,7 @@ class Variable {
     this.field,
     this.args = const {},
     this.required = false,
+    this.accepts = const [],
   });
 
   /// The value, when not conditional.
@@ -109,6 +110,14 @@ class Variable {
   /// What an entity-typed one gives the entity it names, as templates; an
   /// argument that comes out blank is not given. See `Source.variables`.
   final Map<String, Object?> args;
+
+  /// What an entity typed one holds: the categories of entity it takes. Empty
+  /// takes any, but offers nothing; a prefab is the card of the categories
+  /// its entity variable lists.
+  final List<String> accepts;
+
+  /// Whether it names [category] as one it takes.
+  bool takes(String category) => accepts.contains(category);
 
   /// On a prefab's root: whether an instance shows it as a field.
   final bool exposed;
@@ -134,6 +143,7 @@ class Variable {
       field: under.field,
       args: args.isEmpty ? under.args : args,
       required: under.required,
+      accepts: accepts.isEmpty ? under.accepts : accepts,
     );
   }
 
@@ -144,6 +154,7 @@ class Variable {
     String? field,
     Map<String, Object?>? args,
     bool? required,
+    List<String>? accepts,
   }) => Variable(
     value,
     type: type ?? this.type,
@@ -155,6 +166,7 @@ class Variable {
     otherwise: otherwise,
     field: field ?? this.field,
     args: args ?? this.args,
+    accepts: accepts ?? this.accepts,
   );
 
   /// This type and access, holding [value] instead: an instance's value.
@@ -165,6 +177,7 @@ class Variable {
     field: field,
     args: args,
     required: required,
+    accepts: accepts,
   );
 
   /// The template a conditional evaluates.
@@ -194,6 +207,11 @@ class Variable {
           NodeAccess.values.asNameMap()[json['access']] ?? NodeAccess.protected,
       exposed: json['exposed'] != false,
       required: json['required'] == true,
+      accepts: [
+        if (json['accepts'] case final List<Object?> several)
+          for (final one in several)
+            if (one is String && one.isNotEmpty) one,
+      ],
       when: switch (json['when']) {
         final String looked => looked,
         _ => null,
@@ -219,6 +237,7 @@ class Variable {
     'access',
     'exposed',
     'required',
+    'accepts',
   };
 
   static bool _declares(Map<Object?, Object?> json) =>
@@ -246,6 +265,7 @@ class Variable {
           access == NodeAccess.protected &&
           type == VarType.any &&
           args.isEmpty &&
+          accepts.isEmpty &&
           exposed &&
           !required
       ? plainValueJson
@@ -261,6 +281,7 @@ class Variable {
           else if (type != VarType.any)
             'type': type.name,
           if (args.isNotEmpty) 'with': args,
+          if (accepts.isNotEmpty) 'accepts': accepts,
           if (access != NodeAccess.protected) 'access': access.name,
           if (!exposed) 'exposed': false,
           if (required) 'required': true,
@@ -430,6 +451,7 @@ List<Map<String, Object?>> variablesToForm(Variables variables) => [
         ],
       if (!variable.exposed) 'exposed': false,
       if (variable.required) 'required': true,
+      if (variable.accepts.isNotEmpty) 'accepts': variable.accepts,
       if (variable.isConditional) ...{
         'conditional': true,
         'when': variable.when,
@@ -480,6 +502,10 @@ Variables variablesFromForm(List<Map<String, Object?>> form) {
           NodeAccess.values.asNameMap()[one['access']] ?? NodeAccess.protected,
       exposed: one['exposed'] != false,
       required: one['required'] == true,
+      accepts: [
+        if (one['accepts'] case final List<Object?> several)
+          for (final category in several) '$category',
+      ],
       when: conditional ? '${one['when'] ?? ''}' : null,
       cases: [
         if (one['cases'] case final List<Object?> cases when conditional)

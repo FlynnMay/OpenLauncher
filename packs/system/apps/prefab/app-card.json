@@ -12,7 +12,8 @@
       "variables": {
         "source": {
           "value": null,
-          "type": "entity"
+          "type": "entity",
+          "accepts": ["app", "input", "launcher"]
         }
       },
       "triggers": {

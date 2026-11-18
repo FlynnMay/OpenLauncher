@@ -5,7 +5,6 @@
     "id": "app/{{row.package}}",
     "category": "app",
     "label": "{{row.label}}",
-    "prefab": "app-card",
     "placed": true,
     "data": {
       "package": "{{row.package}}",

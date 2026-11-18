@@ -15,7 +15,8 @@
       "variables": {
         "source": {
           "value": "media",
-          "type": "entity"
+          "type": "entity",
+          "accepts": ["media"]
         },
         "stateIcon": {
           "when": "{{source.playing}}",

@@ -180,6 +180,13 @@
             "public"
           ]
         },
+        "accepts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "For an entity: the categories it takes, and so the entities this prefab is the card of."
+        },
         "exposed": {
           "type": "boolean"
         },
@@ -338,6 +345,12 @@
         "prefabRules": {
           "$ref": "common.schema.json#/$defs/module_prefabRules"
         },
+        "feed": {
+          "$ref": "common.schema.json#/$defs/module_feed"
+        },
+        "actions": {
+          "$ref": "common.schema.json#/$defs/module_actions"
+        },
         "wallpaper": {
           "$ref": "common.schema.json#/$defs/module_wallpaper"
         }
@@ -401,6 +414,14 @@
             "public"
           ],
           "description": "Who can reach it as a child. Protected unless said."
+        },
+        "category": {
+          "type": "string",
+          "description": "What the editor groups it with."
+        },
+        "inbox": {
+          "type": "boolean",
+          "description": "Goes to the inbox as a card while it is nowhere on screen."
         },
         "moduleAccess": {
           "type": "object",
@@ -2658,6 +2679,69 @@
           "type": "boolean",
           "description": "Switches the module off when false."
         }
+      }
+    },
+    "module_feed": {
+      "type": "object",
+      "description": "Where its live values come from.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        },
+        "source": {
+          "type": "string",
+          "description": "An address, or a source of the same pack."
+        },
+        "inline": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_actions": {
+      "type": "object",
+      "description": "What it can be told to do, by name.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Where this file is checked."
+        },
+        "$comment": {
+          "type": "string",
+          "description": "A note for readers."
+        },
+        "$defs": {
+          "type": "object",
+          "description": "Chunks the objects inside this one can reuse with $use."
+        },
+        "$use": {
+          "type": "string",
+          "description": "The name of a chunk to put here; keys beside it win."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Switches the module off when false."
+        }
+      },
+      "additionalProperties": {
+        "$ref": "common.schema.json#/$defs/entityAction"
       }
     },
     "module_wallpaper": {

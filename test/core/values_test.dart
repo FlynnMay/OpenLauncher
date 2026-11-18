@@ -294,7 +294,6 @@ void main() {
         category: 'shortcut',
         label: 'Plex',
         data: {'text': 'Plex', 'colour': 'orange'},
-        prefab: 'system:app-card',
         actions: {
           'open': EntityAction(
             run: 'os://apps/launch',
